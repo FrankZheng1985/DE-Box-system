@@ -1,0 +1,25 @@
+{
+  "name": "germany-box-system",
+  "version": "1.0.0",
+  "description": "德国Box运输管理系统 - 包含后台管理和客户端",
+  "private": true,
+  "workspaces": [
+    "admin",
+    "customer-portal",
+    "server"
+  ],
+  "scripts": {
+    "dev:admin": "cd admin && npm run dev",
+    "dev:customer": "cd customer-portal && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev:admin\"",
+    "dev:full": "concurrently \"npm run dev:server\" \"npm run dev:admin\" \"npm run dev:customer\"",
+    "build:admin": "cd admin && npm run build",
+    "build:customer": "cd customer-portal && npm run build",
+    "server:init": "cd server && npm run init-db",
+    "install:all": "npm install && cd admin && npm install && cd ../customer-portal && npm install && cd ../server && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
