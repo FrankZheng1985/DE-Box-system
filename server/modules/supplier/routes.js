@@ -1,10 +1,16 @@
 /**
  * 供应商管理模块路由
+ * 
+ * ERP标准：
+ * - 软删除机制保护供应商数据
+ * - 有业务关联的供应商禁止删除，只能停用
+ * - 审计日志记录所有操作
  */
 
 import { Router } from 'express'
 import { getDatabase, generateId } from '../../config/database.js'
 import { authenticateToken, requirePermission } from '../../middleware/auth.js'
+import { logAudit } from '../../middleware/auditLog.js'
 
 const router = Router()
 
@@ -14,12 +20,13 @@ const router = Router()
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { page = 1, pageSize = 20, status, search, type } = req.query
+    const { page = 1, pageSize = 20, status, search, type, includeDeleted } = req.query
     const offset = (parseInt(page) - 1) * parseInt(pageSize)
     
     const db = getDatabase()
     
-    let whereClause = '1=1'
+    // 默认过滤已删除的供应商
+    let whereClause = includeDeleted === 'true' ? '1=1' : '(s.is_deleted IS NULL OR s.is_deleted = FALSE)'
     const params = []
     
     if (status) {
@@ -45,7 +52,8 @@ router.get('/', authenticateToken, async (req, res) => {
       SELECT s.id, s.code, s.name, s.short_name as "shortName", s.type,
              s.contact_person as "contactPerson", s.phone, s.email, s.address,
              s.payment_terms as "paymentTerms", s.status, s.remark,
-             s.create_time as "createTime", s.update_time as "updateTime"
+             s.create_time as "createTime", s.update_time as "updateTime",
+             s.is_deleted as "isDeleted"
       FROM suppliers s
       WHERE ${whereClause}
       ORDER BY s.create_time DESC
@@ -202,15 +210,70 @@ router.put('/:id', authenticateToken, requirePermission('supplier:manage'), asyn
 })
 
 /**
- * 删除供应商
+ * 删除供应商（软删除）
  * DELETE /api/suppliers/:id
+ * 
+ * ERP标准：
+ * - 有运输单关联的供应商禁止删除，只能停用
+ * - 采用软删除机制保护数据
  */
 router.delete('/:id', authenticateToken, requirePermission('supplier:manage'), async (req, res) => {
   try {
     const { id } = req.params
     const db = getDatabase()
     
-    await db.prepare(`DELETE FROM suppliers WHERE id = ?`).run(id)
+    // 检查供应商是否存在
+    const supplier = await db.prepare(`
+      SELECT id, code, name, is_deleted FROM suppliers WHERE id = ?
+    `).get(id)
+    
+    if (!supplier) {
+      return res.status(404).json({
+        errCode: 404,
+        msg: '供应商不存在',
+        data: null,
+      })
+    }
+    
+    if (supplier.is_deleted) {
+      return res.json({
+        errCode: 400,
+        msg: '该供应商已被删除',
+        data: null,
+      })
+    }
+    
+    // 检查是否有关联的运输单（通过承运商名称匹配）
+    const hasShipments = await db.prepare(`
+      SELECT 1 FROM tms_shipments WHERE carrier = ? AND status NOT IN ('cancelled') LIMIT 1
+    `).get(supplier.name)
+    
+    if (hasShipments) {
+      return res.json({
+        errCode: 400,
+        msg: '该供应商存在关联运输单，无法删除。请将供应商状态设为"停用"。',
+        data: {
+          suggestion: '建议使用"停用"功能替代删除'
+        },
+      })
+    }
+    
+    // 执行软删除
+    await db.prepare(`
+      UPDATE suppliers 
+      SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ?, status = 'inactive', update_time = NOW()
+      WHERE id = ?
+    `).run(req.user.id, id)
+    
+    // 记录审计日志
+    await logAudit({
+      userId: req.user.id,
+      action: 'SUPPLIER_DELETE',
+      targetType: 'supplier',
+      targetId: id,
+      details: { code: supplier.code, name: supplier.name },
+      ip: req.ip
+    })
     
     res.json({
       errCode: 200,
@@ -221,7 +284,7 @@ router.delete('/:id', authenticateToken, requirePermission('supplier:manage'), a
     console.error('删除供应商失败:', error)
     res.status(500).json({
       errCode: 500,
-      msg: '删除供应商失败',
+      msg: '删除供应商失败: ' + error.message,
       data: null,
     })
   }

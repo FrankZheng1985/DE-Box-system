@@ -1,10 +1,16 @@
 /**
  * 产品定价模块路由
+ * 
+ * ERP标准：
+ * - 软删除机制保护产品数据
+ * - 有业务关联的产品禁止删除，只能停用
+ * - 审计日志记录所有操作
  */
 
 import { Router } from 'express'
 import { getDatabase, generateId } from '../../config/database.js'
 import { authenticateToken, requirePermission } from '../../middleware/auth.js'
+import { logAudit } from '../../middleware/auditLog.js'
 
 const router = Router()
 
@@ -14,12 +20,13 @@ const router = Router()
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { page = 1, pageSize = 20, status, search, category } = req.query
+    const { page = 1, pageSize = 20, status, search, category, includeDeleted } = req.query
     const offset = (parseInt(page) - 1) * parseInt(pageSize)
     
     const db = getDatabase()
     
-    let whereClause = '1=1'
+    // 默认过滤已删除的产品
+    let whereClause = includeDeleted === 'true' ? '1=1' : '(p.is_deleted IS NULL OR p.is_deleted = FALSE)'
     const params = []
     
     if (status) {
@@ -44,7 +51,8 @@ router.get('/', authenticateToken, async (req, res) => {
     const list = await db.prepare(`
       SELECT p.id, p.code, p.name, p.category, p.unit, p.base_price as "basePrice",
              p.currency, p.status, p.description,
-             p.create_time as "createTime", p.update_time as "updateTime"
+             p.create_time as "createTime", p.update_time as "updateTime",
+             p.is_deleted as "isDeleted"
       FROM products p
       WHERE ${whereClause}
       ORDER BY p.code
@@ -222,18 +230,78 @@ router.put('/:id', authenticateToken, requirePermission('product:manage'), async
 })
 
 /**
- * 删除产品
+ * 删除产品（软删除）
  * DELETE /api/products/:id
+ * 
+ * ERP标准：
+ * - 有订单引用的产品禁止删除，只能停用
+ * - 采用软删除机制保护数据
  */
 router.delete('/:id', authenticateToken, requirePermission('product:manage'), async (req, res) => {
   try {
     const { id } = req.params
     const db = getDatabase()
     
-    // 删除价格规则
-    await db.prepare(`DELETE FROM product_price_rules WHERE product_id = ?`).run(id)
-    // 删除产品
-    await db.prepare(`DELETE FROM products WHERE id = ?`).run(id)
+    // 检查产品是否存在
+    const product = await db.prepare(`
+      SELECT id, code, name, is_deleted FROM products WHERE id = ?
+    `).get(id)
+    
+    if (!product) {
+      return res.status(404).json({
+        errCode: 404,
+        msg: '产品不存在',
+        data: null,
+      })
+    }
+    
+    if (product.is_deleted) {
+      return res.json({
+        errCode: 400,
+        msg: '该产品已被删除',
+        data: null,
+      })
+    }
+    
+    // 检查是否有订单明细引用
+    const hasOrderItems = await db.prepare(`
+      SELECT 1 FROM order_items WHERE product_id = ? LIMIT 1
+    `).get(id)
+    
+    if (hasOrderItems) {
+      return res.json({
+        errCode: 400,
+        msg: '该产品已被订单引用，无法删除。请将产品状态设为"停用"。',
+        data: {
+          suggestion: '建议使用"停用"功能替代删除'
+        },
+      })
+    }
+    
+    // 执行软删除（包括价格规则）
+    const deleteProductTx = db.transaction(async function() {
+      // 删除价格规则（物理删除，因为产品已软删除）
+      await this.prepare(`DELETE FROM product_price_rules WHERE product_id = ?`).run(id)
+      
+      // 软删除产品
+      await this.prepare(`
+        UPDATE products 
+        SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ?, status = 'inactive', update_time = NOW()
+        WHERE id = ?
+      `).run(req.user.id, id)
+    })
+    
+    await deleteProductTx()
+    
+    // 记录审计日志
+    await logAudit({
+      userId: req.user.id,
+      action: 'PRODUCT_DELETE',
+      targetType: 'product',
+      targetId: id,
+      details: { code: product.code, name: product.name },
+      ip: req.ip
+    })
     
     res.json({
       errCode: 200,
@@ -244,7 +312,7 @@ router.delete('/:id', authenticateToken, requirePermission('product:manage'), as
     console.error('删除产品失败:', error)
     res.status(500).json({
       errCode: 500,
-      msg: '删除产品失败',
+      msg: '删除产品失败: ' + error.message,
       data: null,
     })
   }

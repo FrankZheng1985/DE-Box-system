@@ -14,7 +14,10 @@ import {
   Truck,
   Package,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Loader2,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react'
 
 // 数据类型分类
@@ -94,10 +97,29 @@ export default function BasicData() {
     status: 'active'
   })
   
+  // 本地数据状态
+  const [basicData, setBasicData] = useState(mockBasicData)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   const pageSize = 10
   
   // 获取当前分类数据
-  const currentData = mockBasicData[selectedCategory] || []
+  const currentData = basicData[selectedCategory] || []
   
   // 筛选数据
   const filteredData = currentData.filter(item => {
@@ -141,20 +163,90 @@ export default function BasicData() {
 
   // 删除数据
   const handleDelete = (item: typeof mockBasicData['country'][0]) => {
-    if (confirm(`确定要删除 ${item.name} 吗？`)) {
-      console.log('删除数据:', item.id)
+    if (!confirm(`确定要删除 ${item.name} 吗？此操作不可恢复。`)) {
+      return
     }
+    
+    // 更新本地数据
+    setBasicData(prev => ({
+      ...prev,
+      [selectedCategory]: prev[selectedCategory].filter(i => i.id !== item.id)
+    }))
+    
+    showToast(`${item.name} 已删除`, 'success')
   }
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (modalMode === 'create') {
-      console.log('创建数据:', selectedCategory, formData)
-    } else {
-      console.log('更新数据:', selectedItem?.id, formData)
+    
+    // 表单验证
+    if (!formData.code.trim()) {
+      showToast('请填写编码', 'error')
+      return
     }
-    setShowModal(false)
+    if (!formData.name.trim()) {
+      showToast('请填写名称', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      if (modalMode === 'create') {
+        // 检查编码是否重复
+        if (currentData.some(item => item.code === formData.code)) {
+          showToast('编码已存在，请使用其他编码', 'error')
+          setIsSubmitting(false)
+          return
+        }
+        
+        // 创建新数据
+        const newItem = {
+          id: Date.now().toString(),
+          code: formData.code,
+          name: formData.name,
+          description: formData.description,
+          sortOrder: parseInt(formData.sortOrder) || 0,
+          status: formData.status
+        }
+        
+        setBasicData(prev => ({
+          ...prev,
+          [selectedCategory]: [...prev[selectedCategory], newItem]
+        }))
+        
+        showToast(`${formData.name} 创建成功`, 'success')
+      } else {
+        // 更新数据
+        if (!selectedItem) return
+        
+        setBasicData(prev => ({
+          ...prev,
+          [selectedCategory]: prev[selectedCategory].map(item =>
+            item.id === selectedItem.id
+              ? {
+                  ...item,
+                  code: formData.code,
+                  name: formData.name,
+                  description: formData.description,
+                  sortOrder: parseInt(formData.sortOrder) || 0,
+                  status: formData.status
+                }
+              : item
+          )
+        }))
+        
+        showToast(`${formData.name} 更新成功`, 'success')
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      showToast(error.message || '操作失败，请重试', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 切换分类
@@ -422,15 +514,45 @@ export default function BasicData() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
+                  disabled={isSubmitting}
                   className="btn btn-md btn-secondary"
                 >
                   取消
                 </button>
-                <button type="submit" className="btn btn-md btn-primary">
-                  {modalMode === 'create' ? '创建' : '保存'}
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="btn btn-md btn-primary flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {modalMode === 'create' ? '创建中...' : '保存中...'}
+                    </>
+                  ) : (
+                    modalMode === 'create' ? '创建' : '保存'
+                  )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

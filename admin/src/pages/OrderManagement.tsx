@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Search, 
   Plus, 
@@ -35,8 +35,11 @@ import {
   MoreHorizontal,
   FileCheck,
   Anchor,
-  Navigation
+  Navigation,
+  Loader2,
+  Ban
 } from 'lucide-react'
+import { deleteOrder, voidOrder, createOrder, updateOrder } from '../utils/api'
 
 // 船公司列表
 const shippingLines = [
@@ -605,13 +608,37 @@ export default function OrderManagement() {
   const [copied, setCopied] = useState(false)
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table')
   
+  // 订单列表状态（使用本地状态管理，后续可接入API）
+  const [orders, setOrders] = useState(mockOrders)
+  
+  // 删除相关状态
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showVoidModal, setShowVoidModal] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<typeof mockOrders[0] | null>(null)
+  const [voidReason, setVoidReason] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   const pageSize = 10
   
   // 筛选订单
-  const filteredOrders = mockOrders.filter(order => {
+  const filteredOrders = orders.filter(order => {
     const matchSearch = order.orderNo.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        order.customerName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                       order.customerRef.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+                       (order.customerRef || '').toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        order.origin.port.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        order.destination.port.toLowerCase().includes(searchKeyword.toLowerCase())
     const matchStatus = statusFilter === 'all' || order.status === statusFilter
@@ -687,10 +714,81 @@ export default function OrderManagement() {
     setShowModal(true)
   }
 
-  // 删除订单
+  // 打开删除确认弹窗
   const handleDelete = (order: typeof mockOrders[0]) => {
-    if (confirm(`确定要删除订单 ${order.orderNo} 吗？`)) {
-      console.log('删除订单:', order.id)
+    setOrderToDelete(order)
+    setDeleteError('')
+    
+    // 根据订单状态决定是删除还是作废
+    if (order.status === 'draft') {
+      setShowDeleteModal(true)
+    } else {
+      setVoidReason('')
+      setShowVoidModal(true)
+    }
+  }
+  
+  // 确认删除订单（仅草稿状态）
+  const confirmDelete = async () => {
+    if (!orderToDelete) return
+    
+    setIsDeleting(true)
+    setDeleteError('')
+    
+    try {
+      const response = await deleteOrder(orderToDelete.id)
+      
+      if (response.errCode === 200) {
+        // 从本地状态中移除订单
+        setOrders(prev => prev.filter(o => o.id !== orderToDelete.id))
+        setShowDeleteModal(false)
+        setOrderToDelete(null)
+        showToast(`订单 ${orderToDelete.orderNo} 已删除`, 'success')
+      } else {
+        setDeleteError(response.msg || '删除失败')
+      }
+    } catch (error: any) {
+      console.error('删除订单失败:', error)
+      setDeleteError(error.message || '删除订单失败，请重试')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+  
+  // 确认作废订单（非草稿状态）
+  const confirmVoid = async () => {
+    if (!orderToDelete) return
+    
+    if (!voidReason.trim() || voidReason.trim().length < 2) {
+      setDeleteError('请填写作废原因（至少2个字符）')
+      return
+    }
+    
+    setIsDeleting(true)
+    setDeleteError('')
+    
+    try {
+      const response = await voidOrder(orderToDelete.id, voidReason.trim())
+      
+      if (response.errCode === 200) {
+        // 更新本地状态中的订单状态为已作废
+        setOrders(prev => prev.map(o => 
+          o.id === orderToDelete.id 
+            ? { ...o, status: 'cancelled' }  // 使用 cancelled 表示已作废
+            : o
+        ))
+        setShowVoidModal(false)
+        setOrderToDelete(null)
+        setVoidReason('')
+        showToast(`订单 ${orderToDelete.orderNo} 已作废`, 'success')
+      } else {
+        setDeleteError(response.msg || '作废失败')
+      }
+    } catch (error: any) {
+      console.error('作废订单失败:', error)
+      setDeleteError(error.message || '作废订单失败，请重试')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -711,17 +809,206 @@ export default function OrderManagement() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // 表单提交中状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const total = calculateTotal()
-    const submitData = { ...formData, totalAmount: total }
-    if (modalMode === 'create') {
-      console.log('创建订单:', submitData)
-    } else {
-      console.log('更新订单:', selectedOrder?.id, submitData)
+    
+    // 表单验证
+    if (!formData.customerName.trim()) {
+      showToast('请填写客户名称', 'error')
+      return
     }
-    setShowModal(false)
+    
+    setIsSubmitting(true)
+    
+    try {
+      // 构建提交数据
+      const submitData = {
+        orderType: formData.orderType,
+        customerId: formData.customerId || undefined,
+        customerName: formData.customerName,
+        customerRef: formData.customerRef || undefined,
+        transportMode: formData.transportMode,
+        incoterms: formData.incoterms,
+        origin: {
+          port: formData.originPort,
+          country: formData.originCountry
+        },
+        destination: {
+          port: formData.destinationPort,
+          country: formData.destinationCountry
+        },
+        etd: formData.etd || undefined,
+        eta: formData.eta || undefined,
+        packages: parseInt(formData.packages) || 0,
+        grossWeight: parseFloat(formData.grossWeight) || 0,
+        volume: parseFloat(formData.volume) || 0,
+        isDangerous: formData.isDangerous,
+        requiresTemperatureControl: formData.requiresTemperatureControl,
+        currency: formData.currency,
+        totalAmount: parseFloat(formData.totalAmount) || 0,
+        remark: formData.remarks || undefined,
+        // 根据运输方式添加特定信息
+        ...(formData.transportMode === 'sea' || formData.transportMode === 'multimodal' ? {
+          shippingLine: formData.shippingLine || undefined,
+          vesselName: formData.vesselName || undefined,
+          voyageNo: formData.voyageNo || undefined,
+          blNumber: formData.blNumber || undefined,
+          bookingNo: formData.bookingNo || undefined,
+          containers: formData.containers.filter(c => c.containerNo).map(c => ({
+            containerNo: c.containerNo,
+            type: c.type,
+            sealNo: c.sealNo,
+            vgm: parseFloat(c.vgm as string) || 0
+          }))
+        } : {}),
+        ...(formData.transportMode === 'air' ? {
+          airline: formData.airline || undefined,
+          flightNo: formData.flightNo || undefined,
+          mawbNo: formData.mawbNo || undefined,
+          hawbNo: formData.hawbNo || undefined
+        } : {}),
+        ...(formData.transportMode === 'road' || formData.transportMode === 'multimodal' ? {
+          truckPlate: formData.truckPlate || undefined,
+          trailerPlate: formData.trailerPlate || undefined,
+          driverName: formData.driverName || undefined,
+          driverPhone: formData.driverPhone || undefined
+        } : {}),
+        ...(formData.transportMode === 'rail' ? {
+          railOperator: formData.railOperator || undefined,
+          trainNo: formData.trainNo || undefined,
+          wagonNo: formData.wagonNo || undefined,
+          containers: formData.railContainers.filter(c => c.containerNo).map(c => ({
+            containerNo: c.containerNo,
+            type: c.type,
+            sealNo: c.sealNo,
+            vgm: parseFloat(c.vgm as string) || 0
+          }))
+        } : {})
+      }
+      
+      if (modalMode === 'create') {
+        // 创建订单
+        const response = await createOrder(submitData)
+        
+        if (response.errCode === 200 && response.data) {
+          // 添加新订单到本地列表
+          const newOrder = {
+            id: response.data.id,
+            orderNo: response.data.orderNo,
+            customerName: formData.customerName,
+            customerRef: formData.customerRef,
+            status: 'draft',
+            totalAmount: response.data.totalAmount || parseFloat(formData.totalAmount) || 0,
+            currency: formData.currency,
+            createTime: new Date().toLocaleString('zh-CN'),
+            operator: '当前用户',
+            orderType: formData.orderType,
+            transportMode: formData.transportMode,
+            incoterms: formData.incoterms,
+            origin: { port: formData.originPort, country: formData.originCountry },
+            destination: { port: formData.destinationPort, country: formData.destinationCountry },
+            etd: formData.etd,
+            eta: formData.eta,
+            packages: parseInt(formData.packages) || 0,
+            grossWeight: parseFloat(formData.grossWeight) || 0,
+            volume: parseFloat(formData.volume) || 0,
+            isDangerous: formData.isDangerous,
+            requiresTemperatureControl: formData.requiresTemperatureControl,
+            customsClearance: 'destination',
+            shipperCompany: '',
+            consigneeCompany: formData.customerName,
+            shippingLine: formData.shippingLine,
+            vesselName: formData.vesselName,
+            voyageNo: formData.voyageNo,
+            blNumber: formData.blNumber,
+            bookingNo: formData.bookingNo,
+            containers: formData.transportMode === 'rail' 
+              ? formData.railContainers.filter(c => c.containerNo).map(c => ({
+                  containerNo: c.containerNo,
+                  type: c.type,
+                  sealNo: c.sealNo,
+                  vgm: parseFloat(c.vgm as string) || 0
+                }))
+              : formData.containers.filter(c => c.containerNo).map(c => ({
+                  containerNo: c.containerNo,
+                  type: c.type,
+                  sealNo: c.sealNo,
+                  vgm: parseFloat(c.vgm as string) || 0
+                }))
+          }
+          setOrders(prev => [newOrder, ...prev])
+          showToast(`订单 ${response.data.orderNo} 创建成功`, 'success')
+        } else {
+          showToast(response.msg || '创建订单失败', 'error')
+          return
+        }
+      } else {
+        // 更新订单
+        if (!selectedOrder) return
+        
+        const response = await updateOrder(selectedOrder.id, submitData)
+        
+        if (response.errCode === 200) {
+          // 更新本地列表中的订单
+          setOrders(prev => prev.map(order => 
+            order.id === selectedOrder.id 
+              ? {
+                  ...order,
+                  customerName: formData.customerName,
+                  customerRef: formData.customerRef,
+                  totalAmount: parseFloat(formData.totalAmount) || order.totalAmount,
+                  currency: formData.currency,
+                  orderType: formData.orderType,
+                  transportMode: formData.transportMode,
+                  incoterms: formData.incoterms,
+                  origin: { port: formData.originPort, country: formData.originCountry },
+                  destination: { port: formData.destinationPort, country: formData.destinationCountry },
+                  etd: formData.etd,
+                  eta: formData.eta,
+                  packages: parseInt(formData.packages) || 0,
+                  grossWeight: parseFloat(formData.grossWeight) || 0,
+                  volume: parseFloat(formData.volume) || 0,
+                  isDangerous: formData.isDangerous,
+                  requiresTemperatureControl: formData.requiresTemperatureControl,
+                  shippingLine: formData.shippingLine,
+                  vesselName: formData.vesselName,
+                  voyageNo: formData.voyageNo,
+                  blNumber: formData.blNumber,
+                  bookingNo: formData.bookingNo,
+                  containers: formData.transportMode === 'rail' 
+                    ? formData.railContainers.filter(c => c.containerNo).map(c => ({
+                        containerNo: c.containerNo,
+                        type: c.type,
+                        sealNo: c.sealNo,
+                        vgm: parseFloat(c.vgm as string) || 0
+                      }))
+                    : formData.containers.filter(c => c.containerNo).map(c => ({
+                        containerNo: c.containerNo,
+                        type: c.type,
+                        sealNo: c.sealNo,
+                        vgm: parseFloat(c.vgm as string) || 0
+                      }))
+                }
+              : order
+          ))
+          showToast(`订单 ${selectedOrder.orderNo} 更新成功`, 'success')
+        } else {
+          showToast(response.msg || '更新订单失败', 'error')
+          return
+        }
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      showToast(error.message || '操作失败，请重试', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 渲染运输方式图标
@@ -1472,10 +1759,10 @@ export default function OrderManagement() {
 
   // 统计数据
   const stats = {
-    total: mockOrders.length,
-    pending: mockOrders.filter(o => o.status === 'pending').length,
-    shipping: mockOrders.filter(o => o.status === 'shipping').length,
-    completed: mockOrders.filter(o => o.status === 'completed').length,
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    shipping: orders.filter(o => o.status === 'shipping').length,
+    completed: orders.filter(o => o.status === 'completed').length,
   }
 
   return (
@@ -2077,16 +2364,228 @@ export default function OrderManagement() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
+                    disabled={isSubmitting}
                     className="btn btn-md btn-secondary"
                   >
                     取消
                   </button>
-                  <button type="submit" className="btn btn-md btn-primary">
-                    {modalMode === 'create' ? '创建订单' : '保存更改'}
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="btn btn-md btn-primary flex items-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {modalMode === 'create' ? '创建中...' : '保存中...'}
+                      </>
+                    ) : (
+                      modalMode === 'create' ? '创建订单' : '保存更改'
+                    )}
                   </button>
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 删除确认弹窗（草稿状态） */}
+      {showDeleteModal && orderToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md animate-slide-in">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-red-100 rounded-full">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">确认删除订单</h3>
+                  <p className="text-sm text-gray-500">此操作不可恢复</p>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">订单号</span>
+                    <span className="text-sm font-semibold text-blue-600">{orderToDelete.orderNo}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">客户</span>
+                    <span className="text-sm font-medium">{orderToDelete.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">状态</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusMap[orderToDelete.status].bgColor} ${statusMap[orderToDelete.status].color}`}>
+                      {statusMap[orderToDelete.status].label}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">金额</span>
+                    <span className="text-sm font-medium">{orderToDelete.currency} {orderToDelete.totalAmount.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {deleteError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {deleteError}
+                </div>
+              )}
+              
+              <p className="text-sm text-gray-600 mb-6">
+                确定要删除订单 <span className="font-semibold">{orderToDelete.orderNo}</span> 吗？删除后将无法恢复。
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setOrderToDelete(null)
+                    setDeleteError('')
+                  }}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      删除中...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      确认删除
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 作废确认弹窗（非草稿状态） */}
+      {showVoidModal && orderToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md animate-slide-in">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-amber-100 rounded-full">
+                  <Ban className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">作废订单</h3>
+                  <p className="text-sm text-gray-500">非草稿状态的订单只能作废，不能删除</p>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">订单号</span>
+                    <span className="text-sm font-semibold text-blue-600">{orderToDelete.orderNo}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">客户</span>
+                    <span className="text-sm font-medium">{orderToDelete.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">当前状态</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusMap[orderToDelete.status].bgColor} ${statusMap[orderToDelete.status].color}`}>
+                      {statusMap[orderToDelete.status].label}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">金额</span>
+                    <span className="text-sm font-medium">{orderToDelete.currency} {orderToDelete.totalAmount.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  作废原因 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="请填写作废原因（至少2个字符）..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+              
+              {deleteError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  {deleteError}
+                </div>
+              )}
+              
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+                <p className="text-xs text-amber-800">
+                  <strong>提示：</strong>作废后订单状态将变为"已取消"，订单数据仍会保留用于历史查询和审计。
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowVoidModal(false)
+                    setOrderToDelete(null)
+                    setVoidReason('')
+                    setDeleteError('')
+                  }}
+                  disabled={isDeleting}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmVoid}
+                  disabled={isDeleting || !voidReason.trim()}
+                  className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      处理中...
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="w-4 h-4" />
+                      确认作废
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

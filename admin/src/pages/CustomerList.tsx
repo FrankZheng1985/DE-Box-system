@@ -591,6 +591,7 @@ interface QuoteFormData {
 
 export default function CustomerList() {
   // 列表状态
+  const [customers, setCustomers] = useState(mockCustomers)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [levelFilter, setLevelFilter] = useState('all')
   const [stageFilter, setStageFilter] = useState('all')
@@ -656,7 +657,7 @@ export default function CustomerList() {
   
   // ==================== 筛选逻辑 ====================
   
-  const filteredCustomers = mockCustomers.filter(customer => {
+  const filteredCustomers = customers.filter(customer => {
     const matchSearch = customer.code.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        customer.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        customer.contactPerson.toLowerCase().includes(searchKeyword.toLowerCase())
@@ -672,11 +673,11 @@ export default function CustomerList() {
   // ==================== 统计数据 ====================
   
   const stats = [
-    { label: '总客户数', value: mockCustomers.length, icon: Users, color: 'bg-blue-500' },
-    { label: 'VIP客户', value: mockCustomers.filter(c => c.level === 'vip').length, icon: Star, color: 'bg-yellow-500' },
-    { label: '重要客户', value: mockCustomers.filter(c => c.level === 'important').length, icon: Building, color: 'bg-purple-500' },
-    { label: '潜在客户', value: mockCustomers.filter(c => c.stage === 'lead' || c.stage === 'prospect').length, icon: Target, color: 'bg-orange-500' },
-    { label: '应收总额', value: `€${mockCustomers.reduce((sum, c) => sum + c.totalReceivable, 0).toLocaleString('de-DE')}`, icon: DollarSign, color: 'bg-green-500', isAmount: true },
+    { label: '总客户数', value: customers.length, icon: Users, color: 'bg-blue-500' },
+    { label: 'VIP客户', value: customers.filter(c => c.level === 'vip').length, icon: Star, color: 'bg-yellow-500' },
+    { label: '重要客户', value: customers.filter(c => c.level === 'important').length, icon: Building, color: 'bg-purple-500' },
+    { label: '潜在客户', value: customers.filter(c => c.stage === 'lead' || c.stage === 'prospect').length, icon: Target, color: 'bg-orange-500' },
+    { label: '应收总额', value: `€${customers.reduce((sum, c) => sum + c.totalReceivable, 0).toLocaleString('de-DE')}`, icon: DollarSign, color: 'bg-green-500', isAmount: true },
   ]
 
   // ==================== 工具函数 ====================
@@ -712,7 +713,7 @@ export default function CustomerList() {
   const handleCreate = () => {
     setModalMode('create')
     setFormData({
-      code: `C${String(mockCustomers.length + 1).padStart(3, '0')}`,
+      code: `C${String(customers.length + 1).padStart(3, '0')}`,
       name: '',
       shortName: '',
       level: 'normal',
@@ -775,17 +776,142 @@ export default function CustomerList() {
   }
 
   const handleDelete = (customer: CustomerData) => {
-    if (confirm(`确定要删除客户 ${customer.name} 吗？此操作不可恢复！`)) {
-      showToastMessage(`客户 ${customer.name} 已删除`)
+    // 检查是否有关联的业务数据
+    const hasOrders = customer.totalOrders > 0 || customer.orders.length > 0
+    const hasReceivable = customer.totalReceivable > 0
+    const hasFinancials = customer.financials.length > 0
+    const hasQuotes = customer.quotes.length > 0
+    
+    if (hasOrders || hasReceivable || hasFinancials) {
+      // 有业务数据，提示并提供停用选项
+      const reasons = []
+      if (hasOrders) reasons.push(`${customer.totalOrders} 个订单`)
+      if (hasReceivable) reasons.push(`€${customer.totalReceivable.toLocaleString('de-DE')} 应收款`)
+      if (hasFinancials) reasons.push(`${customer.financials.length} 条财务记录`)
+      
+      const shouldDeactivate = confirm(
+        `⚠️ 客户 "${customer.name}" 存在以下业务数据，无法直接删除：\n\n` +
+        `• ${reasons.join('\n• ')}\n\n` +
+        `是否将该客户设为"停用"状态？\n` +
+        `（停用后客户将不再显示在正常列表中，但历史数据保留）`
+      )
+      
+      if (shouldDeactivate) {
+        // 将客户状态设为停用
+        setCustomers(prev => prev.map(c => 
+          c.id === customer.id ? { ...c, status: 'inactive' as const } : c
+        ))
+        showToastMessage(`客户 ${customer.name} 已停用`)
+      }
+      return
     }
+    
+    if (hasQuotes) {
+      // 只有报价单，给予警告但允许删除
+      if (!confirm(`客户 "${customer.name}" 存在 ${customer.quotes.length} 个报价记录。\n\n确定要删除吗？删除后报价记录也将丢失！`)) {
+        return
+      }
+    } else {
+      // 无任何业务数据，正常确认删除
+      if (!confirm(`确定要删除客户 "${customer.name}" 吗？此操作不可恢复！`)) {
+        return
+      }
+    }
+    
+    // 执行删除
+    setCustomers(prev => prev.filter(c => c.id !== customer.id))
+    showToastMessage(`客户 ${customer.name} 已删除`)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
     if (modalMode === 'create') {
+      // 创建新客户
+      const newCustomer: CustomerData = {
+        id: `customer_${Date.now()}`,
+        code: formData.code,
+        name: formData.name,
+        shortName: formData.shortName || formData.name.substring(0, 4),
+        level: formData.level,
+        stage: formData.stage as CustomerData['stage'],
+        industry: formData.industry,
+        source: formData.source,
+        contactPerson: formData.contactPerson,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+        country: formData.country,
+        taxNo: formData.taxNo,
+        creditLimit: parseFloat(formData.creditLimit) || 0,
+        usedCredit: 0,
+        paymentTerms: parseInt(formData.paymentTerms) || 30,
+        salesName: formData.salesName || 'admin',
+        salesId: 'S001',
+        status: formData.status as CustomerData['status'],
+        createTime: new Date().toISOString().split('T')[0],
+        totalOrders: 0,
+        totalAmount: 0,
+        totalReceivable: 0,
+        totalPaid: 0,
+        orders: [],
+        financials: [],
+        quotes: [],
+        followUps: [],
+        documents: [],
+        contacts: formData.contacts.map((c, idx) => ({
+          id: `contact_${Date.now()}_${idx}`,
+          name: c.name,
+          position: c.position,
+          phone: c.phone,
+          email: c.email,
+          isPrimary: c.isPrimary
+        })),
+        remark: formData.remark
+      }
+      
+      // 添加到列表头部
+      setCustomers(prev => [newCustomer, ...prev])
       showToastMessage('客户创建成功！')
     } else {
-      showToastMessage('客户信息已更新！')
+      // 编辑现有客户
+      if (selectedCustomer) {
+        setCustomers(prev => prev.map(c => {
+          if (c.id === selectedCustomer.id) {
+            return {
+              ...c,
+              code: formData.code,
+              name: formData.name,
+              shortName: formData.shortName || formData.name.substring(0, 4),
+              level: formData.level,
+              stage: formData.stage as CustomerData['stage'],
+              industry: formData.industry,
+              source: formData.source,
+              contactPerson: formData.contactPerson,
+              phone: formData.phone,
+              email: formData.email,
+              address: formData.address,
+              country: formData.country,
+              taxNo: formData.taxNo,
+              creditLimit: parseFloat(formData.creditLimit) || c.creditLimit,
+              paymentTerms: parseInt(formData.paymentTerms) || c.paymentTerms,
+              salesName: formData.salesName || c.salesName,
+              status: formData.status as CustomerData['status'],
+              contacts: formData.contacts.map((contact, idx) => ({
+                id: `contact_${Date.now()}_${idx}`,
+                name: contact.name,
+                position: contact.position,
+                phone: contact.phone,
+                email: contact.email,
+                isPrimary: contact.isPrimary
+              })),
+              remark: formData.remark
+            }
+          }
+          return c
+        }))
+        showToastMessage('客户信息已更新！')
+      }
     }
     setShowModal(false)
   }
@@ -806,7 +932,44 @@ export default function CustomerList() {
   
   const handleSubmitFollowUp = (e: React.FormEvent) => {
     e.preventDefault()
-    showToastMessage('跟进记录已添加！')
+    
+    if (selectedCustomer) {
+      const newFollowUp: FollowUpRecord = {
+        id: `followup_${Date.now()}`,
+        type: followUpFormData.type as FollowUpRecord['type'],
+        subject: followUpFormData.subject,
+        content: followUpFormData.content,
+        contactPerson: followUpFormData.contactPerson,
+        operator: 'admin',
+        createTime: new Date().toISOString().split('T')[0] + ' ' + new Date().toTimeString().substring(0, 5),
+        nextFollowUp: followUpFormData.nextFollowUp || undefined,
+        result: followUpFormData.result || undefined
+      }
+      
+      // 更新客户的跟进记录
+      setCustomers(prev => prev.map(c => {
+        if (c.id === selectedCustomer.id) {
+          return {
+            ...c,
+            followUps: [newFollowUp, ...c.followUps]
+          }
+        }
+        return c
+      }))
+      
+      // 同步更新 selectedCustomer 以便详情页能立即看到新记录
+      setSelectedCustomer(prev => {
+        if (prev) {
+          return {
+            ...prev,
+            followUps: [newFollowUp, ...prev.followUps]
+          }
+        }
+        return prev
+      })
+      
+      showToastMessage('跟进记录已添加！')
+    }
     setShowFollowUpModal(false)
   }
   
@@ -825,7 +988,51 @@ export default function CustomerList() {
   
   const handleSubmitQuote = (e: React.FormEvent) => {
     e.preventDefault()
-    showToastMessage('报价已创建！')
+    
+    if (selectedCustomer) {
+      const newQuote: QuoteItem = {
+        id: `quote_${Date.now()}`,
+        quoteNo: `QT${new Date().getFullYear()}${String(Date.now()).slice(-6)}`,
+        transportMode: quoteFormData.transportMode,
+        origin: quoteFormData.origin,
+        destination: quoteFormData.destination,
+        validFrom: quoteFormData.validFrom,
+        validTo: quoteFormData.validTo,
+        status: 'active',
+        items: quoteFormData.items.map(item => ({
+          name: item.name,
+          price: parseFloat(item.price) || 0,
+          unit: item.unit,
+          currency: item.currency
+        })),
+        createTime: new Date().toISOString().split('T')[0],
+        remark: quoteFormData.remark || undefined
+      }
+      
+      // 更新客户的报价记录
+      setCustomers(prev => prev.map(c => {
+        if (c.id === selectedCustomer.id) {
+          return {
+            ...c,
+            quotes: [newQuote, ...c.quotes]
+          }
+        }
+        return c
+      }))
+      
+      // 同步更新 selectedCustomer
+      setSelectedCustomer(prev => {
+        if (prev) {
+          return {
+            ...prev,
+            quotes: [newQuote, ...prev.quotes]
+          }
+        }
+        return prev
+      })
+      
+      showToastMessage('报价已创建！')
+    }
     setShowQuoteModal(false)
   }
   

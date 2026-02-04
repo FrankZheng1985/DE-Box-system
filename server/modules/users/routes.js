@@ -1,11 +1,17 @@
 /**
  * 用户管理模块路由
+ * 
+ * ERP标准：
+ * - 软删除机制保护数据完整性
+ * - 有业务关联的用户禁止删除
+ * - 审计日志记录所有操作
  */
 
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { getDatabase, generateId } from '../../config/database.js'
 import { authenticateToken, requirePermission } from '../../middleware/auth.js'
+import { logAudit } from '../../middleware/auditLog.js'
 
 const router = Router()
 
@@ -15,12 +21,13 @@ const router = Router()
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { page = 1, pageSize = 20, search, role, status } = req.query
+    const { page = 1, pageSize = 20, search, role, status, includeDeleted } = req.query
     const offset = (parseInt(page) - 1) * parseInt(pageSize)
     
     const db = getDatabase()
     
-    let whereClause = '1=1'
+    // 默认过滤已删除的用户
+    let whereClause = includeDeleted === 'true' ? '1=1' : '(u.is_deleted IS NULL OR u.is_deleted = FALSE)'
     const params = []
     
     if (search) {
@@ -48,7 +55,8 @@ router.get('/', authenticateToken, async (req, res) => {
       SELECT u.id, u.username, u.name, u.email, u.phone, u.avatar,
              u.role, r.role_name as "roleName", u.status,
              u.last_login_time as "lastLoginTime", u.login_count as "loginCount",
-             u.create_time as "createTime", u.update_time as "updateTime"
+             u.create_time as "createTime", u.update_time as "updateTime",
+             u.is_deleted as "isDeleted"
       FROM users u
       LEFT JOIN roles r ON u.role = r.role_code
       WHERE ${whereClause}
@@ -246,8 +254,13 @@ router.put('/:id', authenticateToken, requirePermission('system:user'), async (r
 })
 
 /**
- * 删除用户
+ * 删除用户（软删除）
  * DELETE /api/users/:id
+ * 
+ * ERP标准：
+ * - 不允许删除自己
+ * - 有业务数据关联的用户只能停用，不能删除
+ * - 采用软删除机制保护数据
  */
 router.delete('/:id', authenticateToken, requirePermission('system:user'), async (req, res) => {
   try {
@@ -263,7 +276,68 @@ router.delete('/:id', authenticateToken, requirePermission('system:user'), async
       })
     }
     
-    await db.prepare(`DELETE FROM users WHERE id = ?`).run(id)
+    // 检查用户是否存在
+    const user = await db.prepare(`SELECT id, username, name, is_deleted FROM users WHERE id = ?`).get(id)
+    
+    if (!user) {
+      return res.status(404).json({
+        errCode: 404,
+        msg: '用户不存在',
+        data: null,
+      })
+    }
+    
+    if (user.is_deleted) {
+      return res.json({
+        errCode: 400,
+        msg: '该用户已被删除',
+        data: null,
+      })
+    }
+    
+    // 检查是否有关联的订单操作记录
+    const hasOrders = await db.prepare(`
+      SELECT 1 FROM orders WHERE operator_id = ? LIMIT 1
+    `).get(id)
+    
+    // 检查是否有关联的发票操作记录
+    const hasInvoices = await db.prepare(`
+      SELECT 1 FROM invoices WHERE operator_id = ? LIMIT 1
+    `).get(id)
+    
+    // 检查是否是客户的销售负责人
+    const hasCustomers = await db.prepare(`
+      SELECT 1 FROM customers WHERE sales_id = ? LIMIT 1
+    `).get(id)
+    
+    if (hasOrders || hasInvoices || hasCustomers) {
+      return res.json({
+        errCode: 400,
+        msg: '该用户存在业务关联数据，无法删除。请将用户状态设为"停用"。',
+        data: {
+          hasOrders: !!hasOrders,
+          hasInvoices: !!hasInvoices,
+          hasCustomers: !!hasCustomers,
+        },
+      })
+    }
+    
+    // 执行软删除
+    await db.prepare(`
+      UPDATE users 
+      SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = ?, status = 'inactive', update_time = NOW()
+      WHERE id = ?
+    `).run(req.user.id, id)
+    
+    // 记录审计日志
+    await logAudit({
+      userId: req.user.id,
+      action: 'USER_DELETE',
+      targetType: 'user',
+      targetId: id,
+      details: { username: user.username, name: user.name },
+      ip: req.ip
+    })
     
     res.json({
       errCode: 200,
@@ -274,7 +348,7 @@ router.delete('/:id', authenticateToken, requirePermission('system:user'), async
     console.error('删除用户失败:', error)
     res.status(500).json({
       errCode: 500,
-      msg: '删除用户失败',
+      msg: '删除用户失败: ' + error.message,
       data: null,
     })
   }

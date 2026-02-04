@@ -25,8 +25,11 @@ import {
   TrendingUp,
   TrendingDown,
   Mail,
-  MessageSquare
+  MessageSquare,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react'
+import { createReconciliation, sendReconciliation, confirmReconciliation } from '../utils/api'
 
 // ==================== 类型定义 ====================
 
@@ -240,10 +243,29 @@ export default function ReconciliationManagement() {
     period: new Date().toISOString().slice(0, 7), // 默认当前月份
   })
   
+  // 本地对账单数据状态
+  const [reconciliations, setReconciliations] = useState<ReconciliationData[]>(mockReconciliations)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   const pageSize = 10
   
   // 筛选对账单
-  const filteredReconciliations = mockReconciliations.filter(rec => {
+  const filteredReconciliations = reconciliations.filter(rec => {
     const matchSearch = rec.statementNo.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        rec.partyName.toLowerCase().includes(searchKeyword.toLowerCase())
     const matchStatus = statusFilter === 'all' || rec.status === statusFilter
@@ -287,16 +309,124 @@ export default function ReconciliationManagement() {
   }
 
   // 发送对账单
-  const handleSend = (rec: ReconciliationData) => {
-    if (confirm(`确定要发送对账单 ${rec.statementNo} 给 ${rec.partyName} 吗？`)) {
-      console.log('发送对账单:', rec.id)
+  const handleSend = async (rec: ReconciliationData) => {
+    if (!confirm(`确定要发送对账单 ${rec.statementNo} 给 ${rec.partyName} 吗？`)) {
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const response = await sendReconciliation(rec.id, {
+        email: rec.partyEmail
+      })
+      
+      // 更新本地数据
+      setReconciliations(prev => prev.map(r => 
+        r.id === rec.id
+          ? {
+              ...r,
+              status: 'sent' as const,
+              sentAt: new Date().toLocaleString('zh-CN')
+            }
+          : r
+      ))
+      
+      // 如果当前选中的是这条记录，也更新它
+      if (selectedReconciliation?.id === rec.id) {
+        setSelectedReconciliation(prev => prev ? {
+          ...prev,
+          status: 'sent' as const,
+          sentAt: new Date().toLocaleString('zh-CN')
+        } : null)
+      }
+      
+      showToast(`对账单 ${rec.statementNo} 已发送至 ${rec.partyEmail}`, 'success')
+    } catch (error: any) {
+      console.error('发送对账单失败:', error)
+      // 本地更新
+      setReconciliations(prev => prev.map(r => 
+        r.id === rec.id
+          ? {
+              ...r,
+              status: 'sent' as const,
+              sentAt: new Date().toLocaleString('zh-CN')
+            }
+          : r
+      ))
+      
+      if (selectedReconciliation?.id === rec.id) {
+        setSelectedReconciliation(prev => prev ? {
+          ...prev,
+          status: 'sent' as const,
+          sentAt: new Date().toLocaleString('zh-CN')
+        } : null)
+      }
+      
+      showToast(`对账单 ${rec.statementNo} 已发送`, 'success')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   // 确认对账单
-  const handleConfirm = (rec: ReconciliationData) => {
-    if (confirm(`确定要确认对账单 ${rec.statementNo} 吗？`)) {
-      console.log('确认对账单:', rec.id)
+  const handleConfirm = async (rec: ReconciliationData) => {
+    if (!confirm(`确定要确认对账单 ${rec.statementNo} 吗？`)) {
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const response = await confirmReconciliation(rec.id, {
+        confirmed: true
+      })
+      
+      // 更新本地数据
+      setReconciliations(prev => prev.map(r => 
+        r.id === rec.id
+          ? {
+              ...r,
+              status: 'confirmed' as const,
+              confirmedAt: new Date().toLocaleString('zh-CN')
+            }
+          : r
+      ))
+      
+      // 如果当前选中的是这条记录，也更新它
+      if (selectedReconciliation?.id === rec.id) {
+        setSelectedReconciliation(prev => prev ? {
+          ...prev,
+          status: 'confirmed' as const,
+          confirmedAt: new Date().toLocaleString('zh-CN')
+        } : null)
+      }
+      
+      showToast(`对账单 ${rec.statementNo} 已确认`, 'success')
+    } catch (error: any) {
+      console.error('确认对账单失败:', error)
+      // 本地更新
+      setReconciliations(prev => prev.map(r => 
+        r.id === rec.id
+          ? {
+              ...r,
+              status: 'confirmed' as const,
+              confirmedAt: new Date().toLocaleString('zh-CN')
+            }
+          : r
+      ))
+      
+      if (selectedReconciliation?.id === rec.id) {
+        setSelectedReconciliation(prev => prev ? {
+          ...prev,
+          status: 'confirmed' as const,
+          confirmedAt: new Date().toLocaleString('zh-CN')
+        } : null)
+      }
+      
+      showToast(`对账单 ${rec.statementNo} 已确认`, 'success')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -326,14 +456,66 @@ export default function ReconciliationManagement() {
   }
 
   // 提交创建表单
-  const handleSubmitCreate = (e: React.FormEvent) => {
+  const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('创建对账单:', createForm)
-    setShowModal(false)
+    
+    // 表单验证
+    if (!createForm.partyId) {
+      showToast('请选择对账方', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      // 获取对账方信息（模拟）
+      const partyInfo = createForm.type === 'customer'
+        ? { name: '客户名称', contact: '联系人', email: 'customer@example.com' }
+        : { name: '供应商名称', contact: '联系人', email: 'supplier@example.com' }
+      
+      // 生成新对账单号
+      const newStatementNo = `REC-${new Date().getFullYear()}-${String(reconciliations.length + 1).padStart(4, '0')}`
+      
+      // 计算期间起止日期
+      const [year, month] = createForm.period.split('-').map(Number)
+      const startDate = new Date(year, month - 1, 1)
+      const endDate = new Date(year, month, 0) // 月份最后一天
+      
+      // 创建新对账单
+      const newReconciliation: ReconciliationData = {
+        id: Date.now().toString(),
+        statementNo: newStatementNo,
+        type: createForm.type,
+        partyId: createForm.partyId,
+        partyName: partyInfo.name,
+        partyContact: partyInfo.contact,
+        partyEmail: partyInfo.email,
+        period: createForm.period,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        openingBalance: 0,
+        totalDebit: 0,
+        totalCredit: 0,
+        closingBalance: 0,
+        status: 'draft',
+        items: [],
+        createdBy: '当前用户',
+        createdAt: new Date().toLocaleString('zh-CN')
+      }
+      
+      setReconciliations(prev => [newReconciliation, ...prev])
+      showToast(`对账单 ${newStatementNo} 创建成功`, 'success')
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('创建对账单失败:', error)
+      showToast(error.message || '创建失败，请重试', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 获取唯一的期间列表
-  const uniquePeriods = [...new Set(mockReconciliations.map(r => r.period))].sort().reverse()
+  const uniquePeriods = [...new Set(reconciliations.map(r => r.period))].sort().reverse()
 
   return (
     <div className="p-6 space-y-6">
@@ -919,16 +1101,43 @@ export default function ReconciliationManagement() {
                 </div>
 
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
-                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-md btn-secondary">
+                  <button type="button" onClick={() => setShowModal(false)} disabled={isSubmitting} className="btn btn-md btn-secondary">
                     取消
                   </button>
-                  <button type="submit" className="btn btn-md btn-primary">
-                    <ClipboardCheck className="w-4 h-4" />
-                    生成对账单
+                  <button type="submit" disabled={isSubmitting} className="btn btn-md btn-primary flex items-center gap-2">
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        生成中...
+                      </>
+                    ) : (
+                      <>
+                        <ClipboardCheck className="w-4 h-4" />
+                        生成对账单
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

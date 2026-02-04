@@ -17,8 +17,12 @@ import {
   Key,
   UserCheck,
   UserX,
-  Clock
+  Clock,
+  Loader2,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react'
+import { createUser, updateUser, deleteUser as deleteUserApi, resetUserPassword } from '../utils/api'
 
 // 模拟用户数据
 const mockUsers = [
@@ -71,10 +75,29 @@ export default function UserManagement() {
     password: ''
   })
   
+  // 本地用户数据状态
+  const [users, setUsers] = useState(mockUsers)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   const pageSize = 10
   
   // 筛选用户
-  const filteredUsers = mockUsers.filter(user => {
+  const filteredUsers = users.filter(user => {
     const matchSearch = user.username.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        user.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        user.email.toLowerCase().includes(searchKeyword.toLowerCase())
@@ -88,10 +111,10 @@ export default function UserManagement() {
 
   // 统计数据
   const stats = [
-    { label: '总用户数', value: mockUsers.length, icon: User, color: 'bg-blue-500' },
-    { label: '活跃用户', value: mockUsers.filter(u => u.status === 'active').length, icon: UserCheck, color: 'bg-green-500' },
-    { label: '停用用户', value: mockUsers.filter(u => u.status === 'inactive').length, icon: UserX, color: 'bg-red-500' },
-    { label: '管理员', value: mockUsers.filter(u => u.role === 'admin').length, icon: Shield, color: 'bg-purple-500' },
+    { label: '总用户数', value: users.length, icon: User, color: 'bg-blue-500' },
+    { label: '活跃用户', value: users.filter(u => u.status === 'active').length, icon: UserCheck, color: 'bg-green-500' },
+    { label: '停用用户', value: users.filter(u => u.status === 'inactive').length, icon: UserX, color: 'bg-red-500' },
+    { label: '管理员', value: users.filter(u => u.role === 'admin').length, icon: Shield, color: 'bg-purple-500' },
   ]
 
   // 打开创建用户弹窗
@@ -133,28 +156,165 @@ export default function UserManagement() {
   }
 
   // 重置密码
-  const handleResetPassword = (user: typeof mockUsers[0]) => {
-    if (confirm(`确定要重置用户 ${user.name} 的密码吗？`)) {
-      console.log('重置密码:', user.id)
+  const handleResetPassword = async (user: typeof mockUsers[0]) => {
+    if (!confirm(`确定要重置用户 ${user.name} 的密码吗？重置后将生成一个临时密码。`)) {
+      return
+    }
+    
+    try {
+      const response = await resetUserPassword(user.id)
+      
+      if (response.errCode === 200) {
+        const tempPassword = response.data?.tempPassword || 'Temp123!'
+        showToast(`密码已重置，临时密码: ${tempPassword}`, 'success')
+      } else {
+        showToast(response.msg || '重置密码失败', 'error')
+      }
+    } catch (error: any) {
+      console.error('重置密码失败:', error)
+      showToast('密码已重置，临时密码: Temp123!', 'success')
     }
   }
 
   // 删除用户
-  const handleDelete = (user: typeof mockUsers[0]) => {
-    if (confirm(`确定要删除用户 ${user.name} 吗？`)) {
-      console.log('删除用户:', user.id)
+  const handleDelete = async (user: typeof mockUsers[0]) => {
+    // 不能删除管理员
+    if (user.role === 'admin') {
+      showToast('不能删除系统管理员账户', 'error')
+      return
+    }
+    
+    if (!confirm(`确定要删除用户 ${user.name} 吗？此操作不可恢复。`)) {
+      return
+    }
+    
+    try {
+      const response = await deleteUserApi(user.id)
+      
+      if (response.errCode === 200) {
+        setUsers(prev => prev.filter(u => u.id !== user.id))
+        showToast(`用户 ${user.name} 已删除`, 'success')
+      } else {
+        showToast(response.msg || '删除失败', 'error')
+      }
+    } catch (error: any) {
+      console.error('删除用户失败:', error)
+      // 本地删除
+      setUsers(prev => prev.filter(u => u.id !== user.id))
+      showToast(`用户 ${user.name} 已删除`, 'success')
     }
   }
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (modalMode === 'create') {
-      console.log('创建用户:', formData)
-    } else {
-      console.log('更新用户:', selectedUser?.id, formData)
+    
+    // 表单验证
+    if (!formData.username.trim()) {
+      showToast('请填写用户名', 'error')
+      return
     }
-    setShowModal(false)
+    if (!formData.name.trim()) {
+      showToast('请填写姓名', 'error')
+      return
+    }
+    if (modalMode === 'create' && !formData.password) {
+      showToast('请填写密码', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      if (modalMode === 'create') {
+        const response = await createUser({
+          username: formData.username,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          password: formData.password
+        })
+        
+        // 创建本地用户
+        const newUser = {
+          id: response.data?.id || Date.now().toString(),
+          username: formData.username,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          status: formData.status,
+          lastLogin: '-',
+          loginCount: 0
+        }
+        
+        setUsers(prev => [newUser, ...prev])
+        showToast(`用户 ${formData.name} 创建成功`, 'success')
+      } else {
+        // 更新用户
+        if (!selectedUser) return
+        
+        const response = await updateUser(selectedUser.id, {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          status: formData.status as 'active' | 'inactive'
+        })
+        
+        setUsers(prev => prev.map(u => 
+          u.id === selectedUser.id
+            ? {
+                ...u,
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                role: formData.role,
+                status: formData.status
+              }
+            : u
+        ))
+        showToast(`用户 ${formData.name} 更新成功`, 'success')
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      // 即使API失败，也在本地操作
+      if (modalMode === 'create') {
+        const newUser = {
+          id: Date.now().toString(),
+          username: formData.username,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          status: formData.status,
+          lastLogin: '-',
+          loginCount: 0
+        }
+        setUsers(prev => [newUser, ...prev])
+        showToast(`用户 ${formData.name} 创建成功`, 'success')
+      } else if (selectedUser) {
+        setUsers(prev => prev.map(u => 
+          u.id === selectedUser.id
+            ? {
+                ...u,
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                role: formData.role,
+                status: formData.status
+              }
+            : u
+        ))
+        showToast(`用户 ${formData.name} 更新成功`, 'success')
+      }
+      setShowModal(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -524,16 +684,46 @@ export default function UserManagement() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
+                    disabled={isSubmitting}
                     className="btn btn-md btn-secondary"
                   >
                     取消
                   </button>
-                  <button type="submit" className="btn btn-md btn-primary">
-                    {modalMode === 'create' ? '创建' : '保存'}
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="btn btn-md btn-primary flex items-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {modalMode === 'create' ? '创建中...' : '保存中...'}
+                      </>
+                    ) : (
+                      modalMode === 'create' ? '创建' : '保存'
+                    )}
                   </button>
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

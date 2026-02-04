@@ -402,6 +402,9 @@ export default function TMSManagement() {
   const [modeFilter, setModeFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   
+  // 本地运输单数据状态
+  const [shipments, setShipments] = useState<ShipmentData[]>(mockShipments)
+  
   // 弹窗状态
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -474,7 +477,7 @@ export default function TMSManagement() {
   const pageSize = 10
   
   // 筛选运输单
-  const filteredShipments = mockShipments.filter(shipment => {
+  const filteredShipments = shipments.filter(shipment => {
     const matchSearch = shipment.id.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        shipment.orderNo.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        shipment.customerName.toLowerCase().includes(searchKeyword.toLowerCase())
@@ -488,12 +491,12 @@ export default function TMSManagement() {
 
   // 统计数据
   const stats = {
-    total: mockShipments.length,
-    inTransit: mockShipments.filter(s => ['in_transit', 'delivering'].includes(s.status)).length,
-    pending: mockShipments.filter(s => ['draft', 'booked', 'pickup_pending'].includes(s.status)).length,
-    exception: mockShipments.filter(s => s.status === 'exception').length,
-    totalReceivable: mockShipments.reduce((sum, s) => sum + s.costs.receivable.reduce((a, c) => a + c.amount, 0), 0),
-    totalPayable: mockShipments.reduce((sum, s) => sum + s.costs.payable.reduce((a, c) => a + c.amount, 0), 0)
+    total: shipments.length,
+    inTransit: shipments.filter(s => ['in_transit', 'delivering'].includes(s.status)).length,
+    pending: shipments.filter(s => ['draft', 'booked', 'pickup_pending'].includes(s.status)).length,
+    exception: shipments.filter(s => s.status === 'exception').length,
+    totalReceivable: shipments.reduce((sum, s) => sum + s.costs.receivable.reduce((a, c) => a + c.amount, 0), 0),
+    totalPayable: shipments.reduce((sum, s) => sum + s.costs.payable.reduce((a, c) => a + c.amount, 0), 0)
   }
 
   // 计算利润
@@ -580,18 +583,32 @@ export default function TMSManagement() {
   // 确认更新状态
   const confirmUpdateStatus = () => {
     if (!selectedShipment || !newStatus) return
-    // 模拟更新
-    const shipmentIndex = mockShipments.findIndex(s => s.id === selectedShipment.id)
-    if (shipmentIndex !== -1) {
-      mockShipments[shipmentIndex].status = newStatus
-      // 添加里程碑
-      mockShipments[shipmentIndex].milestones.push({
-        code: newStatus.toUpperCase(),
-        label: shipmentStatusMap[newStatus].label,
-        time: new Date().toLocaleString('zh-CN'),
-        completed: true
-      })
+    
+    const newMilestone = {
+      code: newStatus.toUpperCase(),
+      label: shipmentStatusMap[newStatus].label,
+      time: new Date().toLocaleString('zh-CN'),
+      completed: true
     }
+    
+    // 更新本地状态
+    setShipments(prev => prev.map(s => 
+      s.id === selectedShipment.id
+        ? {
+            ...s,
+            status: newStatus,
+            milestones: [...s.milestones, newMilestone]
+          }
+        : s
+    ))
+    
+    // 更新选中的shipment
+    setSelectedShipment(prev => prev ? {
+      ...prev,
+      status: newStatus,
+      milestones: [...prev.milestones, newMilestone]
+    } : null)
+    
     setShowStatusModal(false)
     showToastMessage(`状态已更新为: ${shipmentStatusMap[newStatus].label}`)
   }
@@ -618,26 +635,42 @@ export default function TMSManagement() {
       showToastMessage('请选择供应商！')
       return
     }
-    const shipmentIndex = mockShipments.findIndex(s => s.id === selectedShipment.id)
-    if (shipmentIndex !== -1) {
-      const supplier = supplierList.find(s => s.id === newCostData.supplierId)
-      const cost: CostItem = {
-        type: newCostData.type,
-        amount: parseFloat(newCostData.amount),
-        currency: newCostData.currency,
-        status: newCostData.status,
-        vendor: costType === 'payable' ? (supplier?.name || newCostData.vendor) : undefined,
-        supplierId: costType === 'payable' ? newCostData.supplierId : undefined,
-        supplierName: costType === 'payable' ? supplier?.name : undefined
-      }
-      if (costType === 'receivable') {
-        mockShipments[shipmentIndex].costs.receivable.push(cost)
-      } else {
-        mockShipments[shipmentIndex].costs.payable.push(cost)
-      }
-      // 更新选中的shipment以刷新UI
-      setSelectedShipment({ ...mockShipments[shipmentIndex] })
+    
+    const supplier = supplierList.find(s => s.id === newCostData.supplierId)
+    const cost: CostItem = {
+      type: newCostData.type,
+      amount: parseFloat(newCostData.amount),
+      currency: newCostData.currency,
+      status: newCostData.status,
+      vendor: costType === 'payable' ? (supplier?.name || newCostData.vendor) : undefined,
+      supplierId: costType === 'payable' ? newCostData.supplierId : undefined,
+      supplierName: costType === 'payable' ? supplier?.name : undefined
     }
+    
+    // 更新本地状态
+    setShipments(prev => prev.map(s => 
+      s.id === selectedShipment.id
+        ? {
+            ...s,
+            costs: {
+              ...s.costs,
+              receivable: costType === 'receivable' ? [...s.costs.receivable, cost] : s.costs.receivable,
+              payable: costType === 'payable' ? [...s.costs.payable, cost] : s.costs.payable
+            }
+          }
+        : s
+    ))
+    
+    // 更新选中的shipment
+    setSelectedShipment(prev => prev ? {
+      ...prev,
+      costs: {
+        ...prev.costs,
+        receivable: costType === 'receivable' ? [...prev.costs.receivable, cost] : prev.costs.receivable,
+        payable: costType === 'payable' ? [...prev.costs.payable, cost] : prev.costs.payable
+      }
+    } : null)
+    
     setShowAddCostModal(false)
     showToastMessage('费用添加成功！')
   }
@@ -665,26 +698,50 @@ export default function TMSManagement() {
       showToastMessage('请选择供应商！')
       return
     }
-    const shipmentIndex = mockShipments.findIndex(s => s.id === selectedShipment.id)
-    if (shipmentIndex !== -1) {
-      const supplier = supplierList.find(s => s.id === editCostData.supplierId)
-      const updatedCost: CostItem = {
-        type: editCostData.type,
-        amount: parseFloat(editCostData.amount),
-        currency: editCostData.currency,
-        status: editCostData.status,
-        vendor: editCostType === 'payable' ? (supplier?.name || editCostData.vendor) : undefined,
-        supplierId: editCostType === 'payable' ? editCostData.supplierId : undefined,
-        supplierName: editCostType === 'payable' ? supplier?.name : undefined
-      }
-      if (editCostType === 'receivable') {
-        mockShipments[shipmentIndex].costs.receivable[editingCostIndex] = updatedCost
-      } else {
-        mockShipments[shipmentIndex].costs.payable[editingCostIndex] = updatedCost
-      }
-      // 更新选中的shipment以刷新UI
-      setSelectedShipment({ ...mockShipments[shipmentIndex] })
+    
+    const supplier = supplierList.find(s => s.id === editCostData.supplierId)
+    const updatedCost: CostItem = {
+      type: editCostData.type,
+      amount: parseFloat(editCostData.amount),
+      currency: editCostData.currency,
+      status: editCostData.status,
+      vendor: editCostType === 'payable' ? (supplier?.name || editCostData.vendor) : undefined,
+      supplierId: editCostType === 'payable' ? editCostData.supplierId : undefined,
+      supplierName: editCostType === 'payable' ? supplier?.name : undefined
     }
+    
+    // 更新本地状态
+    setShipments(prev => prev.map(s => 
+      s.id === selectedShipment.id
+        ? {
+            ...s,
+            costs: {
+              ...s.costs,
+              receivable: editCostType === 'receivable' 
+                ? s.costs.receivable.map((c, i) => i === editingCostIndex ? updatedCost : c)
+                : s.costs.receivable,
+              payable: editCostType === 'payable'
+                ? s.costs.payable.map((c, i) => i === editingCostIndex ? updatedCost : c)
+                : s.costs.payable
+            }
+          }
+        : s
+    ))
+    
+    // 更新选中的shipment
+    setSelectedShipment(prev => prev ? {
+      ...prev,
+      costs: {
+        ...prev.costs,
+        receivable: editCostType === 'receivable'
+          ? prev.costs.receivable.map((c, i) => i === editingCostIndex ? updatedCost : c)
+          : prev.costs.receivable,
+        payable: editCostType === 'payable'
+          ? prev.costs.payable.map((c, i) => i === editingCostIndex ? updatedCost : c)
+          : prev.costs.payable
+      }
+    } : null)
+    
     setShowEditCostModal(false)
     setEditingCostIndex(null)
     showToastMessage('费用修改成功！')
@@ -694,27 +751,68 @@ export default function TMSManagement() {
   const handleDeleteCost = (type: 'receivable' | 'payable', index: number) => {
     if (!selectedShipment) return
     if (!window.confirm('确定要删除这条费用记录吗？')) return
-    const shipmentIndex = mockShipments.findIndex(s => s.id === selectedShipment.id)
-    if (shipmentIndex !== -1) {
-      if (type === 'receivable') {
-        mockShipments[shipmentIndex].costs.receivable.splice(index, 1)
-      } else {
-        mockShipments[shipmentIndex].costs.payable.splice(index, 1)
+    
+    // 更新本地状态
+    setShipments(prev => prev.map(s => 
+      s.id === selectedShipment.id
+        ? {
+            ...s,
+            costs: {
+              ...s.costs,
+              receivable: type === 'receivable' 
+                ? s.costs.receivable.filter((_, i) => i !== index)
+                : s.costs.receivable,
+              payable: type === 'payable'
+                ? s.costs.payable.filter((_, i) => i !== index)
+                : s.costs.payable
+            }
+          }
+        : s
+    ))
+    
+    // 更新选中的shipment
+    setSelectedShipment(prev => prev ? {
+      ...prev,
+      costs: {
+        ...prev.costs,
+        receivable: type === 'receivable'
+          ? prev.costs.receivable.filter((_, i) => i !== index)
+          : prev.costs.receivable,
+        payable: type === 'payable'
+          ? prev.costs.payable.filter((_, i) => i !== index)
+          : prev.costs.payable
       }
-      setSelectedShipment({ ...mockShipments[shipmentIndex] })
-      showToastMessage('费用已删除！')
-    }
+    } : null)
+    
+    showToastMessage('费用已删除！')
   }
 
   // 费用确认
   const handleConfirmCosts = () => {
     if (!selectedShipment) return
-    const shipmentIndex = mockShipments.findIndex(s => s.id === selectedShipment.id)
-    if (shipmentIndex !== -1) {
-      mockShipments[shipmentIndex].costs.receivable.forEach(c => c.status = 'confirmed')
-      mockShipments[shipmentIndex].costs.payable.forEach(c => c.status = 'confirmed')
-      setSelectedShipment({ ...mockShipments[shipmentIndex] })
-    }
+    
+    // 更新本地状态
+    setShipments(prev => prev.map(s => 
+      s.id === selectedShipment.id
+        ? {
+            ...s,
+            costs: {
+              receivable: s.costs.receivable.map(c => ({ ...c, status: 'confirmed' })),
+              payable: s.costs.payable.map(c => ({ ...c, status: 'confirmed' }))
+            }
+          }
+        : s
+    ))
+    
+    // 更新选中的shipment
+    setSelectedShipment(prev => prev ? {
+      ...prev,
+      costs: {
+        receivable: prev.costs.receivable.map(c => ({ ...c, status: 'confirmed' })),
+        payable: prev.costs.payable.map(c => ({ ...c, status: 'confirmed' }))
+      }
+    } : null)
+    
     showToastMessage('所有费用已确认！')
   }
 
@@ -746,7 +844,7 @@ export default function TMSManagement() {
     if (!order) return
     
     const newShipment: ShipmentData = {
-      id: `TMS-${new Date().getFullYear()}-${String(mockShipments.length + 1).padStart(4, '0')}`,
+      id: `TMS-${new Date().getFullYear()}-${String(shipments.length + 1).padStart(4, '0')}`,
       orderNo: selectedOrderId,
       customerName: order.customerName,
       transportMode: createFormData.transportMode,
@@ -782,7 +880,7 @@ export default function TMSManagement() {
       operatorName: '当前用户'
     }
     
-    mockShipments.unshift(newShipment)
+    setShipments(prev => [newShipment, ...prev])
     setShowCreateModal(false)
     // 重置表单
     setSelectedOrderId('')
@@ -839,28 +937,35 @@ export default function TMSManagement() {
     e.preventDefault()
     if (!selectedShipment) return
     
-    const shipmentIndex = mockShipments.findIndex(s => s.id === selectedShipment.id)
-    if (shipmentIndex !== -1) {
-      mockShipments[shipmentIndex] = {
-        ...mockShipments[shipmentIndex],
-        transportMode: createFormData.transportMode,
-        carrier: createFormData.carrier,
-        vesselName: createFormData.vesselName,
-        voyageNo: createFormData.voyageNo,
-        blNumber: createFormData.blNumber,
-        bookingNo: createFormData.bookingNo,
-        flightNo: createFormData.flightNo,
-        mawbNo: createFormData.mawbNo,
-        hawbNo: createFormData.hawbNo,
-        trainNo: createFormData.trainNo,
-        truckNo: createFormData.truckNo,
-        trailerNo: createFormData.trailerNo,
-        driverName: createFormData.driverName,
-        driverPhone: createFormData.driverPhone,
-        etd: createFormData.etd,
-        eta: createFormData.eta
-      }
+    const updatedData = {
+      transportMode: createFormData.transportMode,
+      carrier: createFormData.carrier,
+      vesselName: createFormData.vesselName,
+      voyageNo: createFormData.voyageNo,
+      blNumber: createFormData.blNumber,
+      bookingNo: createFormData.bookingNo,
+      flightNo: createFormData.flightNo,
+      mawbNo: createFormData.mawbNo,
+      hawbNo: createFormData.hawbNo,
+      trainNo: createFormData.trainNo,
+      truckNo: createFormData.truckNo,
+      trailerNo: createFormData.trailerNo,
+      driverName: createFormData.driverName,
+      driverPhone: createFormData.driverPhone,
+      etd: createFormData.etd,
+      eta: createFormData.eta
     }
+    
+    // 更新本地状态
+    setShipments(prev => prev.map(s => 
+      s.id === selectedShipment.id
+        ? { ...s, ...updatedData }
+        : s
+    ))
+    
+    // 更新选中的shipment
+    setSelectedShipment(prev => prev ? { ...prev, ...updatedData } : null)
+    
     setShowEditModal(false)
     setShowDetailModal(false)
     showToastMessage(`运输单 ${selectedShipment.id} 已更新！`)

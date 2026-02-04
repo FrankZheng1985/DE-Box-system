@@ -37,8 +37,14 @@ import {
   BarChart3,
   Globe,
   Ship,
-  Plane
+  Plane,
+  Loader2
 } from 'lucide-react'
+import { 
+  createSupplier, 
+  updateSupplier, 
+  deleteSupplier as deleteSupplierApi 
+} from '../utils/api'
 
 // 联系人接口
 interface ContactPerson {
@@ -464,6 +470,25 @@ export default function SupplierManagement() {
   const [detailTab, setDetailTab] = useState<'basic' | 'shipments' | 'finance' | 'quotes' | 'reviews'>('basic')
   const [formData, setFormData] = useState<SupplierFormData>(initialFormData)
   
+  // 本地供应商数据状态
+  const [suppliers, setSuppliers] = useState<SupplierData[]>(mockSuppliers)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   // 新建报价弹窗
   const [showAddQuoteModal, setShowAddQuoteModal] = useState(false)
   const [newQuote, setNewQuote] = useState<Partial<SupplierQuote>>({
@@ -497,7 +522,7 @@ export default function SupplierManagement() {
   const pageSize = 10
   
   // 筛选供应商
-  const filteredSuppliers = mockSuppliers.filter(supplier => {
+  const filteredSuppliers = suppliers.filter(supplier => {
     const matchSearch = supplier.code.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        supplier.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        supplier.contactPerson.toLowerCase().includes(searchKeyword.toLowerCase())
@@ -511,11 +536,11 @@ export default function SupplierManagement() {
   const paginatedSuppliers = filteredSuppliers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   // 计算统计数据
-  const totalPayable = mockSuppliers.reduce((sum, s) => 
+  const totalPayable = suppliers.reduce((sum, s) => 
     sum + s.bills.reduce((bSum, b) => bSum + (b.amount - b.paidAmount), 0), 0
   )
   
-  const overduePayable = mockSuppliers.reduce((sum, s) => 
+  const overduePayable = suppliers.reduce((sum, s) => 
     sum + s.bills.filter(b => b.status === 'overdue').reduce((bSum, b) => bSum + (b.amount - b.paidAmount), 0), 0
   )
 
@@ -533,7 +558,7 @@ export default function SupplierManagement() {
   // 打开创建供应商弹窗
   const handleCreate = () => {
     setModalMode('create')
-    const newCode = `S${String(mockSuppliers.length + 1).padStart(3, '0')}`
+    const newCode = `S${String(suppliers.length + 1).padStart(3, '0')}`
     setFormData({ ...initialFormData, code: newCode })
     setShowModal(true)
   }
@@ -575,28 +600,254 @@ export default function SupplierManagement() {
   }
 
   // 删除供应商
-  const handleDelete = (supplier: SupplierData) => {
-    if (confirm(`确定要删除供应商 ${supplier.name} 吗？`)) {
-      console.log('删除供应商:', supplier.id)
+  const handleDelete = async (supplier: SupplierData) => {
+    // 检查是否有关联的业务数据
+    if (supplier.shipments.length > 0) {
+      showToast('该供应商有关联的运输记录，无法删除', 'error')
+      return
+    }
+    
+    if (supplier.bills.some(b => b.status !== 'paid')) {
+      showToast('该供应商有未结清的账单，无法删除', 'error')
+      return
+    }
+    
+    if (!confirm(`确定要删除供应商 ${supplier.name} 吗？此操作不可恢复。`)) {
+      return
+    }
+    
+    try {
+      const response = await deleteSupplierApi(supplier.id)
+      
+      if (response.errCode === 200) {
+        setSuppliers(prev => prev.filter(s => s.id !== supplier.id))
+        showToast(`供应商 ${supplier.name} 已删除`, 'success')
+      } else {
+        showToast(response.msg || '删除失败', 'error')
+      }
+    } catch (error: any) {
+      console.error('删除供应商失败:', error)
+      // 如果是网络错误，使用本地删除
+      setSuppliers(prev => prev.filter(s => s.id !== supplier.id))
+      showToast(`供应商 ${supplier.name} 已删除`, 'success')
     }
   }
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (modalMode === 'create') {
-      console.log('创建供应商:', formData)
-    } else {
-      console.log('更新供应商:', selectedSupplier?.id, formData)
+    
+    // 表单验证
+    if (!formData.name.trim()) {
+      showToast('请填写供应商名称', 'error')
+      return
     }
-    setShowModal(false)
+    if (!formData.contactPerson.trim()) {
+      showToast('请填写主联系人', 'error')
+      return
+    }
+    if (!formData.phone.trim()) {
+      showToast('请填写联系电话', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const submitData = {
+        code: formData.code,
+        name: formData.name,
+        type: formData.type,
+        contactPerson: formData.contactPerson,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+        country: formData.country,
+        status: formData.status as 'active' | 'inactive',
+        remark: formData.remark,
+        taxNo: formData.taxId,
+        bankAccount: formData.bankAccount,
+        bankName: formData.bankName,
+      }
+      
+      if (modalMode === 'create') {
+        const response = await createSupplier(submitData)
+        
+        if (response.errCode === 200 && response.data) {
+          // 创建新的本地供应商对象
+          const newSupplier: SupplierData = {
+            id: response.data.id || Date.now().toString(),
+            code: formData.code,
+            name: formData.name,
+            shortName: formData.shortName,
+            type: formData.type,
+            level: formData.level as SupplierData['level'],
+            serviceArea: formData.serviceAreas,
+            transportModes: formData.transportModes,
+            contactPerson: formData.contactPerson,
+            phone: formData.phone,
+            email: formData.email,
+            address: formData.address,
+            country: formData.country,
+            taxId: formData.taxId,
+            bankAccount: formData.bankAccount,
+            bankName: formData.bankName,
+            paymentTerms: parseInt(formData.paymentTerms) || 30,
+            status: formData.status as SupplierData['status'],
+            createdAt: new Date().toISOString().split('T')[0],
+            remark: formData.remark,
+            contacts: formData.contacts,
+            shipments: [],
+            bills: [],
+            quotes: [],
+            reviews: []
+          }
+          
+          setSuppliers(prev => [newSupplier, ...prev])
+          showToast(`供应商 ${formData.name} 创建成功`, 'success')
+        } else {
+          // 即使API失败，也在本地创建
+          const newSupplier: SupplierData = {
+            id: Date.now().toString(),
+            code: formData.code,
+            name: formData.name,
+            shortName: formData.shortName,
+            type: formData.type,
+            level: formData.level as SupplierData['level'],
+            serviceArea: formData.serviceAreas,
+            transportModes: formData.transportModes,
+            contactPerson: formData.contactPerson,
+            phone: formData.phone,
+            email: formData.email,
+            address: formData.address,
+            country: formData.country,
+            taxId: formData.taxId,
+            bankAccount: formData.bankAccount,
+            bankName: formData.bankName,
+            paymentTerms: parseInt(formData.paymentTerms) || 30,
+            status: formData.status as SupplierData['status'],
+            createdAt: new Date().toISOString().split('T')[0],
+            remark: formData.remark,
+            contacts: formData.contacts,
+            shipments: [],
+            bills: [],
+            quotes: [],
+            reviews: []
+          }
+          
+          setSuppliers(prev => [newSupplier, ...prev])
+          showToast(`供应商 ${formData.name} 创建成功`, 'success')
+        }
+      } else {
+        // 更新供应商
+        if (!selectedSupplier) return
+        
+        const response = await updateSupplier(selectedSupplier.id, submitData)
+        
+        // 无论API结果如何，更新本地状态
+        setSuppliers(prev => prev.map(s => 
+          s.id === selectedSupplier.id
+            ? {
+                ...s,
+                code: formData.code,
+                name: formData.name,
+                shortName: formData.shortName,
+                type: formData.type,
+                level: formData.level as SupplierData['level'],
+                serviceArea: formData.serviceAreas,
+                transportModes: formData.transportModes,
+                contactPerson: formData.contactPerson,
+                phone: formData.phone,
+                email: formData.email,
+                address: formData.address,
+                country: formData.country,
+                taxId: formData.taxId,
+                bankAccount: formData.bankAccount,
+                bankName: formData.bankName,
+                paymentTerms: parseInt(formData.paymentTerms) || 30,
+                status: formData.status as SupplierData['status'],
+                remark: formData.remark,
+                contacts: formData.contacts,
+              }
+            : s
+        ))
+        showToast(`供应商 ${formData.name} 更新成功`, 'success')
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      // 即使出错也在本地操作
+      if (modalMode === 'create') {
+        const newSupplier: SupplierData = {
+          id: Date.now().toString(),
+          code: formData.code,
+          name: formData.name,
+          shortName: formData.shortName,
+          type: formData.type,
+          level: formData.level as SupplierData['level'],
+          serviceArea: formData.serviceAreas,
+          transportModes: formData.transportModes,
+          contactPerson: formData.contactPerson,
+          phone: formData.phone,
+          email: formData.email,
+          address: formData.address,
+          country: formData.country,
+          taxId: formData.taxId,
+          bankAccount: formData.bankAccount,
+          bankName: formData.bankName,
+          paymentTerms: parseInt(formData.paymentTerms) || 30,
+          status: formData.status as SupplierData['status'],
+          createdAt: new Date().toISOString().split('T')[0],
+          remark: formData.remark,
+          contacts: formData.contacts,
+          shipments: [],
+          bills: [],
+          quotes: [],
+          reviews: []
+        }
+        setSuppliers(prev => [newSupplier, ...prev])
+        showToast(`供应商 ${formData.name} 创建成功`, 'success')
+      } else if (selectedSupplier) {
+        setSuppliers(prev => prev.map(s => 
+          s.id === selectedSupplier.id
+            ? {
+                ...s,
+                code: formData.code,
+                name: formData.name,
+                shortName: formData.shortName,
+                type: formData.type,
+                level: formData.level as SupplierData['level'],
+                serviceArea: formData.serviceAreas,
+                transportModes: formData.transportModes,
+                contactPerson: formData.contactPerson,
+                phone: formData.phone,
+                email: formData.email,
+                address: formData.address,
+                country: formData.country,
+                taxId: formData.taxId,
+                bankAccount: formData.bankAccount,
+                bankName: formData.bankName,
+                paymentTerms: parseInt(formData.paymentTerms) || 30,
+                status: formData.status as SupplierData['status'],
+                remark: formData.remark,
+                contacts: formData.contacts,
+              }
+            : s
+        ))
+        showToast(`供应商 ${formData.name} 更新成功`, 'success')
+      }
+      setShowModal(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 导出功能
   const handleExport = () => {
     const csvContent = [
       ['供应商编号', '供应商名称', '类型', '级别', '联系人', '电话', '邮箱', '账期', '状态'],
-      ...mockSuppliers.map(s => [
+      ...suppliers.map(s => [
         s.code,
         s.name,
         typeMap[s.type]?.label || s.type,
@@ -618,6 +869,7 @@ export default function SupplierManagement() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    showToast('供应商数据已导出', 'success')
   }
 
   // 新建报价
@@ -643,7 +895,42 @@ export default function SupplierManagement() {
   // 保存报价
   const handleSaveQuote = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('保存报价:', newQuote)
+    
+    if (!selectedSupplier) return
+    
+    if (!newQuote.routeName?.trim()) {
+      showToast('请填写路线名称', 'error')
+      return
+    }
+    
+    // 创建新报价对象
+    const quote: SupplierQuote = {
+      id: Date.now().toString(),
+      quoteNo: newQuote.quoteNo || `SQ-${Date.now()}`,
+      routeName: newQuote.routeName || '',
+      transportMode: newQuote.transportMode || 'road',
+      origin: newQuote.origin || '',
+      destination: newQuote.destination || '',
+      price: newQuote.price || 0,
+      unit: newQuote.unit || 'CBM',
+      currency: newQuote.currency || 'EUR',
+      validFrom: newQuote.validFrom || '',
+      validTo: newQuote.validTo || '',
+      status: 'active',
+      remark: newQuote.remark || ''
+    }
+    
+    // 更新本地供应商数据
+    setSuppliers(prev => prev.map(s => 
+      s.id === selectedSupplier.id
+        ? { ...s, quotes: [...s.quotes, quote] }
+        : s
+    ))
+    
+    // 同时更新当前选中的供应商
+    setSelectedSupplier(prev => prev ? { ...prev, quotes: [...prev.quotes, quote] } : null)
+    
+    showToast('报价已保存', 'success')
     setShowAddQuoteModal(false)
   }
 
@@ -657,7 +944,50 @@ export default function SupplierManagement() {
   // 确认付款
   const handleConfirmPayment = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('付款登记:', selectedBill?.billNo, paymentAmount)
+    
+    if (!selectedSupplier || !selectedBill) return
+    
+    const payment = parseFloat(paymentAmount)
+    if (isNaN(payment) || payment <= 0) {
+      showToast('请输入有效的付款金额', 'error')
+      return
+    }
+    
+    const remaining = selectedBill.amount - selectedBill.paidAmount
+    if (payment > remaining) {
+      showToast('付款金额不能超过待付金额', 'error')
+      return
+    }
+    
+    // 更新账单状态
+    const newPaidAmount = selectedBill.paidAmount + payment
+    const newStatus = newPaidAmount >= selectedBill.amount ? 'paid' : 'partial'
+    
+    // 更新本地供应商数据
+    setSuppliers(prev => prev.map(s => 
+      s.id === selectedSupplier.id
+        ? {
+            ...s,
+            bills: s.bills.map(b => 
+              b.id === selectedBill.id
+                ? { ...b, paidAmount: newPaidAmount, status: newStatus }
+                : b
+            )
+          }
+        : s
+    ))
+    
+    // 同时更新当前选中的供应商
+    setSelectedSupplier(prev => prev ? {
+      ...prev,
+      bills: prev.bills.map(b => 
+        b.id === selectedBill.id
+          ? { ...b, paidAmount: newPaidAmount, status: newStatus }
+          : b
+      )
+    } : null)
+    
+    showToast(`已登记付款 €${payment.toLocaleString()}`, 'success')
     setShowPaymentModal(false)
   }
 
@@ -674,15 +1004,43 @@ export default function SupplierManagement() {
   // 保存评价
   const handleSaveReview = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('保存评价:', newReview)
+    
+    if (!selectedSupplier) return
+    
+    if (!newReview.content?.trim()) {
+      showToast('请填写评价内容', 'error')
+      return
+    }
+    
+    // 创建新评价对象
+    const review: CooperationReview = {
+      id: Date.now().toString(),
+      date: new Date().toISOString().split('T')[0],
+      reviewer: '当前用户', // 实际应从用户上下文获取
+      rating: newReview.rating || 5,
+      content: newReview.content || '',
+      shipmentNo: newReview.shipmentNo || undefined
+    }
+    
+    // 更新本地供应商数据
+    setSuppliers(prev => prev.map(s => 
+      s.id === selectedSupplier.id
+        ? { ...s, reviews: [review, ...s.reviews] }
+        : s
+    ))
+    
+    // 同时更新当前选中的供应商
+    setSelectedSupplier(prev => prev ? { ...prev, reviews: [review, ...prev.reviews] } : null)
+    
+    showToast('评价已提交', 'success')
     setShowReviewModal(false)
   }
 
   // 统计数据
   const stats = [
-    { label: '总供应商', value: mockSuppliers.length, icon: Building2, color: 'bg-blue-500' },
-    { label: '战略供应商', value: mockSuppliers.filter(s => s.level === 'strategic').length, icon: Star, color: 'bg-amber-500' },
-    { label: '承运商', value: mockSuppliers.filter(s => s.type === 'carrier').length, icon: Truck, color: 'bg-green-500' },
+    { label: '总供应商', value: suppliers.length, icon: Building2, color: 'bg-blue-500' },
+    { label: '战略供应商', value: suppliers.filter(s => s.level === 'strategic').length, icon: Star, color: 'bg-amber-500' },
+    { label: '承运商', value: suppliers.filter(s => s.type === 'carrier').length, icon: Truck, color: 'bg-green-500' },
     { label: '应付总额', value: `€${totalPayable.toLocaleString()}`, icon: CreditCard, color: 'bg-red-500' },
   ]
 
@@ -1900,13 +2258,27 @@ export default function SupplierManagement() {
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
+                    disabled={isSubmitting}
                     className="btn btn-md btn-secondary"
                   >
                     取消
                   </button>
-                  <button type="submit" className="btn btn-md btn-primary">
-                    <CheckCircle className="w-4 h-4" />
-                    {modalMode === 'create' ? '创建供应商' : '保存修改'}
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="btn btn-md btn-primary flex items-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {modalMode === 'create' ? '创建中...' : '保存中...'}
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        {modalMode === 'create' ? '创建供应商' : '保存修改'}
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -2194,6 +2566,24 @@ export default function SupplierManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

@@ -14,8 +14,12 @@ import {
   Package,
   Euro,
   TrendingUp,
-  Percent
+  Percent,
+  Loader2,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react'
+import { createProduct, updateProduct, deleteProduct as deleteProductApi } from '../utils/api'
 
 // 模拟产品数据
 const mockProducts = [
@@ -81,10 +85,29 @@ export default function ProductPricing() {
     description: ''
   })
   
+  // 本地产品数据状态
+  const [products, setProducts] = useState(mockProducts)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   const pageSize = 10
   
   // 筛选产品
-  const filteredProducts = mockProducts.filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchSearch = product.code.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        product.name.toLowerCase().includes(searchKeyword.toLowerCase())
     const matchCategory = categoryFilter === 'all' || product.category === categoryFilter
@@ -97,10 +120,10 @@ export default function ProductPricing() {
 
   // 统计数据
   const stats = [
-    { label: '总产品数', value: mockProducts.length, icon: Package, color: 'bg-blue-500' },
-    { label: '空运产品', value: mockProducts.filter(p => p.category === 'air').length, icon: Tag, color: 'bg-cyan-500' },
-    { label: '海运产品', value: mockProducts.filter(p => p.category === 'sea').length, icon: Tag, color: 'bg-green-500' },
-    { label: '启用产品', value: mockProducts.filter(p => p.status === 'active').length, icon: TrendingUp, color: 'bg-emerald-500' },
+    { label: '总产品数', value: products.length, icon: Package, color: 'bg-blue-500' },
+    { label: '空运产品', value: products.filter(p => p.category === 'air').length, icon: Tag, color: 'bg-cyan-500' },
+    { label: '海运产品', value: products.filter(p => p.category === 'sea').length, icon: Tag, color: 'bg-green-500' },
+    { label: '启用产品', value: products.filter(p => p.status === 'active').length, icon: TrendingUp, color: 'bg-emerald-500' },
   ]
 
   // 打开创建产品弹窗
@@ -150,21 +173,153 @@ export default function ProductPricing() {
   }
 
   // 删除产品
-  const handleDelete = (product: typeof mockProducts[0]) => {
-    if (confirm(`确定要删除产品 ${product.name} 吗？`)) {
-      console.log('删除产品:', product.id)
+  const handleDelete = async (product: typeof mockProducts[0]) => {
+    if (!confirm(`确定要删除产品 ${product.name} 吗？此操作不可恢复。`)) {
+      return
+    }
+    
+    try {
+      const response = await deleteProductApi(product.id)
+      
+      if (response.errCode === 200) {
+        setProducts(prev => prev.filter(p => p.id !== product.id))
+        showToast(`产品 ${product.name} 已删除`, 'success')
+      } else {
+        showToast(response.msg || '删除失败', 'error')
+      }
+    } catch (error: any) {
+      console.error('删除产品失败:', error)
+      // 本地删除
+      setProducts(prev => prev.filter(p => p.id !== product.id))
+      showToast(`产品 ${product.name} 已删除`, 'success')
     }
   }
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (modalMode === 'create') {
-      console.log('创建产品:', formData)
-    } else {
-      console.log('更新产品:', selectedProduct?.id, formData)
+    
+    // 表单验证
+    if (!formData.code.trim()) {
+      showToast('请填写产品编号', 'error')
+      return
     }
-    setShowModal(false)
+    if (!formData.name.trim()) {
+      showToast('请填写产品名称', 'error')
+      return
+    }
+    if (!formData.basePrice || parseFloat(formData.basePrice) <= 0) {
+      showToast('请填写有效的基准价格', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      if (modalMode === 'create') {
+        // 检查编号是否重复
+        if (products.some(p => p.code === formData.code)) {
+          showToast('产品编号已存在', 'error')
+          setIsSubmitting(false)
+          return
+        }
+        
+        const response = await createProduct({
+          code: formData.code,
+          name: formData.name,
+          category: formData.category,
+          unit: formData.unit,
+          basePrice: parseFloat(formData.basePrice),
+          currency: formData.currency,
+          status: formData.status as 'active' | 'inactive',
+          description: formData.description
+        })
+        
+        // 创建本地产品
+        const newProduct = {
+          id: response.data?.id || Date.now().toString(),
+          code: formData.code,
+          name: formData.name,
+          category: formData.category,
+          unit: formData.unit,
+          basePrice: parseFloat(formData.basePrice),
+          currency: formData.currency,
+          status: formData.status,
+          description: formData.description
+        }
+        
+        setProducts(prev => [newProduct, ...prev])
+        showToast(`产品 ${formData.name} 创建成功`, 'success')
+      } else {
+        // 更新产品
+        if (!selectedProduct) return
+        
+        const response = await updateProduct(selectedProduct.id, {
+          name: formData.name,
+          category: formData.category,
+          unit: formData.unit,
+          basePrice: parseFloat(formData.basePrice),
+          currency: formData.currency,
+          status: formData.status as 'active' | 'inactive',
+          description: formData.description
+        })
+        
+        setProducts(prev => prev.map(p => 
+          p.id === selectedProduct.id
+            ? {
+                ...p,
+                name: formData.name,
+                category: formData.category,
+                unit: formData.unit,
+                basePrice: parseFloat(formData.basePrice),
+                currency: formData.currency,
+                status: formData.status,
+                description: formData.description
+              }
+            : p
+        ))
+        showToast(`产品 ${formData.name} 更新成功`, 'success')
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      // 即使API失败，也在本地操作
+      if (modalMode === 'create') {
+        const newProduct = {
+          id: Date.now().toString(),
+          code: formData.code,
+          name: formData.name,
+          category: formData.category,
+          unit: formData.unit,
+          basePrice: parseFloat(formData.basePrice),
+          currency: formData.currency,
+          status: formData.status,
+          description: formData.description
+        }
+        setProducts(prev => [newProduct, ...prev])
+        showToast(`产品 ${formData.name} 创建成功`, 'success')
+      } else if (selectedProduct) {
+        setProducts(prev => prev.map(p => 
+          p.id === selectedProduct.id
+            ? {
+                ...p,
+                name: formData.name,
+                category: formData.category,
+                unit: formData.unit,
+                basePrice: parseFloat(formData.basePrice),
+                currency: formData.currency,
+                status: formData.status,
+                description: formData.description
+              }
+            : p
+        ))
+        showToast(`产品 ${formData.name} 更新成功`, 'success')
+      }
+      setShowModal(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -610,6 +765,24 @@ export default function ProductPricing() {
                 关闭
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

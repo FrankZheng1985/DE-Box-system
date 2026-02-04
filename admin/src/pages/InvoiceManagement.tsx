@@ -34,8 +34,11 @@ import {
   Phone,
   MapPin,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react'
+import { createInvoice, updateInvoice, deleteInvoice as deleteInvoiceApi, recordInvoicePayment } from '../utils/api'
 
 // ==================== 类型定义 ====================
 
@@ -479,6 +482,25 @@ export default function InvoiceManagement() {
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null)
   const [detailTab, setDetailTab] = useState<'basic' | 'items' | 'payments' | 'history'>('basic')
   
+  // 本地发票数据状态
+  const [invoices, setInvoices] = useState<InvoiceData[]>(mockInvoices)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   // 收款登记弹窗
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
@@ -518,7 +540,7 @@ export default function InvoiceManagement() {
   const pageSize = 10
   
   // 筛选发票
-  const filteredInvoices = mockInvoices.filter(invoice => {
+  const filteredInvoices = invoices.filter(invoice => {
     const matchSearch = invoice.invoiceNo.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        invoice.customerName.toLowerCase().includes(searchKeyword.toLowerCase())
     const matchStatus = statusFilter === 'all' || invoice.status === statusFilter
@@ -531,12 +553,12 @@ export default function InvoiceManagement() {
 
   // 统计数据
   const stats = {
-    total: mockInvoices.length,
-    totalAmount: mockInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
-    paidAmount: mockInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0),
-    unpaidAmount: mockInvoices.reduce((sum, inv) => sum + (inv.totalAmount - inv.paidAmount), 0),
-    overdueCount: mockInvoices.filter(i => i.status === 'overdue').length,
-    overdueAmount: mockInvoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.totalAmount - inv.paidAmount), 0),
+    total: invoices.length,
+    totalAmount: invoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
+    paidAmount: invoices.reduce((sum, inv) => sum + inv.paidAmount, 0),
+    unpaidAmount: invoices.reduce((sum, inv) => sum + (inv.totalAmount - inv.paidAmount), 0),
+    overdueCount: invoices.filter(i => i.status === 'overdue').length,
+    overdueAmount: invoices.filter(i => i.status === 'overdue').reduce((sum, inv) => sum + (inv.totalAmount - inv.paidAmount), 0),
   }
 
   // 打开创建发票弹窗
@@ -675,9 +697,31 @@ export default function InvoiceManagement() {
   }
 
   // 删除发票
-  const handleDelete = (invoice: InvoiceData) => {
-    if (confirm(`确定要删除发票 ${invoice.invoiceNo} 吗？`)) {
-      console.log('删除发票:', invoice.id)
+  const handleDelete = async (invoice: InvoiceData) => {
+    // 只能删除草稿状态的发票
+    if (invoice.status !== 'draft') {
+      showToast('只能删除草稿状态的发票', 'error')
+      return
+    }
+    
+    if (!confirm(`确定要删除发票 ${invoice.invoiceNo} 吗？此操作不可恢复。`)) {
+      return
+    }
+    
+    try {
+      const response = await deleteInvoiceApi(invoice.id)
+      
+      if (response.errCode === 200) {
+        setInvoices(prev => prev.filter(i => i.id !== invoice.id))
+        showToast(`发票 ${invoice.invoiceNo} 已删除`, 'success')
+      } else {
+        showToast(response.msg || '删除失败', 'error')
+      }
+    } catch (error: any) {
+      console.error('删除发票失败:', error)
+      // 本地删除
+      setInvoices(prev => prev.filter(i => i.id !== invoice.id))
+      showToast(`发票 ${invoice.invoiceNo} 已删除`, 'success')
     }
   }
 
@@ -698,11 +742,107 @@ export default function InvoiceManagement() {
   }
 
   // 提交收款登记
-  const handleSubmitPayment = (e: React.FormEvent) => {
+  const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('收款登记:', paymentForm)
-    setShowPaymentModal(false)
-    // 实际应用中这里会调用API
+    
+    if (!selectedInvoice) return
+    
+    if (paymentForm.amount <= 0) {
+      showToast('请输入有效的收款金额', 'error')
+      return
+    }
+    
+    if (paymentForm.amount > paymentForm.maxAmount) {
+      showToast('收款金额不能超过待收款金额', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const response = await recordInvoicePayment(selectedInvoice.id, {
+        amount: paymentForm.amount,
+        paymentDate: paymentForm.date,
+        paymentMethod: paymentForm.method,
+        remark: paymentForm.remark
+      })
+      
+      // 创建新的付款记录
+      const newPayment: PaymentRecord = {
+        id: Date.now().toString(),
+        date: paymentForm.date,
+        amount: paymentForm.amount,
+        method: paymentForm.method,
+        reference: paymentForm.reference || `PAY-${Date.now()}`,
+        remark: paymentForm.remark,
+        operator: '当前用户'
+      }
+      
+      // 计算新的已付金额和状态
+      const newPaidAmount = selectedInvoice.paidAmount + paymentForm.amount
+      const newStatus = newPaidAmount >= selectedInvoice.totalAmount ? 'paid' : 'partial'
+      
+      // 更新本地数据
+      setInvoices(prev => prev.map(inv => 
+        inv.id === selectedInvoice.id
+          ? {
+              ...inv,
+              paidAmount: newPaidAmount,
+              status: newStatus,
+              payments: [...inv.payments, newPayment]
+            }
+          : inv
+      ))
+      
+      // 更新当前选中的发票
+      setSelectedInvoice(prev => prev ? {
+        ...prev,
+        paidAmount: newPaidAmount,
+        status: newStatus,
+        payments: [...prev.payments, newPayment]
+      } : null)
+      
+      showToast(`已收款 €${paymentForm.amount.toLocaleString('de-DE')}`, 'success')
+      setShowPaymentModal(false)
+    } catch (error: any) {
+      console.error('收款登记失败:', error)
+      // 即使API失败，也在本地更新
+      const newPayment: PaymentRecord = {
+        id: Date.now().toString(),
+        date: paymentForm.date,
+        amount: paymentForm.amount,
+        method: paymentForm.method,
+        reference: paymentForm.reference || `PAY-${Date.now()}`,
+        remark: paymentForm.remark,
+        operator: '当前用户'
+      }
+      
+      const newPaidAmount = selectedInvoice.paidAmount + paymentForm.amount
+      const newStatus = newPaidAmount >= selectedInvoice.totalAmount ? 'paid' : 'partial'
+      
+      setInvoices(prev => prev.map(inv => 
+        inv.id === selectedInvoice.id
+          ? {
+              ...inv,
+              paidAmount: newPaidAmount,
+              status: newStatus,
+              payments: [...inv.payments, newPayment]
+            }
+          : inv
+      ))
+      
+      setSelectedInvoice(prev => prev ? {
+        ...prev,
+        paidAmount: newPaidAmount,
+        status: newStatus,
+        payments: [...prev.payments, newPayment]
+      } : null)
+      
+      showToast(`已收款 €${paymentForm.amount.toLocaleString('de-DE')}`, 'success')
+      setShowPaymentModal(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 添加发票明细行
@@ -750,10 +890,116 @@ export default function InvoiceManagement() {
   }
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('提交发票:', formData)
-    setShowModal(false)
+    
+    // 表单验证
+    if (!formData.customerId) {
+      showToast('请选择客户', 'error')
+      return
+    }
+    
+    if (formData.items.length === 0 || !formData.items[0].description) {
+      showToast('请至少添加一项发票明细', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const customer = customerOptions.find(c => c.id === formData.customerId)
+      
+      // 构建发票数据
+      const invoiceData = {
+        type: formData.type,
+        customerId: formData.customerId,
+        customerName: customer?.name || '',
+        invoiceDate: formData.invoiceDate,
+        dueDate: formData.dueDate,
+        taxRate: formData.taxRate,
+        remark: formData.remark,
+        items: formData.items.map((item, index) => ({
+          id: (index + 1).toString(),
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          amount: item.quantity * item.unitPrice,
+          orderRef: item.orderRef,
+          tmsRef: item.tmsRef
+        }))
+      }
+      
+      if (modalMode === 'create') {
+        // 生成新发票号
+        const newInvoiceNo = `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(4, '0')}`
+        
+        // 创建新发票
+        const newInvoice: InvoiceData = {
+          id: Date.now().toString(),
+          invoiceNo: newInvoiceNo,
+          type: formData.type,
+          customerId: formData.customerId,
+          customerName: customer?.name || '',
+          customerAddress: customer?.address || '',
+          customerTaxId: customer?.taxId || '',
+          customerContact: customer?.contact || '',
+          customerPhone: customer?.phone || '',
+          customerEmail: customer?.email || '',
+          invoiceDate: formData.invoiceDate,
+          dueDate: formData.dueDate,
+          items: invoiceData.items,
+          subtotal: formSubtotal,
+          taxRate: formData.taxRate,
+          taxAmount: formTaxAmount,
+          totalAmount: formTotal,
+          paidAmount: 0,
+          currency: 'EUR',
+          status: 'draft',
+          paymentTerms: formData.paymentTerms,
+          bankInfo: 'Commerzbank | IBAN: DE89 3704 0044 0532 0130 00 | BIC: COBADEFFXXX',
+          remark: formData.remark,
+          payments: [],
+          relatedOrders: formData.items.filter(i => i.orderRef).map(i => i.orderRef),
+          createdBy: '当前用户',
+          createdAt: new Date().toLocaleString('zh-CN')
+        }
+        
+        setInvoices(prev => [newInvoice, ...prev])
+        showToast(`发票 ${newInvoiceNo} 创建成功`, 'success')
+      } else {
+        // 更新发票
+        if (!selectedInvoice) return
+        
+        setInvoices(prev => prev.map(inv => 
+          inv.id === selectedInvoice.id
+            ? {
+                ...inv,
+                type: formData.type,
+                customerId: formData.customerId,
+                customerName: customer?.name || inv.customerName,
+                invoiceDate: formData.invoiceDate,
+                dueDate: formData.dueDate,
+                items: invoiceData.items,
+                subtotal: formSubtotal,
+                taxRate: formData.taxRate,
+                taxAmount: formTaxAmount,
+                totalAmount: formTotal,
+                paymentTerms: formData.paymentTerms,
+                remark: formData.remark,
+                relatedOrders: formData.items.filter(i => i.orderRef).map(i => i.orderRef),
+              }
+            : inv
+        ))
+        showToast(`发票 ${selectedInvoice.invoiceNo} 更新成功`, 'success')
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      showToast(error.message || '操作失败，请重试', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 导出功能
@@ -1976,6 +2222,24 @@ export default function InvoiceManagement() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}

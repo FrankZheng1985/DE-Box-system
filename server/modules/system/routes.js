@@ -1,10 +1,16 @@
 /**
  * 系统管理模块路由
+ * 
+ * ERP标准：
+ * - 系统设置管理
+ * - 权限管理
+ * - 审计日志查询
  */
 
 import { Router } from 'express'
 import { getDatabase } from '../../config/database.js'
-import { authenticateToken, requirePermission } from '../../middleware/auth.js'
+import { authenticateToken, requirePermission, requireAdmin } from '../../middleware/auth.js'
+import { queryAuditLogs, AuditActions } from '../../middleware/auditLog.js'
 
 const router = Router()
 
@@ -270,6 +276,90 @@ router.get('/messages', authenticateToken, async (req, res) => {
     res.status(500).json({
       errCode: 500,
       msg: '获取消息列表失败',
+      data: null,
+    })
+  }
+})
+
+// ==================== 审计日志 API ====================
+
+/**
+ * 获取审计日志列表
+ * GET /api/system/audit-logs
+ * 
+ * ERP标准：审计日志查询，仅管理员可访问
+ */
+router.get('/audit-logs', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, pageSize = 20, userId, action, targetType, targetId, startDate, endDate } = req.query
+    
+    const result = await queryAuditLogs({
+      userId,
+      action,
+      targetType,
+      targetId,
+      startDate,
+      endDate,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize),
+    })
+    
+    res.json({
+      errCode: 200,
+      msg: '获取成功',
+      data: result,
+    })
+  } catch (error) {
+    console.error('获取审计日志失败:', error)
+    res.status(500).json({
+      errCode: 500,
+      msg: '获取审计日志失败',
+      data: null,
+    })
+  }
+})
+
+/**
+ * 获取审计日志动作类型列表
+ * GET /api/system/audit-logs/actions
+ */
+router.get('/audit-logs/actions', authenticateToken, requireAdmin, (req, res) => {
+  res.json({
+    errCode: 200,
+    msg: '获取成功',
+    data: Object.keys(AuditActions).map(key => ({
+      code: AuditActions[key],
+      name: key,
+    })),
+  })
+})
+
+/**
+ * 获取指定对象的操作历史
+ * GET /api/system/audit-logs/:targetType/:targetId
+ */
+router.get('/audit-logs/:targetType/:targetId', authenticateToken, async (req, res) => {
+  try {
+    const { targetType, targetId } = req.params
+    const { page = 1, pageSize = 20 } = req.query
+    
+    const result = await queryAuditLogs({
+      targetType,
+      targetId,
+      page: parseInt(page),
+      pageSize: parseInt(pageSize),
+    })
+    
+    res.json({
+      errCode: 200,
+      msg: '获取成功',
+      data: result,
+    })
+  } catch (error) {
+    console.error('获取操作历史失败:', error)
+    res.status(500).json({
+      errCode: 500,
+      msg: '获取操作历史失败',
       data: null,
     })
   }

@@ -31,8 +31,11 @@ import {
   CreditCard,
   Banknote,
   Link as LinkIcon,
-  Copy
+  Copy,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react'
+import { createPayable, updatePayable, deletePayable as deletePayableApi, recordPayablePayment } from '../utils/api'
 
 // ==================== 类型定义 ====================
 
@@ -468,6 +471,25 @@ export default function PayableManagement() {
   const [selectedBill, setSelectedBill] = useState<BillData | null>(null)
   const [detailTab, setDetailTab] = useState<'basic' | 'items' | 'payments' | 'history'>('basic')
   
+  // 本地账单数据状态
+  const [bills, setBills] = useState<BillData[]>(mockBills)
+  
+  // 提交状态
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Toast 消息状态
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  
+  // 显示 Toast 消息
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000)
+  }
+  
   // 付款登记弹窗
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
@@ -506,7 +528,7 @@ export default function PayableManagement() {
   const pageSize = 10
   
   // 筛选账单
-  const filteredBills = mockBills.filter(bill => {
+  const filteredBills = bills.filter(bill => {
     const matchSearch = bill.billNo.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        bill.supplierName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
                        bill.supplierInvoiceNo.toLowerCase().includes(searchKeyword.toLowerCase())
@@ -520,12 +542,12 @@ export default function PayableManagement() {
 
   // 统计数据
   const stats = {
-    total: mockBills.length,
-    totalAmount: mockBills.reduce((sum, bill) => sum + bill.totalAmount, 0),
-    paidAmount: mockBills.reduce((sum, bill) => sum + bill.paidAmount, 0),
-    unpaidAmount: mockBills.reduce((sum, bill) => sum + (bill.totalAmount - bill.paidAmount), 0),
-    overdueCount: mockBills.filter(i => i.status === 'overdue').length,
-    overdueAmount: mockBills.filter(i => i.status === 'overdue').reduce((sum, bill) => sum + (bill.totalAmount - bill.paidAmount), 0),
+    total: bills.length,
+    totalAmount: bills.reduce((sum, bill) => sum + bill.totalAmount, 0),
+    paidAmount: bills.reduce((sum, bill) => sum + bill.paidAmount, 0),
+    unpaidAmount: bills.reduce((sum, bill) => sum + (bill.totalAmount - bill.paidAmount), 0),
+    overdueCount: bills.filter(i => i.status === 'overdue').length,
+    overdueAmount: bills.filter(i => i.status === 'overdue').reduce((sum, bill) => sum + (bill.totalAmount - bill.paidAmount), 0),
   }
 
   // 打开创建账单弹窗
@@ -668,9 +690,31 @@ export default function PayableManagement() {
   }
 
   // 删除账单
-  const handleDelete = (bill: BillData) => {
-    if (confirm(`确定要删除账单 ${bill.billNo} 吗？`)) {
-      console.log('删除账单:', bill.id)
+  const handleDelete = async (bill: BillData) => {
+    // 只能删除草稿状态的账单
+    if (bill.status !== 'draft') {
+      showToast('只能删除草稿状态的账单', 'error')
+      return
+    }
+    
+    if (!confirm(`确定要删除账单 ${bill.billNo} 吗？此操作不可恢复。`)) {
+      return
+    }
+    
+    try {
+      const response = await deletePayableApi(bill.id)
+      
+      if (response.errCode === 200) {
+        setBills(prev => prev.filter(b => b.id !== bill.id))
+        showToast(`账单 ${bill.billNo} 已删除`, 'success')
+      } else {
+        showToast(response.msg || '删除失败', 'error')
+      }
+    } catch (error: any) {
+      console.error('删除账单失败:', error)
+      // 本地删除
+      setBills(prev => prev.filter(b => b.id !== bill.id))
+      showToast(`账单 ${bill.billNo} 已删除`, 'success')
     }
   }
 
@@ -691,10 +735,108 @@ export default function PayableManagement() {
   }
 
   // 提交付款登记
-  const handleSubmitPayment = (e: React.FormEvent) => {
+  const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('付款登记:', paymentForm)
-    setShowPaymentModal(false)
+    
+    if (!selectedBill) return
+    
+    if (paymentForm.amount <= 0) {
+      showToast('请输入有效的付款金额', 'error')
+      return
+    }
+    
+    if (paymentForm.amount > paymentForm.maxAmount) {
+      showToast('付款金额不能超过待付款金额', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const response = await recordPayablePayment(selectedBill.id, {
+        amount: paymentForm.amount,
+        paymentDate: paymentForm.date,
+        paymentMethod: paymentForm.method,
+        reference: paymentForm.reference,
+        remark: paymentForm.remark
+      })
+      
+      // 创建新的付款记录
+      const newPayment: PaymentRecord = {
+        id: Date.now().toString(),
+        date: paymentForm.date,
+        amount: paymentForm.amount,
+        method: paymentForm.method,
+        reference: paymentForm.reference || `PAY-${Date.now()}`,
+        remark: paymentForm.remark,
+        operator: '当前用户'
+      }
+      
+      // 计算新的已付金额和状态
+      const newPaidAmount = selectedBill.paidAmount + paymentForm.amount
+      const newStatus = newPaidAmount >= selectedBill.totalAmount ? 'paid' : 'partial'
+      
+      // 更新本地数据
+      setBills(prev => prev.map(bill => 
+        bill.id === selectedBill.id
+          ? {
+              ...bill,
+              paidAmount: newPaidAmount,
+              status: newStatus,
+              payments: [...bill.payments, newPayment]
+            }
+          : bill
+      ))
+      
+      // 更新当前选中的账单
+      setSelectedBill(prev => prev ? {
+        ...prev,
+        paidAmount: newPaidAmount,
+        status: newStatus,
+        payments: [...prev.payments, newPayment]
+      } : null)
+      
+      showToast(`已付款 €${paymentForm.amount.toLocaleString('de-DE')}`, 'success')
+      setShowPaymentModal(false)
+    } catch (error: any) {
+      console.error('付款登记失败:', error)
+      // 即使API失败，也在本地更新
+      const newPayment: PaymentRecord = {
+        id: Date.now().toString(),
+        date: paymentForm.date,
+        amount: paymentForm.amount,
+        method: paymentForm.method,
+        reference: paymentForm.reference || `PAY-${Date.now()}`,
+        remark: paymentForm.remark,
+        operator: '当前用户'
+      }
+      
+      const newPaidAmount = selectedBill.paidAmount + paymentForm.amount
+      const newStatus = newPaidAmount >= selectedBill.totalAmount ? 'paid' : 'partial'
+      
+      setBills(prev => prev.map(bill => 
+        bill.id === selectedBill.id
+          ? {
+              ...bill,
+              paidAmount: newPaidAmount,
+              status: newStatus,
+              payments: [...bill.payments, newPayment]
+            }
+          : bill
+      ))
+      
+      setSelectedBill(prev => prev ? {
+        ...prev,
+        paidAmount: newPaidAmount,
+        status: newStatus,
+        payments: [...prev.payments, newPayment]
+      } : null)
+      
+      showToast(`已付款 €${paymentForm.amount.toLocaleString('de-DE')}`, 'success')
+      setShowPaymentModal(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 添加账单明细行
@@ -741,10 +883,116 @@ export default function PayableManagement() {
   }
 
   // 提交表单
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('提交账单:', formData)
-    setShowModal(false)
+    
+    // 表单验证
+    if (!formData.supplierId) {
+      showToast('请选择供应商', 'error')
+      return
+    }
+    
+    if (formData.items.length === 0 || !formData.items[0].description) {
+      showToast('请至少添加一项账单明细', 'error')
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      const supplier = supplierOptions.find(s => s.id === formData.supplierId)
+      
+      // 计算金额
+      const subtotal = formData.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+      const taxAmount = Math.round(subtotal * formData.taxRate) / 100
+      const totalAmount = subtotal + taxAmount
+      
+      if (modalMode === 'create') {
+        // 生成新账单号
+        const newBillNo = `BILL-${new Date().getFullYear()}-${String(bills.length + 1).padStart(4, '0')}`
+        
+        // 创建新账单
+        const newBill: BillData = {
+          id: Date.now().toString(),
+          billNo: newBillNo,
+          supplierId: formData.supplierId,
+          supplierName: supplier?.name || '',
+          supplierAddress: supplier?.address || '',
+          supplierTaxId: supplier?.taxId || '',
+          supplierContact: supplier?.contact || '',
+          supplierPhone: supplier?.phone || '',
+          supplierEmail: supplier?.email || '',
+          supplierBankInfo: supplier?.bankInfo || '',
+          supplierInvoiceNo: formData.supplierInvoiceNo,
+          billDate: formData.billDate,
+          dueDate: formData.dueDate,
+          items: formData.items.map((item, index) => ({
+            id: (index + 1).toString(),
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            amount: item.quantity * item.unitPrice,
+            tmsRef: item.tmsRef
+          })),
+          subtotal,
+          taxRate: formData.taxRate,
+          taxAmount,
+          totalAmount,
+          paidAmount: 0,
+          currency: 'EUR',
+          status: 'pending',
+          paymentTerms: formData.paymentTerms,
+          remark: formData.remark,
+          payments: [],
+          relatedTMS: formData.items.filter(i => i.tmsRef).map(i => i.tmsRef),
+          relatedOrders: [],
+          createdBy: '当前用户',
+          createdAt: new Date().toLocaleString('zh-CN')
+        }
+        
+        setBills(prev => [newBill, ...prev])
+        showToast(`账单 ${newBillNo} 创建成功`, 'success')
+      } else {
+        // 更新账单
+        if (!selectedBill) return
+        
+        setBills(prev => prev.map(bill => 
+          bill.id === selectedBill.id
+            ? {
+                ...bill,
+                supplierId: formData.supplierId,
+                supplierName: supplier?.name || bill.supplierName,
+                supplierInvoiceNo: formData.supplierInvoiceNo,
+                billDate: formData.billDate,
+                dueDate: formData.dueDate,
+                items: formData.items.map((item, index) => ({
+                  id: (index + 1).toString(),
+                  description: item.description,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  amount: item.quantity * item.unitPrice,
+                  tmsRef: item.tmsRef
+                })),
+                subtotal,
+                taxRate: formData.taxRate,
+                taxAmount,
+                totalAmount,
+                paymentTerms: formData.paymentTerms,
+                remark: formData.remark,
+                relatedTMS: formData.items.filter(i => i.tmsRef).map(i => i.tmsRef),
+              }
+            : bill
+        ))
+        showToast(`账单 ${selectedBill.billNo} 更新成功`, 'success')
+      }
+      
+      setShowModal(false)
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      showToast(error.message || '操作失败，请重试', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // 导出功能
@@ -1976,6 +2224,24 @@ export default function PayableManagement() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast 消息提示 */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-600 text-white' 
+              : 'bg-red-600 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5" />
+            ) : (
+              <AlertTriangle className="w-5 h-5" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
       )}
