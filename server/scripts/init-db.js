@@ -31,25 +31,21 @@ async function initDatabase() {
       console.log(`📄 执行迁移: ${file}`)
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
       
-      // 分割SQL语句并执行
-      const statements = sql
-        .split(';')
-        .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--'))
-      
-      for (const statement of statements) {
-        try {
-          await query(statement)
-        } catch (error) {
-          // 忽略"已存在"类型的错误
-          if (!error.message.includes('already exists') && 
-              !error.message.includes('duplicate key')) {
-            console.warn(`  ⚠️ ${error.message}`)
-          }
+      try {
+        // 直接执行整个SQL文件的内容，不再手动分割，
+        // 这样可以支持 DO $$ 块、函数和触发器
+        await query(sql)
+        console.log(`  ✅ ${file} 完成`)
+      } catch (error) {
+        // 忽略"已存在"类型的警告，但在生产环境建议详细记录
+        if (error.message.includes('already exists') || 
+            error.message.includes('duplicate key')) {
+          console.log(`  ℹ️  ${file} 部分对象已存在，跳过。`)
+        } else {
+          console.error(`  ❌ 执行 ${file} 失败: ${error.message}`)
+          throw error // 抛出错误以停止初始化过程
         }
       }
-      
-      console.log(`  ✅ ${file} 完成`)
     }
     
     console.log('✅ 数据库初始化完成!')
