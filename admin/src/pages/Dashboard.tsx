@@ -1,12 +1,12 @@
 import { 
   Package, 
   Truck, 
-  Users, 
-  Building2, 
   Wallet, 
   TrendingUp,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Anchor,
+  FileCheck
 } from 'lucide-react'
 
 interface StatCard {
@@ -36,19 +36,19 @@ const stats: StatCard[] = [
     color: 'bg-green-500'
   },
   {
-    title: '活跃客户',
-    value: '256',
-    change: '+5%',
+    title: '近期到港订单',
+    value: '18',
+    change: '+3',
     trend: 'up',
-    icon: Users,
+    icon: Anchor,
     color: 'bg-purple-500'
   },
   {
-    title: '供应商',
-    value: '32',
-    change: '+2',
+    title: '需放单订单',
+    value: '12',
+    change: '+5',
     trend: 'up',
-    icon: Building2,
+    icon: FileCheck,
     color: 'bg-orange-500'
   },
   {
@@ -111,16 +111,22 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">最近订单</h2>
           <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((item) => (
-              <div key={item} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+            {[
+              { id: 1, amount: '1,250.00', customer: '德国物流有限公司', status: '已完成', statusColor: 'bg-green-100 text-green-800' },
+              { id: 2, amount: '890.50', customer: '欧洲快递服务', status: '运输中', statusColor: 'bg-blue-100 text-blue-800' },
+              { id: 3, amount: '2,100.00', customer: '柏林贸易公司', status: '待处理', statusColor: 'bg-yellow-100 text-yellow-800' },
+              { id: 4, amount: '560.75', customer: '慕尼黑电子商务', status: '草稿', statusColor: 'bg-gray-100 text-gray-800' },
+              { id: 5, amount: '3,200.00', customer: '法兰克福进出口', status: '已完成', statusColor: 'bg-green-100 text-green-800' },
+            ].map((order) => (
+              <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
-                  <p className="font-medium text-gray-900">ORD-2024-{String(item).padStart(4, '0')}</p>
-                  <p className="text-sm text-gray-500">客户 {item}</p>
+                  <p className="font-medium text-gray-900">ORD-2024-{String(order.id).padStart(4, '0')}</p>
+                  <p className="text-sm text-gray-500">{order.customer}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-medium text-gray-900">€{(Math.random() * 1000).toFixed(2)}</p>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                    已完成
+                  <p className="font-medium text-gray-900">€{order.amount}</p>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${order.statusColor}`}>
+                    {order.status}
                   </span>
                 </div>
               </div>

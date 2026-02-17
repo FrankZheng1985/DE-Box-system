@@ -304,12 +304,66 @@ const mockBills: BillData[] = [
 
 // 供应商列表（用于下拉选择）
 const supplierOptions = [
-  { id: 'S001', name: 'DHL物流服务', taxId: 'DE119246592', bankInfo: 'Deutsche Bank | IBAN: DE89 3704 0044 0123 4567 00' },
-  { id: 'S002', name: 'UPS快递服务', taxId: 'DE812581628', bankInfo: 'Commerzbank | IBAN: DE89 3704 0044 0987 6543 00' },
-  { id: 'S003', name: 'FedEx国际快递', taxId: 'DE113850988', bankInfo: 'Deutsche Bank | IBAN: DE89 3704 0044 0555 6666 00' },
-  { id: 'S004', name: '德铁物流', taxId: 'DE811569869', bankInfo: 'Sparkasse | IBAN: DE89 1005 0000 0123 4567 00' },
-  { id: 'S005', name: '马士基航运', taxId: 'DK17320744', bankInfo: 'Nordea Bank | IBAN: DK50 2000 0123 4567 89' },
-  { id: 'S006', name: '欧洲仓储服务', taxId: 'DE256789123', bankInfo: 'Volksbank | IBAN: DE89 3706 0193 0012 3456 78' },
+  { 
+    id: 'S001', 
+    name: 'DHL物流服务', 
+    taxId: 'DE119246592', 
+    bankInfo: 'Deutsche Bank | IBAN: DE89 3704 0044 0123 4567 00',
+    address: 'DHL-Straße 1, 53113 Bonn, Germany',
+    contact: 'Michael Schmidt',
+    phone: '+49 228 123456',
+    email: 'accounting@dhl.de'
+  },
+  { 
+    id: 'S002', 
+    name: 'UPS快递服务', 
+    taxId: 'DE812581628', 
+    bankInfo: 'Commerzbank | IBAN: DE89 3704 0044 0987 6543 00',
+    address: 'UPS-Str. 50, 40721 Hilden, Germany',
+    contact: 'Thomas Weber',
+    phone: '+49 2103 123456',
+    email: 'billing@ups.de'
+  },
+  { 
+    id: 'S003', 
+    name: 'FedEx国际快递', 
+    taxId: 'DE113850988', 
+    bankInfo: 'Deutsche Bank | IBAN: DE89 3704 0044 0555 6666 00',
+    address: 'FedEx Tower, Frankfurt Airport, 60549 Frankfurt',
+    contact: 'Anna Müller',
+    phone: '+49 69 123456',
+    email: 'ap@fedex.de'
+  },
+  { 
+    id: 'S004', 
+    name: '德铁物流', 
+    taxId: 'DE811569869', 
+    bankInfo: 'Sparkasse | IBAN: DE89 1005 0000 0123 4567 00',
+    address: 'Potsdamer Platz 2, 10785 Berlin',
+    contact: 'Klaus Richter',
+    phone: '+49 30 297 0',
+    email: 'freight@dbschenker.com'
+  },
+  { 
+    id: 'S005', 
+    name: '马士基航运', 
+    taxId: 'DK17320744', 
+    bankInfo: 'Nordea Bank | IBAN: DK50 2000 0123 4567 89',
+    address: 'Esplanaden 50, 1098 Copenhagen K, Denmark',
+    contact: 'Erik Hansen',
+    phone: '+45 3363 3363',
+    email: 'billing@maersk.com'
+  },
+  { 
+    id: 'S006', 
+    name: '欧洲仓储服务', 
+    taxId: 'DE256789123', 
+    bankInfo: 'Volksbank | IBAN: DE89 3706 0193 0012 3456 78',
+    address: 'Industriestraße 100, 50679 Köln',
+    contact: 'Peter Braun',
+    phone: '+49 221 555666',
+    email: 'invoice@euro-warehouse.de'
+  },
 ]
 
 // 待结算的TMS运输单数据（供应商成本）
@@ -691,9 +745,9 @@ export default function PayableManagement() {
 
   // 删除账单
   const handleDelete = async (bill: BillData) => {
-    // 只能删除草稿状态的账单
-    if (bill.status !== 'draft') {
-      showToast('只能删除草稿状态的账单', 'error')
+    // 只能删除草稿或待付款状态的账单
+    if (bill.status !== 'draft' && bill.status !== 'pending') {
+      showToast('只能删除草稿或待付款状态的账单', 'error')
       return
     }
     

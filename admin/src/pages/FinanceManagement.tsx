@@ -30,7 +30,7 @@ import {
   Percent,
   CalendarDays
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 // ==================== 模拟数据 ====================
 
@@ -108,9 +108,43 @@ const topReceivableCustomers = [
 
 export default function FinanceManagement() {
   const [dateRange, setDateRange] = useState('month')
+  const navigate = useNavigate()
 
   // 计算最大收入用于图表缩放
   const maxValue = Math.max(...monthlyTrend.map(m => Math.max(m.income, m.expense)))
+
+  // 导出财务报表
+  const handleExportReport = () => {
+    const headers = ['月份', '收入', '支出', '利润']
+    const rows = monthlyTrend.map(m => [
+      m.month,
+      m.income,
+      m.expense,
+      m.income - m.expense
+    ])
+    
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `财务报表_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // 处理紧急事项
+  const handlePendingItem = (item: typeof pendingItems[0]) => {
+    if (item.type === 'receivable') {
+      navigate('/finance/invoices')
+    } else if (item.type === 'payable') {
+      navigate('/finance/payables')
+    } else if (item.type === 'reconciliation') {
+      navigate('/finance/reconciliation')
+    } else if (item.type === 'invoice') {
+      navigate('/finance/invoices')
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -131,14 +165,14 @@ export default function FinanceManagement() {
             <option value="quarter">本季度</option>
             <option value="year">本年度</option>
           </select>
-          <button className="btn btn-md btn-secondary">
+          <button onClick={handleExportReport} className="btn btn-md btn-secondary">
             <Download className="w-4 h-4" />
             导出报表
           </button>
-          <button className="btn btn-md btn-primary">
+          <Link to="/finance/invoices" className="btn btn-md btn-primary">
             <FileText className="w-4 h-4" />
             财务报告
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -271,13 +305,13 @@ export default function FinanceManagement() {
             </div>
             <span className="mt-2 text-xs text-gray-600 group-hover:text-teal-600">供应商账务</span>
           </Link>
-          <Link to="/finance" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all group">
+          <Link to="/finance/invoices" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all group">
             <div className="p-2 bg-cyan-100 rounded-lg group-hover:bg-cyan-200 transition-colors">
               <BarChart3 className="w-5 h-5 text-cyan-600" />
             </div>
             <span className="mt-2 text-xs text-gray-600 group-hover:text-cyan-600">财务分析</span>
           </Link>
-          <Link to="/finance" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-all group">
+          <Link to="/finance/reconciliation" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-all group">
             <div className="p-2 bg-rose-100 rounded-lg group-hover:bg-rose-200 transition-colors">
               <CalendarDays className="w-5 h-5 text-rose-600" />
             </div>
@@ -305,7 +339,10 @@ export default function FinanceManagement() {
                   <span className="text-sm font-bold text-red-600">€{item.amount.toLocaleString('de-DE')}</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">{item.description}</p>
-                <button className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                <button 
+                  onClick={() => handlePendingItem(item)}
+                  className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
                   立即处理 →
                 </button>
               </div>
@@ -497,11 +534,14 @@ export default function FinanceManagement() {
             最近交易记录
           </h2>
           <div className="flex items-center gap-2">
-            <button className="btn btn-sm btn-secondary">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="btn btn-sm btn-secondary"
+            >
               <RefreshCw className="w-4 h-4" />
               刷新
             </button>
-            <button className="text-sm text-blue-600 hover:text-blue-700">查看全部</button>
+            <Link to="/finance/invoices" className="text-sm text-blue-600 hover:text-blue-700">查看全部</Link>
           </div>
         </div>
         <div className="overflow-x-auto">

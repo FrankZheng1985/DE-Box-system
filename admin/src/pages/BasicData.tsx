@@ -17,7 +17,9 @@ import {
   RefreshCw,
   Loader2,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  FileCheck,
+  Ship
 } from 'lucide-react'
 
 // 数据类型分类
@@ -27,6 +29,8 @@ const dataCategories = [
   { id: 'carrier', label: '承运商类型', icon: Truck, count: 6 },
   { id: 'service', label: '服务类型', icon: Tag, count: 15 },
   { id: 'zone', label: '运输分区', icon: MapPin, count: 24 },
+  { id: 'releaseCompany', label: '放单服务公司', icon: FileCheck, count: 3 },
+  { id: 'deliveryProvider', label: '运输服务商', icon: Ship, count: 3 },
 ]
 
 // 模拟基础数据
@@ -66,6 +70,16 @@ const mockBasicData: Record<string, Array<{ id: string; code: string; name: stri
     { id: '3', code: 'ZONE-3', name: '三区', description: '欧盟邻国', sortOrder: 3, status: 'active' },
     { id: '4', code: 'ZONE-4', name: '四区', description: '欧盟其他国家', sortOrder: 4, status: 'active' },
     { id: '5', code: 'ZONE-5', name: '五区', description: '欧洲非欧盟国家', sortOrder: 5, status: 'active' },
+  ],
+  releaseCompany: [
+    { id: 'rsc-001', code: 'EURORELEASE', name: 'Euro Release GmbH', description: 'Hafenstraße 123, 20457 Hamburg | +49-40-12345678', sortOrder: 1, status: 'active' },
+    { id: 'rsc-002', code: 'PORTSERVICE', name: 'Port Service Hamburg', description: 'Am Sandtorkai 50, 20457 Hamburg | +49-40-87654321', sortOrder: 2, status: 'active' },
+    { id: 'rsc-003', code: 'GERMANDOCS', name: 'German Docs Logistics', description: 'Speicherstadt 10, 20457 Hamburg | +49-40-11223344', sortOrder: 3, status: 'active' },
+  ],
+  deliveryProvider: [
+    { id: 'dsp-001', code: 'GERMANTRANS', name: 'German Trans GmbH', description: '德国全境 | Industriestraße 45, Hamburg | +49-40-55667788', sortOrder: 1, status: 'active' },
+    { id: 'dsp-002', code: 'EUROLOGISTICS', name: 'Euro Logistics Express', description: '德国、荷兰、比利时 | Europastraße 100, Bremen | +49-421-99887766', sortOrder: 2, status: 'active' },
+    { id: 'dsp-003', code: 'BERLINFREIGHT', name: 'Berlin Freight Services', description: '柏林及周边地区 | Berliner Ring 200, Berlin | +49-30-44556677', sortOrder: 3, status: 'active' },
   ],
 }
 

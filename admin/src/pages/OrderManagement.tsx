@@ -72,6 +72,62 @@ const containerTypes = [
   { code: '20TK', name: "20' 罐箱", teu: 1 },
 ]
 
+// 业务类型配置
+type BusinessType = 'release' | 'transport' | 'both'
+type ReleaseStatus = 'pending' | 'released' | 'not_required'
+// 船司放单状态
+type CarrierReleaseStatus = 'not_required' | 'pending_mail' | 'mailed' | 'pending_release' | 'released'
+// 清关状态
+type CustomsClearanceStatus = 'pending' | 'cleared'
+// 派送状态
+type DeliveryStatus = 'waiting' | 'fleet_confirmed' | 'in_transit' | 'completed' | 'abnormal' | 'cmr_received'
+// 货物类型
+type CargoType = 'general' | 'dangerous' | 'temperature_controlled'
+
+const businessTypeMap: Record<BusinessType, { label: string; color: string }> = {
+  release: { label: '放单服务', color: 'bg-blue-100 text-blue-700' },
+  transport: { label: '运输服务', color: 'bg-green-100 text-green-700' },
+  both: { label: '放单+运输', color: 'bg-purple-100 text-purple-700' }
+}
+
+const releaseStatusMap: Record<ReleaseStatus, { label: string; color: string }> = {
+  pending: { label: '待放单', color: 'bg-orange-100 text-orange-700' },
+  released: { label: '已放单', color: 'bg-green-100 text-green-700' },
+  not_required: { label: '-', color: 'bg-gray-100 text-gray-500' }
+}
+
+// 船司放单状态标签
+const carrierReleaseStatusMap: Record<CarrierReleaseStatus, { label: string; color: string }> = {
+  not_required: { label: '否', color: 'bg-gray-100 text-gray-500' },
+  pending_mail: { label: '正本待邮寄', color: 'bg-orange-100 text-orange-700' },
+  mailed: { label: '正本已邮寄', color: 'bg-blue-100 text-blue-700' },
+  pending_release: { label: '待放行', color: 'bg-yellow-100 text-yellow-700' },
+  released: { label: '船司放行', color: 'bg-green-100 text-green-700' }
+}
+
+// 清关状态标签
+const customsClearanceStatusMap: Record<CustomsClearanceStatus, { label: string; color: string }> = {
+  pending: { label: '待清关', color: 'bg-yellow-100 text-yellow-700' },
+  cleared: { label: '已放行', color: 'bg-green-100 text-green-700' }
+}
+
+// 派送状态标签
+const deliveryStatusMap: Record<DeliveryStatus, { label: string; color: string }> = {
+  waiting: { label: '等待安排', color: 'bg-gray-100 text-gray-600' },
+  fleet_confirmed: { label: '车队已确认', color: 'bg-blue-100 text-blue-700' },
+  in_transit: { label: '运输中', color: 'bg-blue-100 text-blue-700' },
+  completed: { label: '完成', color: 'bg-green-100 text-green-700' },
+  abnormal: { label: '状态异常', color: 'bg-red-100 text-red-700' },
+  cmr_received: { label: 'CMR已回传', color: 'bg-green-100 text-green-700' }
+}
+
+// 货物类型标签
+const cargoTypeMap: Record<CargoType, { label: string; color: string }> = {
+  general: { label: '普货', color: 'text-gray-600' },
+  dangerous: { label: '危险品', color: 'text-red-600' },
+  temperature_controlled: { label: '温控', color: 'text-blue-600' }
+}
+
 // 扩展的模拟订单数据 - 符合欧洲运输标准
 const mockOrders = [
   { 
@@ -108,7 +164,15 @@ const mockOrders = [
     // 集装箱信息
     containers: [
       { containerNo: 'CSLU2185476', type: '40HC', sealNo: 'CN2024001', vgm: 28500 }
-    ]
+    ],
+    // 业务类型
+    businessType: 'both' as BusinessType,
+    releaseStatus: 'released' as ReleaseStatus,
+    // 新增状态字段
+    carrierReleaseStatus: 'released' as CarrierReleaseStatus,
+    customsClearanceStatus: 'cleared' as CustomsClearanceStatus,
+    deliveryStatus: 'completed' as DeliveryStatus,
+    warehouseAddress: 'Hamburg, Hafenstraße 123'
   },
   { 
     id: '2', 
@@ -140,7 +204,15 @@ const mockOrders = [
     voyageNo: '',
     blNumber: '',
     bookingNo: '',
-    containers: []
+    containers: [],
+    // 业务类型
+    businessType: 'transport' as BusinessType,
+    releaseStatus: 'not_required' as ReleaseStatus,
+    // 新增状态字段
+    carrierReleaseStatus: 'not_required' as CarrierReleaseStatus,
+    customsClearanceStatus: 'cleared' as CustomsClearanceStatus,
+    deliveryStatus: 'in_transit' as DeliveryStatus,
+    warehouseAddress: 'Frankfurt, Logistikpark 88'
   },
   { 
     id: '3', 
@@ -158,7 +230,7 @@ const mockOrders = [
     origin: { port: '义乌', country: 'CN' },
     destination: { port: 'Berlin', country: 'DE' },
     etd: '2024-01-25',
-    eta: '2024-02-10',
+    eta: '2024-02-22',
     packages: 50,
     grossWeight: 3500,
     volume: 25,
@@ -170,11 +242,18 @@ const mockOrders = [
     shippingLine: '',
     vesselName: '',
     voyageNo: '',
-    blNumber: '',
+    blNumber: 'RAIL2024001BL',
     bookingNo: '',
     containers: [
       { containerNo: 'TEMU8876543', type: '40HC', sealNo: 'RAIL2024001', vgm: 26800 }
-    ]
+    ],
+    // 业务类型 - 近期到港 + 需放单
+    businessType: 'both' as BusinessType,
+    releaseStatus: 'pending' as ReleaseStatus,
+    carrierReleaseStatus: 'pending_release' as CarrierReleaseStatus,
+    customsClearanceStatus: 'pending' as CustomsClearanceStatus,
+    deliveryStatus: 'waiting' as DeliveryStatus,
+    warehouseAddress: 'Berlin, Industriestr. 200'
   },
   { 
     id: '4', 
@@ -206,7 +285,14 @@ const mockOrders = [
     voyageNo: '',
     blNumber: '',
     bookingNo: '',
-    containers: []
+    containers: [],
+    // 业务类型
+    businessType: 'release' as BusinessType,
+    releaseStatus: 'pending' as ReleaseStatus,
+    carrierReleaseStatus: 'pending_mail' as CarrierReleaseStatus,
+    customsClearanceStatus: 'pending' as CustomsClearanceStatus,
+    deliveryStatus: 'waiting' as DeliveryStatus,
+    warehouseAddress: 'Munich, Frachtweg 45'
   },
   { 
     id: '5', 
@@ -241,7 +327,14 @@ const mockOrders = [
     containers: [
       { containerNo: 'MSKU9876543', type: '40HC', sealNo: 'NB2024005A', vgm: 27200 },
       { containerNo: 'MSKU9876544', type: '40HC', sealNo: 'NB2024005B', vgm: 28100 }
-    ]
+    ],
+    // 业务类型
+    businessType: 'both' as BusinessType,
+    releaseStatus: 'released' as ReleaseStatus,
+    carrierReleaseStatus: 'released' as CarrierReleaseStatus,
+    customsClearanceStatus: 'cleared' as CustomsClearanceStatus,
+    deliveryStatus: 'cmr_received' as DeliveryStatus,
+    warehouseAddress: 'Rotterdam, Port Terminal 8'
   },
   { 
     id: '6', 
@@ -259,7 +352,7 @@ const mockOrders = [
     origin: { port: '青岛', country: 'CN' },
     destination: { port: 'Hamburg', country: 'DE' },
     etd: '2024-01-10',
-    eta: '2024-02-05',
+    eta: '2024-02-20',
     packages: 35,
     grossWeight: 2800,
     volume: 18,
@@ -275,7 +368,14 @@ const mockOrders = [
     bookingNo: 'BK2024011000789',
     containers: [
       { containerNo: 'HLXU7654321', type: '20GP', sealNo: 'QD2024006', vgm: 18500 }
-    ]
+    ],
+    // 业务类型 - 近期到港 + 需放单
+    businessType: 'release' as BusinessType,
+    releaseStatus: 'pending' as ReleaseStatus,
+    carrierReleaseStatus: 'mailed' as CarrierReleaseStatus,
+    customsClearanceStatus: 'pending' as CustomsClearanceStatus,
+    deliveryStatus: 'fleet_confirmed' as DeliveryStatus,
+    warehouseAddress: 'Hamburg, Logistikzentrum 5'
   },
   { 
     id: '7', 
@@ -309,7 +409,14 @@ const mockOrders = [
     bookingNo: '',
     containers: [
       { containerNo: 'HLXU7654321', type: '40RF', sealNo: 'HH2024007', vgm: 15200 }
-    ]
+    ],
+    // 业务类型 - 仅运输
+    businessType: 'transport' as BusinessType,
+    releaseStatus: 'not_required' as ReleaseStatus,
+    carrierReleaseStatus: 'not_required' as CarrierReleaseStatus,
+    customsClearanceStatus: 'cleared' as CustomsClearanceStatus,
+    deliveryStatus: 'abnormal' as DeliveryStatus,
+    warehouseAddress: 'Cologne, Lagerhaus 22'
   },
   { 
     id: '8', 
@@ -327,7 +434,7 @@ const mockOrders = [
     origin: { port: '天津', country: 'CN' },
     destination: { port: 'Düsseldorf', country: 'DE' },
     etd: '2024-01-20',
-    eta: '2024-02-18',
+    eta: '2024-02-21',
     packages: 40,
     grossWeight: 2200,
     volume: 15,
@@ -343,7 +450,14 @@ const mockOrders = [
     bookingNo: 'BK2024012000321',
     containers: [
       { containerNo: 'CMAU5432167', type: '40HC', sealNo: 'TJ2024008', vgm: 25600 }
-    ]
+    ],
+    // 业务类型 - 近期到港 + 需放单
+    businessType: 'both' as BusinessType,
+    releaseStatus: 'pending' as ReleaseStatus,
+    carrierReleaseStatus: 'pending_release' as CarrierReleaseStatus,
+    customsClearanceStatus: 'pending' as CustomsClearanceStatus,
+    deliveryStatus: 'waiting' as DeliveryStatus,
+    warehouseAddress: 'Düsseldorf, Logistikpark 15'
   },
 ]
 
@@ -477,6 +591,10 @@ interface OrderFormData {
   customerName: string
   customerRef: string
   
+  // 业务类型
+  businessType: BusinessType
+  releaseStatus: ReleaseStatus
+  
   // 运输方式 & 路线
   transportMode: 'air' | 'sea' | 'road' | 'rail' | 'multimodal'
   incoterms: string
@@ -539,6 +657,10 @@ const initialFormData: OrderFormData = {
   customerName: '',
   customerRef: '',
   
+  // 业务类型
+  businessType: 'both',
+  releaseStatus: 'pending',
+  
   // 运输方式 & 路线
   transportMode: 'sea',
   incoterms: 'DDP',
@@ -600,6 +722,9 @@ export default function OrderManagement() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [transportFilter, setTransportFilter] = useState('all')
+  const [businessTypeFilter, setBusinessTypeFilter] = useState('all')
+  const [releaseStatusFilter, setReleaseStatusFilter] = useState('all')
+  const [carrierReleaseStatusFilter, setCarrierReleaseStatusFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create')
@@ -618,6 +743,16 @@ export default function OrderManagement() {
   const [voidReason, setVoidReason] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  
+  // 船司放单操作弹窗状态
+  const [showCarrierReleaseModal, setShowCarrierReleaseModal] = useState(false)
+  const [carrierReleaseOrder, setCarrierReleaseOrder] = useState<typeof mockOrders[0] | null>(null)
+  const [carrierReleaseForm, setCarrierReleaseForm] = useState({
+    status: '' as CarrierReleaseStatus | '',
+    mailAddress: '',
+    releaseValidUntil: '',
+    serviceCompanyId: ''
+  })
   
   // Toast 消息状态
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
@@ -643,7 +778,10 @@ export default function OrderManagement() {
                        order.destination.port.toLowerCase().includes(searchKeyword.toLowerCase())
     const matchStatus = statusFilter === 'all' || order.status === statusFilter
     const matchTransport = transportFilter === 'all' || order.transportMode === transportFilter
-    return matchSearch && matchStatus && matchTransport
+    const matchBusinessType = businessTypeFilter === 'all' || order.businessType === businessTypeFilter
+    const matchReleaseStatus = releaseStatusFilter === 'all' || order.releaseStatus === releaseStatusFilter
+    const matchCarrierReleaseStatus = carrierReleaseStatusFilter === 'all' || order.carrierReleaseStatus === carrierReleaseStatusFilter
+    return matchSearch && matchStatus && matchTransport && matchBusinessType && matchReleaseStatus && matchCarrierReleaseStatus
   })
   
   const totalPages = Math.ceil(filteredOrders.length / pageSize)
@@ -851,6 +989,9 @@ export default function OrderManagement() {
         currency: formData.currency,
         totalAmount: parseFloat(formData.totalAmount) || 0,
         remark: formData.remarks || undefined,
+        // 业务类型
+        businessType: formData.businessType,
+        releaseStatus: formData.releaseStatus,
         // 根据运输方式添加特定信息
         ...(formData.transportMode === 'sea' || formData.transportMode === 'multimodal' ? {
           shippingLine: formData.shippingLine || undefined,
@@ -918,6 +1059,8 @@ export default function OrderManagement() {
             volume: parseFloat(formData.volume) || 0,
             isDangerous: formData.isDangerous,
             requiresTemperatureControl: formData.requiresTemperatureControl,
+            businessType: formData.businessType,
+            releaseStatus: formData.releaseStatus,
             customsClearance: 'destination',
             shipperCompany: '',
             consigneeCompany: formData.customerName,
@@ -974,6 +1117,8 @@ export default function OrderManagement() {
                   volume: parseFloat(formData.volume) || 0,
                   isDangerous: formData.isDangerous,
                   requiresTemperatureControl: formData.requiresTemperatureControl,
+                  businessType: formData.businessType,
+                  releaseStatus: formData.releaseStatus,
                   shippingLine: formData.shippingLine,
                   vesselName: formData.vesselName,
                   voyageNo: formData.voyageNo,
@@ -1050,6 +1195,72 @@ export default function OrderManagement() {
       setFormData({ ...formData, containers: newContainers })
     }
   }
+  
+  // 打开船司放单操作弹窗
+  const openCarrierReleaseModal = (order: typeof mockOrders[0]) => {
+    setCarrierReleaseOrder(order)
+    setCarrierReleaseForm({
+      status: order.carrierReleaseStatus as CarrierReleaseStatus,
+      mailAddress: '',
+      releaseValidUntil: '',
+      serviceCompanyId: ''
+    })
+    setShowCarrierReleaseModal(true)
+  }
+  
+  // 更新船司放单状态
+  const handleUpdateCarrierReleaseStatus = () => {
+    if (!carrierReleaseOrder || !carrierReleaseForm.status) return
+    
+    // 验证状态流转
+    const currentStatus = carrierReleaseOrder.carrierReleaseStatus
+    const newStatus = carrierReleaseForm.status
+    
+    // 正本邮寄需要填写地址
+    if (newStatus === 'mailed' && !carrierReleaseForm.mailAddress) {
+      showToast('请填写邮寄地址', 'error')
+      return
+    }
+    
+    // 放行需要填写有效期
+    if (newStatus === 'released' && !carrierReleaseForm.releaseValidUntil) {
+      showToast('请填写放行有效期', 'error')
+      return
+    }
+    
+    // 更新订单
+    setOrders(prev => prev.map(o => 
+      o.id === carrierReleaseOrder.id 
+        ? { 
+            ...o, 
+            carrierReleaseStatus: newStatus,
+            // 可以添加更多字段如 mailAddress, releaseValidUntil 等
+          } 
+        : o
+    ))
+    
+    showToast(`船司放单状态已更新为：${carrierReleaseStatusMap[newStatus].label}`, 'success')
+    setShowCarrierReleaseModal(false)
+    setCarrierReleaseOrder(null)
+  }
+  
+  // 获取可选的下一个状态
+  const getNextCarrierReleaseStatuses = (currentStatus: CarrierReleaseStatus): CarrierReleaseStatus[] => {
+    switch (currentStatus) {
+      case 'pending_mail':
+        return ['mailed']
+      case 'mailed':
+        return ['pending_release']
+      case 'pending_release':
+        return ['released']
+      case 'released':
+        return [] // 终态
+      case 'not_required':
+        return [] // 不需要放单
+      default:
+        return []
+    }
+  }
 
   // 渲染简化的表单内容 - 根据运输方式动态显示
   const renderSimplifiedForm = () => {
@@ -1096,6 +1307,37 @@ export default function OrderManagement() {
             </div>
           </div>
           
+          {/* 业务类型选择 */}
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-600 mb-2">业务类型 *</label>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(businessTypeMap).map(([key, value]) => {
+                const isSelected = formData.businessType === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setFormData({ 
+                      ...formData, 
+                      businessType: key as BusinessType,
+                      releaseStatus: key === 'transport' ? 'not_required' : 'pending'
+                    })}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all ${
+                      isSelected 
+                        ? `border-2 ${value.color}` 
+                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                    }`}
+                  >
+                    {key === 'release' && <FileCheck className={`w-5 h-5 ${isSelected ? 'text-blue-600' : ''}`} />}
+                    {key === 'transport' && <Truck className={`w-5 h-5 ${isSelected ? 'text-green-600' : ''}`} />}
+                    {key === 'both' && <Package className={`w-5 h-5 ${isSelected ? 'text-purple-600' : ''}`} />}
+                    <span className="text-xs font-medium">{value.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* 运输方式选择 - 使用大按钮 */}
           <div className="mt-4">
             <label className="block text-xs font-medium text-gray-600 mb-2">运输方式 *</label>
@@ -1875,6 +2117,41 @@ export default function OrderManagement() {
             <option value="rail">🚂 铁路</option>
             <option value="multimodal">📦 多式联运</option>
           </select>
+
+          {/* 业务类型筛选 */}
+          <select
+            value={businessTypeFilter}
+            onChange={(e) => setBusinessTypeFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">全部业务类型</option>
+            <option value="release">放单服务</option>
+            <option value="transport">运输服务</option>
+            <option value="both">放单+运输</option>
+          </select>
+
+          {/* 放单状态筛选 */}
+          <select
+            value={releaseStatusFilter}
+            onChange={(e) => setReleaseStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">全部放单状态</option>
+            <option value="pending">待放单</option>
+            <option value="released">已放单</option>
+          </select>
+          
+          {/* 船司放单状态筛选 */}
+          <select
+            value={carrierReleaseStatusFilter}
+            onChange={(e) => setCarrierReleaseStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">全部船司放单</option>
+            {Object.entries(carrierReleaseStatusMap).map(([key, { label }]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
           
           {/* 导出按钮 */}
           <button className="btn btn-md btn-secondary">
@@ -1892,12 +2169,12 @@ export default function OrderManagement() {
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">订单信息</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">船公司/集装箱</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">运输</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">路线</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">货物</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">船司放单</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">清关放行</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">货物类型</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">送仓地址</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">派送状态</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
@@ -1921,7 +2198,7 @@ export default function OrderManagement() {
                       )}
                     </div>
                   </td>
-                  
+
                   {/* 船公司/集装箱 */}
                   <td className="px-4 py-4">
                     <div className="space-y-1">
@@ -1959,58 +2236,60 @@ export default function OrderManagement() {
                     </div>
                   </td>
                   
-                  {/* 运输方式 */}
+                  {/* 船司放单 */}
                   <td className="px-4 py-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        {renderTransportIcon(order.transportMode)}
-                        <span className="text-sm font-medium">{transportModeMap[order.transportMode].label}</span>
-                      </div>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded w-fit">
-                        {order.incoterms}
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                        carrierReleaseStatusMap[order.carrierReleaseStatus as CarrierReleaseStatus]?.color || 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {carrierReleaseStatusMap[order.carrierReleaseStatus as CarrierReleaseStatus]?.label || '否'}
                       </span>
+                      {order.carrierReleaseStatus !== 'not_required' && order.carrierReleaseStatus !== 'released' && (
+                        <button
+                          onClick={() => openCarrierReleaseModal(order)}
+                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          更新
+                        </button>
+                      )}
                     </div>
                   </td>
                   
-                  {/* 路线 */}
+                  {/* 清关放行 */}
                   <td className="px-4 py-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="text-right">
-                        <p className="font-medium">{order.origin.port}</p>
-                        <p className="text-xs text-gray-500">{countryNames[order.origin.country]}</p>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div>
-                        <p className="font-medium">{order.destination.port}</p>
-                        <p className="text-xs text-gray-500">{countryNames[order.destination.country]}</p>
-                      </div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      customsClearanceStatusMap[order.customsClearanceStatus as CustomsClearanceStatus]?.color || 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {customsClearanceStatusMap[order.customsClearanceStatus as CustomsClearanceStatus]?.label || '待清关'}
+                    </span>
+                  </td>
+                  
+                  {/* 货物类型 */}
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-1">
+                      {order.isDangerous ? (
+                        <span className="inline-flex items-center gap-0.5 text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                          <AlertTriangle className="w-3 h-3" />
+                          危险品
+                        </span>
+                      ) : order.requiresTemperatureControl ? (
+                        <span className="inline-flex items-center gap-0.5 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                          <Thermometer className="w-3 h-3" />
+                          温控
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-600">普货</span>
+                      )}
                     </div>
                   </td>
                   
-                  {/* 货物信息 */}
+                  {/* 送仓地址 */}
                   <td className="px-4 py-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-3 text-sm">
-                        <span className="text-gray-600">{order.packages} 件</span>
-                        <span className="text-gray-400">|</span>
-                        <span className="text-gray-600">{order.grossWeight.toLocaleString()} kg</span>
-                      </div>
-                      <p className="text-xs text-gray-500">{order.volume} CBM</p>
-                      {/* 特殊标记 */}
-                      <div className="flex items-center gap-1">
-                        {order.isDangerous && (
-                          <span className="inline-flex items-center gap-0.5 text-xs text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                            <AlertTriangle className="w-3 h-3" />
-                            危险品
-                          </span>
-                        )}
-                        {order.requiresTemperatureControl && (
-                          <span className="inline-flex items-center gap-0.5 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                            <Thermometer className="w-3 h-3" />
-                            温控
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-start gap-1 max-w-[150px]">
+                      <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-gray-600 truncate" title={order.warehouseAddress || order.destination?.port || '-'}>
+                        {order.warehouseAddress || order.destination?.port || '-'}
+                      </span>
                     </div>
                   </td>
                   
@@ -2034,18 +2313,13 @@ export default function OrderManagement() {
                     </div>
                   </td>
                   
-                  {/* 状态 */}
+                  {/* 派送状态 */}
                   <td className="px-4 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusMap[order.status].bgColor} ${statusMap[order.status].color}`}>
-                      {statusMap[order.status].label}
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      deliveryStatusMap[order.deliveryStatus as DeliveryStatus]?.color || 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {deliveryStatusMap[order.deliveryStatus as DeliveryStatus]?.label || '等待安排'}
                     </span>
-                  </td>
-                  
-                  {/* 金额 */}
-                  <td className="px-4 py-4 text-right">
-                    <p className="font-semibold text-gray-900">
-                      {order.currency} {order.totalAmount.toLocaleString('de-DE', { minimumFractionDigits: 2 })}
-                    </p>
                   </td>
                   
                   {/* 操作 */}
@@ -2567,6 +2841,129 @@ export default function OrderManagement() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 船司放单操作弹窗 */}
+      {showCarrierReleaseModal && carrierReleaseOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md m-4 shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Anchor className="w-5 h-5 text-blue-600" />
+                更新船司放单状态
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCarrierReleaseModal(false)
+                  setCarrierReleaseOrder(null)
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              {/* 订单信息 */}
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-gray-500">订单号</span>
+                  <span className="text-sm font-medium text-blue-600">{carrierReleaseOrder.orderNo}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">当前状态</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    carrierReleaseStatusMap[carrierReleaseOrder.carrierReleaseStatus as CarrierReleaseStatus]?.color || 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {carrierReleaseStatusMap[carrierReleaseOrder.carrierReleaseStatus as CarrierReleaseStatus]?.label || '否'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* 状态选择 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  更新为
+                </label>
+                <div className="space-y-2">
+                  {getNextCarrierReleaseStatuses(carrierReleaseOrder.carrierReleaseStatus as CarrierReleaseStatus).map((status) => (
+                    <label key={status} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="radio"
+                        name="carrierReleaseStatus"
+                        value={status}
+                        checked={carrierReleaseForm.status === status}
+                        onChange={(e) => setCarrierReleaseForm({ ...carrierReleaseForm, status: e.target.value as CarrierReleaseStatus })}
+                        className="w-4 h-4 text-blue-600"
+                      />
+                      <span className={`text-sm px-2 py-0.5 rounded-full ${carrierReleaseStatusMap[status].color}`}>
+                        {carrierReleaseStatusMap[status].label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              {/* 根据状态显示额外字段 */}
+              {carrierReleaseForm.status === 'mailed' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    邮寄地址 <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={carrierReleaseForm.mailAddress}
+                    onChange={(e) => setCarrierReleaseForm({ ...carrierReleaseForm, mailAddress: e.target.value })}
+                    placeholder="请填写正本邮寄地址..."
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
+              )}
+              
+              {carrierReleaseForm.status === 'released' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    放行有效期 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={carrierReleaseForm.releaseValidUntil}
+                    onChange={(e) => setCarrierReleaseForm({ ...carrierReleaseForm, releaseValidUntil: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
+              )}
+              
+              {getNextCarrierReleaseStatuses(carrierReleaseOrder.carrierReleaseStatus as CarrierReleaseStatus).length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500" />
+                  <p>当前状态为终态，无需更新</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 p-4 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setShowCarrierReleaseModal(false)
+                  setCarrierReleaseOrder(null)
+                }}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              {getNextCarrierReleaseStatuses(carrierReleaseOrder.carrierReleaseStatus as CarrierReleaseStatus).length > 0 && (
+                <button
+                  onClick={handleUpdateCarrierReleaseStatus}
+                  disabled={!carrierReleaseForm.status}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  确认更新
+                </button>
+              )}
             </div>
           </div>
         </div>

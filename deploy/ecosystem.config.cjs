@@ -48,16 +48,16 @@ module.exports = {
     }
   ],
 
-  // 部署配置（可选，用于远程部署）
+  // 部署配置（用于远程部署）
   deploy: {
     production: {
       user: 'root',
-      host: ['你的ECS公网IP'],
+      host: ['47.83.241.117'],
       ref: 'origin/main',
-      repo: 'git@github.com:你的用户名/germany-box-system.git',
+      repo: 'git@github.com:FrankZheng1985/DE-Box-system.git',
       path: '/var/www/germany-box-system',
       'pre-deploy-local': '',
-      'post-deploy': 'npm run install:all && npm run build:admin && pm2 reload ecosystem.config.cjs --env production',
+      'post-deploy': 'npm run install:all && npm run build:admin && npm run build:customer && cd server && node scripts/init-db.js && cd .. && pm2 reload ecosystem.config.cjs --env production',
       'pre-setup': ''
     }
   }
