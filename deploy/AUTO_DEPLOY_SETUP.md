@@ -132,3 +132,4 @@ swapon /swapfile
 - **管理后台**: http://47.83.241.117/admin
 - **客户门户**: http://47.83.241.117/customer
 - **API 接口**: http://47.83.241.117/api
+# 测试自动部署 - Tue Feb 17 14:18:44 CST 2026
