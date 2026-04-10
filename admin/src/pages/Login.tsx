@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Loader2, Truck, Eye, EyeOff } from 'lucide-react'
@@ -6,35 +6,37 @@ import { Loader2, Truck, Eye, EyeOff } from 'lucide-react'
 export default function Login() {
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
-  
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  
-  // 如果已登录，跳转到首页
-  if (isAuthenticated) {
-    navigate('/', { replace: true })
-    return null
-  }
-  
+
+  // 如果已登录，跳转到仪表板
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!username || !password) {
-      setError('请输入用户名和密码')
+      setError('请输入邮箱/用户名和密码')
       return
     }
-    
+
     setLoading(true)
     setError('')
-    
+
     try {
       const result = await login(username, password)
-      
+
       if (result.success) {
-        navigate('/', { replace: true })
+        navigate('/dashboard', { replace: true })
       } else {
         setError(result.message)
       }
@@ -44,104 +46,120 @@ export default function Login() {
       setLoading(false)
     }
   }
-  
+
+  // 已登录时不渲染登录页
+  if (isAuthenticated) {
+    return null
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* 背景装饰 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full opacity-50 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-100 rounded-full opacity-50 blur-3xl" />
-      </div>
-      
-      <div className="relative w-full max-w-md mx-4">
-        {/* Logo 和标题 */}
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: 'linear-gradient(135deg, #1F4E79, #4472C4)' }}
+    >
+      <div className="w-[420px] max-w-[90vw] bg-white rounded-2xl p-10 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+        {/* 标题区域 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-lg mb-4">
-            <Truck className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center gap-2.5 mb-2.5">
+            <Truck className="w-8 h-8" style={{ color: '#1F4E79' }} />
+            <span className="text-2xl font-bold" style={{ color: '#1F4E79' }}>EU-TMS</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">德国Box运输管理系统</h1>
-          <p className="text-gray-500 mt-2">请登录您的账号</p>
+          <div className="text-sm text-slate-500">
+            欧洲运输管理系统
+          </div>
+          <div className="text-xs text-slate-400 mt-1">
+            European Transport Management System
+          </div>
         </div>
-        
+
         {/* 登录表单 */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 错误提示 */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-            
-            {/* 用户名 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                用户名
-              </label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 错误提示 */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* 邮箱/用户名 */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              邮箱/用户名
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="your@company.com"
+              className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+              disabled={loading}
+            />
+          </div>
+
+          {/* 密码 */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              密码
+            </label>
+            <div className="relative">
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入用户名"
-                className="w-full h-11 px-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="输入密码"
+                className="w-full h-10 px-3 pr-10 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                 disabled={loading}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-            
-            {/* 密码 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                密码
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="请输入密码"
-                  className="w-full h-11 px-4 pr-12 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-            
-            {/* 登录按钮 */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  登录中...
-                </>
-              ) : (
-                '登 录'
-              )}
-            </button>
-          </form>
-          
-          {/* 提示信息 */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-center text-sm text-gray-500">
-              默认账号: <span className="font-medium text-gray-700">admin</span> / 
-              <span className="font-medium text-gray-700"> admin123</span>
-            </p>
           </div>
+
+          {/* 记住我 & 忘记密码 */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              记住我
+            </label>
+            <a href="#" className="text-xs" style={{ color: '#4472C4' }}>
+              忘记密码?
+            </a>
+          </div>
+
+          {/* 登录按钮 */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-11 text-white font-semibold text-[15px] rounded-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: loading ? '#2E75B6' : '#1F4E79' }}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#2E75B6' }}
+            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#1F4E79' }}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                登录中...
+              </>
+            ) : (
+              '登 录'
+            )}
+          </button>
+        </form>
+
+        {/* 底部提示 */}
+        <div className="text-center mt-4 text-xs text-slate-400">
+          还没有账号? <a href="#" style={{ color: '#4472C4' }}>联系管理员</a>
         </div>
-        
-        {/* 版权信息 */}
-        <p className="text-center text-sm text-gray-400 mt-8">
-          © 2024 德国Box运输管理系统 v1.0.0
-        </p>
       </div>
     </div>
   )

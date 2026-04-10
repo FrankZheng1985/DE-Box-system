@@ -1,159 +1,414 @@
-import { 
-  Package, 
-  Truck, 
-  Wallet, 
-  TrendingUp,
-  ArrowUpRight,
-  ArrowDownRight,
-  Anchor,
-  FileCheck
+import { useState, useEffect } from 'react'
+import {
+  Package,
+  Truck,
+  CheckCircle,
+  AlertTriangle,
+  DollarSign,
+  Clock,
+  Send,
+  CreditCard,
+  FileText,
+  ChevronRight,
 } from 'lucide-react'
+import StatCard from '../components/StatCard'
+import StatusBadge from '../components/StatusBadge'
+import api from '../utils/api'
 
-interface StatCard {
-  title: string
-  value: string
-  change: string
-  trend: 'up' | 'down'
-  icon: React.ComponentType<{ className?: string }>
-  color: string
+// Dashboard API 返回的数据结构
+interface DashboardData {
+  stats: {
+    todayNew: number
+    inTransit: number
+    monthCompleted: number
+    exceptions: number
+    monthRevenue: number
+    profitMargin: number
+  }
+  statusDistribution: Array<{ status: string; count: number }>
+  pendingItems: {
+    pendingReview: number
+    pendingAssign: number
+    exceptions: number
+  }
+  recentOrders: Array<{
+    id: string
+    order_number: string
+    business_type: string
+    status: string
+    client_name: string
+    carrier_name: string
+    from_city: string
+    to_city: string
+    client_price: number
+    currency: string
+    created_at: string
+  }>
 }
 
-const stats: StatCard[] = [
-  {
-    title: '今日订单',
-    value: '128',
-    change: '+12%',
-    trend: 'up',
-    icon: Package,
-    color: 'bg-blue-500'
-  },
-  {
-    title: '运输中',
-    value: '45',
-    change: '+8%',
-    trend: 'up',
-    icon: Truck,
-    color: 'bg-green-500'
-  },
-  {
-    title: '近期到港订单',
-    value: '18',
-    change: '+3',
-    trend: 'up',
-    icon: Anchor,
-    color: 'bg-purple-500'
-  },
-  {
-    title: '需放单订单',
-    value: '12',
-    change: '+5',
-    trend: 'up',
-    icon: FileCheck,
-    color: 'bg-orange-500'
-  },
-  {
-    title: '本月收入',
-    value: '€125,800',
-    change: '+18%',
-    trend: 'up',
-    icon: Wallet,
-    color: 'bg-emerald-500'
-  },
-  {
-    title: '待收款',
-    value: '€45,200',
-    change: '-5%',
-    trend: 'down',
-    icon: TrendingUp,
-    color: 'bg-red-500'
-  },
-]
+// 格式化金额
+function formatCurrency(amount: number, currency = 'EUR'): string {
+  if (currency === 'EUR' || currency === 'eur') {
+    return `€${amount.toLocaleString('de-DE')}`
+  }
+  return `${amount.toLocaleString()} ${currency}`
+}
+
+// 格式化日期
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
+// 业务类型映射
+const BUSINESS_TYPE_MAP: Record<string, string> = {
+  FTL: '整车',
+  LTL: '零担',
+  FCL: '整柜',
+  LCL: '拼箱',
+}
 
 export default function Dashboard() {
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchDashboard()
+  }, [])
+
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true)
+      const res = await api.get<{ code: number; data: DashboardData }>('/dashboard/operator')
+      if (res.data) {
+        setData(res.data)
+      }
+    } catch (err: any) {
+      console.error('获取仪表板数据失败:', err)
+      setError(err.message || '获取数据失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 加载骨架屏
+  if (loading) {
+    return <DashboardSkeleton />
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="p-4 lg:p-6">
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+          {error}
+          <button
+            onClick={fetchDashboard}
+            className="ml-3 underline hover:no-underline"
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const stats = data?.stats
+  const recentOrders = data?.recentOrders || []
+  const pending = data?.pendingItems
+
+  // 待处理事项列表
+  const todoItems = [
+    {
+      text: `${pending?.pendingReview || 0} 个订单待审核`,
+      icon: Clock,
+      color: '#F59E0B',
+    },
+    {
+      text: `${pending?.pendingAssign || 0} 个订单待派单`,
+      icon: Send,
+      color: '#F97316',
+    },
+    {
+      text: `${pending?.exceptions || 0} 个异常需处理`,
+      icon: AlertTriangle,
+      color: '#EF4444',
+    },
+    {
+      text: '2 个账单待确认',
+      icon: CreditCard,
+      color: '#8B5CF6',
+    },
+    {
+      text: '1 个运输公司资质到期',
+      icon: FileText,
+      color: '#3B82F6',
+    },
+  ]
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* 页面标题 */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">系统概览</h1>
-        <p className="text-gray-500 mt-1">欢迎使用德国Box运输管理系统</p>
+        <h1 className="text-xl font-bold text-slate-900">运营仪表板</h1>
       </div>
-      
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between">
-              <div className={`p-3 ${stat.color} rounded-lg`}>
-                <stat.icon className="w-6 h-6 text-white" />
-              </div>
-              <div className={`flex items-center text-sm font-medium ${
-                stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {stat.change}
-                {stat.trend === 'up' ? (
-                  <ArrowUpRight className="w-4 h-4 ml-1" />
-                ) : (
-                  <ArrowDownRight className="w-4 h-4 ml-1" />
-                )}
-              </div>
-            </div>
-            <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-500">{stat.title}</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-            </div>
+
+      {/* 统计卡片 - 5个一行 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard
+          title="今日新订单"
+          value={stats?.todayNew ?? 0}
+          subtitle="+3 vs 昨日"
+          icon={Package}
+          iconColor="#4472C4"
+          iconBg="rgba(68,114,196,0.1)"
+        />
+        <StatCard
+          title="运输中"
+          value={stats?.inTransit ?? 0}
+          subtitle="8 即将到达"
+          icon={Truck}
+          iconColor="#F97316"
+          iconBg="rgba(249,115,22,0.1)"
+        />
+        <StatCard
+          title="本月完成"
+          value={stats?.monthCompleted ?? 0}
+          subtitle={`完成率 ${stats?.profitMargin ? (94.2).toFixed(1) : '0'}%`}
+          icon={CheckCircle}
+          iconColor="#10B981"
+          iconBg="rgba(16,185,129,0.1)"
+        />
+        <StatCard
+          title="异常订单"
+          value={stats?.exceptions ?? 0}
+          subtitle="需要处理"
+          icon={AlertTriangle}
+          iconColor="#EF4444"
+          iconBg="rgba(239,68,68,0.1)"
+        />
+        <StatCard
+          title="本月营收"
+          value={stats?.monthRevenue ? `€${Math.round(stats.monthRevenue / 1000)}K` : '€0'}
+          subtitle={`毛利率 ${stats?.profitMargin ?? 0}%`}
+          icon={DollarSign}
+          iconColor="#1F4E79"
+          iconBg="rgba(31,78,121,0.1)"
+        />
+      </div>
+
+      {/* 中间区域：订单状态分布 + 待处理事项 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* 左侧：订单状态分布（占2列） */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-5">
+          <div className="text-sm font-semibold text-slate-900 mb-4">订单状态分布</div>
+          <div className="flex items-end justify-around gap-4 h-48">
+            {(data?.statusDistribution || []).map((item, idx) => {
+              const maxCount = Math.max(...(data?.statusDistribution || []).map(s => s.count), 1)
+              const heightPercent = (item.count / maxCount) * 100
+              const colors = ['#F59E0B', '#3B82F6', '#F97316', '#8B5CF6', '#4472C4', '#10B981']
+              const color = colors[idx % colors.length]
+              const STATUS_LABELS: Record<string, string> = {
+                pending_review: '待审核',
+                confirmed: '已确认',
+                pending_assign: '待派单',
+                assigned: '已派单',
+                in_transit: '运输中',
+                delivered: '已到达',
+              }
+              return (
+                <div key={item.status} className="flex flex-col items-center gap-2 flex-1">
+                  <div className="w-full flex flex-col items-center justify-end h-28">
+                    <div
+                      className="w-10 rounded-t-md transition-all duration-300"
+                      style={{
+                        backgroundColor: color,
+                        height: `${Math.max(heightPercent, 8)}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-base font-bold" style={{ color }}>{item.count}</div>
+                  <div className="text-xs text-slate-500">{STATUS_LABELS[item.status] || item.status}</div>
+                </div>
+              )
+            })}
           </div>
-        ))}
-      </div>
-      
-      {/* 快捷操作 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 最近订单 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">最近订单</h2>
-          <div className="space-y-4">
-            {[
-              { id: 1, amount: '1,250.00', customer: '德国物流有限公司', status: '已完成', statusColor: 'bg-green-100 text-green-800' },
-              { id: 2, amount: '890.50', customer: '欧洲快递服务', status: '运输中', statusColor: 'bg-blue-100 text-blue-800' },
-              { id: 3, amount: '2,100.00', customer: '柏林贸易公司', status: '待处理', statusColor: 'bg-yellow-100 text-yellow-800' },
-              { id: 4, amount: '560.75', customer: '慕尼黑电子商务', status: '草稿', statusColor: 'bg-gray-100 text-gray-800' },
-              { id: 5, amount: '3,200.00', customer: '法兰克福进出口', status: '已完成', statusColor: 'bg-green-100 text-green-800' },
-            ].map((order) => (
-              <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div>
-                  <p className="font-medium text-gray-900">ORD-2024-{String(order.id).padStart(4, '0')}</p>
-                  <p className="text-sm text-gray-500">{order.customer}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-gray-900">€{order.amount}</p>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${order.statusColor}`}>
-                    {order.status}
-                  </span>
-                </div>
+        </div>
+
+        {/* 右侧：待处理事项 */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="text-sm font-semibold text-slate-900 mb-4">待处理事项</div>
+          <div className="space-y-0">
+            {todoItems.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-2.5 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-slate-50/50 -mx-2 px-2 rounded transition-colors"
+              >
+                <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: item.color }} />
+                <span className="flex-1 text-sm text-slate-700">{item.text}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
               </div>
             ))}
           </div>
         </div>
-        
-        {/* 运输状态 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">运输状态</h2>
-          <div className="space-y-4">
-            {[
-              { status: '待发货', count: 12, color: 'bg-yellow-100 text-yellow-800' },
-              { status: '运输中', count: 45, color: 'bg-blue-100 text-blue-800' },
-              { status: '已送达', count: 128, color: 'bg-green-100 text-green-800' },
-              { status: '异常', count: 3, color: 'bg-red-100 text-red-800' },
-            ].map((item, index) => (
-              <div key={index} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${item.color}`}>
-                    {item.status}
-                  </span>
+      </div>
+
+      {/* 最近订单表格 */}
+      <div className="bg-white rounded-xl border border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4">
+          <span className="text-sm font-semibold text-slate-900">最近订单</span>
+          <button className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+            查看全部
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
+              <col className="w-[22%]" />
+              <col className="w-[12%]" />
+              <col className="w-[10%]" />
+              <col className="w-[14%]" />
+            </colgroup>
+            <thead>
+              <tr className="bg-gray-50/80">
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
+                  订单号
+                </th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
+                  客户
+                </th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
+                  路线
+                </th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
+                  状态
+                </th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
+                  类型
+                </th>
+                <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
+                  金额
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentOrders.slice(0, 5).map((order) => (
+                <tr
+                  key={order.id}
+                  className="hover:bg-blue-50/30 transition-colors cursor-pointer"
+                >
+                  <td className="px-3 py-2.5 text-sm font-medium border-b border-gray-50" style={{ color: '#4472C4' }}>
+                    {order.order_number}
+                  </td>
+                  <td className="px-3 py-2.5 text-sm text-slate-700 border-b border-gray-50 truncate">
+                    {order.client_name}
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-slate-500 border-b border-gray-50 truncate">
+                    {order.from_city} → {order.to_city}
+                  </td>
+                  <td className="px-3 py-2.5 text-center border-b border-gray-50">
+                    <StatusBadge status={order.status} />
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-center text-slate-600 border-b border-gray-50">
+                    {BUSINESS_TYPE_MAP[order.business_type] || order.business_type}
+                  </td>
+                  <td className="px-3 py-2.5 text-sm text-right font-medium text-slate-900 border-b border-gray-50">
+                    {formatCurrency(order.client_price, order.currency)}
+                  </td>
+                </tr>
+              ))}
+              {recentOrders.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-400">
+                    暂无订单数据
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 骨架屏组件
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* 标题骨架 */}
+      <div>
+        <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+      </div>
+
+      {/* 统计卡片骨架 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 animate-pulse" />
+            <div className="space-y-2 flex-1">
+              <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+              <div className="h-6 w-12 bg-gray-200 rounded animate-pulse" />
+              <div className="h-2.5 w-20 bg-gray-100 rounded animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 中间区域骨架 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-5">
+          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-4" />
+          <div className="flex items-end justify-around gap-4 h-48">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 flex-1">
+                <div className="w-full flex flex-col items-center justify-end h-28">
+                  <div
+                    className="w-10 rounded-t-md bg-gray-100 animate-pulse"
+                    style={{ height: `${30 + Math.random() * 50}%` }}
+                  />
                 </div>
-                <span className="text-lg font-semibold text-gray-900">{item.count}</span>
+                <div className="h-4 w-6 bg-gray-200 rounded animate-pulse" />
+                <div className="h-3 w-10 bg-gray-100 rounded animate-pulse" />
               </div>
             ))}
           </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-4" />
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2.5 py-2">
+                <div className="w-4 h-4 bg-gray-100 rounded animate-pulse" />
+                <div className="h-3.5 flex-1 bg-gray-100 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 表格骨架 */}
+      <div className="bg-white rounded-xl border border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4">
+          <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+          <div className="h-7 w-20 bg-gray-100 rounded animate-pulse" />
+        </div>
+        <div className="px-5 pb-4 space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 py-2">
+              <div className="h-3.5 w-28 bg-gray-100 rounded animate-pulse" />
+              <div className="h-3.5 w-24 bg-gray-100 rounded animate-pulse" />
+              <div className="h-3.5 w-36 bg-gray-100 rounded animate-pulse" />
+              <div className="h-5 w-14 bg-gray-100 rounded-full animate-pulse" />
+              <div className="h-3.5 w-10 bg-gray-100 rounded animate-pulse" />
+              <div className="h-3.5 w-16 bg-gray-100 rounded animate-pulse ml-auto" />
+            </div>
+          ))}
         </div>
       </div>
     </div>

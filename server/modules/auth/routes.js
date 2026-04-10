@@ -1,229 +1,191 @@
 /**
  * 认证模块路由
+ * 支持三种角色登录：Operator / Client / Carrier
  */
 
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { getDatabase, generateId } from '../../config/database.js'
-import { serverConfig } from '../../config/index.js'
+import { query } from '../../core/db.js'
 import { authenticateToken } from '../../middleware/auth.js'
 
 const router = Router()
 
 /**
  * 用户登录
- * POST /api/auth/login
+ * POST /api/v1/auth/login
  */
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body
 
     if (!username || !password) {
-      return res.json({
-        errCode: 400,
-        msg: '用户名和密码不能为空',
-        data: null,
-      })
+      return res.json({ code: 400, message: '用户名和密码不能为空', data: null })
     }
 
-    const db = getDatabase()
-    
-    // 查询用户
-    const user = await db.prepare(`
-      SELECT u.*, r.role_name as roleName
-      FROM users u
-      LEFT JOIN roles r ON u.role = r.role_code
-      WHERE u.username = ? AND u.status = 'active'
-    `).get(username)
+    // 查询用户（关联角色和组织）
+    const result = await query(
+      `SELECT u.id, u.username, u.password_hash, u.email, u.phone,
+              u.display_name, u.user_type, u.linked_entity_id, u.is_active,
+              r.role_code, r.role_name, r.role_type
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.username = $1`,
+      [username]
+    )
 
-    if (!user) {
-      return res.json({
-        errCode: 401,
-        msg: '用户名或密码错误',
-        data: null,
-      })
+    if (result.rows.length === 0) {
+      return res.json({ code: 401, message: '用户名或密码错误', data: null })
+    }
+
+    const user = result.rows[0]
+
+    if (!user.is_active) {
+      return res.json({ code: 401, message: '账号已停用，请联系管理员', data: null })
     }
 
     // 验证密码
-    const validPassword = await bcrypt.compare(password, user.password)
+    const validPassword = await bcrypt.compare(password, user.password_hash)
     if (!validPassword) {
-      return res.json({
-        errCode: 401,
-        msg: '用户名或密码错误',
-        data: null,
-      })
+      return res.json({ code: 401, message: '用户名或密码错误', data: null })
     }
 
-    // 获取用户权限
-    const permissions = await db.prepare(`
-      SELECT rp.permission_code
-      FROM role_permissions rp
-      WHERE rp.role_code = ?
-    `).all(user.role)
+    // 获取用户组织分配
+    const orgResult = await query(
+      `SELECT company_code, business_area, is_default
+       FROM user_org_assignments WHERE user_id = $1`,
+      [user.id]
+    )
+    const defaultOrg = orgResult.rows.find(o => o.is_default) || orgResult.rows[0]
 
-    const permissionList = permissions.map(p => p.permission_code)
-
-    // 生成 JWT
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        permissions: permissionList,
-      },
-      serverConfig.jwtSecret,
-      { expiresIn: serverConfig.jwtExpiresIn }
+    // 获取授权对象值
+    const authResult = await query(
+      `SELECT av.auth_object_code, av.field_values
+       FROM auth_values av
+       WHERE av.role_id = (SELECT role_id FROM users WHERE id = $1) AND av.is_active = true`,
+      [user.id]
     )
 
-    // 更新最后登录时间
-    await db.prepare(`
-      UPDATE users 
-      SET last_login_time = NOW(), login_count = COALESCE(login_count, 0) + 1
-      WHERE id = ?
-    `).run(user.id)
+    // 生成 JWT
+    const tokenPayload = {
+      id: user.id,
+      username: user.username,
+      userType: user.user_type,
+      roleCode: user.role_code,
+      roleName: user.role_name,
+      companyCode: defaultOrg?.company_code || 'DE01',
+      linkedEntityId: user.linked_entity_id
+    }
 
-    // 返回用户信息（不包含密码）
-    const { password: _, ...userInfo } = user
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    })
+
+    // 更新最后登录时间
+    await query(
+      `UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id]
+    )
 
     res.json({
-      errCode: 200,
-      msg: '登录成功',
+      code: 200,
+      message: '登录成功',
       data: {
-        user: userInfo,
-        permissions: permissionList,
         token,
-      },
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          email: user.email,
+          phone: user.phone,
+          userType: user.user_type,
+          roleCode: user.role_code,
+          roleName: user.role_name,
+          linkedEntityId: user.linked_entity_id
+        },
+        organization: defaultOrg,
+        authObjects: authResult.rows
+      }
     })
   } catch (error) {
     console.error('登录失败:', error)
-    res.status(500).json({
-      errCode: 500,
-      msg: '登录失败，请稍后重试',
-      data: null,
-    })
+    res.status(500).json({ code: 500, message: '登录失败，请稍后重试', data: null })
   }
 })
 
 /**
  * 获取当前用户信息
- * GET /api/auth/profile
+ * GET /api/v1/auth/profile
  */
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const db = getDatabase()
-    
-    const user = await db.prepare(`
-      SELECT u.id, u.username, u.name, u.email, u.phone, u.avatar, 
-             u.role, r.role_name as roleName, u.status,
-             u.last_login_time as lastLoginTime, u.create_time as createTime
-      FROM users u
-      LEFT JOIN roles r ON u.role = r.role_code
-      WHERE u.id = ?
-    `).get(req.user.id)
+    const result = await query(
+      `SELECT u.id, u.username, u.email, u.phone, u.display_name,
+              u.user_type, u.linked_entity_id, u.language,
+              r.role_code, r.role_name, r.role_type
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.id = $1`,
+      [req.user.id]
+    )
 
-    if (!user) {
-      return res.status(404).json({
-        errCode: 404,
-        msg: '用户不存在',
-        data: null,
-      })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '用户不存在', data: null })
     }
 
-    // 获取权限
-    const permissions = await db.prepare(`
-      SELECT permission_code
-      FROM role_permissions
-      WHERE role_code = ?
-    `).all(user.role)
+    const orgResult = await query(
+      `SELECT company_code, business_area, is_default
+       FROM user_org_assignments WHERE user_id = $1`,
+      [req.user.id]
+    )
 
     res.json({
-      errCode: 200,
-      msg: '获取成功',
+      code: 200,
+      message: 'success',
       data: {
-        user,
-        permissions: permissions.map(p => p.permission_code),
-      },
+        user: result.rows[0],
+        organizations: orgResult.rows
+      }
     })
   } catch (error) {
     console.error('获取用户信息失败:', error)
-    res.status(500).json({
-      errCode: 500,
-      msg: '获取用户信息失败',
-      data: null,
-    })
+    res.status(500).json({ code: 500, message: '获取用户信息失败', data: null })
   }
 })
 
 /**
  * 修改密码
- * POST /api/auth/change-password
+ * PUT /api/v1/auth/password
  */
-router.post('/change-password', authenticateToken, async (req, res) => {
+router.put('/password', authenticateToken, async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body
 
     if (!oldPassword || !newPassword) {
-      return res.json({
-        errCode: 400,
-        msg: '旧密码和新密码不能为空',
-        data: null,
-      })
+      return res.json({ code: 400, message: '旧密码和新密码不能为空', data: null })
     }
-
     if (newPassword.length < 6) {
-      return res.json({
-        errCode: 400,
-        msg: '新密码长度不能少于6位',
-        data: null,
-      })
+      return res.json({ code: 400, message: '新密码长度不能少于6位', data: null })
     }
 
-    const db = getDatabase()
-    
-    // 获取当前用户
-    const user = await db.prepare(`
-      SELECT password FROM users WHERE id = ?
-    `).get(req.user.id)
-
-    if (!user) {
-      return res.status(404).json({
-        errCode: 404,
-        msg: '用户不存在',
-        data: null,
-      })
+    const result = await query(
+      `SELECT password_hash FROM users WHERE id = $1`, [req.user.id]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '用户不存在', data: null })
     }
 
-    // 验证旧密码
-    const validPassword = await bcrypt.compare(oldPassword, user.password)
-    if (!validPassword) {
-      return res.json({
-        errCode: 400,
-        msg: '旧密码错误',
-        data: null,
-      })
+    const valid = await bcrypt.compare(oldPassword, result.rows[0].password_hash)
+    if (!valid) {
+      return res.json({ code: 400, message: '旧密码错误', data: null })
     }
 
-    // 加密新密码
-    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    const hash = await bcrypt.hash(newPassword, 10)
+    await query(`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [hash, req.user.id])
 
-    // 更新密码
-    await db.prepare(`
-      UPDATE users SET password = ?, update_time = NOW() WHERE id = ?
-    `).run(hashedPassword, req.user.id)
-
-    res.json({
-      errCode: 200,
-      msg: '密码修改成功',
-      data: null,
-    })
+    res.json({ code: 200, message: '密码修改成功', data: null })
   } catch (error) {
     console.error('修改密码失败:', error)
-    res.status(500).json({
-      errCode: 500,
-      msg: '修改密码失败',
-      data: null,
-    })
+    res.status(500).json({ code: 500, message: '修改密码失败', data: null })
   }
 })
 

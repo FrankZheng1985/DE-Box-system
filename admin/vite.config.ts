@@ -11,8 +11,8 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  // 生产环境使用 /admin 路径
-  base: mode === 'production' ? '/admin/' : '/',
+  // 根路径部署
+  base: '/',
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {

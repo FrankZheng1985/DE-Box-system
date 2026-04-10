@@ -1,0 +1,482 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react'
+import api, { type ApiResponse } from '../utils/api'
+import Modal from '../components/Modal'
+
+// ==================== 类型定义 ====================
+
+interface Client {
+  id: string
+  company_name: string
+  vat_number: string
+  country: string
+  order_count: number
+  credit_rating: string
+  receivable_balance: number
+  contact_person: string
+  email: string
+  status: string
+}
+
+interface ClientListResponse {
+  items: Client[]
+  pagination: { total: number; page: number; pageSize: number }
+}
+
+interface ClientForm {
+  companyName: string
+  vatNumber: string
+  country: string
+  city: string
+  address: string
+  contactName: string
+  contactEmail: string
+  contactPhone: string
+  invoiceEmail: string
+  creditLimit: string
+  paymentTerms: string
+}
+
+const INITIAL_FORM: ClientForm = {
+  companyName: '',
+  vatNumber: '',
+  country: '',
+  city: '',
+  address: '',
+  contactName: '',
+  contactEmail: '',
+  contactPhone: '',
+  invoiceEmail: '',
+  creditLimit: '',
+  paymentTerms: '',
+}
+
+// ==================== 格式化函数 ====================
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
+}
+
+// ==================== 组件 ====================
+
+export default function ClientList() {
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [clients, setClients] = useState<Client[]>([])
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
+
+  // 添加客户弹窗状态
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [form, setForm] = useState<ClientForm>(INITIAL_FORM)
+  const [submitting, setSubmitting] = useState(false)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // 获取客户列表
+  const fetchClients = async () => {
+    setLoading(true)
+    try {
+      const res = await api.get<ApiResponse<ClientListResponse>>(
+        `/clients?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
+      )
+      if (res.code === 200 && res.data) {
+        setClients(res.data.items || [])
+        setTotal(res.data.pagination?.total || 0)
+      }
+    } catch (err) {
+      console.error('获取客户列表失败:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchClients()
+  }, [page])
+
+  // 搜索（回车或点击按钮）
+  const handleSearch = () => {
+    setPage(1)
+    fetchClients()
+  }
+
+  // Toast 自动消失
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  // 表单字段更新
+  const updateField = (field: keyof ClientForm, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  // 提交添加客户
+  const handleAddClient = async () => {
+    // 必填校验
+    if (!form.companyName.trim()) { setToast({ type: 'error', message: '请输入公司名称' }); return }
+    if (!form.country.trim()) { setToast({ type: 'error', message: '请输入国家' }); return }
+    if (!form.contactName.trim()) { setToast({ type: 'error', message: '请输入联系人' }); return }
+    if (!form.contactEmail.trim()) { setToast({ type: 'error', message: '请输入联系邮箱' }); return }
+
+    setSubmitting(true)
+    try {
+      const payload = {
+        companyName: form.companyName.trim(),
+        vatNumber: form.vatNumber.trim() || undefined,
+        country: form.country.trim(),
+        city: form.city.trim() || undefined,
+        address: form.address.trim() || undefined,
+        contactName: form.contactName.trim(),
+        contactEmail: form.contactEmail.trim(),
+        contactPhone: form.contactPhone.trim() || undefined,
+        invoiceEmail: form.invoiceEmail.trim() || undefined,
+        creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
+        paymentTerms: form.paymentTerms ? Number(form.paymentTerms) : undefined,
+      }
+      await api.post<ApiResponse<unknown>>('/clients', payload)
+      setToast({ type: 'success', message: '客户添加成功' })
+      setShowAddModal(false)
+      setForm(INITIAL_FORM)
+      fetchClients()
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.message || '添加客户失败' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const totalPages = Math.ceil(total / pageSize)
+
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      {/* Toast 通知 */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-[slideInFromRight_300ms_ease-out] ${
+          toast.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {toast.message}
+        </div>
+      )}
+
+      {/* 页面标题 */}
+      <div className="flex items-center gap-4">
+        <div className="p-2 bg-blue-50 rounded-xl">
+          <Users className="w-5 h-5 text-blue-600" />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-900">客户管理</h1>
+      </div>
+
+      {/* 搜索栏 + 新建按钮 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="搜索公司名称、VAT税号..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          />
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200"
+        >
+          <Plus className="w-4 h-4" />
+          添加客户
+        </button>
+      </div>
+
+      {/* 表格 */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col className="w-[14%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[16%]" />
+              <col className="w-[20%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">公司名称</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">VAT税号</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">国家</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">订单数</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">信用等级</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">应收余额</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                // 加载骨架屏
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 bg-slate-100 rounded animate-pulse" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : clients.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-16 text-center">
+                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm text-slate-500">暂无客户数据</p>
+                  </td>
+                </tr>
+              ) : (
+                clients.map(client => (
+                  <tr key={client.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => navigate(`/clients/${client.id}`)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline truncate block max-w-full text-left"
+                      >
+                        {client.company_name}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 truncate">{client.vat_number || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-center">{client.country || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{client.order_count ?? 0}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${
+                        client.credit_rating === 'A' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {client.credit_rating || '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">
+                      {formatCurrency(client.receivable_balance || 0)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => navigate(`/clients/${client.id}`)}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                          title="查看"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => navigate(`/clients/${client.id}/edit`)}
+                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
+                          title="编辑"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 分页 */}
+        {total > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+            <p className="text-xs text-slate-500">共 {total} 条记录</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-slate-600">{page} / {totalPages || 1}</span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 添加客户弹窗 */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => { setShowAddModal(false); setForm(INITIAL_FORM) }}
+        title="添加客户"
+        size="lg"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => { setShowAddModal(false); setForm(INITIAL_FORM) }}
+              className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleAddClient}
+              disabled={submitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {submitting ? '提交中...' : '确认添加'}
+            </button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* 公司名称 */}
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              公司名称 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.companyName}
+              onChange={e => updateField('companyName', e.target.value)}
+              placeholder="请输入公司名称"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* VAT税号 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">VAT税号</label>
+            <input
+              type="text"
+              value={form.vatNumber}
+              onChange={e => updateField('vatNumber', e.target.value)}
+              placeholder="如 DE123456789"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 国家 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              国家 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.country}
+              onChange={e => updateField('country', e.target.value)}
+              placeholder="如 Germany"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 城市 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">城市</label>
+            <input
+              type="text"
+              value={form.city}
+              onChange={e => updateField('city', e.target.value)}
+              placeholder="如 Hamburg"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 详细地址 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">详细地址</label>
+            <input
+              type="text"
+              value={form.address}
+              onChange={e => updateField('address', e.target.value)}
+              placeholder="请输入详细地址"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 联系人 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              联系人 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.contactName}
+              onChange={e => updateField('contactName', e.target.value)}
+              placeholder="请输入联系人姓名"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 联系邮箱 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              联系邮箱 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={form.contactEmail}
+              onChange={e => updateField('contactEmail', e.target.value)}
+              placeholder="name@company.com"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 联系电话 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">联系电话</label>
+            <input
+              type="tel"
+              value={form.contactPhone}
+              onChange={e => updateField('contactPhone', e.target.value)}
+              placeholder="+49 xxx xxxx"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 发票邮箱 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">发票邮箱</label>
+            <input
+              type="email"
+              value={form.invoiceEmail}
+              onChange={e => updateField('invoiceEmail', e.target.value)}
+              placeholder="invoice@company.com"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 信用额度 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">信用额度 (EUR)</label>
+            <input
+              type="number"
+              value={form.creditLimit}
+              onChange={e => updateField('creditLimit', e.target.value)}
+              placeholder="0.00"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 账期 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">账期 (天)</label>
+            <input
+              type="number"
+              value={form.paymentTerms}
+              onChange={e => updateField('paymentTerms', e.target.value)}
+              placeholder="如 30"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}

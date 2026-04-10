@@ -1,172 +1,141 @@
-import { NavLink } from 'react-router-dom'
-import { 
-  Home,
-  Package, 
-  Truck, 
-  Users, 
-  Building2, 
-  Wallet, 
+import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  BarChart3,
+  Package,
   Tag,
-  Settings,
-  ChevronDown,
-  ChevronRight,
-  Receipt,
-  CreditCard,
-  ClipboardCheck,
   FileText,
+  Anchor,
+  Shield,
+  MapPin,
+  DollarSign,
+  Receipt,
+  Users,
+  Building,
+  Bell,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Truck,
 } from 'lucide-react'
-import { useState } from 'react'
 import clsx from 'clsx'
+
+interface SidebarProps {
+  collapsed: boolean
+  onToggle: () => void
+}
 
 interface MenuItem {
   path: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  children?: MenuItem[]
 }
 
+// EU-TMS V2 菜单项
 const menuItems: MenuItem[] = [
-  {
-    path: '/dashboard',
-    label: '系统概览',
-    icon: Home,
-  },
-  {
-    path: '/orders',
-    label: '订单管理',
-    icon: Package,
-  },
-  {
-    path: '/tms',
-    label: 'TMS运输管理',
-    icon: Truck,
-  },
-  {
-    path: '/crm',
-    label: 'CRM客户管理',
-    icon: Users,
-    children: [
-      { path: '/crm/customers', label: '客户列表', icon: Users },
-    ],
-  },
-  {
-    path: '/suppliers',
-    label: '供应商管理',
-    icon: Building2,
-  },
-  {
-    path: '/finance',
-    label: '财务管理',
-    icon: Wallet,
-    children: [
-      { path: '/finance', label: '财务概览', icon: Wallet },
-      { path: '/finance/invoices', label: '应收发票', icon: Receipt },
-      { path: '/finance/payables', label: '应付账款', icon: CreditCard },
-      { path: '/finance/reconciliation', label: '对账管理', icon: ClipboardCheck },
-    ],
-  },
-  {
-    path: '/products',
-    label: '产品定价',
-    icon: Tag,
-  },
-  {
-    path: '/system',
-    label: '系统管理',
-    icon: Settings,
-    children: [
-      { path: '/system/users', label: '用户管理', icon: Users },
-      { path: '/system/basic-data', label: '基础数据', icon: Settings },
-    ],
-  },
+  { path: '/dashboard', label: '仪表板', icon: BarChart3 },
+  { path: '/orders', label: '订单管理', icon: Package },
+  { path: '/quotes', label: '询价报价', icon: Tag },
+  { path: '/cmr', label: 'CMR 管理', icon: FileText },
+  { path: '/shipping-release', label: '船司放单', icon: Anchor },
+  { path: '/customs', label: '清关管理', icon: Shield },
+  { path: '/gps', label: 'GPS 追踪', icon: MapPin },
+  { path: '/finance', label: '财务管理', icon: DollarSign },
+  { path: '/invoice-templates', label: '发票模板', icon: Receipt },
+  { path: '/clients', label: '客户管理', icon: Users },
+  { path: '/carriers', label: '运输公司', icon: Building },
+  { path: '/notifications', label: '通知中心', icon: Bell },
+  { path: '/settings', label: '系统设置', icon: Settings },
 ]
 
-export default function Sidebar() {
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
+export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const location = useLocation()
+  const navigate = useNavigate()
 
-  const toggleExpand = (path: string) => {
-    setExpandedItems(prev =>
-      prev.includes(path)
-        ? prev.filter(p => p !== path)
-        : [...prev, path]
-    )
-  }
-
-  const isExpanded = (path: string) => expandedItems.includes(path)
-
-  const renderMenuItem = (item: MenuItem, level = 0) => {
-    const hasChildren = item.children && item.children.length > 0
-    const expanded = isExpanded(item.path)
-
-    return (
-      <div key={item.path}>
-        {hasChildren ? (
-          <>
-            <button
-              onClick={() => toggleExpand(item.path)}
-              className={clsx(
-                'w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 transition-colors rounded-lg mx-1',
-                level > 0 && 'pl-8'
-              )}
-            >
-              {expanded ? (
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-              )}
-              <item.icon className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-700">{item.label}</span>
-            </button>
-            {expanded && (
-              <div className="ml-4">
-                {item.children?.map((child) => renderMenuItem(child, level + 1))}
-              </div>
-            )}
-          </>
-        ) : (
-          <NavLink
-            to={item.path}
-            className={({ isActive }) =>
-              clsx(
-                'flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-lg mx-1',
-                level > 0 && 'pl-8',
-                isActive
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'hover:bg-gray-100 text-gray-700'
-              )
-            }
-          >
-            <item.icon className="w-4 h-4" />
-            <span>{item.label}</span>
-          </NavLink>
-        )}
-      </div>
-    )
+  // 判断当前路由是否激活（支持子路由匹配）
+  const isActive = (path: string) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard' || location.pathname === '/'
+    }
+    return location.pathname.startsWith(path)
   }
 
   return (
-    <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
-      {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+    <aside
+      className={clsx(
+        'fixed top-0 left-0 h-screen flex flex-col',
+        'bg-white/80 backdrop-blur-md border-r border-slate-200/60',
+        'transition-all duration-200 ease-in-out z-30',
+        collapsed ? 'w-16' : 'w-60'
+      )}
+    >
+      {/* Logo 区域 */}
+      <div className="h-16 flex items-center px-4 border-b border-slate-200/60">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center flex-shrink-0 shadow-[0_2px_8px_rgb(37,99,235,0.3)]">
             <Truck className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-sm font-bold text-gray-900">德国Box</h1>
-            <p className="text-xs text-gray-500">运输管理系统</p>
-          </div>
+          {!collapsed && (
+            <div className="whitespace-nowrap">
+              <h1 className="text-sm font-bold text-slate-900">EU-TMS</h1>
+              <p className="text-xs text-slate-400">运输管理系统 V2</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 菜单 */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-1">
-        {menuItems.map(item => renderMenuItem(item))}
+      {/* 菜单列表 */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+        {menuItems.map((item) => {
+          const active = isActive(item.path)
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              title={collapsed ? item.label : undefined}
+              className={clsx(
+                'w-full flex items-center gap-3 rounded-xl transition-all duration-200 ease-in-out',
+                collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5',
+                active
+                  ? 'bg-blue-50 text-blue-700 font-medium shadow-[0_2px_8px_rgb(59,130,246,0.08)]'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              )}
+            >
+              <item.icon
+                className={clsx(
+                  'w-5 h-5 flex-shrink-0 transition-colors duration-200',
+                  active ? 'text-blue-600' : 'text-slate-400'
+                )}
+              />
+              {!collapsed && (
+                <span className="text-sm truncate">{item.label}</span>
+              )}
+              {/* 激活指示条 */}
+              {active && !collapsed && (
+                <div className="ml-auto w-1 h-5 bg-blue-600 rounded-full" />
+              )}
+            </button>
+          )
+        })}
       </nav>
 
-      {/* 底部 */}
-      <div className="p-4 border-t border-gray-200">
-        <p className="text-xs text-gray-400 text-center">v1.0.0</p>
+      {/* 底部：折叠按钮 + 版本号 */}
+      <div className="border-t border-slate-200/60 p-2">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all duration-200 ease-in-out"
+        >
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <>
+              <ChevronLeft className="w-4 h-4" />
+              <span className="text-xs">收起菜单</span>
+            </>
+          )}
+        </button>
+        {!collapsed && (
+          <p className="text-xs text-slate-300 text-center mt-1">v2.0.0</p>
+        )}
       </div>
     </aside>
   )

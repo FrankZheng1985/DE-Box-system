@@ -11,8 +11,7 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  // 生产环境使用 /customer 路径
-  base: mode === 'production' ? '/customer/' : '/',
+  base: '/',
   define: {
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
@@ -24,7 +23,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -35,7 +34,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   server: {
-    port: 5175,  // 客户端使用不同端口
+    port: 5175,
     strictPort: true,
     open: true,
     host: true,

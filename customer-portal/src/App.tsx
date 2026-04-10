@@ -3,8 +3,14 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Orders from './pages/Orders'
+import MyOrders from './pages/MyOrders'
+import CreateOrder from './pages/CreateOrder'
+import InquiryList from './pages/InquiryList'
 import Tracking from './pages/Tracking'
+import CustomsOp from './pages/CustomsOp'
+import CMRFiles from './pages/CMRFiles'
+import Billing from './pages/Billing'
+import Settings from './pages/Settings'
 
 // 受保护的路由组件
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -13,7 +19,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-pulse flex flex-col items-center gap-3">
+          <div className="w-12 h-12 bg-primary-200 rounded-xl" />
+          <div className="w-24 h-3 bg-gray-200 rounded" />
+        </div>
       </div>
     )
   }
@@ -30,9 +39,9 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} 
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
       />
       <Route
         path="/"
@@ -43,9 +52,15 @@ function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="orders" element={<Orders />} />
+        <Route path="orders" element={<MyOrders />} />
+        <Route path="orders/create" element={<CreateOrder />} />
+        <Route path="inquiry" element={<InquiryList />} />
+        <Route path="inquiry/create" element={<InquiryList />} />
         <Route path="tracking" element={<Tracking />} />
-        <Route path="tracking/:trackingNo" element={<Tracking />} />
+        <Route path="customs" element={<CustomsOp />} />
+        <Route path="cmr" element={<CMRFiles />} />
+        <Route path="billing" element={<Billing />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

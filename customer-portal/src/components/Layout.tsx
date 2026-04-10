@@ -1,152 +1,143 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { 
-  LayoutDashboard, 
-  Package, 
-  Search, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Package,
+  PlusCircle,
+  MessageSquare,
+  MapPin,
+  ShieldCheck,
+  FileText,
+  Receipt,
+  Settings,
+  LogOut,
   User,
   Menu,
-  X
+  Truck,
 } from 'lucide-react'
 import { useState } from 'react'
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: '概览' },
   { path: '/orders', icon: Package, label: '我的订单' },
-  { path: '/tracking', icon: Search, label: '物流查询' },
+  { path: '/orders/create', icon: PlusCircle, label: '新建订单' },
+  { path: '/inquiry', icon: MessageSquare, label: '询价' },
+  { path: '/tracking', icon: MapPin, label: '运输追踪' },
+  { path: '/customs', icon: ShieldCheck, label: '清关操作' },
+  { path: '/cmr', icon: FileText, label: 'CMR文件' },
+  { path: '/billing', icon: Receipt, label: '我的账单' },
+  { path: '/settings', icon: Settings, label: '账户设置' },
 ]
 
 export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
 
+  // 获取当前页面标题
+  const currentPage = navItems.find(item =>
+    item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center">
-              <div className="flex-shrink-0 flex items-center">
-                <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-white" />
-                </div>
-                <span className="ml-2 text-lg font-semibold text-gray-900">
-                  德国Box
-                </span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* 移动端遮罩 */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-1">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === '/'}
-                  className={({ isActive }) =>
-                    `flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`
-                  }
-                >
-                  <item.icon className="w-4 h-4 mr-2" />
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-
-            {/* User Menu */}
-            <div className="flex items-center space-x-4">
-              <div className="hidden md:flex items-center">
-                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-600" />
-                </div>
-                <span className="ml-2 text-sm font-medium text-gray-700">
-                  {user?.name || user?.username}
-                </span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="hidden md:flex items-center text-gray-600 hover:text-gray-900"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
+      {/* 侧边栏 */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[200px] bg-white border-r border-gray-200 flex flex-col
+          transform transition-transform duration-200 ease-in-out
+          lg:translate-x-0 lg:static lg:z-auto
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        {/* Logo */}
+        <div className="h-14 flex items-center gap-2 px-4 border-b border-gray-100">
+          <div className="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center">
+            <Truck className="w-4 h-4 text-white" />
           </div>
+          <span className="text-sm font-bold text-slate-900">EU-TMS</span>
+          <span className="text-[10px] text-slate-400 ml-auto">客户端</span>
         </div>
 
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 bg-white">
-            <div className="px-4 py-3 space-y-1">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === '/'}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center px-4 py-3 rounded-lg text-sm font-medium ${
-                      isActive
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`
-                  }
-                >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.label}
-                </NavLink>
-              ))}
-              <div className="border-t border-gray-200 pt-3 mt-3">
-                <div className="flex items-center px-4 py-2 text-sm text-gray-600">
-                  <User className="w-5 h-5 mr-3" />
-                  {user?.name || user?.username}
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg"
-                >
-                  <LogOut className="w-5 h-5 mr-3" />
-                  退出登录
-                </button>
+        {/* 导航菜单 */}
+        <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
+                }`
+              }
+            >
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* 底部用户信息 */}
+        <div className="border-t border-gray-100 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center">
+              <User className="w-3.5 h-3.5 text-gray-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium text-slate-700 truncate">
+                {user?.name || user?.username}
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">
+                {user?.company || '客户'}
               </div>
             </div>
           </div>
-        )}
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-sm text-gray-500">
-            © 2024 德国Box运输管理系统 v{__APP_VERSION__}
-          </p>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            退出登录
+          </button>
         </div>
-      </footer>
+      </aside>
+
+      {/* 主内容区 */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 顶部栏 */}
+        <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 lg:px-6 sticky top-0 z-30">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 mr-3"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <h1 className="text-sm font-semibold text-slate-900">
+            {currentPage?.label || '客户门户'}
+          </h1>
+        </header>
+
+        {/* 页面内容 */}
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

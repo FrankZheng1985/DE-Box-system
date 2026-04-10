@@ -1,593 +1,295 @@
-import { useState } from 'react'
-import { 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown,
-  ArrowUpRight,
-  ArrowDownRight,
-  CreditCard,
-  Receipt,
-  PiggyBank,
-  DollarSign,
-  Calendar,
-  FileText,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Users,
-  Building2,
-  ArrowRight,
-  Banknote,
-  BarChart3,
-  CircleDollarSign,
-  ClipboardCheck,
-  Send,
-  Download,
-  Plus,
-  Eye,
-  RefreshCw,
-  Target,
-  Percent,
-  CalendarDays
+import { useState, useEffect } from 'react'
+import {
+  Wallet, DollarSign, CreditCard, TrendingUp, Percent, Eye, ChevronLeft, ChevronRight,
+  Plus, CheckCircle, AlertCircle, Ban, Banknote, BarChart3, Download, FileText, Calendar,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import api, { type ApiResponse } from '../utils/api'
+import StatusBadge from '../components/StatusBadge'
+import StatCard from '../components/StatCard'
+import Modal from '../components/Modal'
 
-// ==================== 模拟数据 ====================
+// ==================== 类型定义 ====================
 
-// 财务统计数据
-const financeStats = {
-  monthlyIncome: 125800,
-  monthlyIncomeChange: 18,
-  monthlyExpense: 68500,
-  monthlyExpenseChange: 8,
-  receivableTotal: 145200,
-  receivableOverdue: 23800,
-  payableTotal: 89100,
-  payableDue: 32100,
-  profit: 57300,
-  profitMargin: 45.5,
+interface FinanceSummary {
+  monthly_revenue: number
+  receivable_balance: number
+  payable_balance: number
+  avg_margin: number
 }
 
-// 最近应收发票
-const recentReceivables = [
-  { id: '1', invoiceNo: 'INV-2024-0015', customer: '德国物流有限公司', amount: 12500, dueDate: '2024-02-15', status: 'normal', daysToDue: 22 },
-  { id: '2', invoiceNo: 'INV-2024-0014', customer: '欧洲快递服务公司', amount: 8900, dueDate: '2024-02-10', status: 'normal', daysToDue: 17 },
-  { id: '3', invoiceNo: 'INV-2024-0013', customer: '柏林贸易公司', amount: 15800, dueDate: '2024-01-20', status: 'overdue', daysToDue: -5 },
-  { id: '4', invoiceNo: 'INV-2024-0012', customer: '法兰克福进出口', amount: 8000, dueDate: '2024-01-10', status: 'overdue', daysToDue: -15 },
-  { id: '5', invoiceNo: 'INV-2024-0011', customer: '慕尼黑电子商务', amount: 5600, dueDate: '2024-02-20', status: 'normal', daysToDue: 27 },
+interface BillRow {
+  id: string
+  bill_no: string
+  name: string        // 客户名 或 承运商名
+  order_no: string
+  amount: number
+  status: string
+  due_date: string
+}
+
+interface ClientProfit {
+  client_name: string
+  revenue: number
+  cost: number
+  profit: number
+  margin: number
+  order_count: number
+}
+
+interface AgingData { range: string; amount: number; count: number }
+
+// 收款/付款表单
+interface PaymentForm {
+  amount: string
+  paymentDate: string
+  remarks: string
+}
+
+// 创建财务记录表单
+interface CreateRecordForm {
+  type: 'RECEIVABLE' | 'PAYABLE'
+  orderId: string
+  amount: string
+  currency: string
+  dueDate: string
+  counterpartyType: string
+  counterpartyId: string
+  remarks: string
+}
+
+// 作废表单
+interface VoidForm {
+  reason: string
+}
+
+// ==================== 常量 ====================
+
+const TABS = [
+  { key: 'receivable', label: '应收账款' },
+  { key: 'payable', label: '应付账款' },
+  { key: 'profit', label: '利润分析' },
+  { key: 'aging', label: '账龄分析' },
+  { key: 'report', label: '报表' },
 ]
 
-// 最近应付账单
-const recentPayables = [
-  { id: '1', billNo: 'BILL-2024-0008', supplier: 'DHL物流服务', amount: 8500, dueDate: '2024-02-20', status: 'pending', daysToDue: 27 },
-  { id: '2', billNo: 'BILL-2024-0007', supplier: 'UPS快递服务', amount: 6200, dueDate: '2024-02-15', status: 'pending', daysToDue: 22 },
-  { id: '3', billNo: 'BILL-2024-0006', supplier: 'FedEx国际快递', amount: 9800, dueDate: '2024-01-25', status: 'overdue', daysToDue: -3 },
-  { id: '4', billNo: 'BILL-2024-0005', supplier: '德铁物流', amount: 7600, dueDate: '2024-02-28', status: 'pending', daysToDue: 35 },
-  { id: '5', billNo: 'BILL-2024-0004', supplier: '马士基航运', amount: 18500, dueDate: '2024-02-05', status: 'pending', daysToDue: 12 },
+const INITIAL_PAYMENT_FORM: PaymentForm = { amount: '', paymentDate: '', remarks: '' }
+const INITIAL_CREATE_FORM: CreateRecordForm = {
+  type: 'RECEIVABLE', orderId: '', amount: '', currency: 'EUR',
+  dueDate: '', counterpartyType: '', counterpartyId: '', remarks: '',
+}
+const INITIAL_VOID_FORM: VoidForm = { reason: '' }
+
+function fmt(amount: number): string {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
+}
+
+// ==================== 账单表格（应收/应付共用，含操作按钮） ====================
+
+function BillTable({
+  rows, loading, nameLabel, onPayment, onVoid,
+}: {
+  rows: BillRow[]
+  loading: boolean
+  nameLabel: string
+  onPayment: (row: BillRow) => void
+  onVoid: (row: BillRow) => void
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full table-fixed">
+        <colgroup>
+          <col className="w-[12%]" /><col className="w-[14%]" /><col className="w-[12%]" />
+          <col className="w-[12%]" /><col className="w-[10%]" /><col className="w-[12%]" /><col className="w-[28%]" />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-slate-100">
+            {['账单号', nameLabel, '关联订单', '金额', '状态', '到期日', '操作'].map((h, i) => (
+              <th key={i} className={`text-xs font-medium text-slate-500 px-4 py-3 ${i === 3 ? 'text-right' : i >= 4 ? 'text-center' : 'text-left'}`}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? Array.from({ length: 5 }).map((_, i) => (
+            <tr key={i} className="border-b border-slate-50">
+              {Array.from({ length: 7 }).map((_, j) => (
+                <td key={j} className="px-4 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>
+              ))}
+            </tr>
+          )) : rows.length === 0 ? (
+            <tr><td colSpan={7} className="px-4 py-16 text-center text-sm text-slate-500">暂无数据</td></tr>
+          ) : rows.map(r => (
+            <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
+              <td className="px-4 py-3 text-xs text-slate-900 font-medium">{r.bill_no}</td>
+              <td className="px-4 py-3 text-xs text-slate-600 truncate">{r.name}</td>
+              <td className="px-4 py-3 text-xs text-blue-600">{r.order_no || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{fmt(r.amount)}</td>
+              <td className="px-4 py-3 text-center"><StatusBadge status={r.status} type="payment" /></td>
+              <td className="px-4 py-3 text-xs text-slate-500 text-center">{r.due_date?.split('T')[0] || '-'}</td>
+              <td className="px-4 py-3 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="查看">
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  {/* 记录收款/审核付款 按钮 - 仅未付或部分付款状态显示 */}
+                  {(r.status === 'UNPAID' || r.status === 'PARTIAL') && (
+                    <button
+                      onClick={() => onPayment(r)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-all duration-200"
+                      title={nameLabel === '客户' ? '记录收款' : '审核付款'}
+                    >
+                      <Banknote className="w-3.5 h-3.5" />
+                      {nameLabel === '客户' ? '收款' : '付款'}
+                    </button>
+                  )}
+                  {/* 作废按钮 - 仅未付款状态显示 */}
+                  {r.status === 'UNPAID' && (
+                    <button
+                      onClick={() => onVoid(r)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-all duration-200"
+                      title="作废"
+                    >
+                      <Ban className="w-3.5 h-3.5" />
+                      作废
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ==================== 报表 Tab ====================
+
+const MONTHLY_DATA = [
+  { month: '11月', revenue: 85000 },
+  { month: '12月', revenue: 92000 },
+  { month: '1月', revenue: 78000 },
+  { month: '2月', revenue: 105000 },
+  { month: '3月', revenue: 98000 },
+  { month: '4月', revenue: 112000 },
 ]
 
-// 最近交易记录
-const recentTransactions = [
-  { id: '1', type: 'income', description: '收款 - 德国物流有限公司', reference: 'INV-2024-0010', amount: 5280.00, date: '2024-01-24 14:30', method: '银行转账' },
-  { id: '2', type: 'expense', description: '付款 - DHL物流服务', reference: 'BILL-2024-0003', amount: -1850.00, date: '2024-01-24 11:20', method: '银行转账' },
-  { id: '3', type: 'income', description: '收款 - 柏林贸易公司', reference: 'INV-2024-0009', amount: 3200.00, date: '2024-01-23 16:45', method: '银行转账' },
-  { id: '4', type: 'expense', description: '付款 - 仓储费用', reference: 'BILL-2024-0002', amount: -980.00, date: '2024-01-23 10:15', method: '银行转账' },
-  { id: '5', type: 'income', description: '收款 - 慕尼黑电子商务', reference: 'INV-2024-0008', amount: 1560.00, date: '2024-01-22 09:30', method: '银行转账' },
-  { id: '6', type: 'expense', description: '付款 - UPS快递服务', reference: 'BILL-2024-0001', amount: -2100.00, date: '2024-01-21 15:00', method: '银行转账' },
+const RECENT_REPORTS = [
+  { name: '2026年3月运营收入报表', type: '运营收入', date: '2026-04-02', status: '已生成' },
+  { name: '2026年Q1利润分析', type: '利润分析', date: '2026-04-01', status: '已生成' },
+  { name: '2026年3月运输成本报表', type: '运输成本', date: '2026-04-01', status: '已生成' },
+  { name: '2026年2月运营收入报表', type: '运营收入', date: '2026-03-02', status: '已生成' },
 ]
 
-// 待处理事项
-const pendingItems = [
-  { id: '1', type: 'receivable', title: '应收逾期提醒', description: '柏林贸易公司 INV-2024-0013 已逾期5天', amount: 15800, urgent: true },
-  { id: '2', type: 'receivable', title: '应收逾期提醒', description: '法兰克福进出口 INV-2024-0012 已逾期15天', amount: 8000, urgent: true },
-  { id: '3', type: 'payable', title: '付款到期提醒', description: 'FedEx国际快递 BILL-2024-0006 已逾期3天', amount: 9800, urgent: true },
-  { id: '4', type: 'reconciliation', title: '对账待确认', description: '德国物流有限公司 1月对账单待确认', amount: 45000, urgent: false },
-  { id: '5', type: 'invoice', title: '发票待审核', description: '3张新发票待审核开具', amount: 28500, urgent: false },
-]
+function ReportTab() {
+  const [reportType, setReportType] = useState('revenue')
+  const [timeRange, setTimeRange] = useState('month')
 
-// 月度收支趋势
-const monthlyTrend = [
-  { month: '8月', income: 98000, expense: 52000 },
-  { month: '9月', income: 105000, expense: 58000 },
-  { month: '10月', income: 112000, expense: 62000 },
-  { month: '11月', income: 108000, expense: 55000 },
-  { month: '12月', income: 118000, expense: 65000 },
-  { month: '1月', income: 125800, expense: 68500 },
-]
-
-// 客户应收排名
-const topReceivableCustomers = [
-  { name: '法兰克福进出口', amount: 32000, percentage: 22 },
-  { name: '柏林贸易公司', amount: 28500, percentage: 19.6 },
-  { name: '德国物流有限公司', amount: 25800, percentage: 17.8 },
-  { name: '欧洲快递服务公司', amount: 22400, percentage: 15.4 },
-  { name: '慕尼黑电子商务', amount: 18500, percentage: 12.7 },
-]
-
-// ==================== 组件 ====================
-
-export default function FinanceManagement() {
-  const [dateRange, setDateRange] = useState('month')
-  const navigate = useNavigate()
-
-  // 计算最大收入用于图表缩放
-  const maxValue = Math.max(...monthlyTrend.map(m => Math.max(m.income, m.expense)))
-
-  // 导出财务报表
-  const handleExportReport = () => {
-    const headers = ['月份', '收入', '支出', '利润']
-    const rows = monthlyTrend.map(m => [
-      m.month,
-      m.income,
-      m.expense,
-      m.income - m.expense
-    ])
-    
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `财务报表_${new Date().toISOString().split('T')[0]}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // 处理紧急事项
-  const handlePendingItem = (item: typeof pendingItems[0]) => {
-    if (item.type === 'receivable') {
-      navigate('/finance/invoices')
-    } else if (item.type === 'payable') {
-      navigate('/finance/payables')
-    } else if (item.type === 'reconciliation') {
-      navigate('/finance/reconciliation')
-    } else if (item.type === 'invoice') {
-      navigate('/finance/invoices')
-    }
-  }
+  const maxRevenue = Math.max(...MONTHLY_DATA.map(d => d.revenue))
 
   return (
     <div className="p-6 space-y-6">
-      {/* 页面标题 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">财务管理中心</h1>
-          <p className="text-gray-500 mt-1">全面管控企业财务状况，实时掌握资金动态</p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/* 报表生成表单 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+        <div className="flex-1 min-w-0">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
+            <BarChart3 className="w-3.5 h-3.5 text-slate-400" />
+            报表类型
+          </label>
           <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value)}
+            className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           >
-            <option value="week">本周</option>
-            <option value="month">本月</option>
-            <option value="quarter">本季度</option>
-            <option value="year">本年度</option>
+            <option value="revenue">运营收入</option>
+            <option value="cost">运输成本</option>
+            <option value="profit">利润分析</option>
           </select>
-          <button onClick={handleExportReport} className="btn btn-md btn-secondary">
-            <Download className="w-4 h-4" />
-            导出报表
-          </button>
-          <Link to="/finance/invoices" className="btn btn-md btn-primary">
-            <FileText className="w-4 h-4" />
-            财务报告
-          </Link>
         </div>
+        <div className="flex-1 min-w-0">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            时间范围
+          </label>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          >
+            <option value="month">本月</option>
+            <option value="last_month">上月</option>
+            <option value="quarter">本季</option>
+            <option value="year">本年</option>
+          </select>
+        </div>
+        <button className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all duration-200">
+          <BarChart3 className="w-4 h-4" />
+          生成报表
+        </button>
       </div>
 
-      {/* 核心指标卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* 本月收入 */}
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-5 text-white">
-          <div className="flex items-start justify-between">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div className="flex items-center text-sm font-medium text-green-100">
-              +{financeStats.monthlyIncomeChange}%
-              <ArrowUpRight className="w-4 h-4 ml-1" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-green-100">本月收入</h3>
-            <p className="text-2xl font-bold mt-1">€{financeStats.monthlyIncome.toLocaleString('de-DE')}</p>
-          </div>
-        </div>
-
-        {/* 本月支出 */}
-        <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl shadow-lg p-5 text-white">
-          <div className="flex items-start justify-between">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <TrendingDown className="w-5 h-5" />
-            </div>
-            <div className="flex items-center text-sm font-medium text-red-100">
-              +{financeStats.monthlyExpenseChange}%
-              <ArrowUpRight className="w-4 h-4 ml-1" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-red-100">本月支出</h3>
-            <p className="text-2xl font-bold mt-1">€{financeStats.monthlyExpense.toLocaleString('de-DE')}</p>
-          </div>
-        </div>
-
-        {/* 应收账款 */}
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg p-5 text-white">
-          <div className="flex items-start justify-between">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Receipt className="w-5 h-5" />
-            </div>
-            <div className="text-xs text-blue-100 bg-white/20 px-2 py-0.5 rounded">
-              逾期 €{financeStats.receivableOverdue.toLocaleString('de-DE')}
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-blue-100">应收账款</h3>
-            <p className="text-2xl font-bold mt-1">€{financeStats.receivableTotal.toLocaleString('de-DE')}</p>
-          </div>
-        </div>
-
-        {/* 应付账款 */}
-        <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl shadow-lg p-5 text-white">
-          <div className="flex items-start justify-between">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <CreditCard className="w-5 h-5" />
-            </div>
-            <div className="text-xs text-orange-100 bg-white/20 px-2 py-0.5 rounded">
-              到期 €{financeStats.payableDue.toLocaleString('de-DE')}
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-orange-100">应付账款</h3>
-            <p className="text-2xl font-bold mt-1">€{financeStats.payableTotal.toLocaleString('de-DE')}</p>
-          </div>
-        </div>
-
-        {/* 本月利润 */}
-        <div className="bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl shadow-lg p-5 text-white">
-          <div className="flex items-start justify-between">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <PiggyBank className="w-5 h-5" />
-            </div>
-            <div className="flex items-center text-sm font-medium text-purple-100">
-              {financeStats.profitMargin}%
-              <Percent className="w-3 h-3 ml-1" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-sm font-medium text-purple-100">本月利润</h3>
-            <p className="text-2xl font-bold mt-1">€{financeStats.profit.toLocaleString('de-DE')}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 快捷操作 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-          <Target className="w-4 h-4 text-blue-600" />
-          快捷操作
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-          <Link to="/finance/invoices" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all group">
-            <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-              <FileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-blue-600">开具发票</span>
-          </Link>
-          <Link to="/finance/invoices" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all group">
-            <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-              <Banknote className="w-5 h-5 text-green-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-green-600">收款登记</span>
-          </Link>
-          <Link to="/finance/payables" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all group">
-            <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
-              <Send className="w-5 h-5 text-orange-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-orange-600">付款登记</span>
-          </Link>
-          <Link to="/finance/reconciliation" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all group">
-            <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-              <ClipboardCheck className="w-5 h-5 text-purple-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-purple-600">对账管理</span>
-          </Link>
-          <Link to="/crm/customers" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group">
-            <div className="p-2 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
-              <Users className="w-5 h-5 text-indigo-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-indigo-600">客户信用</span>
-          </Link>
-          <Link to="/suppliers" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all group">
-            <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
-              <Building2 className="w-5 h-5 text-teal-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-teal-600">供应商账务</span>
-          </Link>
-          <Link to="/finance/invoices" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all group">
-            <div className="p-2 bg-cyan-100 rounded-lg group-hover:bg-cyan-200 transition-colors">
-              <BarChart3 className="w-5 h-5 text-cyan-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-cyan-600">财务分析</span>
-          </Link>
-          <Link to="/finance/reconciliation" className="flex flex-col items-center p-3 rounded-lg border border-gray-200 hover:border-rose-300 hover:bg-rose-50 transition-all group">
-            <div className="p-2 bg-rose-100 rounded-lg group-hover:bg-rose-200 transition-colors">
-              <CalendarDays className="w-5 h-5 text-rose-600" />
-            </div>
-            <span className="mt-2 text-xs text-gray-600 group-hover:text-rose-600">账期管理</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* 待处理事项 */}
-      {pendingItems.filter(item => item.urgent).length > 0 && (
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200 p-4">
-          <h3 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            待处理紧急事项 ({pendingItems.filter(item => item.urgent).length})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {pendingItems.filter(item => item.urgent).map(item => (
-              <div key={item.id} className="bg-white rounded-lg p-3 border border-red-200 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    {item.type === 'receivable' && <Receipt className="w-4 h-4 text-blue-600" />}
-                    {item.type === 'payable' && <CreditCard className="w-4 h-4 text-orange-600" />}
-                    <span className="text-sm font-medium text-gray-900">{item.title}</span>
-                  </div>
-                  <span className="text-sm font-bold text-red-600">€{item.amount.toLocaleString('de-DE')}</span>
+      {/* 简易柱状图：近6个月收入 */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900 mb-4">近 6 个月营收趋势</h3>
+        <div className="flex items-end gap-3 h-48 px-2">
+          {MONTHLY_DATA.map((d) => {
+            const heightPct = Math.round((d.revenue / maxRevenue) * 100)
+            return (
+              <div key={d.month} className="flex-1 flex flex-col items-center gap-2">
+                <span className="text-xs font-medium text-slate-700">
+                  {fmt(d.revenue)}
+                </span>
+                <div className="w-full flex justify-center" style={{ height: '140px' }}>
+                  <div
+                    className="w-full max-w-[48px] rounded-t-lg bg-blue-500 hover:bg-blue-600 transition-all duration-200"
+                    style={{ height: `${heightPct}%` }}
+                    title={`${d.month}: ${fmt(d.revenue)}`}
+                  />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{item.description}</p>
-                <button 
-                  onClick={() => handlePendingItem(item)}
-                  className="mt-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  立即处理 →
-                </button>
+                <span className="text-xs text-slate-500">{d.month}</span>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 主要内容区域 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 收支趋势图 */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              收支趋势
-            </h2>
-            <div className="flex items-center gap-4 text-sm">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 bg-green-500 rounded"></span>
-                收入
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 bg-red-400 rounded"></span>
-                支出
-              </span>
-            </div>
-          </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              {monthlyTrend.map((month, index) => (
-                <div key={month.month} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 w-10">{month.month}</span>
-                    <div className="flex-1 mx-4 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-5 bg-gradient-to-r from-green-400 to-green-500 rounded-r-full transition-all duration-500"
-                          style={{ width: `${(month.income / maxValue) * 100}%` }}
-                        ></div>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">€{month.income.toLocaleString('de-DE')}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="h-5 bg-gradient-to-r from-red-300 to-red-400 rounded-r-full transition-all duration-500"
-                          style={{ width: `${(month.expense / maxValue) * 100}%` }}
-                        ></div>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">€{month.expense.toLocaleString('de-DE')}</span>
-                      </div>
-                    </div>
-                    <span className={`text-sm font-semibold ${month.income - month.expense >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {month.income - month.expense >= 0 ? '+' : ''}€{(month.income - month.expense).toLocaleString('de-DE')}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 客户应收排名 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              应收款排名
-            </h2>
-            <Link to="/finance/invoices" className="text-sm text-blue-600 hover:text-blue-700">查看全部</Link>
-          </div>
-          <div className="p-4">
-            <div className="space-y-3">
-              {topReceivableCustomers.map((customer, index) => (
-                <div key={customer.name} className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                    index === 1 ? 'bg-gray-100 text-gray-600' :
-                    index === 2 ? 'bg-orange-100 text-orange-700' :
-                    'bg-gray-50 text-gray-500'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900 truncate">{customer.name}</span>
-                      <span className="text-sm font-semibold text-gray-900">€{customer.amount.toLocaleString('de-DE')}</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5">
-                      <div 
-                        className="h-1.5 bg-blue-500 rounded-full transition-all duration-500" 
-                        style={{ width: `${customer.percentage}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+            )
+          })}
         </div>
       </div>
 
-      {/* 应收应付列表 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 应收账款列表 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-blue-600" />
-              最近应收发票
-            </h2>
-            <Link to="/finance/invoices" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              查看全部 <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {recentReceivables.map((item) => (
-              <div key={item.id} className="px-6 py-3 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${item.status === 'overdue' ? 'bg-red-500' : 'bg-green-500'}`}></div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{item.customer}</p>
-                      <p className="text-xs text-gray-500">{item.invoiceNo} · 到期 {item.dueDate}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">€{item.amount.toLocaleString('de-DE')}</p>
-                    <p className={`text-xs ${item.daysToDue < 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                      {item.daysToDue < 0 ? `逾期 ${Math.abs(item.daysToDue)} 天` : `${item.daysToDue} 天后到期`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-            <Link to="/finance/invoices" className="btn btn-sm btn-primary w-full justify-center">
-              <Plus className="w-4 h-4" />
-              开具新发票
-            </Link>
-          </div>
-        </div>
-
-        {/* 应付账款列表 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-orange-600" />
-              最近应付账单
-            </h2>
-            <Link to="/finance/payables" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-              查看全部 <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {recentPayables.map((item) => (
-              <div key={item.id} className="px-6 py-3 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${item.status === 'overdue' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{item.supplier}</p>
-                      <p className="text-xs text-gray-500">{item.billNo} · 到期 {item.dueDate}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">€{item.amount.toLocaleString('de-DE')}</p>
-                    <p className={`text-xs ${item.daysToDue < 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                      {item.daysToDue < 0 ? `逾期 ${Math.abs(item.daysToDue)} 天` : `${item.daysToDue} 天后到期`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-            <Link to="/finance/payables" className="btn btn-sm btn-secondary w-full justify-center">
-              <Send className="w-4 h-4" />
-              付款登记
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* 最近交易记录 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-blue-600" />
-            最近交易记录
-          </h2>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => window.location.reload()} 
-              className="btn btn-sm btn-secondary"
-            >
-              <RefreshCw className="w-4 h-4" />
-              刷新
-            </button>
-            <Link to="/finance/invoices" className="text-sm text-blue-600 hover:text-blue-700">查看全部</Link>
-          </div>
-        </div>
+      {/* 最近报表 */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900 mb-3">最近生成的报表</h3>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[35%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
+              <col className="w-[12%]" />
+              <col className="w-[13%]" />
+            </colgroup>
             <thead>
-              <tr className="bg-gray-50">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">描述</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联单据</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">支付方式</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              <tr className="border-b border-slate-100">
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-left">报表名称</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-left">类型</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">生成日期</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">状态</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {recentTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      transaction.type === 'income' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {transaction.type === 'income' ? (
-                        <TrendingUp className="w-3 h-3" />
-                      ) : (
-                        <TrendingDown className="w-3 h-3" />
-                      )}
-                      {transaction.type === 'income' ? '收入' : '支出'}
+            <tbody>
+              {RECENT_REPORTS.map((r, idx) => (
+                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
+                  <td className="px-4 py-2.5 text-xs text-slate-900 font-medium flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    {r.name}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-slate-600">{r.type}</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{r.date}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                      {r.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{transaction.description}</td>
-                  <td className="px-6 py-4">
-                    <span className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer">{transaction.reference}</span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{transaction.method}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{transaction.date}</td>
-                  <td className={`px-6 py-4 text-right font-semibold ${
-                    transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {transaction.amount >= 0 ? '+' : ''}€{Math.abs(transaction.amount).toLocaleString('de-DE', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                      <Eye className="w-4 h-4" />
+                  <td className="px-4 py-2.5 text-center">
+                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="下载">
+                      <Download className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>
@@ -596,6 +298,575 @@ export default function FinanceManagement() {
           </table>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ==================== 主组件 ====================
+
+export default function FinanceManagement() {
+  const [activeTab, setActiveTab] = useState('receivable')
+  const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState<FinanceSummary | null>(null)
+  const [billRows, setBillRows] = useState<BillRow[]>([])
+  const [profits, setProfits] = useState<ClientProfit[]>([])
+  const [aging, setAging] = useState<AgingData[]>([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const pageSize = 20
+
+  // Toast 通知
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // 收款/付款弹窗
+  const [paymentModal, setPaymentModal] = useState<{ open: boolean; row: BillRow | null }>({ open: false, row: null })
+  const [paymentForm, setPaymentForm] = useState<PaymentForm>(INITIAL_PAYMENT_FORM)
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false)
+
+  // 创建财务记录弹窗
+  const [createModal, setCreateModal] = useState(false)
+  const [createForm, setCreateForm] = useState<CreateRecordForm>(INITIAL_CREATE_FORM)
+  const [createSubmitting, setCreateSubmitting] = useState(false)
+
+  // 作废弹窗
+  const [voidModal, setVoidModal] = useState<{ open: boolean; row: BillRow | null }>({ open: false, row: null })
+  const [voidForm, setVoidForm] = useState<VoidForm>(INITIAL_VOID_FORM)
+  const [voidSubmitting, setVoidSubmitting] = useState(false)
+
+  // Toast 自动消失
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  // 获取财务汇总
+  useEffect(() => {
+    api.get<ApiResponse<FinanceSummary>>('/finance/summary')
+      .then(res => { if (res.code === 200) setSummary(res.data) })
+      .catch(err => console.error('获取财务汇总失败:', err))
+  }, [])
+
+  // 根据 tab 加载数据
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      if (activeTab === 'receivable' || activeTab === 'payable') {
+        const endpoint = activeTab === 'receivable' ? '/finance/receivables' : '/finance/payables'
+        const nameKey = activeTab === 'receivable' ? 'client_name' : 'carrier_name'
+        const res = await api.get<ApiResponse<{ items: any[]; pagination: { total: number } }>>(
+          `${endpoint}?page=${page}&pageSize=${pageSize}`
+        )
+        if (res.code === 200 && res.data) {
+          setBillRows((res.data.items || []).map((r: any) => ({ ...r, name: r[nameKey] || '-' })))
+          setTotal(res.data.pagination?.total || 0)
+        }
+      } else if (activeTab === 'profit') {
+        const res = await api.get<ApiResponse<ClientProfit[]>>('/finance/profit/by-client')
+        if (res.code === 200) setProfits(res.data || [])
+      } else if (activeTab === 'aging') {
+        const res = await api.get<ApiResponse<AgingData[]>>('/finance/aging/receivable')
+        if (res.code === 200) setAging(res.data || [])
+      }
+    } catch (err) {
+      console.error('获取财务数据失败:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [activeTab, page])
+
+  // ==================== 收款/付款操作 ====================
+
+  const openPaymentModal = (row: BillRow) => {
+    setPaymentModal({ open: true, row })
+    setPaymentForm(INITIAL_PAYMENT_FORM)
+  }
+
+  const handlePayment = async () => {
+    if (!paymentModal.row) return
+    const amount = Number(paymentForm.amount)
+    if (!amount || amount <= 0) {
+      setToast({ type: 'error', message: '收款金额必须大于 0' })
+      return
+    }
+
+    setPaymentSubmitting(true)
+    try {
+      await api.put<ApiResponse<unknown>>(`/finance/${paymentModal.row.id}/payment`, { amount })
+      setToast({ type: 'success', message: '收款记录已保存' })
+      setPaymentModal({ open: false, row: null })
+      loadData()
+      // 刷新汇总
+      api.get<ApiResponse<FinanceSummary>>('/finance/summary')
+        .then(res => { if (res.code === 200) setSummary(res.data) })
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.message || '操作失败' })
+    } finally {
+      setPaymentSubmitting(false)
+    }
+  }
+
+  // ==================== 创建财务记录 ====================
+
+  const openCreateModal = (type: 'RECEIVABLE' | 'PAYABLE') => {
+    setCreateForm({ ...INITIAL_CREATE_FORM, type })
+    setCreateModal(true)
+  }
+
+  const handleCreateRecord = async () => {
+    if (!createForm.amount || Number(createForm.amount) <= 0) {
+      setToast({ type: 'error', message: '金额必须大于 0' })
+      return
+    }
+    if (!createForm.dueDate) {
+      setToast({ type: 'error', message: '请选择到期日' })
+      return
+    }
+
+    setCreateSubmitting(true)
+    try {
+      const payload = {
+        type: createForm.type,
+        orderId: createForm.orderId.trim() || undefined,
+        amount: Number(createForm.amount),
+        currency: createForm.currency || 'EUR',
+        dueDate: createForm.dueDate,
+        counterpartyType: createForm.counterpartyType.trim() || undefined,
+        counterpartyId: createForm.counterpartyId.trim() || undefined,
+        remarks: createForm.remarks.trim() || undefined,
+      }
+      await api.post<ApiResponse<unknown>>('/finance/records', payload)
+      setToast({ type: 'success', message: `${createForm.type === 'RECEIVABLE' ? '应收' : '应付'}记录创建成功` })
+      setCreateModal(false)
+      loadData()
+      // 刷新汇总
+      api.get<ApiResponse<FinanceSummary>>('/finance/summary')
+        .then(res => { if (res.code === 200) setSummary(res.data) })
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.message || '创建失败' })
+    } finally {
+      setCreateSubmitting(false)
+    }
+  }
+
+  // ==================== 作废操作 ====================
+
+  const openVoidModal = (row: BillRow) => {
+    setVoidModal({ open: true, row })
+    setVoidForm(INITIAL_VOID_FORM)
+  }
+
+  const handleVoid = async () => {
+    if (!voidModal.row) return
+    if (!voidForm.reason.trim()) {
+      setToast({ type: 'error', message: '请输入作废原因' })
+      return
+    }
+
+    setVoidSubmitting(true)
+    try {
+      await api.put<ApiResponse<unknown>>(`/finance/${voidModal.row.id}/void`, { reason: voidForm.reason.trim() })
+      setToast({ type: 'success', message: '账单已作废' })
+      setVoidModal({ open: false, row: null })
+      loadData()
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.message || '作废失败' })
+    } finally {
+      setVoidSubmitting(false)
+    }
+  }
+
+  const totalPages = Math.ceil(total / pageSize)
+  const maxAgingAmt = Math.max(...aging.map(a => a.amount), 1)
+
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      {/* Toast 通知 */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-[slideInFromRight_300ms_ease-out] ${
+          toast.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {toast.message}
+        </div>
+      )}
+
+      {/* 页面标题 + 创建按钮 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-2 bg-green-50 rounded-xl"><Wallet className="w-5 h-5 text-green-600" /></div>
+          <h1 className="text-xl font-semibold text-slate-900">财务管理</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => openCreateModal('RECEIVABLE')}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            创建应收
+          </button>
+          <button
+            onClick={() => openCreateModal('PAYABLE')}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-xl transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            创建应付
+          </button>
+        </div>
+      </div>
+
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="本月营收" value={summary ? fmt(summary.monthly_revenue) : '-'} icon={<DollarSign className="w-5 h-5" />} color="green" />
+        <StatCard title="应收余额" value={summary ? fmt(summary.receivable_balance) : '-'} icon={<CreditCard className="w-5 h-5" />} color="blue" />
+        <StatCard title="应付余额" value={summary ? fmt(summary.payable_balance) : '-'} icon={<TrendingUp className="w-5 h-5" />} color="yellow" />
+        <StatCard title="平均毛利率" value={summary ? `${(summary.avg_margin || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
+      </div>
+
+      {/* Tab 标签栏 */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 overflow-x-auto">
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => { setActiveTab(tab.key); setPage(1) }}
+            className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all duration-200 ${
+              activeTab === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}>{tab.label}</button>
+        ))}
+      </div>
+
+      {/* Tab 内容 */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+        {/* 应收/应付 共用表格 */}
+        {(activeTab === 'receivable' || activeTab === 'payable') && (
+          <BillTable
+            rows={billRows}
+            loading={loading}
+            nameLabel={activeTab === 'receivable' ? '客户' : '承运商'}
+            onPayment={openPaymentModal}
+            onVoid={openVoidModal}
+          />
+        )}
+
+        {/* 利润分析 */}
+        {activeTab === 'profit' && (
+          <div className="p-6">
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-32 bg-slate-100 rounded-xl animate-pulse" />)}
+              </div>
+            ) : profits.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-16">暂无利润数据</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {profits.map(p => (
+                  <div key={p.client_name} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-all duration-200">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3">{p.client_name}</h3>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(p.revenue)}</span></div>
+                      <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(p.cost)}</span></div>
+                      <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(p.profit)}</span></div>
+                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{p.margin?.toFixed(1)}%</span></div>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">订单数: {p.order_count}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 账龄分析 */}
+        {activeTab === 'aging' && (
+          <div className="p-6">
+            {loading ? (
+              <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}</div>
+            ) : aging.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-16">暂无账龄数据</p>
+            ) : (
+              <div className="space-y-4">
+                {aging.map(a => (
+                  <div key={a.range} className="flex items-center gap-4">
+                    <span className="text-xs text-slate-600 w-20 shrink-0">{a.range}天</span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${
+                        a.range === '90+' ? 'bg-red-400' : a.range === '61-90' ? 'bg-orange-400' : a.range === '31-60' ? 'bg-amber-400' : 'bg-green-400'
+                      }`} style={{ width: `${Math.max((a.amount / maxAgingAmt) * 100, 2)}%` }} />
+                    </div>
+                    <div className="text-right w-32 shrink-0">
+                      <span className="text-xs font-medium text-slate-900">{fmt(a.amount)}</span>
+                      <span className="text-xs text-slate-400 ml-2">({a.count}笔)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 报表 */}
+        {activeTab === 'report' && <ReportTab />}
+
+        {/* 分页（仅应收/应付 Tab） */}
+        {(activeTab === 'receivable' || activeTab === 'payable') && total > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+            <p className="text-xs text-slate-500">共 {total} 条记录</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-slate-600">{page} / {totalPages || 1}</span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ==================== 收款/付款弹窗 ==================== */}
+      <Modal
+        isOpen={paymentModal.open}
+        onClose={() => setPaymentModal({ open: false, row: null })}
+        title={activeTab === 'receivable' ? '记录收款' : '审核付款'}
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => setPaymentModal({ open: false, row: null })}
+              className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
+            >
+              取消
+            </button>
+            <button
+              onClick={handlePayment}
+              disabled={paymentSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {paymentSubmitting ? '提交中...' : '确认'}
+            </button>
+          </div>
+        }
+      >
+        {paymentModal.row && (
+          <div className="space-y-4">
+            {/* 账单信息概览 */}
+            <div className="bg-slate-50 rounded-xl p-3 space-y-1">
+              <p className="text-xs text-slate-500">账单号: <span className="text-slate-900 font-medium">{paymentModal.row.bill_no}</span></p>
+              <p className="text-xs text-slate-500">账单金额: <span className="text-slate-900 font-medium">{fmt(paymentModal.row.amount)}</span></p>
+            </div>
+
+            {/* 收款金额 */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {activeTab === 'receivable' ? '收款金额' : '付款金额'} (EUR) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={paymentForm.amount}
+                onChange={e => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+              />
+            </div>
+
+            {/* 收款日期 */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {activeTab === 'receivable' ? '收款日期' : '付款日期'}
+              </label>
+              <input
+                type="date"
+                value={paymentForm.paymentDate}
+                onChange={e => setPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+              />
+            </div>
+
+            {/* 备注 */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">备注</label>
+              <textarea
+                value={paymentForm.remarks}
+                onChange={e => setPaymentForm(prev => ({ ...prev, remarks: e.target.value }))}
+                placeholder="可选备注信息"
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none transition-all duration-200"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ==================== 创建财务记录弹窗 ==================== */}
+      <Modal
+        isOpen={createModal}
+        onClose={() => setCreateModal(false)}
+        title={`创建${createForm.type === 'RECEIVABLE' ? '应收' : '应付'}记录`}
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => setCreateModal(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleCreateRecord}
+              disabled={createSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {createSubmitting ? '提交中...' : '确认创建'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {/* 类型切换 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">类型</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={createForm.type === 'RECEIVABLE'}
+                  onChange={() => setCreateForm(prev => ({ ...prev, type: 'RECEIVABLE' }))}
+                />
+                <span className="text-sm text-slate-700">应收账款</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={createForm.type === 'PAYABLE'}
+                  onChange={() => setCreateForm(prev => ({ ...prev, type: 'PAYABLE' }))}
+                />
+                <span className="text-sm text-slate-700">应付账款</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 关联订单 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">关联订单号</label>
+            <input
+              type="text"
+              value={createForm.orderId}
+              onChange={e => setCreateForm(prev => ({ ...prev, orderId: e.target.value }))}
+              placeholder="输入订单编号"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* 金额 */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                金额 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                value={createForm.amount}
+                onChange={e => setCreateForm(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="0.00"
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+              />
+            </div>
+
+            {/* 币种 */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">币种</label>
+              <select
+                value={createForm.currency}
+                onChange={e => setCreateForm(prev => ({ ...prev, currency: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+              >
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="CNY">CNY</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 到期日 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              到期日 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={createForm.dueDate}
+              onChange={e => setCreateForm(prev => ({ ...prev, dueDate: e.target.value }))}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+
+          {/* 备注 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">备注</label>
+            <textarea
+              value={createForm.remarks}
+              onChange={e => setCreateForm(prev => ({ ...prev, remarks: e.target.value }))}
+              placeholder="可选备注信息"
+              rows={3}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none transition-all duration-200"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* ==================== 作废确认弹窗 ==================== */}
+      <Modal
+        isOpen={voidModal.open}
+        onClose={() => setVoidModal({ open: false, row: null })}
+        title="作废账单"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => setVoidModal({ open: false, row: null })}
+              className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleVoid}
+              disabled={voidSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {voidSubmitting ? '处理中...' : '确认作废'}
+            </button>
+          </div>
+        }
+      >
+        {voidModal.row && (
+          <div className="space-y-4">
+            <div className="bg-red-50 rounded-xl p-3 border border-red-100">
+              <p className="text-sm text-red-700">
+                即将作废账单 <span className="font-semibold">{voidModal.row.bill_no}</span>，金额 <span className="font-semibold">{fmt(voidModal.row.amount)}</span>。此操作不可撤销。
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                作废原因 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={voidForm.reason}
+                onChange={e => setVoidForm({ reason: e.target.value })}
+                placeholder="请输入作废原因"
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none transition-all duration-200"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

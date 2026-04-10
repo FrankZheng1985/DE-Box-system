@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EU-TMS 欧洲运输管理系统 - 交互原型</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.js" rel="prefetch">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --pri:#1F4E79; --priL:#2E75B6; --priLL:#D5E8F4;
+  --acc:#4472C4; --accL:#7BA7D7;
+  --bg:#F5F7FA; --white:#FFF; --text:#1A1A2E; --textS:#6B7280; --textL:#9CA3AF;
+  --border:#E5E7EB; --borderL:#F3F4F6;
+  --green:#10B981; --greenL:#D1FAE5; --red:#EF4444; --redL:#FEE2E2;
+  --yellow:#F59E0B; --yellowL:#FEF3C7; --blue:#3B82F6; --blueL:#DBEAFE;
+  --purple:#8B5CF6; --purpleL:#EDE9FE; --orange:#F97316; --orangeL:#FFEDD5;
+}
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC',sans-serif; background:var(--bg); color:var(--text); }
+a { text-decoration:none; }
+
+/* Layout */
+.app { display:flex; height:100vh; overflow:hidden; }
+.sidebar { width:220px; background:var(--pri); color:#fff; display:flex; flex-direction:column; flex-shrink:0; transition:width .2s; overflow:hidden; }
+.sidebar.collapsed { width:60px; }
+.sidebar-header { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.1); display:flex; align-items:center; gap:10px; cursor:pointer; }
+.sidebar.collapsed .sidebar-header { padding:16px 10px; justify-content:center; }
+.sidebar-logo { font-size:15px; font-weight:700; white-space:nowrap; }
+.sidebar.collapsed .sidebar-logo, .sidebar.collapsed .sidebar-footer, .sidebar.collapsed .menu-label { display:none; }
+.sidebar-menu { flex:1; padding:10px 0; overflow-y:auto; }
+.menu-item { display:flex; align-items:center; gap:12px; padding:10px 20px; cursor:pointer; font-size:13px; color:rgba(255,255,255,.7); border-left:3px solid transparent; transition:all .15s; white-space:nowrap; }
+.sidebar.collapsed .menu-item { padding:10px 18px; justify-content:center; }
+.menu-item:hover { background:rgba(255,255,255,.08); }
+.menu-item.active { background:rgba(255,255,255,.15); border-left-color:#fff; color:#fff; }
+.sidebar-footer { padding:14px 20px; border-top:1px solid rgba(255,255,255,.1); font-size:11px; color:rgba(255,255,255,.5); }
+
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.header { height:54px; background:#fff; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 24px; flex-shrink:0; }
+.role-switch { display:flex; gap:2px; background:var(--borderL); border-radius:7px; padding:4px 6px; }
+.role-btn { padding:5px 12px; border:none; border-radius:5px; cursor:pointer; font-size:12px; font-weight:500; background:transparent; color:var(--textS); transition:all .15s; }
+.role-btn.active { background:var(--pri); color:#fff; }
+.header-right { display:flex; align-items:center; gap:16px; }
+.avatar { width:30px; height:30px; border-radius:15px; background:var(--priLL); display:flex; align-items:center; justify-content:center; }
+.notification-dot { position:absolute; top:-4px; right:-4px; width:16px; height:16px; border-radius:8px; background:var(--red); color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; }
+
+.content { flex:1; overflow:auto; padding:24px; }
+
+/* Components */
+.card { background:#fff; border-radius:10px; border:1px solid var(--border); padding:20px; margin-bottom:16px; }
+.card-flush { padding:0; overflow:hidden; }
+
+.stat-cards { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:24px; }
+.stat-card { flex:1; min-width:160px; background:#fff; border-radius:10px; border:1px solid var(--border); padding:16px 20px; display:flex; align-items:center; gap:12px; }
+.stat-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.stat-value { font-size:22px; font-weight:700; }
+.stat-label { font-size:12px; color:var(--textS); }
+.stat-sub { font-size:11px; color:var(--textL); }
+
+.section-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.section-title h2 { font-size:18px; font-weight:700; }
+
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 18px; border-radius:7px; border:1px solid var(--border); background:#fff; color:var(--text); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.btn:hover { background:var(--borderL); }
+.btn-sm { padding:5px 12px; font-size:12px; }
+.btn-pri { background:var(--pri); color:#fff; border-color:var(--pri); }
+.btn-pri:hover { background:var(--priL); }
+
+.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+
+table { width:100%; border-collapse:collapse; }
+th { padding:10px 12px; text-align:left; font-size:11px; font-weight:600; color:var(--textS); text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid var(--border); background:var(--borderL); }
+td { padding:10px 12px; font-size:13px; border-bottom:1px solid var(--borderL); }
+tr:hover td { background:rgba(68,114,196,.03); }
+td.accent { font-weight:500; color:var(--acc); cursor:pointer; }
+.icon-btn { padding:4px; border:none; background:none; cursor:pointer; display:inline-flex; }
+
+.tabs { display:flex; gap:2px; margin-bottom:20px; border-bottom:2px solid var(--border); }
+.tab { padding:10px 20px; border:none; background:none; cursor:pointer; font-size:13px; font-weight:400; color:var(--textS); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .15s; }
+.tab.active { font-weight:600; color:var(--pri); border-bottom-color:var(--pri); }
+
+.search-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+.search-input { flex:1; min-width:200px; position:relative; }
+.search-input input { width:100%; padding:8px 12px 8px 32px; border-radius:7px; border:1px solid var(--border); font-size:13px; }
+.search-input svg { position:absolute; left:10px; top:9px; color:var(--textL); }
+
+.form-group { margin-bottom:14px; }
+.form-label { font-size:12px; font-weight:500; color:var(--textS); margin-bottom:4px; display:block; }
+.form-input, .form-select { width:100%; padding:8px 12px; border-radius:7px; border:1px solid var(--border); font-size:13px; color:var(--text); background:#fff; }
+.form-textarea { width:100%; padding:8px 12px; border-radius:7px; border:1px solid var(--border); font-size:13px; min-height:80px; resize:vertical; }
+.form-row { display:flex; gap:14px; }
+.form-row > * { flex:1; }
+
+.flex-row { display:flex; gap:16px; }
+.flex-row > .flex-2 { flex:2; }
+.flex-row > .flex-1 { flex:1; }
+
+.info-pair { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--borderL); }
+.info-pair .k { font-size:12px; color:var(--textS); }
+.info-pair .v { font-size:12px; font-weight:500; }
+
+.timeline-item { display:flex; gap:14px; margin-bottom:4px; }
+.timeline-time { font-size:11px; color:var(--textL); width:80px; text-align:right; padding-top:2px; }
+.timeline-dot { width:10px; height:10px; border-radius:5px; margin-top:3px; flex-shrink:0; }
+.timeline-line { width:2px; height:28px; margin:2px auto 0; opacity:.5; }
+.timeline-text { font-size:13px; }
+
+.progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:3px; }
+
+.upload-zone { padding:40px; border:2px dashed var(--border); border-radius:8px; text-align:center; cursor:pointer; }
+.upload-zone:hover { border-color:var(--acc); background:rgba(68,114,196,.02); }
+
+.map-container { height:360px; background:linear-gradient(160deg,#d4e8d0,#b8d4b0,#a8c8a0); border-radius:8px; position:relative; overflow:hidden; }
+
+.notif-item { display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--borderL); }
+.notif-item.unread { background:rgba(219,234,254,.25); margin:0 -20px; padding-left:20px; padding-right:20px; }
+.notif-icon { width:36px; height:36px; border-radius:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+/* Login */
+.login-page { min-height:100vh; background:linear-gradient(135deg,var(--pri),var(--acc)); display:flex; align-items:center; justify-content:center; }
+.login-box { width:420px; background:#fff; border-radius:16px; padding:40px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.login-title { text-align:center; margin-bottom:30px; }
+.login-btn { width:100%; padding:12px; border-radius:8px; border:none; background:var(--pri); color:#fff; font-size:15px; font-weight:600; cursor:pointer; }
+.login-btn:hover { background:var(--priL); }
+
+/* Pagination */
+.pagination { display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
+.page-btns { display:flex; gap:4px; }
+.page-btn { padding:4px 10px; border:1px solid var(--border); border-radius:5px; background:#fff; cursor:pointer; font-size:12px; }
+.page-btn.active { background:var(--pri); color:#fff; border-color:var(--pri); }
+
+/* SVG icons inline */
+.icon { width:18px; height:18px; display:inline-block; vertical-align:middle; }
+
+/* Responsive table wrapper */
+.table-wrap { overflow-x:auto; }
+
+/* Bar chart */
+.bar-chart { display:flex; gap:8px; flex-wrap:wrap; }
+.bar-col { text-align:center; flex:1; min-width:70px; }
+.bar-wrapper { height:100px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:6px; }
+.bar { width:36px; border-radius:4px 4px 0 0; opacity:.85; }
+
+.todo-items .todo { padding:8px 0; border-bottom:1px solid var(--borderL); display:flex; align-items:center; gap:10px; cursor:pointer; }
+.todo svg { flex-shrink:0; }
+.todo span { font-size:13px; flex:1; }
+
+.route-box { flex:1; padding:14px; border-radius:8px; }
+.sticky { position:sticky; top:20px; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// ===== STATE =====
+const state = {
+  role: 'operator',
+  page: 'login',
+  sidebarCollapsed: false,
+};
+
+function setState(key, val) {
+  state[key] = val;
+  render();
+}
+
+// ===== ICONS (SVG) =====
+const icons = {
+  truck: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 13.52 8H12"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>`,
+  package: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>`,
+  fileText: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
+  dollar: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+  users: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  building: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg>`,
+  map: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>`,
+  chart: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>`,
+  bell: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
+  settings: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  plus: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>`,
+  search: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+  eye: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`,
+  edit: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>`,
+  filter: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`,
+  calendar: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>`,
+  download: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+  upload: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+  arrowLeft: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+  check: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  checkCircle: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>`,
+  x: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+  clock: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  alert: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
+  send: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>`,
+  star: `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  chevronR: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>`,
+  user: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  globe: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,
+  nav: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+  ship: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10V2"/></svg>`,
+  anchor: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="3"/><line x1="12" x2="12" y1="22" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>`,
+  shield: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
+  tag: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>`,
+  receipt: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg>`,
+  clipboard: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>`,
+  credit: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>`,
+  trending: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+  activity: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>`,
+  layers: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>`,
+  mapPin: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+};
+
+function icon(name, size, color) {
+  let s = icons[name] || '';
+  if (size) s = s.replace(/width="\d+"/, `width="${size}"`).replace(/height="\d+"/, `height="${size}"`);
+  if (color) s = s.replace(/stroke="currentColor"/g, `stroke="${color}"`).replace(/fill="currentColor"/g, `fill="${color}"`);
+  return s;
+}
+
+// ===== DATA =====
+const ORDERS = [
+  { id:"EU-20260328-0001", client:"BMW AG", from:"Munich, DE", to:"Paris, FR", status:"IN_TRANSIT", type:"FTL", weight:"12,500 kg", date:"2026-03-28", carrier:"SpeedTrans GmbH", price:"€2,800", cost:"€2,100", eta:"2026-03-30" },
+  { id:"EU-20260328-0002", client:"Siemens AG", from:"Berlin, DE", to:"Warsaw, PL", status:"PENDING_REVIEW", type:"LTL", weight:"3,200 kg", date:"2026-03-28", carrier:"-", price:"€1,200", cost:"-", eta:"-" },
+  { id:"EU-20260327-0003", client:"Bosch GmbH", from:"Stuttgart, DE", to:"Milan, IT", status:"ASSIGNED", type:"FTL", weight:"18,000 kg", date:"2026-03-27", carrier:"EuroLog Sp.", price:"€3,500", cost:"€2,600", eta:"2026-03-30" },
+  { id:"EU-20260327-0004", client:"BMW AG", from:"Hamburg, DE", to:"Barcelona, ES", status:"DELIVERED", type:"FTL", weight:"15,000 kg", date:"2026-03-27", carrier:"TransEuropa SL", price:"€4,200", cost:"€3,100", eta:"2026-03-29" },
+  { id:"EU-20260326-0005", client:"Volkswagen AG", from:"Wolfsburg, DE", to:"Prague, CZ", status:"COMPLETED", type:"LTL", weight:"5,600 kg", date:"2026-03-26", carrier:"CzechFreight", price:"€1,800", cost:"€1,300", eta:"2026-03-28" },
+  { id:"EU-20260326-0006", client:"Siemens AG", from:"Nuremberg, DE", to:"Vienna, AT", status:"EXCEPTION", type:"FTL", weight:"9,800 kg", date:"2026-03-26", carrier:"AlpenTransport", price:"€2,100", cost:"€1,600", eta:"-" },
+  { id:"EU-20260325-0007", client:"BASF SE", from:"Ludwigshafen, DE", to:"Rotterdam, NL", status:"CONFIRMED", type:"FTL", weight:"22,000 kg", date:"2026-03-25", carrier:"-", price:"€2,900", cost:"-", eta:"-" },
+  { id:"EU-20260325-0008", client:"BMW AG", from:"Munich, DE", to:"Lyon, FR", status:"PENDING_ASSIGN", type:"LTL", weight:"4,100 kg", date:"2026-03-25", carrier:"-", price:"€1,500", cost:"-", eta:"-" },
+];
+
+const STATUS = {
+  PENDING_REVIEW:{ label:"待审核", color:"var(--yellow)", bg:"var(--yellowL)", icon:"clock" },
+  CONFIRMED:{ label:"已确认", color:"var(--blue)", bg:"var(--blueL)", icon:"checkCircle" },
+  PENDING_ASSIGN:{ label:"待派单", color:"var(--orange)", bg:"var(--orangeL)", icon:"layers" },
+  ASSIGNED:{ label:"已派单", color:"var(--purple)", bg:"var(--purpleL)", icon:"send" },
+  IN_TRANSIT:{ label:"运输中", color:"var(--acc)", bg:"var(--priLL)", icon:"truck" },
+  DELIVERED:{ label:"已到达", color:"var(--green)", bg:"var(--greenL)", icon:"mapPin" },
+  COMPLETED:{ label:"已完成", color:"var(--green)", bg:"var(--greenL)", icon:"checkCircle" },
+  CANCELLED:{ label:"已取消", color:"var(--textL)", bg:"var(--borderL)", icon:"x" },
+  EXCEPTION:{ label:"异常", color:"var(--red)", bg:"var(--redL)", icon:"alert" },
+};
+
+// 集装箱订单数据
+const CONTAINER_ORDERS = [
+  { id:"EU-20260330-C001", client:"BMW AG", shippingLine:"MSC", containerNo:"MSCU1234567", blNo:"MSCUB1234567", cnee:"BMW France SAS", eta:"2026-04-02 08:00", pod:"Hamburg, DE", finalDest:"Paris, FR", deliveryStatus:"WAITING_ARRANGE", releaseStatus:"PENDING_RELEASE", clearanceStatus:"PENDING", price:"€3,200", cost:"€2,400", carrier:"-" },
+  { id:"EU-20260329-C002", client:"Siemens AG", shippingLine:"Maersk", containerNo:"MSKU7654321", blNo:"MAEU9876543", cnee:"Siemens Polska", eta:"2026-04-01 14:00", pod:"Bremerhaven, DE", finalDest:"Warsaw, PL", deliveryStatus:"FLEET_CONFIRMED", releaseStatus:"RELEASED", clearanceStatus:"CLEARED", price:"€2,800", cost:"€2,000", carrier:"EuroLog Sp." },
+  { id:"EU-20260328-C003", client:"Bosch GmbH", shippingLine:"CMA CGM", containerNo:"CMAU5678901", blNo:"CMAU1357924", cnee:"Bosch Italia SpA", eta:"2026-03-31 10:00", pod:"Rotterdam, NL", finalDest:"Milan, IT", deliveryStatus:"IN_TRANSIT", releaseStatus:"RELEASED", clearanceStatus:"CLEARED", price:"€3,800", cost:"€2,800", carrier:"TransEuropa SL" },
+  { id:"EU-20260327-C004", client:"Volkswagen AG", shippingLine:"Hapag-Lloyd", containerNo:"HLCU3456789", blNo:"HLCU2468013", cnee:"VW Czech s.r.o.", eta:"2026-03-30 06:00", pod:"Hamburg, DE", finalDest:"Prague, CZ", deliveryStatus:"TRANSPORT_DONE", releaseStatus:"RELEASED", clearanceStatus:"CLEARED", price:"€2,100", cost:"€1,500", carrier:"CzechFreight" },
+  { id:"EU-20260326-C005", client:"BASF SE", shippingLine:"MSC", containerNo:"MSCU9876543", blNo:"MSCUB7654321", cnee:"BASF Antwerpen", eta:"2026-04-05 12:00", pod:"Antwerp, BE", finalDest:"Ludwigshafen, DE", deliveryStatus:"EXCEPTION", releaseStatus:"ORIGINAL_PENDING", clearanceStatus:"PENDING", price:"€1,900", cost:"-", carrier:"-" },
+];
+
+const CONTAINER_DELIVERY_STATUS = {
+  WAITING_ARRANGE:{ label:"等待安排", color:"var(--yellow)", bg:"var(--yellowL)", icon:"clock" },
+  FLEET_CONFIRMED:{ label:"车队已确认", color:"var(--blue)", bg:"var(--blueL)", icon:"checkCircle" },
+  IN_TRANSIT:{ label:"运输中", color:"var(--acc)", bg:"var(--priLL)", icon:"truck" },
+  TRANSPORT_DONE:{ label:"运输完成", color:"var(--green)", bg:"var(--greenL)", icon:"checkCircle" },
+  EXCEPTION:{ label:"异常", color:"var(--red)", bg:"var(--redL)", icon:"alert" },
+};
+
+const RELEASE_STATUS = {
+  NOT_REQUIRED:{ label:"无需放单", color:"var(--textS)", bg:"var(--borderL)", icon:"check" },
+  ORIGINAL_PENDING:{ label:"正本待邮寄", color:"var(--orange)", bg:"var(--orangeL)", icon:"clock" },
+  ORIGINAL_SENT:{ label:"正本已邮寄", color:"var(--yellow)", bg:"var(--yellowL)", icon:"send" },
+  PENDING_RELEASE:{ label:"待放行", color:"var(--purple)", bg:"var(--purpleL)", icon:"clock" },
+  RELEASED:{ label:"船司放行", color:"var(--green)", bg:"var(--greenL)", icon:"checkCircle" },
+};
+
+const QUOTE_STATUS = {
+  PENDING_QUOTE:{ label:"待报价", color:"var(--yellow)", bg:"var(--yellowL)", icon:"clock" },
+  QUOTED:{ label:"已报价", color:"var(--blue)", bg:"var(--blueL)", icon:"tag" },
+  ACCEPTED:{ label:"已接受", color:"var(--green)", bg:"var(--greenL)", icon:"checkCircle" },
+  REJECTED:{ label:"已拒绝", color:"var(--red)", bg:"var(--redL)", icon:"x" },
+  EXPIRED:{ label:"已过期", color:"var(--textS)", bg:"var(--borderL)", icon:"clock" },
+};
+
+const QUOTES = [
+  { id:"QT-2026-0042", client:"BMW AG", from:"Munich, DE", to:"Paris, FR", type:"篷布车", amount:"€2,800", version:2, validUntil:"2026-04-15", status:"QUOTED", date:"2026-03-28" },
+  { id:"QT-2026-0041", client:"Siemens AG", from:"Berlin, DE", to:"Warsaw, PL", type:"篷布车", amount:"€1,250", version:1, validUntil:"2026-04-10", status:"ACCEPTED", date:"2026-03-27" },
+  { id:"QT-2026-0040", client:"Bosch GmbH", from:"Rotterdam, NL", to:"Milan, IT", type:"集装箱", amount:"€3,800", version:3, validUntil:"2026-04-08", status:"ACCEPTED", date:"2026-03-26" },
+  { id:"QT-2026-0039", client:"Volkswagen AG", from:"Hamburg, DE", to:"Prague, CZ", type:"集装箱", amount:"€2,100", version:1, validUntil:"2026-04-05", status:"EXPIRED", date:"2026-03-25" },
+  { id:"QT-2026-0038", client:"BASF SE", from:"Antwerp, BE", to:"Ludwigshafen, DE", type:"集装箱", amount:"€1,900", version:1, validUntil:"2026-04-20", status:"PENDING_QUOTE", date:"2026-03-30" },
+];
+
+const INVOICE_TEMPLATES_DATA = [
+  { id:1, name:"标准运输发票", clientType:"通用", currency:"EUR", taxRate:"19%", autoRule:"订单完成后自动", lastUsed:"2026-03-28" },
+  { id:2, name:"BMW 专属模板", clientType:"BMW AG", currency:"EUR", taxRate:"19%", autoRule:"CMR上传后自动", lastUsed:"2026-03-27" },
+  { id:3, name:"集装箱物流发票", clientType:"通用", currency:"EUR", taxRate:"19%", autoRule:"手动开票", lastUsed:"2026-03-25" },
+];
+
+function badgeCustom(statusObj, key) {
+  const s = statusObj[key];
+  if (!s) return '';
+  return `<span class="badge" style="color:${s.color};background:${s.bg}">${icon(s.icon,12,s.color)} ${s.label}</span>`;
+}
+
+function badge(status) {
+  const s = STATUS[status];
+  if (!s) return '';
+  return `<span class="badge" style="color:${s.color};background:${s.bg}">${icon(s.icon,12,s.color)} ${s.label}</span>`;
+}
+
+// ===== MENUS =====
+const MENUS = {
+  operator: [
+    { icon:"chart", label:"仪表板", id:"dashboard" },
+    { icon:"package", label:"订单管理", id:"orders" },
+    { icon:"tag", label:"询价报价", id:"quotes" },
+    { icon:"fileText", label:"CMR 管理", id:"cmr" },
+    { icon:"anchor", label:"船司放单", id:"shipping_release" },
+    { icon:"shield", label:"清关管理", id:"customs" },
+    { icon:"map", label:"GPS 追踪", id:"gps" },
+    { icon:"dollar", label:"财务管理", id:"finance" },
+    { icon:"receipt", label:"发票模板", id:"invoice_templates" },
+    { icon:"users", label:"客户管理", id:"clients" },
+    { icon:"building", label:"运输公司", id:"carriers" },
+    { icon:"bell", label:"通知中心", id:"notifications" },
+    { icon:"settings", label:"系统设置", id:"settings" },
+  ],
+  client: [
+    { icon:"chart", label:"概览", id:"c_dashboard" },
+    { icon:"package", label:"我的订单", id:"c_orders" },
+    { icon:"plus", label:"新建订单", id:"c_create" },
+    { icon:"tag", label:"询价", id:"c_inquiry" },
+    { icon:"map", label:"运输追踪", id:"c_tracking" },
+    { icon:"shield", label:"清关操作", id:"c_customs" },
+    { icon:"fileText", label:"CMR 文件", id:"c_cmr" },
+    { icon:"credit", label:"我的账单", id:"c_billing" },
+    { icon:"settings", label:"账户设置", id:"c_settings" },
+  ],
+  carrier: [
+    { icon:"chart", label:"概览", id:"cr_dashboard" },
+    { icon:"package", label:"运输任务", id:"cr_tasks" },
+    { icon:"upload", label:"上传 CMR", id:"cr_cmr" },
+    { icon:"nav", label:"GPS 上报", id:"cr_gps" },
+    { icon:"credit", label:"费用结算", id:"cr_billing" },
+    { icon:"settings", label:"公司设置", id:"cr_settings" },
+  ],
+};
+
+// ===== HELPERS =====
+function formGroup(label, content) { return `<div class="form-group"><label class="form-label">${label}</label>${content}</div>`; }
+function input(label, opts={}) { return formGroup(label, `<input class="form-input" type="${opts.type||'text'}" placeholder="${opts.ph||''}" value="${opts.val||''}" readonly>`); }
+function select(label, options) { return formGroup(label, `<select class="form-select">${options.map(o=>`<option>${o}</option>`).join('')}</select>`); }
+function statCard(iconName, label, value, sub, color) {
+  return `<div class="stat-card"><div class="stat-icon" style="background:${color}15">${icon(iconName,20,color)}</div><div><div class="stat-label">${label}</div><div class="stat-value">${value}</div>${sub?`<div class="stat-sub">${sub}</div>`:''}</div></div>`;
+}
+
+// ===== PAGES =====
+const pages = {};
+
+// --- LOGIN ---
+pages.login = () => `
+<div class="login-page">
+  <div class="login-box">
+    <div class="login-title">
+      <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:10px">${icon('truck',32,'var(--pri)')}<span style="font-size:24px;font-weight:700;color:var(--pri)">EU-TMS</span></div>
+      <div style="font-size:14px;color:var(--textS)">欧洲运输管理系统</div>
+    </div>
+    ${input('邮箱地址',{ph:'your@company.com'})}
+    ${input('密码',{type:'password',ph:'输入密码'})}
+    ${select('登录角色',['运营管理员 (Operator)','客户 (Client)','运输公司 (Carrier)'])}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--textS)"><input type="checkbox"> 记住我</label>
+      <a href="#" style="font-size:12px;color:var(--acc)">忘记密码?</a>
+    </div>
+    <button class="login-btn" onclick="setState('page','dashboard')">登 录</button>
+    <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--textL)">还没有账号? <a href="#" style="color:var(--acc)">联系管理员</a></div>
+  </div>
+</div>`;
+
+// --- OPERATOR DASHBOARD ---
+pages.dashboard = () => `
+<div class="section-title"><h2>运营仪表板</h2></div>
+<div class="stat-cards">
+  ${statCard('package','今日新订单','12','+3 vs 昨日','var(--acc)')}
+  ${statCard('truck','运输中','28','8 即将到达','var(--orange)')}
+  ${statCard('checkCircle','本月完成','156','完成率 94.2%','var(--green)')}
+  ${statCard('alert','异常订单','3','需要处理','var(--red)')}
+  ${statCard('dollar','本月营收','€186K','毛利率 26.8%','var(--pri)')}
+</div>
+<div class="flex-row">
+  <div class="flex-2"><div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:16px">订单状态分布</div>
+    <div class="bar-chart">
+      ${[{l:'待审核',v:5,c:'var(--yellow)'},{l:'已确认',v:3,c:'var(--blue)'},{l:'待派单',v:4,c:'var(--orange)'},{l:'已派单',v:8,c:'var(--purple)'},{l:'运输中',v:28,c:'var(--acc)'},{l:'已到达',v:6,c:'var(--green)'}].map(s=>`
+      <div class="bar-col"><div class="bar-wrapper"><div class="bar" style="background:${s.c};height:${s.v*3.2}px"></div></div><div style="font-size:16px;font-weight:700;color:${s.c}">${s.v}</div><div style="font-size:11px;color:var(--textS)">${s.l}</div></div>`).join('')}
+    </div>
+  </div></div>
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:16px">待处理事项</div>
+    ${[{t:'5 个订单待审核',c:'var(--yellow)',i:'clock'},{t:'4 个订单待派单',c:'var(--orange)',i:'send'},{t:'3 个异常需处理',c:'var(--red)',i:'alert'},{t:'2 个账单待确认',c:'var(--purple)',i:'credit'},{t:'1 个运输公司资质到期',c:'var(--blue)',i:'fileText'}].map(it=>`
+    <div class="todo" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--borderL);cursor:pointer">${icon(it.i,15,it.c)}<span style="flex:1;font-size:13px">${it.t}</span>${icon('chevronR',14,'var(--textL)')}</div>`).join('')}
+  </div></div>
+</div>
+<div class="card" style="margin-top:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span style="font-size:14px;font-weight:600">最近订单</span>
+    <button class="btn btn-sm" onclick="setState('page','orders')">查看全部 ${icon('chevronR',13)}</button>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>订单号</th><th>客户</th><th>路线</th><th>状态</th><th>类型</th><th>承运商</th></tr></thead><tbody>
+    ${ORDERS.slice(0,5).map(o=>`<tr><td class="accent" onclick="setState('page','order_detail')">${o.id}</td><td>${o.client}</td><td style="color:var(--textS);font-size:12px">${o.from} → ${o.to}</td><td>${badge(o.status)}</td><td style="font-size:12px">${o.type}</td><td>${o.carrier}</td></tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- ORDER LIST ---
+pages.orders = () => `
+<div class="section-title"><h2>订单管理</h2><button class="btn btn-pri" onclick="setState('page','order_create')">${icon('plus',15,'#fff')} 新建订单</button></div>
+<div style="display:flex;gap:2px;margin-bottom:16px">
+  <button class="btn" style="flex:1;justify-content:center;padding:12px;font-size:14px;font-weight:600;background:var(--pri);color:#fff;border-color:var(--pri)" onclick="this.style.background='var(--pri)';this.style.color='#fff';this.style.borderColor='var(--pri)';this.nextElementSibling.style.background='#fff';this.nextElementSibling.style.color='var(--text)';this.nextElementSibling.style.borderColor='var(--border)';document.getElementById('truckPanel').style.display='block';document.getElementById('containerPanel').style.display='none'">${icon('truck',16,'#fff')} 篷布车运输</button>
+  <button class="btn" style="flex:1;justify-content:center;padding:12px;font-size:14px;font-weight:600" onclick="this.style.background='var(--pri)';this.style.color='#fff';this.style.borderColor='var(--pri)';this.previousElementSibling.style.background='#fff';this.previousElementSibling.style.color='var(--text)';this.previousElementSibling.style.borderColor='var(--border)';document.getElementById('truckPanel').style.display='none';document.getElementById('containerPanel').style.display='block'">${icon('ship',16)} 集装箱物流</button>
+</div>
+<div id="truckPanel">
+<div class="card">
+  <div class="search-bar">
+    <div class="search-input">${icon('search',15)}<input placeholder="搜索订单号、客户名称..."></div>
+    <button class="btn">${icon('filter')} 筛选</button>
+    <button class="btn">${icon('calendar')} 日期范围</button>
+    <button class="btn">${icon('download')} 导出</button>
+  </div>
+  <div class="tabs">
+    ${['全部','待审核','待派单','运输中','已到达','异常'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>订单号</th><th>客户</th><th>路线</th><th>状态</th><th>类型</th><th>重量</th><th>承运商</th><th>报价</th><th>操作</th></tr></thead><tbody>
+    ${ORDERS.map(o=>`<tr>
+      <td class="accent" onclick="setState('page','order_detail')">${o.id}</td><td>${o.client}</td>
+      <td style="color:var(--textS);font-size:12px">${o.from} → ${o.to}</td>
+      <td>${badge(o.status)}</td><td style="font-size:12px">${o.type}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.weight}</td><td>${o.carrier}</td>
+      <td style="font-weight:500">${o.price}</td>
+      <td><span class="icon-btn" onclick="setState('page','order_detail')">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('edit',15,'var(--textS)')}</span></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+  <div class="pagination"><span style="font-size:12px;color:var(--textS)">共 ${ORDERS.length} 条记录</span><div class="page-btns"><button class="page-btn">‹</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">›</button></div></div>
+</div>
+</div>
+<div id="containerPanel" style="display:none">
+<div class="card">
+  <div class="search-bar">
+    <div class="search-input">${icon('search',15)}<input placeholder="搜索订单号、柜号、提单号..."></div>
+    <button class="btn">${icon('filter')} 筛选</button>
+    <button class="btn">${icon('calendar')} ETA 范围</button>
+    <button class="btn">${icon('download')} 导出</button>
+  </div>
+  <div class="tabs">
+    ${['全部','等待安排','车队已确认','运输中','运输完成','异常'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>订单号</th><th>客户</th><th>船司</th><th>柜号</th><th>提单号</th><th>目的地</th><th>派送状态</th><th>放单状态</th><th>ETA</th><th>操作</th></tr></thead><tbody>
+    ${CONTAINER_ORDERS.map(o=>`<tr>
+      <td class="accent" onclick="setState('page','container_detail')">${o.id}</td><td>${o.client}</td>
+      <td style="font-size:12px">${o.shippingLine}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.containerNo}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.blNo}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.finalDest}</td>
+      <td>${badgeCustom(CONTAINER_DELIVERY_STATUS,o.deliveryStatus)}</td>
+      <td>${badgeCustom(RELEASE_STATUS,o.releaseStatus)}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.eta.split(' ')[0]}</td>
+      <td><span class="icon-btn" onclick="setState('page','container_detail')">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('edit',15,'var(--textS)')}</span></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+  <div class="pagination"><span style="font-size:12px;color:var(--textS)">共 ${CONTAINER_ORDERS.length} 条记录</span><div class="page-btns"><button class="page-btn active">1</button></div></div>
+</div>
+</div>`;
+
+// --- ORDER CREATE ---
+pages.order_create = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','orders')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">新建运输订单</h2>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">选择业务类型</div>
+  <div style="display:flex;gap:14px">
+    <div id="typeTruck" style="flex:1;padding:20px;border:2px solid var(--acc);border-radius:10px;cursor:pointer;background:rgba(68,114,196,.05);text-align:center" onclick="this.style.borderColor='var(--acc)';this.style.background='rgba(68,114,196,.05)';document.getElementById('typeContainer').style.borderColor='var(--border)';document.getElementById('typeContainer').style.background='#fff';document.getElementById('truckForm').style.display='block';document.getElementById('containerForm').style.display='none';document.getElementById('summaryTruck').style.display='block';document.getElementById('summaryContainer').style.display='none'">
+      ${icon('truck',28,'var(--acc)')}<div style="font-size:14px;font-weight:600;margin-top:8px">篷布车运输</div><div style="font-size:12px;color:var(--textS)">欧洲公路整车/拼车运输</div>
+    </div>
+    <div id="typeContainer" style="flex:1;padding:20px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center" onclick="this.style.borderColor='var(--acc)';this.style.background='rgba(68,114,196,.05)';document.getElementById('typeTruck').style.borderColor='var(--border)';document.getElementById('typeTruck').style.background='#fff';document.getElementById('truckForm').style.display='none';document.getElementById('containerForm').style.display='block';document.getElementById('summaryTruck').style.display='none';document.getElementById('summaryContainer').style.display='block'">
+      ${icon('ship',28,'var(--textS)')}<div style="font-size:14px;font-weight:600;margin-top:8px">集装箱物流</div><div style="font-size:12px;color:var(--textS)">海运集装箱到港后陆运配送</div>
+    </div>
+  </div>
+</div>
+<div class="flex-row">
+  <div class="flex-2">
+    <div id="truckForm">
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">基本信息</div>
+        <div class="form-row">${select('客户 *',['请选择客户','BMW AG','Siemens AG','Bosch GmbH','Volkswagen AG'])}${select('运输类型 *',['FTL (整车)','LTL (拼车)'])}</div>
+        ${input('货物描述 *',{ph:'请输入货物名称、类型、包装方式'})}
+        <div class="form-row">${input('货物重量 (kg) *',{ph:'0.00',type:'number'})}${input('货物体积 (m³)',{ph:'0.00',type:'number'})}${input('货物数量 *',{ph:'0',type:'number'})}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">装货信息</div>
+        <div class="form-row">${select('国家 *',['Germany','France','Poland','Italy','Spain'])}${input('城市 *',{ph:'城市名称'})}${input('邮编 *',{ph:'邮政编码'})}</div>
+        ${input('详细地址 *',{ph:'街道、门牌号等'})}
+        <div class="form-row">${input('装货日期 *',{type:'date',val:'2026-03-30'})}${input('联系人',{ph:'装货点联系人'})}${input('联系电话',{ph:'+49...'})} </div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">卸货信息</div>
+        <div class="form-row">${select('国家 *',['France','Germany','Poland','Italy','Spain'])}${input('城市 *',{ph:'城市名称'})}${input('邮编 *',{ph:'邮政编码'})}</div>
+        ${input('详细地址 *',{ph:'街道、门牌号等'})}
+        <div class="form-row">${input('期望到达日期 *',{type:'date',val:'2026-04-02'})}${input('联系人',{ph:'收货联系人'})}${input('联系电话',{ph:'+33...'})} </div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">特殊要求</div>
+        ${select('特殊要求',['无','温控运输','危险品 (ADR)','超宽超重','需要尾板'])}
+        <div class="form-group"><label class="form-label">备注</label><textarea class="form-textarea" placeholder="其他需要说明的信息..."></textarea></div>
+      </div>
+    </div>
+    <div id="containerForm" style="display:none">
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">基本信息</div>
+        <div class="form-row">${select('客户 *',['请选择客户','BMW AG','Siemens AG','Bosch GmbH','Volkswagen AG'])}${select('运输类型 *',['FTL (整车)','LTL (拼车)'])}</div>
+        ${input('货物描述 *',{ph:'请输入货物名称、类型、包装方式'})}
+        <div class="form-row">${input('货物重量 (kg) *',{ph:'0.00',type:'number'})}${input('货物数量 *',{ph:'0',type:'number'})}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">航运信息</div>
+        <div class="form-row">${select('船司 (Shipping Line) *',['请选择船司','MSC','Maersk','CMA CGM','Hapag-Lloyd','COSCO','Evergreen','ONE'])}${input('提单号 (B/L No.) *',{ph:'MSCUB1234567'})}</div>
+        <div class="form-row">${input('ETA (预计到港时间) *',{type:'datetime-local'})}${input('CNEE (收货人) *',{ph:'收货人名称及联系方式'})}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">集装箱信息</div>
+        <div class="form-row">${input('柜号 (Container No.) *',{ph:'MSCU1234567'})}${select('柜型 *',['20GP','40GP','40HQ','45HQ'])}${input('封号',{ph:'封条号码'})}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">港口与配送信息</div>
+        <div class="form-row">${input('卸港 (POD) *',{ph:'Hamburg, DE'})}${input('最终目的地 *',{ph:'Paris, FR'})}</div>
+        ${input('最终目的地详细地址 *',{ph:'街道、门牌号等'})}
+        <div class="form-row">${input('期望送仓时间 *',{type:'date',val:'2026-04-05'})}${input('联系人',{ph:'收货联系人'})}${input('联系电话',{ph:'+33...'})}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">放单信息</div>
+        <div class="form-row">${select('放单方式',['电放 (Telex Release)','正本提单 (Original B/L)'])}${select('是否需要清关',['是','否'])}</div>
+        <div class="form-group"><label class="form-label">备注</label><textarea class="form-textarea" placeholder="清关要求、特殊说明等..."></textarea></div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-1">
+    <div class="card sticky">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">订单摘要</div>
+      <div style="padding:14px;background:var(--borderL);border-radius:8px;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--textS)">预估编号</div>
+        <div style="font-size:14px;font-weight:600;color:var(--pri)">EU-20260401-XXXX</div>
+      </div>
+      <div id="summaryTruck">
+        ${[['业务类型','篷布车运输'],['客户','待选择'],['运输类型','待选择'],['装货地','待填写'],['卸货地','待填写'],['装货日期','2026-03-30'],['到达日期','2026-04-02']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+      </div>
+      <div id="summaryContainer" style="display:none">
+        ${[['业务类型','集装箱物流'],['客户','待选择'],['船司','待选择'],['提单号','待填写'],['柜号','待填写'],['卸港','待填写'],['最终目的地','待填写'],['ETA','待填写']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn" style="flex:1;justify-content:center" onclick="setState('page','orders')">取消</button>
+        <button class="btn btn-pri" style="flex:1;justify-content:center">${icon('send',15,'#fff')} 提交订单</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// --- ORDER DETAIL ---
+pages.order_detail = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','orders')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">订单详情</h2>
+  ${badge('IN_TRANSIT')}
+</div>
+<div class="flex-row">
+  <div class="flex-2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div><div style="font-size:20px;font-weight:700;color:var(--pri)">EU-20260328-0001</div><div style="font-size:12px;color:var(--textS)">创建于 2026-03-28 10:30</div></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-sm">${icon('edit',13)} 编辑</button><button class="btn btn-sm btn-pri" onclick="setState('page','order_assign')">${icon('send',13,'#fff')} 派单</button></div>
+      </div>
+      <div style="display:flex;gap:30px">
+        ${[['客户','BMW AG'],['运输类型','FTL (整车)'],['货物','汽车零部件'],['重量','12,500 kg'],['数量','24 托盘']].map(([k,v])=>`<div><div style="font-size:11px;color:var(--textS)">${k}</div><div style="font-size:14px;font-weight:500">${v}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">运输路线</div>
+      <div style="display:flex;align-items:center;gap:20px">
+        <div class="route-box" style="background:var(--greenL)">
+          <div style="font-size:11px;color:var(--green);font-weight:600">装货地</div>
+          <div style="font-size:14px;font-weight:600">Munich, Germany</div>
+          <div style="font-size:12px;color:var(--textS)">Industriestr. 45, 80939</div>
+          <div style="font-size:12px;color:var(--textS);margin-top:4px">装货日期: 2026-03-28</div>
+        </div>
+        <div style="text-align:center">${icon('truck',20,'var(--acc)')}<div style="font-size:11px;color:var(--textS);margin-top:4px">≈ 840 km</div></div>
+        <div class="route-box" style="background:var(--blueL)">
+          <div style="font-size:11px;color:var(--blue);font-weight:600">卸货地</div>
+          <div style="font-size:14px;font-weight:600">Paris, France</div>
+          <div style="font-size:12px;color:var(--textS)">Rue de Rivoli 12, 75001</div>
+          <div style="font-size:12px;color:var(--textS);margin-top:4px">预计到达: 2026-03-30</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">GPS 实时位置</div>
+      <div style="height:200px;background:linear-gradient(135deg,#d4e8d0,#b8d4b0);border-radius:8px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:30%;left:20%;width:60%;height:3px;background:var(--acc);border-radius:2px;opacity:.7"></div>
+        <div style="position:absolute;top:28%;left:55%;z-index:2">
+          <div style="background:var(--acc);border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)">${icon('truck',13,'#FFF')}</div>
+          <div style="background:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;margin-top:4px;box-shadow:0 1px 4px rgba(0,0,0,.15);white-space:nowrap">Strasbourg, FR</div>
+        </div>
+        <div style="position:absolute;top:28%;left:18%;width:10px;height:10px;border-radius:5px;background:var(--green);border:2px solid #fff"></div>
+        <div style="position:absolute;top:28%;right:18%;width:10px;height:10px;border-radius:5px;background:var(--blue);border:2px solid #fff"></div>
+        <div style="position:absolute;bottom:10px;right:10px;background:rgba(255,255,255,.9);padding:4px 8px;border-radius:4px;font-size:10px;color:var(--textS)">ETA: 2026-03-30 14:00</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">订单时间线</div>
+      ${[
+        {t:'03-28 10:30',e:'客户提交订单',s:'done'},{t:'03-28 11:00',e:'运营审核通过',s:'done'},{t:'03-28 11:30',e:'指派给 SpeedTrans GmbH',s:'done'},
+        {t:'03-28 12:00',e:'SpeedTrans GmbH 确认接单',s:'done'},{t:'03-28 16:00',e:'车辆已提货出发',s:'done'},{t:'03-29 08:00',e:'经过 Strasbourg — 更新 GPS',s:'active'},
+        {t:'03-30 14:00',e:'预计到达 Paris',s:'pending'},{t:'-',e:'客户签收 + CMR 上传',s:'pending'},{t:'-',e:'财务结算',s:'pending'},
+      ].map((it,i)=>`<div class="timeline-item">
+        <div class="timeline-time">${it.t}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;width:20px">
+          <div class="timeline-dot" style="background:${it.s==='done'?'var(--green)':it.s==='active'?'var(--acc)':'var(--border)'};${it.s==='active'?'box-shadow:0 0 0 3px var(--accL)':''}"></div>
+          ${i<8?`<div class="timeline-line" style="background:${it.s==='pending'?'var(--borderL)':'var(--green)'}"></div>`:''}
+        </div>
+        <div class="timeline-text" style="color:${it.s==='pending'?'var(--textL)':'var(--text)'};font-weight:${it.s==='active'?600:400}">${it.e}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="flex-1">
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">承运信息</div>
+      <div style="padding:12px;background:var(--priLL);border-radius:8px;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:600;color:var(--pri)">SpeedTrans GmbH</div>
+        <div style="font-size:12px;color:var(--textS)">德国 · 评分 9.2/10</div>
+      </div>
+      ${[['司机','Hans Mueller'],['车牌','M-ST 1234'],['车型','Mega Trailer 13.6m'],['电话','+49 170 123 4567']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">CMR 单据</div>
+      <div style="padding:20px;border:2px dashed var(--border);border-radius:8px;text-align:center">
+        ${icon('fileText',28,'var(--textL)')}<div style="font-size:13px;color:var(--textS);margin-top:8px">CMR 单据待上传</div><div style="font-size:11px;color:var(--textL)">运输完成后由承运商上传</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">财务信息</div>
+      ${[['客户报价','€2,800',0],['承运商成本','€2,100',0],['毛利润','€700',1],['毛利率','25.0%',1]].map(([k,v,g])=>`<div class="info-pair"><span class="k" style="color:${g?'var(--green)':'var(--textS)'}">${k}</span><span class="v" style="color:${g?'var(--green)':'var(--text)'};font-weight:${g?600:400}">${v}</span></div>`).join('')}
+    </div>
+  </div>
+</div>`;
+
+// --- ORDER ASSIGN ---
+pages.order_assign = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','order_detail')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">派单给运输公司</h2>
+</div>
+<div class="card" style="padding:14px;margin-bottom:16px">
+  <div style="display:flex;gap:30px">${[['订单','EU-20260325-0008'],['路线','Munich → Lyon'],['类型','LTL'],['重量','4,100 kg']].map(([k,v])=>`<div><div style="font-size:11px;color:var(--textS)">${k}</div><div style="font-size:14px;font-weight:600">${v}</div></div>`).join('')}</div>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">服务商报价对比</div>
+  <div class="table-wrap"><table><thead><tr><th>对比项</th><th style="text-align:center">SpeedTrans</th><th style="text-align:center">EuroLog</th><th style="text-align:center">TransEuropa</th><th style="text-align:center">AlpenTransport</th><th style="text-align:center">CzechFreight</th></tr></thead><tbody>
+    <tr><td style="font-weight:500">报价金额</td><td style="text-align:center;color:var(--green);font-weight:600">€1,350</td><td style="text-align:center">€1,480</td><td style="text-align:center">€1,520</td><td style="text-align:center">€1,450</td><td style="text-align:center;color:var(--red)">€1,680</td></tr>
+    <tr><td style="font-weight:500">综合评分</td><td style="text-align:center;color:var(--green);font-weight:600">9.2</td><td style="text-align:center">8.7</td><td style="text-align:center">8.4</td><td style="text-align:center">8.1</td><td style="text-align:center">7.9</td></tr>
+    <tr><td style="font-weight:500">历史准时率</td><td style="text-align:center;color:var(--green);font-weight:600">96%</td><td style="text-align:center">93%</td><td style="text-align:center">91%</td><td style="text-align:center">89%</td><td style="text-align:center">87%</td></tr>
+    <tr><td style="font-weight:500">可用车辆</td><td style="text-align:center">12</td><td style="text-align:center;color:var(--green);font-weight:600">15</td><td style="text-align:center">8</td><td style="text-align:center">6</td><td style="text-align:center">4</td></tr>
+    <tr><td style="font-weight:500">预计耗时</td><td style="text-align:center;color:var(--green);font-weight:600">18h</td><td style="text-align:center">22h</td><td style="text-align:center">24h</td><td style="text-align:center">20h</td><td style="text-align:center">26h</td></tr>
+  </tbody></table></div>
+</div>
+<div class="section-title"><h2>推荐运输公司</h2></div>
+<div style="display:flex;gap:14px;flex-wrap:wrap">
+  ${[
+    {n:'SpeedTrans GmbH',c:'DE',s:9.2,v:45,r:'DE-FR, DE-NL, DE-BE',rec:true},
+    {n:'EuroLog Sp. z o.o.',c:'PL',s:8.7,v:32,r:'DE-PL, DE-CZ, PL-IT',rec:false},
+    {n:'TransEuropa SL',c:'ES',s:8.4,v:28,r:'DE-ES, FR-ES, IT-ES',rec:false},
+    {n:'AlpenTransport GmbH',c:'AT',s:8.1,v:22,r:'DE-AT, DE-IT, AT-HU',rec:false},
+    {n:'CzechFreight s.r.o.',c:'CZ',s:7.9,v:18,r:'DE-CZ, DE-AT, CZ-PL',rec:false},
+  ].map(cr=>`
+  <div class="card" style="flex:1 1 280px;max-width:340px;${cr.rec?'border:2px solid var(--acc)':''}">
+    ${cr.rec?'<div style="font-size:11px;font-weight:600;color:var(--acc);margin-bottom:6px">⭐ 推荐</div>':''}
+    <div style="display:flex;justify-content:space-between;align-items:start">
+      <div><div style="font-size:15px;font-weight:600">${cr.n}</div><div style="font-size:12px;color:var(--textS)">${cr.c} · ${cr.v} 辆车</div></div>
+      <div style="display:flex;align-items:center;gap:4px;background:var(--yellowL);padding:2px 8px;border-radius:10px">${icon('star',13,'var(--yellow)')}<span style="font-size:13px;font-weight:600;color:var(--yellow)">${cr.s}</span></div>
+    </div>
+    <div style="font-size:12px;color:var(--textS);margin-top:8px">覆盖路线: ${cr.r}</div>
+    <div style="display:flex;gap:10px;align-items:flex-end;margin-top:12px">
+      <div style="flex:1">${input('报价 (€)',{ph:'输入成本价'})}</div>
+      <button class="btn btn-pri btn-sm" style="margin-bottom:14px">指派</button>
+    </div>
+  </div>`).join('')}
+</div>`;
+
+// --- CMR PAGE ---
+pages.cmr = () => `
+<div class="section-title"><h2>CMR 单据管理</h2></div>
+<div class="stat-cards">
+  ${statCard('fileText','CMR 总数','134','','var(--acc)')}
+  ${statCard('checkCircle','已签署完成','98','','var(--green)')}
+  ${statCard('clock','待签署','28','','var(--yellow)')}
+  ${statCard('alert','有货损备注','8','','var(--red)')}
+</div>
+<div class="card">
+  <div class="tabs">${['全部','待签署','已完成','有异常'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}</div>
+  <div class="table-wrap"><table><thead><tr><th>CMR 编号</th><th>关联订单</th><th>客户</th><th>路线</th><th>签署状态</th><th>货损</th><th>上传时间</th><th>操作</th></tr></thead><tbody>
+    ${[
+      ['CMR-2026-0142','EU-..0004','BMW AG','Hamburg → Barcelona','已完成','无','2026-03-29','var(--green)','var(--greenL)'],
+      ['CMR-2026-0141','EU-..0005','Volkswagen AG','Wolfsburg → Prague','已完成','无','2026-03-28','var(--green)','var(--greenL)'],
+      ['CMR-2026-0139','EU-..0006','Siemens AG','Nuremberg → Vienna','发货方已签','有','2026-03-27','var(--yellow)','var(--yellowL)'],
+      ['CMR-2026-0138','EU-..0007','BASF SE','Ludwigshafen → Rotterdam','未签署','无','-','var(--textS)','var(--borderL)'],
+    ].map(([c,o,cl,rt,st,dm,tm,sc,sb])=>`<tr>
+      <td class="accent">${c}</td><td style="font-size:12px;color:var(--textS)">${o}</td><td>${cl}</td>
+      <td style="font-size:12px;color:var(--textS)">${rt}</td>
+      <td><span class="badge" style="color:${sc};background:${sb};font-weight:500">${st}</span></td>
+      <td>${dm==='有'?'<span style="color:var(--red);font-size:12px;font-weight:500">有货损</span>':'<span style="color:var(--textL);font-size:12px">无</span>'}</td>
+      <td style="font-size:12px;color:var(--textS)">${tm}</td>
+      <td><span class="icon-btn">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('download',15,'var(--textS)')}</span></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- GPS PAGE ---
+pages.gps = () => `
+<div class="section-title"><h2>GPS 实时追踪</h2></div>
+<div class="flex-row">
+  <div class="flex-2"><div class="card card-flush">
+    <div style="height:520px;background:linear-gradient(160deg,#d4e8d0,#b8d4b0,#a8c8a0);position:relative;overflow:hidden">
+      <svg viewBox="0 0 600 400" style="width:100%;height:100%;position:absolute;inset:0">
+        <text x="130" y="150" font-size="11" fill="#666" font-weight="500">France</text>
+        <text x="280" y="130" font-size="11" fill="#666" font-weight="500">Germany</text>
+        <text x="360" y="170" font-size="11" fill="#666" font-weight="500">Czech Rep.</text>
+        <text x="220" y="200" font-size="11" fill="#666" font-weight="500">Switzerland</text>
+        <text x="300" y="230" font-size="11" fill="#666" font-weight="500">Austria</text>
+        <text x="340" y="100" font-size="11" fill="#666" font-weight="500">Poland</text>
+        <text x="250" y="270" font-size="11" fill="#666" font-weight="500">Italy</text>
+        <text x="100" y="240" font-size="11" fill="#666" font-weight="500">Spain</text>
+        <text x="140" y="60" font-size="11" fill="#666" font-weight="500">Netherlands</text>
+        <line x1="300" y1="120" x2="140" y2="160" stroke="#4472C4" stroke-width="2" stroke-dasharray="6,3" opacity=".7"/>
+        <line x1="300" y1="120" x2="360" y2="110" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="6,3" opacity=".7"/>
+        <line x1="300" y1="150" x2="270" y2="260" stroke="#F97316" stroke-width="2" stroke-dasharray="6,3" opacity=".7"/>
+        <circle cx="230" cy="140" r="10" fill="#4472C4"/><text x="230" y="144" font-size="10" fill="white" text-anchor="middle" font-weight="bold">1</text>
+        <circle cx="340" cy="115" r="10" fill="#8B5CF6"/><text x="340" y="119" font-size="10" fill="white" text-anchor="middle" font-weight="bold">2</text>
+        <circle cx="285" cy="210" r="10" fill="#F97316"/><text x="285" y="214" font-size="10" fill="white" text-anchor="middle" font-weight="bold">3</text>
+      </svg>
+      <div style="position:absolute;top:10px;left:10px;background:rgba(255,255,255,.95);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:500">实时追踪 · 3 辆车在途 · 数据更新于 14:32</div>
+    </div>
+  </div></div>
+  <div class="flex-1">
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">在途车辆</div>
+      ${[
+        {id:'0001',route:'Munich → Paris',carrier:'SpeedTrans',loc:'Strasbourg',eta:'03-30 14:00',color:'var(--acc)'},
+        {id:'0003',route:'Stuttgart → Milan',carrier:'EuroLog',loc:'Innsbruck',eta:'03-30 18:00',color:'var(--purple)'},
+        {id:'0006',route:'Nuremberg → Vienna',carrier:'AlpenTrans',loc:'Regensburg',eta:'异常!',color:'var(--orange)'},
+      ].map(v=>`<div style="padding:10px;background:var(--borderL);border-radius:8px;margin-bottom:8px;border-left:3px solid ${v.color}">
+        <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600">EU-...${v.id}</span><span style="font-size:11px;color:${v.color==='var(--orange)'?'var(--red)':'var(--green)'};font-weight:500">ETA: ${v.eta}</span></div>
+        <div style="font-size:12px;color:var(--textS)">${v.route}</div>
+        <div style="font-size:11px;color:var(--textL)">${v.carrier} · 当前: ${v.loc}</div>
+      </div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">异常预警</div>
+      <div style="padding:10px;background:var(--redL);border-radius:8px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">${icon('alert',14,'var(--red)')}<span style="font-size:13px;font-weight:600;color:var(--red)">长时间停留</span></div>
+        <div style="font-size:12px">EU-..0006 在 Regensburg 停留超过 3 小时</div>
+        <div style="font-size:11px;color:var(--textS)">承运商: AlpenTransport GmbH</div>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// --- FINANCE PAGE ---
+pages.finance = () => `
+<div class="section-title"><h2>财务管理</h2></div>
+<div class="stat-cards">
+  ${statCard('trending','本月营收','€186,400','+12% vs 上月','var(--green)')}
+  ${statCard('credit','应收余额','€154,100','5 笔逾期','var(--acc)')}
+  ${statCard('dollar','应付余额','€112,600','3 笔待付','var(--orange)')}
+  ${statCard('chart','平均毛利率','26.8%','本月','var(--pri)')}
+</div>
+<div class="card">
+  <div class="tabs">${['应收账款','应付账款','利润分析','账龄分析','发票与报表'].map((t,i)=>`<button class="tab${i===0?' active':''}" onclick="this.parentElement.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.fin-panel').forEach(p=>p.style.display='none');document.getElementById('fin${i}').style.display='block'">${t}</button>`).join('')}</div>
+
+  <div id="fin0" class="fin-panel">
+    <div class="table-wrap"><table><thead><tr><th>账单号</th><th>客户</th><th>关联订单</th><th>金额</th><th>状态</th><th>到期日</th><th>账龄</th><th>操作</th></tr></thead><tbody>
+      ${[
+        ['INV-2026-0201','BMW AG','EU-..0001','€2,800','未付','2026-04-28','0天','var(--red)','var(--redL)'],
+        ['INV-2026-0198','Siemens AG','EU-..0002','€1,200','未付','2026-04-25','0天','var(--red)','var(--redL)'],
+        ['INV-2026-0182','BMW AG','EU-..0004','€4,200','部分付','2026-04-15','14天','var(--yellow)','var(--yellowL)'],
+        ['INV-2026-0175','Volkswagen AG','EU-..0005','€1,800','已付','2026-04-10','-','var(--green)','var(--greenL)'],
+        ['INV-2026-0160','Bosch GmbH','3 笔合并','€8,500','未付 逾期','2026-03-20','9天 逾期','var(--red)','var(--redL)'],
+      ].map(([inv,cl,od,amt,st,due,age,sc,sb])=>`<tr><td class="accent">${inv}</td><td>${cl}</td><td style="font-size:12px;color:var(--textS)">${od}</td><td style="font-weight:600">${amt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td style="font-size:12px;color:var(--textS)">${due}</td><td style="font-size:12px;color:${age.includes('逾期')?'var(--red)':'var(--textS)'};font-weight:${age.includes('逾期')?600:400}">${age}</td><td><button class="btn btn-sm">记录付款</button></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div id="fin1" class="fin-panel" style="display:none">
+    <div class="table-wrap"><table><thead><tr><th>账单号</th><th>运输公司</th><th>关联订单</th><th>金额</th><th>状态</th><th>到期日</th><th>操作</th></tr></thead><tbody>
+      ${[
+        ['PAY-2026-0088','SpeedTrans GmbH','EU-..0001','€2,100','待付','2026-04-28','var(--orange)','var(--orangeL)'],
+        ['PAY-2026-0085','EuroLog Sp.','EU-..0003','€2,600','待付','2026-04-25','var(--orange)','var(--orangeL)'],
+        ['PAY-2026-0082','TransEuropa SL','EU-..0004','€3,100','已付','2026-04-15','var(--green)','var(--greenL)'],
+        ['PAY-2026-0079','CzechFreight','EU-..0005','€1,300','已付','2026-04-10','var(--green)','var(--greenL)'],
+      ].map(([inv,cr,od,amt,st,due,sc,sb])=>`<tr><td class="accent">${inv}</td><td>${cr}</td><td style="font-size:12px;color:var(--textS)">${od}</td><td style="font-weight:600">${amt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td style="font-size:12px;color:var(--textS)">${due}</td><td><button class="btn btn-sm">审核付款</button></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div id="fin2" class="fin-panel" style="display:none">
+    <div style="display:flex;gap:16px">
+      ${[{l:'BMW AG',r:'€45,200',c:'€33,100',p:'€12,100',rt:'26.8%'},{l:'Siemens AG',r:'€28,700',c:'€22,400',p:'€6,300',rt:'22.0%'},{l:'Volkswagen AG',r:'€52,100',c:'€37,800',p:'€14,300',rt:'27.4%'}].map(x=>`
+      <div class="card" style="flex:1"><div style="font-size:14px;font-weight:600;margin-bottom:10px">${x.l}</div>
+        ${[['营收',x.r,'var(--text)'],['成本',x.c,'var(--textS)'],['毛利',x.p,'var(--green)'],['毛利率',x.rt,'var(--green)']].map(([k,v,c])=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="font-size:12px;color:var(--textS)">${k}</span><span style="font-size:13px;font-weight:600;color:${c}">${v}</span></div>`).join('')}
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div id="fin3" class="fin-panel" style="display:none">
+    <div style="display:flex;gap:16px">
+      ${[['应收账龄分布',[['0-30 天','€89,200',58,'var(--green)'],['31-60 天','€42,100',27,'var(--yellow)'],['61-90 天','€15,300',10,'var(--orange)'],['90+ 天','€7,500',5,'var(--red)']]],['应付账龄分布',[['0-30 天','€68,400',61,'var(--green)'],['31-60 天','€32,200',29,'var(--yellow)'],['61-90 天','€8,600',7,'var(--orange)'],['90+ 天','€3,400',3,'var(--red)']]]].map(([title,data])=>`
+      <div class="card" style="flex:1"><div style="font-size:14px;font-weight:600;margin-bottom:14px">${title}</div>
+        ${data.map(([rng,amt,pct,clr])=>`<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;font-weight:500">${rng}</span><span style="font-size:13px;font-weight:600;color:${clr}">${amt}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${clr};opacity:.8"></div></div></div>`).join('')}
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div id="fin4" class="fin-panel" style="display:none">
+    <div class="flex-row" style="margin-bottom:16px">
+      <div class="flex-1"><div class="card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px">生成报表</div>
+        <div class="form-row">${select('报表类型',['运营收入报表','运输成本报表','利润分析报表','账龄分析报表','订单统计报表'])}${select('时间范围',['本月','上月','本季度','本年度','自定义'])}</div>
+        <div class="form-row">${select('导出格式',['Excel (.xlsx)','PDF','CSV'])}${select('数据维度',['按客户','按路线','按运输公司','按时间'])}</div>
+        <button class="btn btn-pri" style="margin-top:10px">${icon('download',15,'#fff')} 生成并下载报表</button>
+      </div></div>
+      <div class="flex-1"><div class="card">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px">发票模板</div>
+        <div style="font-size:13px;color:var(--textS);margin-bottom:14px">管理发票模板和自动开票规则</div>
+        ${INVOICE_TEMPLATES_DATA.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--borderL)">
+          <div><div style="font-size:13px;font-weight:500">${t.name}</div><div style="font-size:11px;color:var(--textS)">${t.clientType} · ${t.autoRule}</div></div>
+          <span class="badge" style="color:var(--green);background:var(--greenL)">启用</span>
+        </div>`).join('')}
+        <button class="btn" style="margin-top:12px;width:100%;justify-content:center" onclick="setState('page','invoice_templates')">${icon('settings',13)} 管理发票模板</button>
+      </div></div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;margin-bottom:14px">最近生成的报表</div>
+      <div class="table-wrap"><table><thead><tr><th>报表名称</th><th>类型</th><th>时间范围</th><th>生成时间</th><th>格式</th><th>操作</th></tr></thead><tbody>
+        ${[['运营收入报表_202603','收入报表','2026年3月','2026-03-31 18:00','xlsx'],['利润分析_2026Q1','利润报表','2026年Q1','2026-03-31 17:30','pdf'],['客户账龄_20260329','账龄报表','截至2026-03-29','2026-03-29 10:00','xlsx']].map(([n,tp,rng,tm,fmt])=>`<tr>
+          <td style="font-weight:500">${n}</td><td style="font-size:12px">${tp}</td><td style="font-size:12px;color:var(--textS)">${rng}</td><td style="font-size:12px;color:var(--textS)">${tm}</td>
+          <td><span class="badge" style="color:var(--blue);background:var(--blueL)">${fmt.toUpperCase()}</span></td>
+          <td><button class="btn btn-sm">${icon('download',13)} 下载</button></td>
+        </tr>`).join('')}
+      </tbody></table></div>
+    </div>
+  </div>
+</div>`;
+
+// --- CLIENTS ---
+pages.clients = () => `
+<div class="section-title"><h2>客户管理</h2><button class="btn btn-pri">${icon('plus',15,'#fff')} 添加客户</button></div>
+<div class="card">
+  <div class="search-bar"><div class="search-input">${icon('search',15)}<input placeholder="搜索客户名称、VAT..."></div><button class="btn">${icon('filter')} 筛选</button></div>
+  <div class="table-wrap"><table><thead><tr><th>公司名称</th><th>VAT 税号</th><th>国家</th><th>订单数</th><th>信用等级</th><th>应收余额</th><th>操作</th></tr></thead><tbody>
+    ${[
+      ['BMW AG','DE123456789','DE',156,'A','€45,200'],['Siemens AG','DE987654321','DE',98,'A','€28,700'],
+      ['Bosch GmbH','DE456789123','DE',72,'B','€15,300'],['Volkswagen AG','DE321654987','DE',134,'A','€52,100'],
+      ['BASF SE','DE654987321','DE',45,'B','€12,800']
+    ].map(([n,v,c,o,cr,b])=>`<tr><td class="accent" onclick="setState('page','client_detail')">${n}</td><td style="font-size:12px;color:var(--textS)">${v}</td><td>${c}</td><td>${o}</td><td><span class="badge" style="color:${cr==='A'?'var(--green)':'var(--yellow)'};background:${cr==='A'?'var(--greenL)':'var(--yellowL)'}">${cr}</span></td><td style="font-weight:500">${b}</td><td><span class="icon-btn" onclick="setState('page','client_detail')">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('edit',15,'var(--textS)')}</span></td></tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- CARRIERS ---
+pages.carriers = () => `
+<div class="section-title"><h2>运输公司管理</h2><button class="btn btn-pri">${icon('plus',15,'#fff')} 添加运输公司</button></div>
+<div class="card">
+  <div class="search-bar"><div class="search-input">${icon('search',15)}<input placeholder="搜索公司名称..."></div><button class="btn">${icon('filter')} 筛选</button></div>
+  <div class="table-wrap"><table><thead><tr><th>公司名称</th><th>国家</th><th>评分</th><th>车辆数</th><th>覆盖路线</th><th>状态</th><th>操作</th></tr></thead><tbody>
+    ${[
+      ['SpeedTrans GmbH','DE',9.2,45,'DE-FR, DE-NL, DE-BE','ACTIVE'],['EuroLog Sp. z o.o.','PL',8.7,32,'DE-PL, DE-CZ, PL-IT','ACTIVE'],
+      ['TransEuropa SL','ES',8.4,28,'DE-ES, FR-ES, IT-ES','ACTIVE'],['CzechFreight s.r.o.','CZ',7.9,18,'DE-CZ, DE-AT, CZ-PL','ACTIVE'],
+      ['AlpenTransport GmbH','AT',8.1,22,'DE-AT, DE-IT, AT-HU','ACTIVE'],['NordFreight AB','SE',7.5,15,'DE-SE, DE-DK, SE-NO','INACTIVE']
+    ].map(([n,c,s,v,r,st])=>`<tr><td class="accent" onclick="setState('page','carrier_detail')">${n}</td><td>${c}</td><td><span style="display:inline-flex;align-items:center;gap:4px">${icon('star',13,'var(--yellow)')}<b>${s}</b></span></td><td>${v}</td><td style="font-size:12px;color:var(--textS)">${r}</td><td><span class="badge" style="color:${st==='ACTIVE'?'var(--green)':'var(--textS)'};background:${st==='ACTIVE'?'var(--greenL)':'var(--borderL)'}">${st==='ACTIVE'?'活跃':'停用'}</span></td><td><span class="icon-btn" onclick="setState('page','carrier_detail')">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('edit',15,'var(--textS)')}</span></td></tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- SHIPPING RELEASE ---
+pages.shipping_release = () => `
+<div class="section-title"><h2>船司放单管理</h2></div>
+<div class="stat-cards">
+  ${statCard('check','无需放单','12','','var(--textS)')}
+  ${statCard('clock','正本待邮寄','3','需处理','var(--orange)')}
+  ${statCard('send','正本已邮寄','2','','var(--yellow)')}
+  ${statCard('clock','待放行','4','等待船司','var(--purple)')}
+  ${statCard('checkCircle','船司放行','28','','var(--green)')}
+</div>
+<div class="card">
+  <div class="search-bar"><div class="search-input">${icon('search',15)}<input placeholder="搜索订单号、提单号..."></div><button class="btn">${icon('filter')} 筛选</button></div>
+  <div class="tabs">${['全部','正本待邮寄','正本已邮寄','待放行','已放行'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}</div>
+  <div class="table-wrap"><table><thead><tr><th>关联订单</th><th>客户</th><th>船司</th><th>提单号</th><th>柜号</th><th>放单状态</th><th>最近更新</th><th>操作</th></tr></thead><tbody>
+    ${CONTAINER_ORDERS.map(o=>`<tr>
+      <td class="accent" onclick="setState('page','container_detail')">${o.id}</td><td>${o.client}</td>
+      <td style="font-size:12px">${o.shippingLine}</td><td style="font-size:12px;color:var(--textS)">${o.blNo}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.containerNo}</td>
+      <td>${badgeCustom(RELEASE_STATUS,o.releaseStatus)}</td>
+      <td style="font-size:12px;color:var(--textS)">${o.eta.split(' ')[0]}</td>
+      <td><button class="btn btn-sm">更新状态</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- CUSTOMS ---
+pages.customs = () => `
+<div class="section-title"><h2>清关放行管理</h2></div>
+<div class="stat-cards">
+  ${statCard('clock','待清关','5','','var(--yellow)')}
+  ${statCard('shield','清关中','3','','var(--blue)')}
+  ${statCard('checkCircle','已放行','42','','var(--green)')}
+  ${statCard('alert','异常','2','需跟进','var(--red)')}
+</div>
+<div class="card">
+  <div class="search-bar"><div class="search-input">${icon('search',15)}<input placeholder="搜索订单号、客户..."></div><button class="btn">${icon('filter')} 筛选</button></div>
+  <div class="tabs">${['全部','待清关','清关中','已放行','异常'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}</div>
+  <div class="table-wrap"><table><thead><tr><th>关联订单</th><th>客户</th><th>目的地</th><th>清关状态</th><th>报关行</th><th>文件数</th><th>更新时间</th><th>操作</th></tr></thead><tbody>
+    ${[
+      ['EU-..C001','BMW AG','Paris, FR','PENDING','待指定','0','2026-03-30','var(--yellow)','var(--yellowL)','待清关'],
+      ['EU-..C002','Siemens AG','Warsaw, PL','CLEARED','DHL Customs','4','2026-03-29','var(--green)','var(--greenL)','已放行'],
+      ['EU-..C003','Bosch GmbH','Milan, IT','CLEARED','DB Schenker','3','2026-03-28','var(--green)','var(--greenL)','已放行'],
+      ['EU-..C004','Volkswagen AG','Prague, CZ','CLEARED','Kühne+Nagel','5','2026-03-27','var(--green)','var(--greenL)','已放行'],
+      ['EU-..C005','BASF SE','Ludwigshafen, DE','PENDING','待指定','0','2026-03-30','var(--yellow)','var(--yellowL)','待清关'],
+    ].map(([od,cl,dest,st,broker,docs,tm,sc,sb,label])=>`<tr>
+      <td class="accent" onclick="setState('page','container_detail')">${od}</td><td>${cl}</td>
+      <td style="font-size:12px;color:var(--textS)">${dest}</td>
+      <td><span class="badge" style="color:${sc};background:${sb}">${label}</span></td>
+      <td style="font-size:12px">${broker}</td><td style="text-align:center">${docs}</td>
+      <td style="font-size:12px;color:var(--textS)">${tm}</td>
+      <td><button class="btn btn-sm">${icon('eye',13)} 查看</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- QUOTES ---
+pages.quotes = () => `
+<div class="section-title"><h2>询价报价管理</h2><button class="btn btn-pri" onclick="setState('page','quote_create')">${icon('plus',15,'#fff')} 新建报价</button></div>
+<div class="stat-cards">
+  ${statCard('tag','本月报价','18','','var(--acc)')}
+  ${statCard('clock','待回复','5','','var(--yellow)')}
+  ${statCard('checkCircle','已接受','8','','var(--green)')}
+  ${statCard('x','已拒绝','3','','var(--red)')}
+  ${statCard('trending','转化率','61.5%','本月','var(--pri)')}
+</div>
+<div class="card">
+  <div class="search-bar"><div class="search-input">${icon('search',15)}<input placeholder="搜索报价编号、客户..."></div><button class="btn">${icon('filter')} 筛选</button></div>
+  <div class="tabs">${['全部','待报价','已报价','已接受','已拒绝','已过期'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}</div>
+  <div class="table-wrap"><table><thead><tr><th>报价编号</th><th>客户</th><th>路线</th><th>业务类型</th><th>报价金额</th><th>版本</th><th>有效期</th><th>状态</th><th>操作</th></tr></thead><tbody>
+    ${QUOTES.map(q=>`<tr>
+      <td class="accent" onclick="setState('page','quote_create')">${q.id}</td><td>${q.client}</td>
+      <td style="font-size:12px;color:var(--textS)">${q.from} → ${q.to}</td>
+      <td><span class="badge" style="color:${q.type==='篷布车'?'var(--acc)':'var(--purple)'};background:${q.type==='篷布车'?'var(--priLL)':'var(--purpleL)'}">${q.type}</span></td>
+      <td style="font-weight:600">${q.amount}</td>
+      <td style="text-align:center">V${q.version}</td>
+      <td style="font-size:12px;color:var(--textS)">${q.validUntil}</td>
+      <td>${badgeCustom(QUOTE_STATUS,q.status)}</td>
+      <td><span class="icon-btn" onclick="setState('page','quote_create')">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('edit',15,'var(--textS)')}</span></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+  <div class="pagination"><span style="font-size:12px;color:var(--textS)">共 ${QUOTES.length} 条记录</span><div class="page-btns"><button class="page-btn active">1</button></div></div>
+</div>`;
+
+// --- QUOTE CREATE ---
+pages.quote_create = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','quotes')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">创建报价</h2>
+</div>
+<div class="flex-row">
+  <div class="flex-2">
+    <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">基本信息</div>
+      <div class="form-row">${select('客户 *',['请选择客户','BMW AG','Siemens AG','Bosch GmbH','Volkswagen AG','BASF SE'])}${select('业务类型 *',['篷布车运输','集装箱物流'])}</div>
+      <div class="form-row">${select('运输类型 *',['FTL (整车)','LTL (拼车)'])}${input('有效期 *',{type:'date',val:'2026-04-15'})}</div>
+    </div>
+    <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">路线信息</div>
+      <div class="form-row">${input('起点国家/城市 *',{ph:'如 Munich, Germany'})}${input('终点国家/城市 *',{ph:'如 Paris, France'})}</div>
+      ${input('途经点',{ph:'如有中转，填写途经城市'})}
+    </div>
+    <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">价格明细</div>
+      <div class="form-row">${input('基础运费 (€) *',{ph:'0.00',type:'number'})}${input('附加费 (€)',{ph:'0.00',type:'number'})}</div>
+      <div class="form-row">${input('保险费 (€)',{ph:'0.00',type:'number'})}${select('币种',['EUR (€)','GBP (£)','PLN (zł)'])}</div>
+      <div style="padding:14px;background:var(--greenL);border-radius:8px;margin-top:10px">
+        <div style="display:flex;justify-content:space-between"><span style="font-size:14px;font-weight:600;color:var(--green)">报价合计</span><span style="font-size:20px;font-weight:700;color:var(--green)">€0.00</span></div>
+      </div>
+    </div>
+    <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">备注说明</div>
+      <div class="form-group"><textarea class="form-textarea" placeholder="报价附加说明、条款等..."></textarea></div>
+    </div>
+  </div>
+  <div class="flex-1">
+    <div class="card sticky">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">报价摘要</div>
+      <div style="padding:14px;background:var(--borderL);border-radius:8px;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--textS)">报价编号</div>
+        <div style="font-size:14px;font-weight:600;color:var(--pri)">QT-2026-XXXX</div>
+        <div style="font-size:11px;color:var(--textS);margin-top:4px">版本 V1</div>
+      </div>
+      ${[['客户','待选择'],['业务类型','待选择'],['路线','待填写'],['报价金额','€0.00'],['有效期','2026-04-15']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+      <div style="margin-top:14px;font-size:14px;font-weight:600;color:var(--pri);margin-bottom:10px">历史报价版本</div>
+      <div style="padding:10px;background:var(--borderL);border-radius:8px;text-align:center">
+        <div style="font-size:12px;color:var(--textS)">暂无历史版本</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn" style="flex:1;justify-content:center">保存草稿</button>
+        <button class="btn btn-pri" style="flex:1;justify-content:center">${icon('send',15,'#fff')} 发送报价</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// --- INVOICE TEMPLATES ---
+pages.invoice_templates = () => `
+<div class="section-title"><h2>发票模板管理</h2><button class="btn btn-pri">${icon('plus',15,'#fff')} 创建模板</button></div>
+<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
+  ${INVOICE_TEMPLATES_DATA.map(t=>`
+  <div class="card" style="flex:1;min-width:280px;max-width:360px">
+    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px">
+      <div style="font-size:15px;font-weight:600">${t.name}</div>
+      <span class="badge" style="color:var(--green);background:var(--greenL)">启用</span>
+    </div>
+    <div style="font-size:12px;color:var(--textS);margin-bottom:8px">适用: ${t.clientType}</div>
+    ${[['币种',t.currency],['税率',t.taxRate],['自动开票',t.autoRule],['最近使用',t.lastUsed]].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-sm" style="flex:1;justify-content:center">${icon('eye',13)} 预览</button>
+      <button class="btn btn-sm" style="flex:1;justify-content:center">${icon('edit',13)} 编辑</button>
+    </div>
+  </div>`).join('')}
+</div>
+<div class="card">
+  <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">自动开票规则配置</div>
+  <div class="form-row">
+    ${select('触发条件',['订单完成后自动开票','CMR 上传后自动开票','手动开票'])}
+    ${select('默认模板',['标准运输发票','BMW 专属模板','集装箱物流发票'])}
+  </div>
+  <div class="form-row">
+    ${select('发票编号格式',['INV-YYYY-XXXX (年份+序号)','INV-YYYYMM-XXX (年月+序号)','自定义前缀'])}
+    ${select('自动发送方式',['生成后立即发送到客户发票邮箱','生成后等待人工确认再发送','不自动发送'])}
+  </div>
+  <div style="margin-top:10px">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px"><input type="checkbox" checked> 开票后自动发送邮件通知客户</label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px"><input type="checkbox" checked> 逾期未付款自动发送催款提醒</label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px"><input type="checkbox"> 批量开票时合并同一客户的多笔订单</label>
+  </div>
+  <button class="btn btn-pri" style="margin-top:14px">${icon('check',15,'#fff')} 保存配置</button>
+</div>`;
+
+// --- CLIENT DETAIL ---
+pages.client_detail = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','clients')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">客户详情</h2>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:50px;height:50px;border-radius:12px;background:var(--priLL);display:flex;align-items:center;justify-content:center">${icon('building',24,'var(--pri)')}</div>
+      <div><div style="font-size:20px;font-weight:700;color:var(--pri)">BMW AG</div><div style="font-size:12px;color:var(--textS)">VAT: DE123456789 · 德国</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="badge" style="color:var(--green);background:var(--greenL);font-size:13px;padding:6px 14px">信用等级 A</span>
+      <button class="btn btn-sm">${icon('edit',13)} 编辑</button>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="tabs">${['基本信息','合同管理','价格体系','订单历史','财务概览'].map((t,i)=>`<button class="tab${i===0?' active':''}" onclick="this.parentElement.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.cd-panel').forEach(p=>p.style.display='none');document.getElementById('cd${i}').style.display='block'">${t}</button>`).join('')}</div>
+  <div id="cd0" class="cd-panel">
+    <div class="flex-row">
+      <div class="flex-1">${[['公司全称','Bayerische Motoren Werke AG'],['VAT 税号','DE123456789'],['国家','Germany'],['城市','Munich'],['详细地址','Petuelring 130, 80809 Munich'],['注册日期','2024-06-15']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
+      <div class="flex-1">${[['主联系人','Thomas Weber'],['联系邮箱','t.weber@bmw.de'],['联系电话','+49 89 382 0'],['发票邮箱','invoices@bmw.de'],['账期','30 天'],['信用等级','A']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
+    </div>
+  </div>
+  <div id="cd1" class="cd-panel" style="display:none">
+    <div class="table-wrap"><table><thead><tr><th>合同编号</th><th>类型</th><th>有效期</th><th>状态</th><th>操作</th></tr></thead><tbody>
+      ${[['CT-BMW-2026-01','年度运输框架协议','2026-01-01 ~ 2026-12-31','生效中','var(--green)','var(--greenL)'],['CT-BMW-2025-02','冷链运输附加协议','2025-06-01 ~ 2026-05-31','即将到期','var(--yellow)','var(--yellowL)']].map(([c,tp,dt,st,sc,sb])=>`<tr><td class="accent">${c}</td><td>${tp}</td><td style="font-size:12px;color:var(--textS)">${dt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td><button class="btn btn-sm">${icon('eye',13)} 查看</button> <button class="btn btn-sm">${icon('download',13)} 下载</button></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+  <div id="cd2" class="cd-panel" style="display:none">
+    <div class="table-wrap"><table><thead><tr><th>路线</th><th>业务类型</th><th>运输类型</th><th>单价</th><th>有效期</th><th>操作</th></tr></thead><tbody>
+      ${[['Munich → Paris','篷布车','FTL','€2,800','2026-12-31'],['Munich → Lyon','篷布车','LTL','€1,500','2026-12-31'],['Hamburg → Paris','集装箱','FTL','€3,200','2026-12-31'],['Stuttgart → Milan','篷布车','FTL','€3,500','2026-12-31']].map(([rt,bt,tt,pr,vd])=>`<tr><td style="font-size:12px">${rt}</td><td><span class="badge" style="color:${bt==='篷布车'?'var(--acc)':'var(--purple)'};background:${bt==='篷布车'?'var(--priLL)':'var(--purpleL)'}">${bt}</span></td><td style="font-size:12px">${tt}</td><td style="font-weight:600">${pr}</td><td style="font-size:12px;color:var(--textS)">${vd}</td><td><span class="icon-btn">${icon('edit',15,'var(--textS)')}</span></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+  <div id="cd3" class="cd-panel" style="display:none">
+    <div class="table-wrap"><table><thead><tr><th>订单号</th><th>路线</th><th>状态</th><th>类型</th><th>报价</th><th>日期</th></tr></thead><tbody>
+      ${ORDERS.filter(o=>o.client==='BMW AG').map(o=>`<tr><td class="accent" onclick="setState('page','order_detail')">${o.id}</td><td style="font-size:12px;color:var(--textS)">${o.from} → ${o.to}</td><td>${badge(o.status)}</td><td style="font-size:12px">${o.type}</td><td style="font-weight:500">${o.price}</td><td style="font-size:12px;color:var(--textS)">${o.date}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+  <div id="cd4" class="cd-panel" style="display:none">
+    <div class="stat-cards">
+      ${statCard('trending','总应收','€45,200','','var(--acc)')}
+      ${statCard('checkCircle','已收款','€38,600','','var(--green)')}
+      ${statCard('alert','逾期金额','€2,800','','var(--red)')}
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>账单号</th><th>关联订单</th><th>金额</th><th>状态</th><th>到期日</th></tr></thead><tbody>
+      ${[['INV-2026-0201','EU-..0001','€2,800','未付','2026-04-28','var(--red)','var(--redL)'],['INV-2026-0182','EU-..0004','€4,200','部分付','2026-04-15','var(--yellow)','var(--yellowL)'],['INV-2026-0170','EU-..0008','€1,500','已付','2026-04-01','var(--green)','var(--greenL)']].map(([inv,od,amt,st,due,sc,sb])=>`<tr><td class="accent">${inv}</td><td style="font-size:12px;color:var(--textS)">${od}</td><td style="font-weight:600">${amt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td style="font-size:12px;color:var(--textS)">${due}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+</div>`;
+
+// --- CARRIER DETAIL ---
+pages.carrier_detail = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','carriers')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">运输公司详情</h2>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:50px;height:50px;border-radius:12px;background:var(--priLL);display:flex;align-items:center;justify-content:center">${icon('truck',24,'var(--pri)')}</div>
+      <div><div style="font-size:20px;font-weight:700;color:var(--pri)">SpeedTrans GmbH</div><div style="font-size:12px;color:var(--textS)">德国 · 45 辆车</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:4px;background:var(--yellowL);padding:6px 14px;border-radius:12px">${icon('star',15,'var(--yellow)')}<span style="font-size:15px;font-weight:700;color:var(--yellow)">9.2</span></div>
+      <span class="badge" style="color:var(--green);background:var(--greenL);font-size:13px;padding:6px 14px">活跃</span>
+      <button class="btn btn-sm">${icon('edit',13)} 编辑</button>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="tabs">${['基本信息','车队管理','覆盖路线','绩效统计','财务概览'].map((t,i)=>`<button class="tab${i===0?' active':''}" onclick="this.parentElement.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.querySelectorAll('.crd-panel').forEach(p=>p.style.display='none');document.getElementById('crd${i}').style.display='block'">${t}</button>`).join('')}</div>
+  <div id="crd0" class="crd-panel">
+    <div class="flex-row">
+      <div class="flex-1">${[['公司全称','SpeedTrans GmbH'],['国家','Germany'],['注册号','HRB 123456'],['运输许可证号','DE-TL-2024-5678'],['许可证有效期','2027-06-30'],['VAT 税号','DE987654321']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
+      <div class="flex-1">${[['保险编号','INS-2026-ST-001'],['保险有效期','2027-03-31'],['联系人','Hans Schmidt'],['联系电话','+49 170 123 4567'],['联系邮箱','dispatch@speedtrans.de'],['地址','Industriestr. 10, 80939 Munich']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}</div>
+    </div>
+  </div>
+  <div id="crd1" class="crd-panel" style="display:none">
+    <div class="table-wrap"><table><thead><tr><th>车牌号</th><th>车型</th><th>司机</th><th>GPS 设备</th><th>当前状态</th></tr></thead><tbody>
+      ${[['M-ST 1234','Mega Trailer 13.6m','Hans Mueller','已安装','运输中'],['M-ST 1235','Standard 13.6m','Peter König','已安装','空闲'],['M-ST 1236','Refrigerated 13.6m','Klaus Weber','已安装','运输中'],['M-ST 1237','Flatbed 12m','Stefan Braun','未安装','维修中'],['M-ST 1238','Mega Trailer 13.6m','Thomas Fischer','已安装','空闲']].map(([plate,type,driver,gps,st])=>`<tr><td style="font-weight:500">${plate}</td><td style="font-size:12px">${type}</td><td>${driver}</td><td><span style="color:${gps==='已安装'?'var(--green)':'var(--red)'};font-size:12px">${gps}</span></td><td><span class="badge" style="color:${st==='运输中'?'var(--acc)':st==='空闲'?'var(--green)':'var(--orange)'};background:${st==='运输中'?'var(--priLL)':st==='空闲'?'var(--greenL)':'var(--orangeL)'}">${st}</span></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+  <div id="crd2" class="crd-panel" style="display:none">
+    <div class="table-wrap"><table><thead><tr><th>起点</th><th>终点</th><th>车型偏好</th><th>历史完成数</th><th>平均耗时</th></tr></thead><tbody>
+      ${[['Germany','France','Mega Trailer',128,'18h'],['Germany','Netherlands','Standard',95,'8h'],['Germany','Belgium','Mega Trailer',64,'10h'],['Germany','Poland','Standard',42,'12h'],['France','Spain','Mega Trailer',28,'22h']].map(([f,t,vt,cnt,tm])=>`<tr><td>${f}</td><td>${t}</td><td style="font-size:12px">${vt}</td><td style="text-align:center;font-weight:500">${cnt}</td><td style="text-align:center;font-size:12px">${tm}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+  <div id="crd3" class="crd-panel" style="display:none">
+    <div class="stat-cards">
+      ${statCard('checkCircle','准时率','96.2%','','var(--green)')}
+      ${statCard('alert','货损率','0.8%','','var(--yellow)')}
+      ${statCard('star','综合评分','9.2/10','','var(--pri)')}
+      ${statCard('package','完成订单','357','','var(--acc)')}
+    </div>
+    <div class="flex-row">
+      <div class="flex-2"><div style="font-size:14px;font-weight:600;margin-bottom:14px">月度评分趋势</div>
+        <div class="bar-chart">
+          ${[{l:'10月',v:8.8,c:'var(--acc)'},{l:'11月',v:9.0,c:'var(--acc)'},{l:'12月',v:9.1,c:'var(--acc)'},{l:'1月',v:8.9,c:'var(--acc)'},{l:'2月',v:9.3,c:'var(--acc)'},{l:'3月',v:9.2,c:'var(--green)'}].map(s=>`<div class="bar-col"><div class="bar-wrapper"><div class="bar" style="background:${s.c};height:${s.v*10}px"></div></div><div style="font-size:14px;font-weight:600;color:${s.c}">${s.v}</div><div style="font-size:11px;color:var(--textS)">${s.l}</div></div>`).join('')}
+        </div>
+      </div>
+      <div class="flex-1">
+        <div style="font-size:14px;font-weight:600;margin-bottom:14px">最近客户评价</div>
+        ${[{client:'BMW AG',score:9.5,comment:'准时可靠，服务态度好'},{client:'Siemens AG',score:9.0,comment:'沟通顺畅，货物完好'},{client:'Bosch GmbH',score:8.8,comment:'整体满意'}].map(r=>`<div style="padding:10px;background:var(--borderL);border-radius:8px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:500">${r.client}</span><span style="display:flex;align-items:center;gap:2px">${icon('star',11,'var(--yellow)')}<span style="font-size:12px;font-weight:600">${r.score}</span></span></div>
+          <div style="font-size:12px;color:var(--textS);margin-top:4px">${r.comment}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div id="crd4" class="crd-panel" style="display:none">
+    <div class="stat-cards">
+      ${statCard('credit','应付总额','€78,400','','var(--orange)')}
+      ${statCard('checkCircle','已付总额','€73,700','','var(--green)')}
+      ${statCard('clock','待付金额','€4,700','','var(--red)')}
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>账单号</th><th>关联订单</th><th>金额</th><th>状态</th><th>到期日</th></tr></thead><tbody>
+      ${[['PAY-2026-0088','EU-..0001','€2,100','待付','2026-04-28','var(--orange)','var(--orangeL)'],['PAY-2026-0082','EU-..0004','€3,100','已付','2026-04-15','var(--green)','var(--greenL)'],['PAY-2026-0075','EU-..0009','€1,800','已付','2026-04-01','var(--green)','var(--greenL)']].map(([inv,od,amt,st,due,sc,sb])=>`<tr><td class="accent">${inv}</td><td style="font-size:12px;color:var(--textS)">${od}</td><td style="font-weight:600">${amt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td style="font-size:12px;color:var(--textS)">${due}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+</div>`;
+
+// --- CONTAINER DETAIL ---
+pages.container_detail = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','orders')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">集装箱订单详情</h2>
+  ${badgeCustom(CONTAINER_DELIVERY_STATUS,'FLEET_CONFIRMED')}
+</div>
+<div class="flex-row">
+  <div class="flex-2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div><div style="font-size:20px;font-weight:700;color:var(--pri)">EU-20260329-C002</div><div style="font-size:12px;color:var(--textS)">集装箱物流 · 创建于 2026-03-29</div></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-sm">${icon('edit',13)} 编辑</button><button class="btn btn-sm btn-pri">${icon('send',13,'#fff')} 派单</button></div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        ${[['客户','Siemens AG'],['船司','Maersk'],['柜号','MSKU7654321'],['提单号','MAEU9876543'],['CNEE','Siemens Polska'],['ETA','2026-04-01 14:00']].map(([k,v])=>`<div><div style="font-size:11px;color:var(--textS)">${k}</div><div style="font-size:14px;font-weight:500">${v}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">运输路线</div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div class="route-box" style="background:var(--blueL)">
+          <div style="font-size:11px;color:var(--blue);font-weight:600">卸港 (POD)</div>
+          <div style="font-size:14px;font-weight:600">Bremerhaven, DE</div>
+          <div style="font-size:12px;color:var(--textS);margin-top:4px">ETA: 2026-04-01 14:00</div>
+        </div>
+        <div style="text-align:center">${icon('truck',20,'var(--acc)')}<div style="font-size:11px;color:var(--textS);margin-top:4px">陆运配送</div></div>
+        <div class="route-box" style="background:var(--greenL)">
+          <div style="font-size:11px;color:var(--green);font-weight:600">最终目的地</div>
+          <div style="font-size:14px;font-weight:600">Warsaw, PL</div>
+          <div style="font-size:12px;color:var(--textS);margin-top:4px">Siemens Polska</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">订单时间线</div>
+      ${[
+        {t:'03-29 09:00',e:'订单创建',s:'done'},{t:'03-29 10:00',e:'ETA 确认: 2026-04-01',s:'done'},
+        {t:'03-29 14:00',e:'船司放单 — Maersk 已放行',s:'done'},{t:'03-29 16:00',e:'清关完成 — 已放行',s:'done'},
+        {t:'03-30 09:00',e:'车队确认 — EuroLog Sp.',s:'active'},{t:'04-01 14:00',e:'预计到港',s:'pending'},
+        {t:'-',e:'提柜出发',s:'pending'},{t:'-',e:'运输完成',s:'pending'},
+      ].map((it,i)=>`<div class="timeline-item">
+        <div class="timeline-time">${it.t}</div>
+        <div style="display:flex;flex-direction:column;align-items:center;width:20px">
+          <div class="timeline-dot" style="background:${it.s==='done'?'var(--green)':it.s==='active'?'var(--acc)':'var(--border)'};${it.s==='active'?'box-shadow:0 0 0 3px var(--accL)':''}"></div>
+          ${i<7?`<div class="timeline-line" style="background:${it.s==='pending'?'var(--borderL)':'var(--green)'}"></div>`:''}
+        </div>
+        <div class="timeline-text" style="color:${it.s==='pending'?'var(--textL)':'var(--text)'};font-weight:${it.s==='active'?600:400}">${it.e}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="flex-1">
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">船司放单状态</div>
+      <div style="padding:12px;background:var(--greenL);border-radius:8px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px">${icon('checkCircle',14,'var(--green)')}<span style="font-size:13px;font-weight:600;color:var(--green)">船司已放行</span></div>
+        <div style="font-size:12px;color:var(--textS);margin-top:4px">Maersk · 放行有效期至 2026-04-15</div>
+      </div>
+      ${[['放单方式','电放 (Telex Release)'],['授权人','Thomas Weber'],['授权时间','2026-03-29 14:00']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">清关状态</div>
+      <div style="padding:12px;background:var(--greenL);border-radius:8px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:6px">${icon('shield',14,'var(--green)')}<span style="font-size:13px;font-weight:600;color:var(--green)">已清关放行</span></div>
+        <div style="font-size:12px;color:var(--textS);margin-top:4px">DHL Customs · 2026-03-29 16:00</div>
+      </div>
+      <div style="font-size:12px;color:var(--textS);margin-bottom:6px">清关文件 (4)</div>
+      ${['报关单.pdf','装箱单.pdf','商业发票.pdf','原产地证明.pdf'].map(f=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 0"><span style="font-size:12px;color:var(--acc)">${icon('fileText',13,'var(--acc)')} ${f}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">承运信息</div>
+      <div style="padding:12px;background:var(--priLL);border-radius:8px;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:600;color:var(--pri)">EuroLog Sp. z o.o.</div>
+        <div style="font-size:12px;color:var(--textS)">波兰 · 评分 8.7/10</div>
+      </div>
+      ${[['状态','车队已确认'],['预计提柜','2026-04-01']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">财务信息</div>
+      ${[['客户报价','€2,800',0],['承运商成本','€2,000',0],['毛利润','€800',1],['毛利率','28.6%',1]].map(([k,v,g])=>`<div class="info-pair"><span class="k" style="color:${g?'var(--green)':'var(--textS)'}">${k}</span><span class="v" style="color:${g?'var(--green)':'var(--text)'};font-weight:${g?600:400}">${v}</span></div>`).join('')}
+    </div>
+  </div>
+</div>`;
+
+// --- NOTIFICATIONS ---
+pages.notifications = () => `
+<div class="section-title"><h2>通知中心</h2></div>
+<div class="card">
+  ${[
+    {t:'订单 EU-..0002 等待审核',d:'Siemens AG 提交了新的运输订单，请尽快审核',tm:'10 分钟前',tp:'warning',read:false},
+    {t:'运输异常 — EU-..0006',d:'AlpenTransport 在 Regensburg 长时间停留，疑似车辆故障',tm:'1 小时前',tp:'error',read:false},
+    {t:'SpeedTrans 已确认接单',d:'订单 EU-..0001 已被 SpeedTrans GmbH 确认接单',tm:'3 小时前',tp:'success',read:false},
+    {t:'CMR 已上传 — EU-..0004',d:'TransEuropa SL 已上传订单 EU-..0004 的 CMR 单据',tm:'5 小时前',tp:'info',read:true},
+    {t:'付款提醒 — Bosch GmbH',d:'账单 INV-2026-0160 已逾期 9 天，金额 €8,500',tm:'昨天',tp:'warning',read:true},
+    {t:'运输公司资质到期提醒',d:'NordFreight AB 的运输许可证将在 30 天后到期',tm:'昨天',tp:'info',read:true},
+  ].map(n=>{
+    const ic = n.tp==='error'?['alert','var(--red)','var(--redL)']:n.tp==='warning'?['clock','var(--yellow)','var(--yellowL)']:n.tp==='success'?['checkCircle','var(--green)','var(--greenL)']:['bell','var(--blue)','var(--blueL)'];
+    return `<div class="notif-item${n.read?'':' unread'}">
+      <div class="notif-icon" style="background:${ic[2]}">${icon(ic[0],16,ic[1])}</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:${n.read?400:600}">${n.t}</div><div style="font-size:12px;color:var(--textS);margin-top:2px">${n.d}</div></div>
+      <div style="font-size:11px;color:var(--textL);white-space:nowrap">${n.tm}</div>
+    </div>`;
+  }).join('')}
+</div>`;
+
+// --- SETTINGS ---
+pages.settings = pages.c_settings = pages.cr_settings = () => `
+<div class="section-title"><h2>${state.role==='operator'?'系统设置':'账户设置'}</h2></div>
+<div class="flex-row">
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">基本信息</div>
+    ${input('公司名称',{val:state.role==='operator'?'EU Transport Solutions':state.role==='client'?'BMW AG':'SpeedTrans GmbH'})}
+    ${input('联系邮箱',{val:'admin@eu-transport.com'})}
+    ${input('联系电话',{val:'+49 89 123 4567'})}
+    ${input('地址',{val:'Leopoldstr. 10, 80802 Munich, Germany'})}
+    <button class="btn btn-pri">保存修改</button>
+  </div></div>
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">通知偏好</div>
+    ${['订单状态变更','CMR 上传通知','付款提醒','异常预警','资质到期提醒'].map(it=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--borderL)">
+      <span style="font-size:13px">${it}</span>
+      <div style="display:flex;gap:8px">${['邮件','系统'].map(ch=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--textS)"><input type="checkbox" checked> ${ch}</label>`).join('')}</div>
+    </div>`).join('')}
+  </div></div>
+</div>`;
+
+// --- CLIENT PAGES ---
+pages.c_dashboard = () => `
+<div class="section-title"><h2>客户概览</h2></div>
+<div class="stat-cards">
+  ${statCard('package','进行中订单','8','','var(--acc)')}
+  ${statCard('truck','运输中','3','','var(--orange)')}
+  ${statCard('checkCircle','本月完成','24','','var(--green)')}
+  ${statCard('credit','待付账单','€12,600','','var(--red)')}
+</div>
+<div class="flex-row">
+  <div class="flex-2"><div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">我的最近订单</div>
+    <div class="table-wrap"><table><thead><tr><th>订单号</th><th>路线</th><th>状态</th><th>类型</th><th>到达日期</th></tr></thead><tbody>
+      ${ORDERS.filter(o=>o.client==='BMW AG').map(o=>`<tr style="cursor:pointer" onclick="setState('page','c_orders')"><td class="accent">${o.id}</td><td style="font-size:12px;color:var(--textS)">${o.from} → ${o.to}</td><td>${badge(o.status)}</td><td style="font-size:12px">${o.type}</td><td style="font-size:12px;color:var(--textS)">${o.eta}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div></div>
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">运输动态</div>
+    ${[{t:'EU-..0001 已到达 Strasbourg',tm:'2小时前'},{t:'EU-..0004 货物已签收',tm:'5小时前'},{t:'EU-..0008 正在等待派单',tm:'昨天'}].map(n=>`<div style="padding:8px 0;border-bottom:1px solid var(--borderL)"><div style="font-size:13px">${n.t}</div><div style="font-size:11px;color:var(--textL)">${n.tm}</div></div>`).join('')}
+  </div></div>
+</div>`;
+
+pages.c_orders = () => `
+<div class="section-title"><h2>我的订单</h2><button class="btn btn-pri" onclick="setState('page','c_create')">${icon('plus',15,'#fff')} 新建订单</button></div>
+<div class="card">
+  <div class="search-bar"><div class="search-input">${icon('search',15)}<input placeholder="搜索订单号..."></div><button class="btn">${icon('filter')} 筛选</button></div>
+  <div class="table-wrap"><table><thead><tr><th>订单号</th><th>路线</th><th>状态</th><th>类型</th><th>重量</th><th>报价</th><th>到达日期</th><th>操作</th></tr></thead><tbody>
+    ${ORDERS.filter(o=>o.client==='BMW AG').map(o=>`<tr><td class="accent">${o.id}</td><td style="font-size:12px;color:var(--textS)">${o.from} → ${o.to}</td><td>${badge(o.status)}</td><td style="font-size:12px">${o.type}</td><td style="font-size:12px;color:var(--textS)">${o.weight}</td><td style="font-weight:500">${o.price}</td><td style="font-size:12px;color:var(--textS)">${o.eta}</td><td><span class="icon-btn">${icon('eye',15,'var(--acc)')}</span><span class="icon-btn">${icon('map',15,'var(--green)')}</span></td></tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+pages.c_create = pages.order_create;
+
+// --- CLIENT INQUIRY ---
+pages.c_inquiry = () => `
+<div class="section-title"><h2>我的询价</h2><button class="btn btn-pri" onclick="setState('page','c_inquiry_create')">${icon('plus',15,'#fff')} 新建询价</button></div>
+<div class="stat-cards">
+  ${statCard('tag','总询价','15','','var(--acc)')}
+  ${statCard('clock','待报价','3','','var(--yellow)')}
+  ${statCard('checkCircle','已报价','8','','var(--blue)')}
+  ${statCard('check','已接受','4','','var(--green)')}
+</div>
+<div class="card">
+  <div class="tabs">${['全部','待报价','已报价','已接受','已过期'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}</div>
+  <div class="table-wrap"><table><thead><tr><th>询价编号</th><th>路线</th><th>业务类型</th><th>提交日期</th><th>状态</th><th>报价金额</th><th>操作</th></tr></thead><tbody>
+    ${[
+      ['INQ-2026-0025','Munich → Paris','篷布车','2026-03-30','QUOTED','€2,800'],
+      ['INQ-2026-0024','Hamburg → Warsaw','集装箱','2026-03-29','ACCEPTED','€2,800'],
+      ['INQ-2026-0023','Stuttgart → Milan','篷布车','2026-03-28','PENDING_QUOTE','-'],
+      ['INQ-2026-0022','Munich → Lyon','篷布车','2026-03-25','EXPIRED','€1,600'],
+    ].map(([id,route,type,date,status,amount])=>`<tr>
+      <td class="accent">${id}</td>
+      <td style="font-size:12px;color:var(--textS)">${route}</td>
+      <td><span class="badge" style="color:${type==='篷布车'?'var(--acc)':'var(--purple)'};background:${type==='篷布车'?'var(--priLL)':'var(--purpleL)'}">${type}</span></td>
+      <td style="font-size:12px;color:var(--textS)">${date}</td>
+      <td>${badgeCustom(QUOTE_STATUS,status)}</td>
+      <td style="font-weight:${amount!=='-'?600:400}">${amount}</td>
+      <td>${status==='QUOTED'?`<button class="btn btn-sm btn-pri">${icon('check',13,'#fff')} 接受</button> <button class="btn btn-sm" style="color:var(--red)">${icon('x',13,'var(--red)')} 拒绝</button>`:status==='ACCEPTED'?`<button class="btn btn-sm btn-pri">${icon('package',13,'#fff')} 一键下单</button>`:status==='PENDING_QUOTE'?'<span style="font-size:12px;color:var(--textS)">等待报价中...</span>':'<span style="font-size:12px;color:var(--textL)">已过期</span>'}</td>
+    </tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+// --- CLIENT INQUIRY CREATE ---
+pages.c_inquiry_create = () => `
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <span style="cursor:pointer" onclick="setState('page','c_inquiry')">${icon('arrowLeft',18,'var(--textS)')}</span>
+  <h2 style="font-size:18px;font-weight:700">新建询价</h2>
+</div>
+<div class="flex-row">
+  <div class="flex-2">
+    <div class="card">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">选择业务类型</div>
+      <div style="display:flex;gap:14px">
+        <div id="inqTruck" style="flex:1;padding:20px;border:2px solid var(--acc);border-radius:10px;cursor:pointer;background:rgba(68,114,196,.05);text-align:center" onclick="this.style.borderColor='var(--acc)';this.style.background='rgba(68,114,196,.05)';document.getElementById('inqContainer').style.borderColor='var(--border)';document.getElementById('inqContainer').style.background='#fff';document.getElementById('inqTruckForm').style.display='block';document.getElementById('inqContainerForm').style.display='none'">
+          ${icon('truck',24,'var(--acc)')}<div style="font-size:13px;font-weight:600;margin-top:6px">篷布车运输</div>
+        </div>
+        <div id="inqContainer" style="flex:1;padding:20px;border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center" onclick="this.style.borderColor='var(--acc)';this.style.background='rgba(68,114,196,.05)';document.getElementById('inqTruck').style.borderColor='var(--border)';document.getElementById('inqTruck').style.background='#fff';document.getElementById('inqTruckForm').style.display='none';document.getElementById('inqContainerForm').style.display='block'">
+          ${icon('ship',24,'var(--textS)')}<div style="font-size:13px;font-weight:600;margin-top:6px">集装箱物流</div>
+        </div>
+      </div>
+    </div>
+    <div id="inqTruckForm">
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">路线信息</div>
+        <div class="form-row">${input('装货地 *',{ph:'城市, 国家 (如 Munich, Germany)'})}${input('卸货地 *',{ph:'城市, 国家 (如 Paris, France)'})}</div>
+        <div class="form-row">${input('期望装货日期 *',{type:'date',val:'2026-04-05'})}${input('期望到达日期 *',{type:'date',val:'2026-04-08'})}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">货物信息</div>
+        ${input('货物描述 *',{ph:'货物名称、类型、包装方式'})}
+        <div class="form-row">${input('货物重量 (kg) *',{ph:'0.00',type:'number'})}${input('货物体积 (m³)',{ph:'0.00',type:'number'})}${select('运输类型 *',['FTL (整车)','LTL (拼车)'])}</div>
+      </div>
+    </div>
+    <div id="inqContainerForm" style="display:none">
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">港口与目的地</div>
+        <div class="form-row">${input('卸港 (POD) *',{ph:'如 Hamburg, DE'})}${input('最终目的地 *',{ph:'如 Warsaw, PL'})}</div>
+        <div class="form-row">${input('期望 ETA *',{type:'date',val:'2026-04-10'})}${select('柜型 *',['20GP','40GP','40HQ','45HQ'])}</div>
+      </div>
+      <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">货物信息</div>
+        ${input('货物描述 *',{ph:'货物名称、类型、包装方式'})}
+        <div class="form-row">${input('货物重量 (kg) *',{ph:'0.00',type:'number'})}${input('货物数量 *',{ph:'0',type:'number'})}</div>
+      </div>
+    </div>
+    <div class="card"><div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">附加要求</div>
+      ${select('特殊要求',['无','温控运输','危险品 (ADR)','超宽超重','需要尾板'])}
+      <div class="form-group"><label class="form-label">备注</label><textarea class="form-textarea" placeholder="其他需要说明的信息..."></textarea></div>
+    </div>
+  </div>
+  <div class="flex-1">
+    <div class="card sticky">
+      <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">询价摘要</div>
+      <div style="padding:14px;background:var(--borderL);border-radius:8px;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--textS)">询价编号</div>
+        <div style="font-size:14px;font-weight:600;color:var(--pri)">INQ-2026-XXXX</div>
+      </div>
+      ${[['业务类型','篷布车运输'],['装货地','待填写'],['卸货地','待填写'],['期望日期','待填写'],['货物','待填写']].map(([k,v])=>`<div class="info-pair"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn" style="flex:1;justify-content:center" onclick="setState('page','c_inquiry')">取消</button>
+        <button class="btn btn-pri" style="flex:1;justify-content:center">${icon('send',15,'#fff')} 提交询价</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+
+// --- CLIENT CUSTOMS ---
+pages.c_customs = () => `
+<div class="section-title"><h2>清关操作</h2></div>
+<div class="stat-cards">
+  ${statCard('clock','待清关','2','需要操作','var(--yellow)')}
+  ${statCard('shield','清关中','1','','var(--blue)')}
+  ${statCard('checkCircle','已完成','8','','var(--green)')}
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">待清关订单</div>
+  ${[
+    {id:'EU-20260330-C001',dest:'Paris, FR',containerNo:'MSCU1234567',shippingLine:'MSC'},
+  ].map(o=>`
+  <div style="padding:16px;border:1px solid var(--border);border-radius:10px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-size:15px;font-weight:600;color:var(--pri)">${o.id}</div><div style="font-size:12px;color:var(--textS)">${o.shippingLine} · ${o.containerNo} · 目的地: ${o.dest}</div></div>
+      ${badgeCustom(CONTAINER_DELIVERY_STATUS,'WAITING_ARRANGE')}
+    </div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:10px">所需清关文件</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      ${['报关单','装箱单','商业发票','原产地证明'].map(f=>`<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--borderL);border-radius:6px;font-size:12px;cursor:pointer"><input type="checkbox"> ${f}</label>`).join('')}
+    </div>
+    <div class="upload-zone" style="padding:24px;margin-bottom:14px">${icon('upload',28,'var(--textL)')}<div style="font-size:13px;color:var(--textS);margin-top:6px">点击或拖拽文件上传清关文件</div><div style="font-size:11px;color:var(--textL)">支持 PDF、JPG、PNG，最大 10MB</div></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn" style="flex:1;justify-content:center;color:var(--red)">${icon('alert',13,'var(--red)')} 标记异常</button>
+      <button class="btn btn-pri" style="flex:1;justify-content:center">${icon('checkCircle',15,'#fff')} 确认清关完成</button>
+    </div>
+  </div>`).join('')}
+</div>
+<div class="card">
+  <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">清关历史</div>
+  <div class="table-wrap"><table><thead><tr><th>订单号</th><th>目的地</th><th>清关日期</th><th>状态</th><th>文件数</th><th>操作</th></tr></thead><tbody>
+    ${[
+      ['EU-..C002','Warsaw, PL','2026-03-29','已放行',4,'var(--green)','var(--greenL)'],
+      ['EU-..C003','Milan, IT','2026-03-28','已放行',3,'var(--green)','var(--greenL)'],
+      ['EU-..C004','Prague, CZ','2026-03-27','已放行',5,'var(--green)','var(--greenL)'],
+    ].map(([od,dest,dt,st,docs,sc,sb])=>`<tr>
+      <td class="accent">${od}</td><td style="font-size:12px;color:var(--textS)">${dest}</td>
+      <td style="font-size:12px;color:var(--textS)">${dt}</td>
+      <td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td>
+      <td style="text-align:center">${docs}</td>
+      <td><button class="btn btn-sm">${icon('eye',13)} 查看</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+pages.c_tracking = () => `
+<div class="section-title"><h2>运输追踪</h2></div>
+<div class="card card-flush" style="margin-bottom:16px">
+  <div class="map-container" style="height:400px">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--textS)">${icon('map',40,'var(--acc)')}<div style="font-size:14px;margin-top:8px">选择订单以查看实时运输位置</div></div>
+    <div style="position:absolute;top:10px;left:10px;background:rgba(255,255,255,.95);padding:10px;border-radius:8px;font-size:12px">
+      <div style="font-weight:600;margin-bottom:6px">我的运输中订单</div>
+      <div style="padding:6px 8px;background:var(--priLL);border-radius:6px;cursor:pointer"><div style="font-weight:500">EU-..0001</div><div style="font-size:11px;color:var(--textS)">Munich → Paris · 当前: Strasbourg</div></div>
+    </div>
+  </div>
+</div>`;
+
+pages.c_cmr = () => `
+<div class="section-title"><h2>CMR 文件</h2></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>CMR 编号</th><th>关联订单</th><th>路线</th><th>签署状态</th><th>上传时间</th><th>操作</th></tr></thead><tbody>
+  <tr><td class="accent">CMR-2026-0142</td><td style="font-size:12px;color:var(--textS)">EU-..0004</td><td style="font-size:12px;color:var(--textS)">Hamburg → Barcelona</td><td><span class="badge" style="color:var(--green);background:var(--greenL)">已完成</span></td><td style="font-size:12px;color:var(--textS)">2026-03-29</td><td><button class="btn btn-sm">${icon('eye',13)} 查看</button> <button class="btn btn-sm">${icon('download',13)} 下载</button></td></tr>
+</tbody></table></div></div>`;
+
+pages.c_billing = () => `
+<div class="section-title"><h2>我的账单</h2></div>
+<div class="stat-cards">${statCard('credit','待付总额','€12,600','','var(--red)')}${statCard('checkCircle','已付总额','€89,400','','var(--green)')}</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>账单号</th><th>关联订单</th><th>金额</th><th>状态</th><th>到期日</th><th>操作</th></tr></thead><tbody>
+  ${[['INV-2026-0201','EU-..0001','€2,800','未付','2026-04-28','var(--red)','var(--redL)'],['INV-2026-0182','EU-..0004','€4,200','部分付','2026-04-15','var(--yellow)','var(--yellowL)'],['INV-2026-0170','EU-..0008','€1,500','已付','2026-04-01','var(--green)','var(--greenL)']].map(([inv,od,amt,st,due,sc,sb])=>`<tr><td class="accent">${inv}</td><td style="font-size:12px;color:var(--textS)">${od}</td><td style="font-weight:600">${amt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td style="font-size:12px;color:var(--textS)">${due}</td><td><button class="btn btn-sm">${icon('download',13)} 下载 PDF</button></td></tr>`).join('')}
+</tbody></table></div></div>`;
+
+// --- CARRIER PAGES ---
+pages.cr_dashboard = () => `
+<div class="section-title"><h2>运输公司概览</h2></div>
+<div class="stat-cards">
+  ${statCard('package','待接任务','2','','var(--orange)')}
+  ${statCard('truck','执行中','3','','var(--acc)')}
+  ${statCard('checkCircle','本月完成','18','','var(--green)')}
+  ${statCard('star','综合评分','9.2','','var(--yellow)')}
+</div>
+<div class="flex-row">
+  <div class="flex-2"><div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">待处理任务</div>
+    ${[{id:'EU-..0008',route:'Munich → Lyon',type:'LTL',weight:'4,100 kg',date:'2026-03-30'},{id:'EU-..0007',route:'Ludwigshafen → Rotterdam',type:'FTL',weight:'22,000 kg',date:'2026-03-31'}].map(t=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--orangeL);border-radius:8px;margin-bottom:8px">
+      <div><div style="font-size:14px;font-weight:600">${t.id}</div><div style="font-size:12px;color:var(--textS)">${t.route} · ${t.type} · ${t.weight}</div><div style="font-size:11px;color:var(--textL)">装货日期: ${t.date}</div></div>
+      <div style="display:flex;gap:8px"><button class="btn btn-sm" style="background:var(--redL);color:var(--red);border:none">${icon('x',13,'var(--red)')} 拒绝</button><button class="btn btn-sm btn-pri">${icon('check',13,'#fff')} 接单</button></div>
+    </div>`).join('')}
+  </div></div>
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">执行中任务</div>
+    ${[{id:'EU-..0001',route:'Munich → Paris',pct:65,eta:'03-30'},{id:'EU-..0003',route:'Stuttgart → Milan',pct:40,eta:'03-30'}].map(t=>`
+    <div style="padding:10px;background:var(--borderL);border-radius:8px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600">${t.id}</span><span style="font-size:11px;color:var(--green)">ETA: ${t.eta}</span></div>
+      <div style="font-size:12px;color:var(--textS)">${t.route}</div>
+      <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:${t.pct}%;background:var(--acc)"></div></div>
+    </div>`).join('')}
+  </div></div>
+</div>`;
+
+pages.cr_tasks = () => `
+<div class="section-title"><h2>运输任务</h2></div>
+<div class="card">
+  <div class="tabs">${['全部','待接单','执行中','已完成'].map((t,i)=>`<button class="tab${i===0?' active':''}">${t}</button>`).join('')}</div>
+  <div class="table-wrap"><table><thead><tr><th>订单号</th><th>路线</th><th>状态</th><th>类型</th><th>重量</th><th>装货日期</th><th>费用</th><th>操作</th></tr></thead><tbody>
+    ${ORDERS.filter(o=>o.carrier!=='-').slice(0,5).map(o=>`<tr><td class="accent">${o.id}</td><td style="font-size:12px;color:var(--textS)">${o.from} → ${o.to}</td><td>${badge(o.status)}</td><td style="font-size:12px">${o.type}</td><td style="font-size:12px;color:var(--textS)">${o.weight}</td><td style="font-size:12px;color:var(--textS)">${o.date}</td><td style="font-weight:500">${o.cost}</td><td><button class="btn btn-sm">${icon('activity',13)} 更新状态</button></td></tr>`).join('')}
+  </tbody></table></div>
+</div>`;
+
+pages.cr_cmr = () => `
+<div class="section-title"><h2>上传 CMR 单据</h2></div>
+<div class="flex-row">
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">选择关联订单</div>
+    ${select('关联订单',['EU-20260328-0001 (Munich → Paris)','EU-20260327-0003 (Stuttgart → Milan)'])}
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px;margin-top:10px">上传 CMR 文件</div>
+    <div class="upload-zone">${icon('upload',36,'var(--textL)')}<div style="font-size:14px;color:var(--textS);margin-top:8px">点击或拖拽文件到此处上传</div><div style="font-size:12px;color:var(--textL);margin-top:4px">支持 PDF、JPG、PNG 格式，最大 10MB</div></div>
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px;margin-top:20px">CMR 信息</div>
+    ${input('CMR 编号',{ph:'输入 CMR 单号'})}
+    ${select('签署状态',['未签署','发货方已签署','收货方已签署','双方已签署'])}
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px"><input type="checkbox"> 此 CMR 上有货损备注</label>
+    <button class="btn btn-pri" style="width:100%;justify-content:center">${icon('upload',15,'#fff')} 提交上传</button>
+  </div></div>
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">我的已上传 CMR</div>
+    ${[{c:'CMR-2026-0142',o:'EU-..0004',s:'已完成',t:'2026-03-29'},{c:'CMR-2026-0141',o:'EU-..0005',s:'已完成',t:'2026-03-28'}].map(x=>`
+    <div style="padding:10px;background:var(--borderL);border-radius:8px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600;color:var(--acc)">${x.c}</span><span class="badge" style="color:var(--green);background:var(--greenL);font-size:11px">${x.s}</span></div>
+      <div style="font-size:12px;color:var(--textS)">${x.o} · ${x.t}</div>
+    </div>`).join('')}
+  </div></div>
+</div>`;
+
+pages.cr_gps = () => `
+<div class="section-title"><h2>GPS 位置上报</h2></div>
+<div class="flex-row">
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">手动上报位置</div>
+    ${select('选择运输任务',['EU-20260328-0001 (Munich → Paris)','EU-20260327-0003 (Stuttgart → Milan)'])}
+    <div class="form-row">${input('当前城市',{ph:'如 Strasbourg'})}${select('国家',['France','Germany','Austria','Switzerland'])}</div>
+    <div class="form-row">${input('纬度',{ph:'48.5734'})}${input('经度',{ph:'7.7521'})}</div>
+    ${select('运输状态更新',['运输中 — 正常行驶','已到达装货地','已提货出发','已到达卸货地','已交付签收','异常停留'])}
+    ${input('备注',{ph:'如有异常请说明'})}
+    <button class="btn btn-pri" style="width:100%;justify-content:center">${icon('nav',15,'#fff')} 提交位置更新</button>
+  </div></div>
+  <div class="flex-1"><div class="card">
+    <div style="font-size:14px;font-weight:600;color:var(--pri);margin-bottom:14px">API 自动上报设置</div>
+    <div style="padding:14px;background:var(--greenL);border-radius:8px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">${icon('checkCircle',14,'var(--green)')}<span style="font-size:13px;font-weight:600;color:var(--green)">API 已连接</span></div>
+      <div style="font-size:12px;color:var(--textS)">上次同步: 2026-03-29 14:32:00</div>
+    </div>
+    ${input('API 端点',{val:'https://api.speedtrans.de/gps/v1/positions'})}
+    ${input('API Key',{val:'••••••••••••••••'})}
+    ${select('上报频率',['每 5 分钟','每 15 分钟','每 30 分钟','每小时'])}
+    <button class="btn btn-pri">保存配置</button>
+  </div></div>
+</div>`;
+
+pages.cr_billing = () => `
+<div class="section-title"><h2>费用结算</h2></div>
+<div class="stat-cards">${statCard('credit','待收款','€4,700','','var(--orange)')}${statCard('checkCircle','已收款','€32,400','','var(--green)')}</div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>账单号</th><th>关联订单</th><th>路线</th><th>金额</th><th>状态</th><th>到期日</th></tr></thead><tbody>
+  ${[['PAY-2026-0088','EU-..0001','Munich → Paris','€2,100','待收款','2026-04-28','var(--orange)','var(--orangeL)'],['PAY-2026-0085','EU-..0003','Stuttgart → Milan','€2,600','待收款','2026-04-25','var(--orange)','var(--orangeL)'],['PAY-2026-0082','EU-..0004','Hamburg → Barcelona','€3,100','已收款','2026-04-15','var(--green)','var(--greenL)']].map(([inv,od,rt,amt,st,due,sc,sb])=>`<tr><td class="accent">${inv}</td><td style="font-size:12px;color:var(--textS)">${od}</td><td style="font-size:12px;color:var(--textS)">${rt}</td><td style="font-weight:600">${amt}</td><td><span class="badge" style="color:${sc};background:${sb}">${st}</span></td><td style="font-size:12px;color:var(--textS)">${due}</td></tr>`).join('')}
+</tbody></table></div></div>`;
+
+// ===== RENDER =====
+function render() {
+  const {role, page, sidebarCollapsed} = state;
+  if (page === 'login') { document.getElementById('app').innerHTML = pages.login(); return; }
+
+  const menu = MENUS[role] || MENUS.operator;
+  const roleName = role==='operator'?'运营管理员':role==='client'?'BMW AG':'SpeedTrans GmbH';
+  const roleLabel = role==='operator'?'运营端':role==='client'?'客户端':'运输公司端';
+
+  const sidebar = `
+  <div class="sidebar${sidebarCollapsed?' collapsed':''}">
+    <div class="sidebar-header" onclick="setState('sidebarCollapsed',!state.sidebarCollapsed)">${icon('truck',22,'#fff')}<span class="sidebar-logo">EU-TMS</span></div>
+    <div class="sidebar-menu">
+      ${menu.map(m=>`<div class="menu-item${page===m.id?' active':''}" onclick="setState('page','${m.id}')">${icon(m.icon,18)}<span class="menu-label">${m.label}</span></div>`).join('')}
+    </div>
+    <div class="sidebar-footer">EU Transport Management v1.1</div>
+  </div>`;
+
+  const header = `
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="role-switch">
+        ${['operator','client','carrier'].map(r=>`<button class="role-btn${role===r?' active':''}" onclick="setState('role','${r}');setState('page','${r==='operator'?'dashboard':r==='client'?'c_dashboard':'cr_dashboard'}')">${r==='operator'?'运营端':r==='client'?'客户端':'运输公司端'}</button>`).join('')}
+      </div>
+      <span style="font-size:11px;color:var(--textL)">切换角色查看不同视图</span>
+    </div>
+    <div class="header-right">
+      <div style="position:relative;cursor:pointer" onclick="setState('page','notifications')">${icon('bell',18,'var(--textS)')}<div class="notification-dot">3</div></div>
+      ${icon('globe',18,'var(--textS)')}
+      <div style="display:flex;align-items:center;gap:8px"><div class="avatar">${icon('user',15,'var(--pri)')}</div><span style="font-size:13px;font-weight:500">${roleName}</span></div>
+    </div>
+  </div>`;
+
+  const pageFn = pages[page] || pages.dashboard;
+  document.getElementById('app').innerHTML = `<div class="app">${sidebar}<div class="main">${header}<div class="content">${pageFn()}</div></div></div>`;
+}
+
+// Init
+render();
+</script>
+</body>
+</html>
