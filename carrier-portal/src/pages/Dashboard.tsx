@@ -38,9 +38,21 @@ export default function Dashboard() {
     try {
       const res = await api.get<ApiResponse<any>>('/dashboard/carrier')
       if (res.code === 200 && res.data) {
-        setStats(res.data.stats || stats)
-        setPendingTasks(res.data.pendingTasks || [])
-        setActiveTasks(res.data.activeTasks || [])
+        const s = res.data.stats || {}
+        setStats({
+          pendingCount: parseInt(s.pending_accept || s.pendingCount || 0),
+          inTransitCount: parseInt(s.in_transit || s.inTransitCount || 0),
+          monthlyCompleted: parseInt(s.month_completed || s.monthlyCompleted || 0),
+          monthlyRevenue: parseFloat(s.month_earnings || s.monthlyRevenue || 0),
+        })
+        setPendingTasks((res.data.pendingTasks || []).map((t: any) => ({
+          id: t.id, orderNo: t.order_number || t.orderNo, route: `${t.from_city || '?'} → ${t.to_city || '?'}`,
+          status: t.status, createdAt: t.pickup_date || t.createdAt
+        })))
+        setActiveTasks((res.data.activeTasks || []).map((t: any) => ({
+          id: t.id, orderNo: t.order_number || t.orderNo, route: `${t.from_city || '?'} → ${t.to_city || '?'}`,
+          status: t.status, createdAt: t.created_at || t.createdAt
+        })))
       }
     } catch (error) {
       console.error('获取仪表盘数据失败:', error)

@@ -48,6 +48,26 @@ router.get('/', async (req, res) => {
 })
 
 /**
+ * 放单统计
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) FILTER (WHERE release_status = 'NOT_REQUIRED') as not_required,
+        COUNT(*) FILTER (WHERE release_status = 'ORIGINAL_PENDING') as original_pending,
+        COUNT(*) FILTER (WHERE release_status = 'ORIGINAL_SENT') as original_sent,
+        COUNT(*) FILTER (WHERE release_status = 'PENDING_RELEASE') as pending_release,
+        COUNT(*) FILTER (WHERE release_status = 'RELEASED') as released
+      FROM shipping_releases
+    `)
+    res.json({ code: 200, message: 'success', data: result.rows[0] })
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
+  }
+})
+
+/**
  * 获取订单放单详情
  */
 router.get('/:orderId', async (req, res) => {
@@ -124,26 +144,6 @@ router.post('/:orderId/authorize', async (req, res) => {
     res.json({ code: 200, message: '授权放行成功', data: null })
   } catch (error) {
     res.status(500).json({ code: 500, message: error.message, data: null })
-  }
-})
-
-/**
- * 放单统计
- */
-router.get('/stats', async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT
-        COUNT(*) FILTER (WHERE release_status = 'NOT_REQUIRED') as not_required,
-        COUNT(*) FILTER (WHERE release_status = 'ORIGINAL_PENDING') as original_pending,
-        COUNT(*) FILTER (WHERE release_status = 'ORIGINAL_SENT') as original_sent,
-        COUNT(*) FILTER (WHERE release_status = 'PENDING_RELEASE') as pending_release,
-        COUNT(*) FILTER (WHERE release_status = 'RELEASED') as released
-      FROM shipping_releases
-    `)
-    res.json({ code: 200, message: 'success', data: result.rows[0] })
-  } catch (error) {
-    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
   }
 })
 

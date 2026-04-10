@@ -51,6 +51,30 @@ router.get('/', async (req, res) => {
 })
 
 /**
+ * 报价统计
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month_total,
+        COUNT(*) FILTER (WHERE status = 'SENT') as pending_response,
+        COUNT(*) FILTER (WHERE status = 'ACCEPTED') as accepted,
+        COUNT(*) FILTER (WHERE status = 'REJECTED') as rejected
+      FROM quotations
+    `)
+    const r = result.rows[0]
+    const total = parseInt(r.accepted) + parseInt(r.rejected)
+    res.json({
+      code: 200, message: 'success',
+      data: { ...r, conversionRate: total > 0 ? (parseInt(r.accepted) / total * 100).toFixed(1) : 0 }
+    })
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
+  }
+})
+
+/**
  * 报价详情
  */
 router.get('/:id', async (req, res) => {
@@ -324,30 +348,6 @@ router.post('/:id/convert-order', async (req, res) => {
   } catch (error) {
     console.error('报价转订单失败:', error)
     res.status(400).json({ code: 400, message: error.message, data: null })
-  }
-})
-
-/**
- * 报价统计
- */
-router.get('/stats', async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT
-        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month_total,
-        COUNT(*) FILTER (WHERE status = 'SENT') as pending_response,
-        COUNT(*) FILTER (WHERE status = 'ACCEPTED') as accepted,
-        COUNT(*) FILTER (WHERE status = 'REJECTED') as rejected
-      FROM quotations
-    `)
-    const r = result.rows[0]
-    const total = parseInt(r.accepted) + parseInt(r.rejected)
-    res.json({
-      code: 200, message: 'success',
-      data: { ...r, conversionRate: total > 0 ? (parseInt(r.accepted) / total * 100).toFixed(1) : 0 }
-    })
-  } catch (error) {
-    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
   }
 })
 

@@ -53,6 +53,25 @@ router.get('/', async (req, res) => {
 })
 
 /**
+ * 清关统计
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'PENDING') as pending,
+        COUNT(*) FILTER (WHERE status = 'IN_PROGRESS') as in_progress,
+        COUNT(*) FILTER (WHERE status = 'CLEARED') as cleared,
+        COUNT(*) FILTER (WHERE status = 'EXCEPTION') as exceptions
+      FROM customs_clearances
+    `)
+    res.json({ code: 200, message: 'success', data: result.rows[0] })
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
+  }
+})
+
+/**
  * 获取订单清关详情
  */
 router.get('/:orderId', async (req, res) => {
@@ -179,25 +198,6 @@ router.post('/:orderId/exception', async (req, res) => {
     res.json({ code: 200, message: '异常已标记', data: null })
   } catch (error) {
     res.status(500).json({ code: 500, message: error.message, data: null })
-  }
-})
-
-/**
- * 清关统计
- */
-router.get('/stats', async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT
-        COUNT(*) FILTER (WHERE status = 'PENDING') as pending,
-        COUNT(*) FILTER (WHERE status = 'IN_PROGRESS') as in_progress,
-        COUNT(*) FILTER (WHERE status = 'CLEARED') as cleared,
-        COUNT(*) FILTER (WHERE status = 'EXCEPTION') as exceptions
-      FROM customs_clearances
-    `)
-    res.json({ code: 200, message: 'success', data: result.rows[0] })
-  } catch (error) {
-    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
   }
 })
 

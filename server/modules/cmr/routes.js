@@ -65,6 +65,25 @@ router.get('/', async (req, res) => {
 })
 
 /**
+ * CMR 统计
+ */
+router.get('/stats', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE sign_status = 'COMPLETED') as completed,
+        COUNT(*) FILTER (WHERE sign_status IN ('UNSIGNED', 'SENDER_SIGNED', 'RECEIVER_SIGNED')) as pending,
+        COUNT(*) FILTER (WHERE has_damage_note = true) as damaged
+      FROM cmr_documents
+    `)
+    res.json({ code: 200, message: 'success', data: result.rows[0] })
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
+  }
+})
+
+/**
  * CMR 详情
  */
 router.get('/:id', async (req, res) => {
@@ -164,25 +183,6 @@ router.put('/:id/damage', async (req, res) => {
     res.json({ code: 200, message: '货损标记成功', data: null })
   } catch (error) {
     res.status(500).json({ code: 500, message: error.message, data: null })
-  }
-})
-
-/**
- * CMR 统计
- */
-router.get('/stats', async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE sign_status = 'COMPLETED') as completed,
-        COUNT(*) FILTER (WHERE sign_status IN ('UNSIGNED', 'SENDER_SIGNED', 'RECEIVER_SIGNED')) as pending,
-        COUNT(*) FILTER (WHERE has_damage_note = true) as damaged
-      FROM cmr_documents
-    `)
-    res.json({ code: 200, message: 'success', data: result.rows[0] })
-  } catch (error) {
-    res.status(500).json({ code: 500, message: '获取统计失败', data: null })
   }
 })
 

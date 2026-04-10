@@ -32,6 +32,7 @@ import gpsRoutes from './modules/gps/routes.js'
 import shippingReleaseRoutes from './modules/shipping-release/routes.js'
 import customsRoutes from './modules/customs/routes.js'
 import financeRoutes from './modules/finance/routes.js'
+import invoiceTemplateRoutes from './modules/invoice-template/routes.js'
 import notificationRoutes from './modules/notification/routes.js'
 import systemRoutes from './modules/system/routes.js'
 
@@ -79,6 +80,7 @@ app.use('/api/v1/gps', gpsRoutes)
 app.use('/api/v1/shipping-releases', shippingReleaseRoutes)
 app.use('/api/v1/customs', customsRoutes)
 app.use('/api/v1/finance', financeRoutes)
+app.use('/api/v1/invoice-templates', invoiceTemplateRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/system', systemRoutes)
 
