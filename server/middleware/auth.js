@@ -60,6 +60,27 @@ export function optionalAuth(req, res, next) {
 }
 
 /**
+ * 用户类型检查中间件
+ * 限制只有指定类型的用户才能访问
+ */
+export function requireUserType(...allowedTypes) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ code: 401, message: '请先登录', data: null })
+    }
+    const userType = req.user.userType || req.user.roleCode
+    // sys_admin 始终放行
+    if (req.user.roleCode === 'sys_admin' || userType === 'OPERATOR') {
+      return next()
+    }
+    if (!allowedTypes.includes(userType)) {
+      return res.status(403).json({ code: 403, message: '没有权限执行此操作', data: null })
+    }
+    next()
+  }
+}
+
+/**
  * 权限检查中间件
  */
 export function requirePermission(...permissions) {

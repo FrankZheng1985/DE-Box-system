@@ -77,9 +77,8 @@
       background: rgba(255,255,255,0.92);
       box-shadow: 0 2px 20px rgba(0,0,0,0.06);
     }
-    /* Hero 区透明导航时 Logo 颜色 */
+    /* Hero 区透明导航时 Logo 和链接颜色 */
     .navbar:not(.scrolled) .logo-cargo { color: #FFFFFF !important; }
-    .navbar:not(.scrolled) .logo-dot { color: rgba(255,255,255,0.25) !important; }
     .navbar:not(.scrolled) .nav-links a { color: rgba(255,255,255,0.85); }
     .navbar:not(.scrolled) .nav-links a:hover { color: #FFFFFF; }
 
@@ -1257,9 +1256,12 @@
   <!-- ===== 导航栏 ===== -->
   <nav class="navbar" id="navbar">
     <a href="#" class="nav-logo" style="gap:4px">
-      <span style="font-size:22px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
-      <span class="logo-dot" style="font-size:22px;font-weight:800;color:rgba(26,54,93,0.2);transition:color 0.3s">·</span>
-      <span class="logo-cargo" style="font-size:22px;font-weight:800;letter-spacing:1px;color:#1A365D;transition:color 0.3s">CARGO</span>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F6AD55" stroke-width="1.5" style="flex-shrink:0">
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+        <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+      </svg>
+      <span style="font-size:20px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
+      <span class="logo-cargo" style="font-size:20px;font-weight:800;letter-spacing:1px;color:#1A365D;transition:color 0.3s">CARGO</span>
     </a>
 
     <ul class="nav-links">
@@ -1654,10 +1656,13 @@
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-left">
-        <div style="display:flex;align-items:center;gap:4px;margin-right:12px">
-          <span style="font-size:18px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
-          <span style="font-size:18px;font-weight:800;color:rgba(255,255,255,0.25)">·</span>
-          <span style="font-size:18px;font-weight:800;letter-spacing:1px;color:#FFFFFF">CARGO</span>
+        <div style="display:flex;align-items:center;gap:6px;margin-right:12px">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F6AD55" stroke-width="1.5">
+            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+            <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+          </svg>
+          <span style="font-size:16px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
+          <span style="font-size:16px;font-weight:800;letter-spacing:1px;color:#FFFFFF">CARGO</span>
         </div>
         <div>
           <div class="footer-brand">Service GmbH</div>
@@ -2148,24 +2153,44 @@
 
       var form = document.getElementById('contactForm');
       var success = document.getElementById('formSuccess');
+      var submitBtn = form.querySelector('button[type="submit"]');
 
-      // 简单的前端验证
+      // 前端验证
       var name = document.getElementById('formName').value.trim();
       var email = document.getElementById('formEmail').value.trim();
+      var phone = document.getElementById('formPhone').value.trim();
       var message = document.getElementById('formMessage').value.trim();
 
       if (!name || !email || !message) return;
 
-      // 隐藏表单，显示成功消息
-      form.style.display = 'none';
-      success.classList.add('show');
+      // 禁用按钮，防止重复提交
+      submitBtn.disabled = true;
+      submitBtn.textContent = '...';
 
-      // 5秒后恢复表单
-      setTimeout(function() {
-        form.reset();
-        form.style.display = 'block';
-        success.classList.remove('show');
-      }, 5000);
+      // 发送到后端 API（存数据库 + 邮件通知）
+      fetch('/api/v1/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, email: email, phone: phone, message: message })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        // 显示成功消息
+        form.style.display = 'none';
+        success.classList.add('show');
+        setTimeout(function() {
+          form.reset();
+          form.style.display = 'block';
+          success.classList.remove('show');
+          submitBtn.disabled = false;
+          submitBtn.textContent = currentLang === 'en' ? 'Send Message' : currentLang === 'zh' ? '发送' : 'Absenden';
+        }, 5000);
+      })
+      .catch(function(err) {
+        alert(currentLang === 'zh' ? '提交失败，请稍后重试' : currentLang === 'en' ? 'Failed, please try again' : 'Fehler, bitte versuchen Sie es erneut');
+        submitBtn.disabled = false;
+        submitBtn.textContent = currentLang === 'en' ? 'Send Message' : currentLang === 'zh' ? '发送' : 'Absenden';
+      });
     }
 
     // ===== 平滑滚动处理（兼容性） =====

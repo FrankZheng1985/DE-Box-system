@@ -5,7 +5,7 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType } from '../../middleware/auth.js'
 import { getPool } from '../../core/db.js'
 import orderController from './controller.js'
 
@@ -125,7 +125,7 @@ router.get('/export', async (req, res) => {
 
 // CRUD
 router.get('/', orderController.list)
-router.post('/', orderController.create)
+router.post('/', requireUserType('OPERATOR', 'CLIENT'), orderController.create)
 router.get('/:id', orderController.getById)
 router.put('/:id', orderController.update)
 
