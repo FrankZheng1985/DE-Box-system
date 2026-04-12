@@ -82,6 +82,10 @@ export default function CMRManagement() {
   // Toast 状态
   const [toast, setToast] = useState('')
 
+  // 查看 CMR 详情 Modal 状态
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [viewTarget, setViewTarget] = useState<CMR | null>(null)
+
   // 上传 CMR Modal 状态
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm, setUploadForm] = useState({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' })
@@ -338,10 +342,18 @@ export default function CMRManagement() {
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{cmr.upload_time?.split('T')[0] || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="查看">
+                        <button
+                          onClick={() => { setViewTarget(cmr); setViewModalOpen(true) }}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                          title="查看"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200" title="下载">
+                        <button
+                          onClick={() => window.open(`/api/v1/cmr/${cmr.id}/download`, '_blank')}
+                          className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
+                          title="下载"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
                         <button
@@ -555,6 +567,61 @@ export default function CMRManagement() {
             />
           </div>
         </div>
+      </Modal>
+
+      {/* ==================== 查看 CMR 详情 Modal ==================== */}
+      <Modal
+        isOpen={viewModalOpen}
+        onClose={() => { setViewModalOpen(false); setViewTarget(null) }}
+        title="CMR 详情"
+        size="md"
+        footer={
+          <div className="flex justify-end">
+            <button
+              onClick={() => { setViewModalOpen(false); setViewTarget(null) }}
+              className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
+            >
+              关闭
+            </button>
+          </div>
+        }
+      >
+        {viewTarget && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-xs text-slate-500">CMR 编号</span>
+                <p className="text-sm font-medium text-slate-900">{viewTarget.cmr_number}</p>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">关联订单</span>
+                <p className="text-sm font-medium text-slate-900">{viewTarget.order_no || '-'}</p>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">客户</span>
+                <p className="text-sm font-medium text-slate-900">{viewTarget.client_name}</p>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">路线</span>
+                <p className="text-sm font-medium text-slate-900">{viewTarget.route || '-'}</p>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">签署状态</span>
+                <p className="text-sm"><StatusBadge status={viewTarget.sign_status} type="cmr" /></p>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">上传时间</span>
+                <p className="text-sm font-medium text-slate-900">{viewTarget.upload_time?.split('T')[0] || '-'}</p>
+              </div>
+            </div>
+            {viewTarget.has_damage && (
+              <div className="mt-2 p-3 bg-red-50 rounded-xl">
+                <span className="text-xs font-medium text-red-700">货损说明：</span>
+                <p className="text-sm text-red-600 mt-1">{viewTarget.damage_note || '无详细说明'}</p>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   )

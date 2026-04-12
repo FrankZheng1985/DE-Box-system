@@ -22,6 +22,7 @@ const OrderAssign = lazy(() => import('./pages/OrderAssign'))
 // 报价管理
 const QuotationManagement = lazy(() => import('./pages/QuotationManagement'))
 const QuotationCreate = lazy(() => import('./pages/QuotationCreate'))
+const QuotationDetail = lazy(() => import('./pages/QuotationDetail'))
 
 // CMR 运单
 const CMRManagement = lazy(() => import('./pages/CMRManagement'))
@@ -44,10 +45,12 @@ const InvoiceTemplates = lazy(() => import('./pages/InvoiceTemplates'))
 // 客户管理
 const ClientList = lazy(() => import('./pages/ClientList'))
 const ClientDetail = lazy(() => import('./pages/ClientDetail'))
+const ClientEdit = lazy(() => import('./pages/ClientEdit'))
 
 // 承运商管理
 const CarrierList = lazy(() => import('./pages/CarrierList'))
 const CarrierDetail = lazy(() => import('./pages/CarrierDetail'))
+const CarrierEdit = lazy(() => import('./pages/CarrierEdit'))
 
 // 通知中心
 const Notifications = lazy(() => import('./pages/Notifications'))
@@ -57,6 +60,7 @@ const Settings = lazy(() => import('./pages/Settings'))
 const PostingPeriods = lazy(() => import('./pages/PostingPeriods'))
 const ChartOfAccounts = lazy(() => import('./pages/ChartOfAccounts'))
 const NumberRanges = lazy(() => import('./pages/NumberRanges'))
+const UserManagement = lazy(() => import('./pages/UserManagement'))
 
 // ==================== 加载组件 ====================
 
@@ -113,6 +117,7 @@ function AppRoutes() {
           {/* 报价管理 */}
           <Route path="/quotes" element={<QuotationManagement />} />
           <Route path="/quotes/create" element={<QuotationCreate />} />
+          <Route path="/quotes/:id" element={<QuotationDetail />} />
 
           {/* CMR 运单 */}
           <Route path="/cmr" element={<CMRManagement />} />
@@ -135,10 +140,12 @@ function AppRoutes() {
           {/* 客户管理 */}
           <Route path="/clients" element={<ClientList />} />
           <Route path="/clients/:id" element={<ClientDetail />} />
+          <Route path="/clients/:id/edit" element={<ClientEdit />} />
 
           {/* 承运商管理 */}
           <Route path="/carriers" element={<CarrierList />} />
           <Route path="/carriers/:id" element={<CarrierDetail />} />
+          <Route path="/carriers/:id/edit" element={<CarrierEdit />} />
 
           {/* 通知中心 */}
           <Route path="/notifications" element={<Notifications />} />
@@ -148,6 +155,7 @@ function AppRoutes() {
           <Route path="/settings/posting-periods" element={<PostingPeriods />} />
           <Route path="/settings/chart-of-accounts" element={<ChartOfAccounts />} />
           <Route path="/settings/number-ranges" element={<NumberRanges />} />
+          <Route path="/system/users" element={<UserManagement />} />
         </Routes>
       </Suspense>
     </Layout>

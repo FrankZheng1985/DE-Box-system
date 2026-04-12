@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Wallet, DollarSign, CreditCard, TrendingUp, Percent, Eye, ChevronLeft, ChevronRight,
   Plus, CheckCircle, AlertCircle, Ban, Banknote, BarChart3, Download, FileText, Calendar,
@@ -86,13 +87,14 @@ function fmt(amount: number): string {
 // ==================== 账单表格（应收/应付共用，含操作按钮） ====================
 
 function BillTable({
-  rows, loading, nameLabel, onPayment, onVoid,
+  rows, loading, nameLabel, onPayment, onVoid, onView,
 }: {
   rows: BillRow[]
   loading: boolean
   nameLabel: string
   onPayment: (row: BillRow) => void
   onVoid: (row: BillRow) => void
+  onView: (row: BillRow) => void
 }) {
   return (
     <div className="overflow-x-auto">
@@ -127,7 +129,11 @@ function BillTable({
               <td className="px-4 py-3 text-xs text-slate-500 text-center">{r.due_date?.split('T')[0] || '-'}</td>
               <td className="px-4 py-3 text-center">
                 <div className="flex items-center justify-center gap-1">
-                  <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="查看">
+                  <button
+                    onClick={() => onView(r)}
+                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                    title="查看"
+                  >
                     <Eye className="w-4 h-4" />
                   </button>
                   {/* 记录收款/审核付款 按钮 - 仅未付或部分付款状态显示 */}
@@ -305,6 +311,7 @@ function ReportTab() {
 // ==================== 主组件 ====================
 
 export default function FinanceManagement() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('receivable')
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<FinanceSummary | null>(null)
@@ -547,6 +554,7 @@ export default function FinanceManagement() {
             nameLabel={activeTab === 'receivable' ? '客户' : '承运商'}
             onPayment={openPaymentModal}
             onVoid={openVoidModal}
+            onView={(row) => navigate(`/orders?search=${encodeURIComponent(row.order_no)}`)}
           />
         )}
 

@@ -191,6 +191,28 @@ export default function Settings() {
     )
   }
 
+  // 保存通知偏好
+  const [savingNotifications, setSavingNotifications] = useState(false)
+  const handleSaveNotifications = async () => {
+    setSavingNotifications(true)
+    try {
+      const preferences = notificationPrefs.map((pref) => ({
+        eventType: pref.key,
+        channelEmail: pref.email,
+        channelSystem: pref.system,
+      }))
+      const res = await api.put<ApiResponse<null>>('/notifications/preferences', { preferences })
+      if (res.code === 200) {
+        showToastMessage('通知偏好已保存')
+      }
+    } catch (err) {
+      console.error('[Settings] 保存通知偏好失败:', err)
+      showToastMessage('保存失败，请重试')
+    } finally {
+      setSavingNotifications(false)
+    }
+  }
+
   return (
     <div className="p-4 lg:p-6">
       {/* 页面标题 */}
@@ -392,6 +414,22 @@ export default function Settings() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* 保存通知偏好按钮 */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleSaveNotifications}
+                disabled={savingNotifications}
+                className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-all duration-200 ease-in-out"
+              >
+                {savingNotifications ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                保存通知设置
+              </button>
             </div>
           </div>
         </div>

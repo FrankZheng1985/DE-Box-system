@@ -22,6 +22,7 @@ import {
   User,
   Phone,
   AlertCircle,
+  CheckCircle,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 
@@ -301,6 +302,7 @@ export default function OrderCreate() {
   // 提交状态
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [success, setSuccess] = useState(false)
 
   // 生成预估订单号（前端展示用）
   const estimatedOrderNo = useMemo(() => {
@@ -462,8 +464,8 @@ export default function OrderCreate() {
 
       const res = await api.post<ApiResponse>('/orders', payload)
       if (res.code === 200 || res.code === 201) {
-        alert('订单创建成功！')
-        navigate('/orders')
+        setSuccess(true)
+        setTimeout(() => navigate('/orders'), 1500)
       } else {
         setErrors([res.message || '创建失败，请重试'])
       }
@@ -537,6 +539,16 @@ export default function OrderCreate() {
           </div>
         </button>
       </div>
+
+      {/* 成功提示 */}
+      {success && (
+        <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+            <p className="text-sm font-medium text-green-700">订单创建成功！正在跳转...</p>
+          </div>
+        </div>
+      )}
 
       {/* 错误提示 */}
       {errors.length > 0 && (

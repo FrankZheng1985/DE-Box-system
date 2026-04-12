@@ -534,7 +534,7 @@ export default function OrderManagement() {
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => navigate(`/orders/${order.id}?edit=true`)}
+                    onClick={() => navigate(`/orders/${order.id}/edit`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
                     title="编辑"
                   >
@@ -661,7 +661,7 @@ export default function OrderManagement() {
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => navigate(`/orders/${order.id}?edit=true`)}
+                    onClick={() => navigate(`/orders/${order.id}/edit`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
                     title="编辑"
                   >

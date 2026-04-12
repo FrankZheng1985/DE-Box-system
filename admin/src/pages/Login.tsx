@@ -131,7 +131,7 @@ export default function Login() {
               />
               记住我
             </label>
-            <a href="#" className="text-xs" style={{ color: '#4472C4' }}>
+            <a href="mailto:info@box-cargo.de?subject=密码重置请求" className="text-xs" style={{ color: '#4472C4' }}>
               忘记密码?
             </a>
           </div>
@@ -158,7 +158,7 @@ export default function Login() {
 
         {/* 底部提示 */}
         <div className="text-center mt-4 text-xs text-slate-400">
-          还没有账号? <a href="#" style={{ color: '#4472C4' }}>联系管理员</a>
+          还没有账号? <a href="mailto:info@box-cargo.de?subject=账号申请" style={{ color: '#4472C4' }}>联系管理员</a>
         </div>
       </div>
     </div>

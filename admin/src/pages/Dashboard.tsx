@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Package,
   Truck,
@@ -70,6 +71,7 @@ const BUSINESS_TYPE_MAP: Record<string, string> = {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -125,26 +127,31 @@ export default function Dashboard() {
       text: `${pending?.pendingReview || 0} 个订单待审核`,
       icon: Clock,
       color: '#F59E0B',
+      onClick: () => navigate('/orders?status=PENDING_REVIEW'),
     },
     {
       text: `${pending?.pendingAssign || 0} 个订单待派单`,
       icon: Send,
       color: '#F97316',
+      onClick: () => navigate('/orders?status=PENDING_ASSIGN'),
     },
     {
       text: `${pending?.exceptions || 0} 个异常需处理`,
       icon: AlertTriangle,
       color: '#EF4444',
+      onClick: () => navigate('/orders?status=EXCEPTION'),
     },
     {
       text: '2 个账单待确认',
       icon: CreditCard,
       color: '#8B5CF6',
+      onClick: () => navigate('/finance'),
     },
     {
       text: '1 个运输公司资质到期',
       icon: FileText,
       color: '#3B82F6',
+      onClick: () => navigate('/carriers'),
     },
   ]
 
@@ -244,6 +251,7 @@ export default function Dashboard() {
             {todoItems.map((item, idx) => (
               <div
                 key={idx}
+                onClick={item.onClick}
                 className="flex items-center gap-2.5 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-slate-50/50 -mx-2 px-2 rounded transition-colors"
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: item.color }} />
@@ -259,7 +267,10 @@ export default function Dashboard() {
       <div className="bg-white rounded-xl border border-gray-100">
         <div className="flex items-center justify-between px-5 py-4">
           <span className="text-sm font-semibold text-slate-900">最近订单</span>
-          <button className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button
+            onClick={() => navigate('/orders')}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             查看全部
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
