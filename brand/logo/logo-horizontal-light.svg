@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 60" width="360" height="60">
+  <!-- 横版 Logo - 浅色背景（用于白色导航栏、文档页头） -->
+  <text x="0" y="40" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" letter-spacing="2" fill="#F6AD55">BOX</text>
+  <text x="76" y="40" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" fill="rgba(26,54,93,0.2)">·</text>
+  <text x="92" y="40" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800" letter-spacing="2" fill="#1A365D">CARGO</text>
+  <text x="230" y="32" font-family="Inter, Arial, sans-serif" font-size="9" font-weight="400" letter-spacing="2" fill="#718096">SERVICE</text>
+  <text x="230" y="44" font-family="Inter, Arial, sans-serif" font-size="9" font-weight="400" letter-spacing="2" fill="#718096">GMBH</text>
+</svg>

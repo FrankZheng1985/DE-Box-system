@@ -1,0 +1,965 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "id": "dpNYN",
+      "x": 0,
+      "y": 0,
+      "name": "Logo 1 - 经典蓝盒",
+      "width": 400,
+      "height": 320,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 20,
+      "padding": 40,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "15w9h",
+          "name": "iconBg1",
+          "width": 100,
+          "height": 100,
+          "fill": {
+            "type": "gradient",
+            "gradientType": "linear",
+            "enabled": true,
+            "rotation": 135,
+            "size": {
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#1A365D",
+                "position": 0
+              },
+              {
+                "color": "#2B6CB0",
+                "position": 1
+              }
+            ]
+          },
+          "cornerRadius": 20,
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "mm5C3",
+              "name": "truck1",
+              "width": 48,
+              "height": 48,
+              "iconFontName": "truck",
+              "iconFontFamily": "lucide",
+              "fill": "#FFFFFF"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "t7gJg",
+          "name": "nameRow1",
+          "gap": 8,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "zVdnT",
+              "name": "box1",
+              "fill": "#1A365D",
+              "content": "BOX",
+              "fontFamily": "Inter",
+              "fontSize": 32,
+              "fontWeight": "800"
+            },
+            {
+              "type": "text",
+              "id": "76jRe",
+              "name": "cargo1",
+              "fill": "#2B6CB0",
+              "content": "CARGO",
+              "fontFamily": "Inter",
+              "fontSize": 32,
+              "fontWeight": "300"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "ksFgC",
+          "name": "sub1",
+          "fill": "#718096",
+          "content": "SERVICE GMBH",
+          "fontFamily": "Inter",
+          "fontSize": 12,
+          "fontWeight": "500",
+          "letterSpacing": 4
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "BkglG",
+      "x": 440,
+      "y": 0,
+      "name": "Logo 2 - 集装箱方块",
+      "width": 400,
+      "height": 320,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "gap": 24,
+      "padding": 40,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "cFWhT",
+          "name": "boxIcon",
+          "width": 80,
+          "height": 80,
+          "fill": "#1A365D",
+          "cornerRadius": 12,
+          "layout": "vertical",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "HGAZ6",
+              "name": "boxText",
+              "fill": "#F6AD55",
+              "content": "BC",
+              "fontFamily": "Inter",
+              "fontSize": 36,
+              "fontWeight": "800"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EeNBj",
+          "name": "textCol",
+          "layout": "vertical",
+          "gap": 4,
+          "children": [
+            {
+              "type": "text",
+              "id": "mQxk6",
+              "name": "name2a",
+              "fill": "#1A365D",
+              "content": "Box Cargo",
+              "fontFamily": "Inter",
+              "fontSize": 28,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "gMfEZ",
+              "name": "name2b",
+              "fill": "#718096",
+              "content": "Service GmbH",
+              "fontFamily": "Inter",
+              "fontSize": 14
+            },
+            {
+              "type": "rectangle",
+              "cornerRadius": 2,
+              "id": "cATGL",
+              "name": "divider2",
+              "fill": "#F6AD55",
+              "width": 40,
+              "height": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "k57IP",
+      "x": 880,
+      "y": 0,
+      "name": "Logo 3 - 路线箭头",
+      "width": 400,
+      "height": 320,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 40,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "9zwNG",
+          "name": "arrowRow",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "9An8T",
+              "name": "b3",
+              "fill": "#1A365D",
+              "content": "BOX",
+              "fontFamily": "Inter",
+              "fontSize": 36,
+              "fontWeight": "800"
+            },
+            {
+              "type": "icon_font",
+              "id": "0D5IX",
+              "name": "arrow3",
+              "width": 36,
+              "height": 36,
+              "iconFontName": "arrow-right",
+              "iconFontFamily": "lucide",
+              "fill": "#F6AD55"
+            },
+            {
+              "type": "text",
+              "id": "4ENfh",
+              "name": "c3",
+              "fill": "#2B6CB0",
+              "content": "CARGO",
+              "fontFamily": "Inter",
+              "fontSize": 36,
+              "fontWeight": "800"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "VkDTH",
+          "name": "tagline3",
+          "gap": 8,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "ITbob",
+              "name": "line3a",
+              "fill": "#F6AD55",
+              "width": 30,
+              "height": 2
+            },
+            {
+              "type": "text",
+              "id": "sXzwm",
+              "name": "tag3",
+              "fill": "#718096",
+              "content": "European Logistics Solutions",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "500",
+              "letterSpacing": 2
+            },
+            {
+              "type": "rectangle",
+              "id": "MUeRv",
+              "name": "line3b",
+              "fill": "#F6AD55",
+              "width": 30,
+              "height": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "nLS7L",
+      "x": 0,
+      "y": 360,
+      "name": "Logo 4 - 圆形徽章",
+      "width": 400,
+      "height": 320,
+      "fill": "#FFFFFF",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 16,
+      "padding": 40,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "DTzG7",
+          "name": "circle4",
+          "fill": "#1A365D",
+          "width": 120,
+          "height": 120,
+          "stroke": {
+            "align": "outside",
+            "thickness": 3,
+            "fill": "#2B6CB0"
+          }
+        },
+        {
+          "type": "frame",
+          "id": "SrlB1",
+          "layoutPosition": "absolute",
+          "x": 140,
+          "y": 60,
+          "name": "circleInner",
+          "width": 120,
+          "height": 120,
+          "layout": "vertical",
+          "gap": 2,
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "62L1i",
+              "name": "bc4",
+              "fill": "#FFFFFF",
+              "content": "BC",
+              "fontFamily": "Inter",
+              "fontSize": 42,
+              "fontWeight": "800"
+            },
+            {
+              "type": "text",
+              "id": "YNnw8",
+              "name": "svc4",
+              "fill": "#F6AD55",
+              "content": "SERVICE",
+              "fontFamily": "Inter",
+              "fontSize": 8,
+              "fontWeight": "600",
+              "letterSpacing": 3
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "WQnPf",
+          "name": "fullName4",
+          "fill": "#1A365D",
+          "content": "Box Cargo",
+          "fontFamily": "Inter",
+          "fontSize": 26,
+          "fontWeight": "700"
+        },
+        {
+          "type": "text",
+          "id": "22Ms8",
+          "name": "gmbh4",
+          "fill": "#718096",
+          "content": "Service GmbH  ·  European Logistics",
+          "fontFamily": "Inter",
+          "fontSize": 10
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "K8Kvn",
+      "x": 440,
+      "y": 360,
+      "name": "Logo 5 - 现代极简",
+      "width": 400,
+      "height": 320,
+      "fill": "#1A365D",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 12,
+      "padding": 40,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "3NrhG",
+          "name": "topRow5",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "Os4Ng",
+              "name": "container5",
+              "width": 40,
+              "height": 40,
+              "iconFontName": "container",
+              "iconFontFamily": "lucide",
+              "fill": "#F6AD55"
+            },
+            {
+              "type": "frame",
+              "id": "gl6YW",
+              "name": "nameCol5",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TFIrS",
+                  "name": "bc5a",
+                  "fill": "#FFFFFF",
+                  "content": "BOX CARGO",
+                  "fontFamily": "Inter",
+                  "fontSize": 28,
+                  "fontWeight": "800",
+                  "letterSpacing": 2
+                },
+                {
+                  "type": "text",
+                  "id": "3XAXH",
+                  "name": "bc5b",
+                  "fill": "#F6AD55",
+                  "content": "SERVICE",
+                  "fontFamily": "Inter",
+                  "fontSize": 16,
+                  "fontWeight": "300",
+                  "letterSpacing": 6
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "x3HRR",
+          "name": "divider5",
+          "fill": "#ffffff4d",
+          "width": 60,
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "Nq3tm",
+          "name": "slogan5",
+          "fill": "#ffffff99",
+          "content": "Ihre Logistiklösung für Europa",
+          "fontFamily": "Inter",
+          "fontSize": 11
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "JhhIq",
+      "x": 0,
+      "y": 720,
+      "name": "Logo 5A - 横排紧凑",
+      "width": 480,
+      "height": 200,
+      "fill": "#1A365D",
+      "cornerRadius": 16,
+      "gap": 20,
+      "padding": [
+        40,
+        48
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "XP0Et",
+          "name": "icon5a",
+          "width": 44,
+          "height": 44,
+          "iconFontName": "container",
+          "iconFontFamily": "lucide",
+          "fill": "#F6AD55"
+        },
+        {
+          "type": "frame",
+          "id": "bBK37",
+          "name": "textCol5a",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "text",
+              "id": "IYjJh",
+              "name": "t5a1",
+              "fill": "#FFFFFF",
+              "content": "BOX CARGO",
+              "fontFamily": "Inter",
+              "fontSize": 30,
+              "fontWeight": "800",
+              "letterSpacing": 3
+            },
+            {
+              "type": "text",
+              "id": "FBYan",
+              "name": "t5a2",
+              "fill": "#F6AD55",
+              "content": "SERVICE",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "300",
+              "letterSpacing": 8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "1LUX3",
+      "x": 520,
+      "y": 720,
+      "name": "Logo 5B - 双色分割",
+      "width": 480,
+      "height": 200,
+      "fill": "#1A365D",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 8,
+      "padding": [
+        32,
+        48
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "HShX3",
+          "name": "row5b",
+          "gap": 4,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "wKS39",
+              "name": "t5b1",
+              "fill": "#F6AD55",
+              "content": "BOX",
+              "fontFamily": "Inter",
+              "fontSize": 34,
+              "fontWeight": "800",
+              "letterSpacing": 2
+            },
+            {
+              "type": "text",
+              "id": "4Phnd",
+              "name": "dot5b",
+              "fill": "#ffffff4d",
+              "content": "·",
+              "fontFamily": "Inter",
+              "fontSize": 34,
+              "fontWeight": "800"
+            },
+            {
+              "type": "text",
+              "id": "Rfq9c",
+              "name": "t5b2",
+              "fill": "#FFFFFF",
+              "content": "CARGO",
+              "fontFamily": "Inter",
+              "fontSize": 34,
+              "fontWeight": "800",
+              "letterSpacing": 2
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "mzpDY",
+          "name": "t5b3",
+          "fill": "#ffffff80",
+          "content": "S E R V I C E   G M B H",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "letterSpacing": 3
+        },
+        {
+          "type": "rectangle",
+          "cornerRadius": 1,
+          "id": "5MmA2",
+          "name": "line5b",
+          "fill": "#F6AD55",
+          "width": 40,
+          "height": 2
+        },
+        {
+          "type": "text",
+          "id": "NPDI0",
+          "name": "t5b4",
+          "fill": "#ffffff66",
+          "content": "European Transport Solutions",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "300"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "wZpji",
+      "x": 1040,
+      "y": 720,
+      "name": "Logo 5C - 卡车图标版",
+      "width": 480,
+      "height": 200,
+      "fill": "#1A365D",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 12,
+      "padding": [
+        32,
+        48
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "AR4dR",
+          "name": "iconRow5c",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "97RWK",
+              "name": "truck5c",
+              "width": 36,
+              "height": 36,
+              "iconFontName": "truck",
+              "iconFontFamily": "lucide",
+              "fill": "#F6AD55"
+            },
+            {
+              "type": "frame",
+              "id": "tessg",
+              "name": "nameCol5c",
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "O1p5B",
+                  "name": "t5c1",
+                  "fill": "#FFFFFF",
+                  "content": "BOX CARGO",
+                  "fontFamily": "Inter",
+                  "fontSize": 28,
+                  "fontWeight": "800",
+                  "letterSpacing": 2
+                },
+                {
+                  "type": "text",
+                  "id": "qKFFb",
+                  "name": "t5c2",
+                  "fill": "#F6AD55",
+                  "content": "SERVICE GMBH",
+                  "fontFamily": "Inter",
+                  "fontSize": 10,
+                  "letterSpacing": 5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "V7eyL",
+          "name": "divider5c",
+          "fill": "#ffffff33",
+          "width": 50,
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "yULmt",
+          "name": "slogan5c",
+          "fill": "#ffffff80",
+          "content": "Zuverlässige Logistik in ganz Europa",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "300"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "jtnMq",
+      "x": 0,
+      "y": 960,
+      "name": "Logo 5D - 渐变背景",
+      "width": 480,
+      "height": 200,
+      "fill": {
+        "type": "gradient",
+        "gradientType": "linear",
+        "enabled": true,
+        "rotation": 135,
+        "size": {
+          "height": 1
+        },
+        "colors": [
+          {
+            "color": "#1A365D",
+            "position": 0
+          },
+          {
+            "color": "#2C5282",
+            "position": 0.6
+          },
+          {
+            "color": "#2B6CB0",
+            "position": 1
+          }
+        ]
+      },
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 10,
+      "padding": [
+        32,
+        48
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Yjd5g",
+          "name": "nameRow5d",
+          "gap": 6,
+          "alignItems": "end",
+          "children": [
+            {
+              "type": "text",
+              "id": "CL6mn",
+              "name": "t5d1",
+              "fill": "#F6AD55",
+              "content": "BOX",
+              "fontFamily": "Inter",
+              "fontSize": 36,
+              "fontWeight": "800"
+            },
+            {
+              "type": "text",
+              "id": "UPXWM",
+              "name": "t5d2",
+              "fill": "#FFFFFF",
+              "content": "CARGO",
+              "fontFamily": "Inter",
+              "fontSize": 36,
+              "fontWeight": "200"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "iajqR",
+          "name": "t5d3",
+          "fill": "#ffffff99",
+          "content": "— SERVICE GMBH —",
+          "fontFamily": "Inter",
+          "fontSize": 11,
+          "fontWeight": "500",
+          "letterSpacing": 4
+        },
+        {
+          "type": "rectangle",
+          "id": "QDb2C",
+          "name": "line5d",
+          "fill": "#f6ad554d",
+          "width": 200,
+          "height": 1
+        },
+        {
+          "type": "text",
+          "id": "mLJzY",
+          "name": "t5d4",
+          "fill": "#ffffff73",
+          "content": "Transport · Spedition · Logistik",
+          "fontFamily": "Inter",
+          "fontSize": 10,
+          "fontWeight": "300",
+          "letterSpacing": 1
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "N5Ste",
+      "x": 520,
+      "y": 960,
+      "name": "Logo 5E - 地球+箭头",
+      "width": 480,
+      "height": 200,
+      "fill": "#1A365D",
+      "cornerRadius": 16,
+      "layout": "vertical",
+      "gap": 10,
+      "padding": [
+        32,
+        48
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "5IqK8",
+          "name": "iconRow5e",
+          "gap": 14,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "QurLT",
+              "name": "globe5e",
+              "width": 38,
+              "height": 38,
+              "iconFontName": "globe",
+              "iconFontFamily": "lucide",
+              "fill": "#F6AD55"
+            },
+            {
+              "type": "frame",
+              "id": "lOSJN",
+              "name": "nameCol5e",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dKzcs",
+                  "name": "t5e1",
+                  "fill": "#FFFFFF",
+                  "content": "BOX CARGO",
+                  "fontFamily": "Inter",
+                  "fontSize": 30,
+                  "fontWeight": "800",
+                  "letterSpacing": 1
+                },
+                {
+                  "type": "text",
+                  "id": "ylUhX",
+                  "name": "t5e2",
+                  "fill": "#F6AD55",
+                  "content": "SERVICE",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "300",
+                  "letterSpacing": 7
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EsQ0K",
+          "name": "tagRow5e",
+          "gap": 10,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "gL4gI",
+              "name": "tag5e1",
+              "fill": "#ffffffb3",
+              "content": "DE",
+              "fontFamily": "Inter",
+              "fontSize": 9,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "gShEv",
+              "name": "tagDot1",
+              "fill": "#f6ad5599",
+              "width": 3,
+              "height": 3
+            },
+            {
+              "type": "text",
+              "id": "rPO86",
+              "name": "tag5e2",
+              "fill": "#ffffffb3",
+              "content": "PL",
+              "fontFamily": "Inter",
+              "fontSize": 9,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "P1LId",
+              "name": "tagDot2",
+              "fill": "#f6ad5599",
+              "width": 3,
+              "height": 3
+            },
+            {
+              "type": "text",
+              "id": "MMnrR",
+              "name": "tag5e3",
+              "fill": "#ffffffb3",
+              "content": "FR",
+              "fontFamily": "Inter",
+              "fontSize": 9,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "5UNvL",
+              "name": "tagDot3",
+              "fill": "#f6ad5599",
+              "width": 3,
+              "height": 3
+            },
+            {
+              "type": "text",
+              "id": "huz9B",
+              "name": "tag5e4",
+              "fill": "#ffffffb3",
+              "content": "IT",
+              "fontFamily": "Inter",
+              "fontSize": 9,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "NIQt2",
+              "name": "tagDot4",
+              "fill": "#f6ad5599",
+              "width": 3,
+              "height": 3
+            },
+            {
+              "type": "text",
+              "id": "T0PYz",
+              "name": "tag5e5",
+              "fill": "#ffffffb3",
+              "content": "ES",
+              "fontFamily": "Inter",
+              "fontSize": 9,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "SFaG4",
+              "name": "tagDot5",
+              "fill": "#f6ad5599",
+              "width": 3,
+              "height": 3
+            },
+            {
+              "type": "text",
+              "id": "PNzT6",
+              "name": "tag5e6",
+              "fill": "#F6AD55",
+              "content": "15+",
+              "fontFamily": "Inter",
+              "fontSize": 9,
+              "fontWeight": "600"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

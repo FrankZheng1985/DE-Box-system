@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" width="200" height="40">
+  <!-- 紧凑 Logo - 深色背景（用于移动端导航、小尺寸场景） -->
+  <text x="0" y="30" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="1" fill="#F6AD55">BOX</text>
+  <text x="56" y="30" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" fill="rgba(255,255,255,0.3)">·</text>
+  <text x="68" y="30" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="1" fill="#FFFFFF">CARGO</text>
+</svg>

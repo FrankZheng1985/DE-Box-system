@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- 图标 Logo - 深色背景（用于 Favicon、App图标、社交头像） -->
+  <rect width="80" height="80" rx="16" fill="#1A365D"/>
+  <text x="12" y="52" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800" fill="#F6AD55">B</text>
+  <text x="35" y="52" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800" fill="rgba(255,255,255,0.25)">·</text>
+  <text x="46" y="52" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="800" fill="#FFFFFF">C</text>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="300" height="80">
+  <!-- 邮件签名版 Logo（用于邮件底部签名、文档页脚） -->
+  <text x="0" y="28" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" letter-spacing="1" fill="#F6AD55">BOX</text>
+  <text x="52" y="28" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" fill="rgba(26,54,93,0.2)">·</text>
+  <text x="64" y="28" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" letter-spacing="1" fill="#1A365D">CARGO</text>
+  <text x="155" y="22" font-family="Inter, Arial, sans-serif" font-size="7" font-weight="400" letter-spacing="1.5" fill="#718096">SERVICE</text>
+  <text x="155" y="32" font-family="Inter, Arial, sans-serif" font-size="7" font-weight="400" letter-spacing="1.5" fill="#718096">GMBH</text>
+  <rect x="0" y="42" width="300" height="1" fill="#E2E8F0"/>
+  <text x="0" y="56" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="400" fill="#A0AEC0">www.box-cargo.de</text>
+  <text x="105" y="56" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="400" fill="#CBD5E0">|</text>
+  <text x="115" y="56" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="400" fill="#A0AEC0">info@box-cargo.de</text>
+  <text x="0" y="70" font-family="Inter, Arial, sans-serif" font-size="7" font-weight="300" fill="#CBD5E0">European Transport Solutions</text>
+</svg>

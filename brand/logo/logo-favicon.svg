@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Favicon 32x32（浏览器标签页图标） -->
+  <rect width="32" height="32" rx="6" fill="#1A365D"/>
+  <text x="4" y="22" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="#F6AD55">B</text>
+  <text x="13.5" y="22" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="rgba(255,255,255,0.25)">·</text>
+  <text x="18" y="22" font-family="Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="#FFFFFF">C</text>
+</svg>

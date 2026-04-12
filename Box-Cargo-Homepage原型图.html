@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Box Cargo Service GmbH - Europäische Transportlösungen</title>
+  <meta name="description" content="Box Cargo Service GmbH - Zuverlässige Transport- und Speditionsdienstleistungen in ganz Europa. Planentransport und Containerlogistik.">
+  <meta property="og:title" content="Box Cargo Service GmbH">
+  <meta property="og:description" content="Ihre Logistiklösung für Europa - Zuverlässige Transport- und Speditionsdienstleistungen">
+  <meta property="og:type" content="website">
+  <style>
+    /* ===== 全局重置与基础样式 ===== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1A365D;
+      --accent: #2B6CB0;
+      --orange: #F6AD55;
+      --orange-hover: #ED8936;
+      --bg: #F7FAFC;
+      --text: #1A202C;
+      --text-secondary: #718096;
+      --white: #FFFFFF;
+      --shadow: 0 8px 30px rgba(0,0,0,0.08);
+      --shadow-hover: 0 12px 40px rgba(0,0,0,0.15);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 16px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    img {
+      max-width: 100%;
+    }
+
+    /* ===== 导航栏 ===== */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 0 24px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(26,54,93,0.08);
+      transition: var(--transition);
+    }
+
+    .navbar.scrolled {
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+    }
+    /* Hero 区透明导航时 Logo 颜色 */
+    .navbar:not(.scrolled) .logo-cargo { color: #FFFFFF !important; }
+    .navbar:not(.scrolled) .logo-dot { color: rgba(255,255,255,0.25) !important; }
+    .navbar:not(.scrolled) .nav-links a { color: rgba(255,255,255,0.85); }
+    .navbar:not(.scrolled) .nav-links a:hover { color: #FFFFFF; }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--primary);
+      letter-spacing: -0.02em;
+    }
+
+    .nav-logo svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: var(--transition);
+      position: relative;
+      padding: 4px 0;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+      transition: var(--transition);
+    }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: var(--primary);
+    }
+
+    .nav-links a:hover::after,
+    .nav-links a.active::after {
+      width: 100%;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lang-switcher {
+      display: flex;
+      gap: 4px;
+      background: rgba(26,54,93,0.06);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .lang-btn {
+      border: none;
+      background: transparent;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .lang-btn.active {
+      background: var(--white);
+      color: var(--primary);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .lang-btn:hover:not(.active) {
+      color: var(--primary);
+    }
+
+    .nav-portal-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .nav-portal-btn:hover {
+      background: var(--primary);
+      transform: translateY(-1px);
+    }
+
+    /* 汉堡菜单 */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px;
+    }
+
+    .hamburger span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 2px;
+      transition: var(--transition);
+    }
+
+    .hamburger.open span:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .hamburger.open span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .hamburger.open span:nth-child(3) {
+      transform: rotate(-45deg) translate(5px, -5px);
+    }
+
+    /* 移动端菜单 */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 72px;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.98);
+      backdrop-filter: blur(12px);
+      padding: 24px;
+      border-bottom: 1px solid rgba(26,54,93,0.08);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+      z-index: 999;
+    }
+
+    .mobile-menu.open {
+      display: block;
+    }
+
+    .mobile-menu a {
+      display: block;
+      padding: 14px 0;
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--text);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .mobile-menu .mobile-lang {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 16px;
+    }
+
+    /* ===== Hero 区 ===== */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      background: linear-gradient(135deg, rgba(26,54,93,0.85) 0%, rgba(43,108,176,0.80) 50%, rgba(44,82,130,0.85) 100%),
+                  url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&q=80') center/cover no-repeat;
+      overflow: hidden;
+    }
+
+    /* 背景纹理 */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        radial-gradient(circle at 20% 80%, rgba(246,173,85,0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(43,108,176,0.3) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, transparent 70%);
+      z-index: 1;
+    }
+
+    /* 网格线背景 */
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      z-index: 1;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 800px;
+      padding: 0 24px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 40px;
+      color: rgba(255,255,255,0.9);
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 28px;
+      backdrop-filter: blur(4px);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1.15;
+      margin-bottom: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: rgba(255,255,255,0.8);
+      line-height: 1.7;
+      margin-bottom: 40px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      background: var(--orange);
+      color: var(--primary);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-primary:hover {
+      background: var(--orange-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(246,173,85,0.4);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 32px;
+      background: rgba(255,255,255,0.12);
+      color: var(--white);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      backdrop-filter: blur(4px);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.5);
+      transform: translateY(-2px);
+    }
+
+    /* 滚动指示器 */
+    .scroll-indicator {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.75rem;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+      40% { transform: translateX(-50%) translateY(-8px); }
+      60% { transform: translateX(-50%) translateY(-4px); }
+    }
+
+    /* ===== 通用区块样式 ===== */
+    .section {
+      padding: 100px 24px;
+    }
+
+    .section-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .section-tag {
+      display: inline-block;
+      padding: 6px 16px;
+      background: rgba(43,108,176,0.08);
+      color: var(--accent);
+      border-radius: 40px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    .section-header h2 {
+      font-size: clamp(1.8rem, 3vw, 2.5rem);
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-header p {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ===== Uber uns / 关于我们 ===== */
+    .about {
+      background: var(--white);
+    }
+
+    .about-intro {
+      text-align: center;
+      max-width: 760px;
+      margin: 0 auto 60px;
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+
+    /* 数据统计 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-bottom: 60px;
+    }
+
+    .stat-card {
+      text-align: center;
+      padding: 40px 24px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      transition: var(--transition);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-number {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-suffix {
+      font-size: 1.5rem;
+      color: var(--orange);
+    }
+
+    .stat-label {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* 优势卡片 */
+    .advantages-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .advantage-card {
+      text-align: center;
+      padding: 40px 24px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      transition: var(--transition);
+      border: 1px solid transparent;
+    }
+
+    .advantage-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+      border-color: rgba(43,108,176,0.1);
+    }
+
+    .advantage-icon {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      background: rgba(43,108,176,0.08);
+      border-radius: 16px;
+      font-size: 1.8rem;
+    }
+
+    .advantage-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    .advantage-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ===== 服务区块 ===== */
+    .services {
+      background: var(--bg);
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 32px;
+    }
+
+    .service-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 0;
+      box-shadow: var(--shadow);
+      transition: var(--transition);
+      border: 1px solid rgba(0,0,0,0.04);
+      position: relative;
+      overflow: hidden;
+    }
+    .service-card-img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      display: block;
+    }
+    .service-card-body {
+      padding: 36px 40px 48px;
+    }
+
+    .service-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--orange));
+      opacity: 0;
+      transition: var(--transition);
+    }
+
+    .service-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .service-card:hover::before {
+      opacity: 1;
+    }
+
+    .service-icon {
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(43,108,176,0.1), rgba(26,54,93,0.05));
+      border-radius: 20px;
+      font-size: 2.2rem;
+      margin-bottom: 24px;
+    }
+
+    .service-card h3 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .service-card .service-subtitle {
+      font-size: 0.9rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .service-card ul {
+      list-style: none;
+      margin-bottom: 28px;
+    }
+
+    .service-card ul li {
+      padding: 8px 0;
+      padding-left: 24px;
+      position: relative;
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+
+    .service-card ul li:last-child {
+      border-bottom: none;
+    }
+
+    .service-card ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+    }
+
+    .service-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: var(--transition);
+    }
+
+    .service-link:hover {
+      gap: 12px;
+      color: var(--primary);
+    }
+
+    /* ===== 覆盖网络 ===== */
+    .network {
+      background: var(--white);
+    }
+
+    .network-map {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .country-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      transition: var(--transition);
+      border: 1px solid transparent;
+      cursor: default;
+    }
+
+    .country-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow);
+      border-color: rgba(43,108,176,0.15);
+      background: var(--white);
+    }
+
+    .country-flag {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .country-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .network-more {
+      text-align: center;
+      font-size: 1rem;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    /* ===== EU-TMS 门户 ===== */
+    .portal {
+      background: linear-gradient(135deg, #0F2942 0%, var(--primary) 50%, #1A365D 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .portal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    .portal .section-tag {
+      background: rgba(246,173,85,0.15);
+      color: var(--orange);
+    }
+
+    .portal .section-header h2 {
+      color: var(--white);
+    }
+
+    .portal .section-header p {
+      color: rgba(255,255,255,0.65);
+    }
+
+    .portal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .portal-card {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      text-align: center;
+      transition: var(--transition);
+    }
+
+    .portal-card:hover {
+      transform: translateY(-6px);
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    .portal-card-icon {
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      border-radius: 20px;
+      font-size: 2rem;
+    }
+
+    .portal-card.admin .portal-card-icon {
+      background: rgba(43,108,176,0.25);
+    }
+
+    .portal-card.customer .portal-card-icon {
+      background: rgba(72,187,120,0.25);
+    }
+
+    .portal-card.carrier .portal-card-icon {
+      background: rgba(246,173,85,0.25);
+    }
+
+    .portal-card h3 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+
+    .portal-card .portal-card-subtitle {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 20px;
+    }
+
+    .portal-card ul {
+      list-style: none;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+
+    .portal-card ul li {
+      padding: 6px 0;
+      padding-left: 20px;
+      position: relative;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .portal-card ul li::before {
+      content: '~';
+      position: absolute;
+      left: 0;
+      color: var(--orange);
+      font-weight: 700;
+    }
+
+    .portal-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 32px;
+      border: 2px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.08);
+      color: var(--white);
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      width: 100%;
+      justify-content: center;
+    }
+
+    .portal-card.admin .portal-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .portal-card.customer .portal-btn:hover {
+      background: #48BB78;
+      border-color: #48BB78;
+    }
+
+    .portal-card.carrier .portal-btn:hover {
+      background: var(--orange);
+      border-color: var(--orange);
+      color: var(--primary);
+    }
+
+    /* ===== 联系区块 ===== */
+    .contact {
+      background: var(--bg);
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: start;
+    }
+
+    .contact-form {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .contact-form h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #E2E8F0;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: var(--text);
+      transition: var(--transition);
+      background: var(--bg);
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: var(--white);
+      box-shadow: 0 0 0 4px rgba(43,108,176,0.1);
+    }
+
+    .form-group textarea {
+      height: 120px;
+      resize: vertical;
+    }
+
+    .form-submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .form-submit:hover {
+      background: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(43,108,176,0.3);
+    }
+
+    .form-success {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .form-success.show {
+      display: block;
+    }
+
+    .form-success .success-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+    }
+
+    .form-success h4 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .form-success p {
+      color: var(--text-secondary);
+    }
+
+    /* 公司信息卡 */
+    .contact-info {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 40px;
+      box-shadow: var(--shadow);
+    }
+
+    .contact-info h3 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 28px;
+    }
+
+    .info-item {
+      display: flex;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .info-item:last-child {
+      border-bottom: none;
+    }
+
+    .info-icon {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(43,108,176,0.08);
+      border-radius: 12px;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .info-content h4 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .info-content p {
+      font-size: 0.95rem;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* ===== 页脚 ===== */
+    .footer {
+      background: var(--primary);
+      color: rgba(255,255,255,0.7);
+      padding: 48px 24px 32px;
+    }
+
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-left svg {
+      width: 32px;
+      height: 32px;
+      opacity: 0.8;
+    }
+
+    .footer-brand {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--white);
+    }
+
+    .footer-copyright {
+      font-size: 0.8rem;
+      margin-top: 4px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 28px;
+    }
+
+    .footer-links a {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+      transition: var(--transition);
+    }
+
+    .footer-links a:hover {
+      color: var(--white);
+    }
+
+    .footer-social {
+      display: flex;
+      gap: 12px;
+    }
+
+    .social-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      font-size: 1.1rem;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .social-icon:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-2px);
+    }
+
+    /* ===== 动画 ===== */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .fade-in-delay-1 { transition-delay: 0.1s; }
+    .fade-in-delay-2 { transition-delay: 0.2s; }
+    .fade-in-delay-3 { transition-delay: 0.3s; }
+    .fade-in-delay-4 { transition-delay: 0.4s; }
+
+    /* ===== 响应式 ===== */
+    @media (max-width: 1024px) {
+      .nav-links {
+        display: none;
+      }
+
+      .nav-portal-btn {
+        display: none;
+      }
+
+      .hamburger {
+        display: flex;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .advantages-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .services-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .network-map {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .portal-grid {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      .contact-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .section {
+        padding: 72px 20px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .stat-card {
+        padding: 24px 12px;
+      }
+
+      .stat-number {
+        font-size: 2rem;
+      }
+
+      .advantages-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .network-map {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero h1 {
+        font-size: 1.9rem;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .btn-primary,
+      .btn-secondary {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .advantages-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .network-map {
+        grid-template-columns: 1fr;
+      }
+
+      .contact-form,
+      .contact-info {
+        padding: 28px 20px;
+      }
+
+      .lang-switcher {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 导航栏 ===== -->
+  <nav class="navbar" id="navbar">
+    <a href="#" class="nav-logo" style="gap:4px">
+      <span style="font-size:22px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
+      <span class="logo-dot" style="font-size:22px;font-weight:800;color:rgba(26,54,93,0.2);transition:color 0.3s">·</span>
+      <span class="logo-cargo" style="font-size:22px;font-weight:800;letter-spacing:1px;color:#1A365D;transition:color 0.3s">CARGO</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#about" data-i18n="nav_about">Über uns</a></li>
+      <li><a href="#services" data-i18n="nav_services">Leistungen</a></li>
+      <li><a href="#network" data-i18n="nav_network">Netzwerk</a></li>
+      <li><a href="#portal" data-i18n="nav_portal">Portal</a></li>
+      <li><a href="#contact" data-i18n="nav_contact">Kontakt</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <div class="lang-switcher">
+        <button class="lang-btn active" onclick="switchLang('de')">DE</button>
+        <button class="lang-btn" onclick="switchLang('en')">EN</button>
+        <button class="lang-btn" onclick="switchLang('zh')">中文</button>
+      </div>
+      <a href="/customer/" class="nav-portal-btn" data-i18n="nav_login">Kundenportal</a>
+      <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 移动端菜单 -->
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="#about" onclick="closeMenu()" data-i18n="nav_about">Über uns</a>
+    <a href="#services" onclick="closeMenu()" data-i18n="nav_services">Leistungen</a>
+    <a href="#network" onclick="closeMenu()" data-i18n="nav_network">Netzwerk</a>
+    <a href="#portal" onclick="closeMenu()" data-i18n="nav_portal">Portal</a>
+    <a href="#contact" onclick="closeMenu()" data-i18n="nav_contact">Kontakt</a>
+    <a href="/customer/" data-i18n="nav_login">Kundenportal</a>
+    <div class="mobile-lang">
+      <button class="lang-btn active" onclick="switchLang('de')">DE</button>
+      <button class="lang-btn" onclick="switchLang('en')">EN</button>
+      <button class="lang-btn" onclick="switchLang('zh')">中文</button>
+    </div>
+  </div>
+
+  <!-- ===== Hero 区 ===== -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span>&#9670;</span>
+        <span data-i18n="hero_badge">Ihr Partner für europäische Logistik</span>
+      </div>
+      <h1 data-i18n="hero_title">Ihre Logistiklösung<br>für Europa</h1>
+      <p data-i18n="hero_subtitle">Zuverlässige Transport- und Speditionsdienstleistungen in ganz Europa. Von Planentransport bis Containerlogistik — alles aus einer Hand.</p>
+      <div class="hero-buttons">
+        <a href="#contact" class="btn-primary" data-i18n="hero_cta1">Angebot anfordern &#8594;</a>
+        <a href="/customer/" class="btn-secondary" data-i18n="hero_cta2">Zum Kundenportal &#8594;</a>
+      </div>
+    </div>
+    <div class="scroll-indicator">
+      <span data-i18n="hero_scroll">Mehr erfahren</span>
+      <span>&#8595;</span>
+    </div>
+  </section>
+
+  <!-- ===== Uber uns ===== -->
+  <section class="section about" id="about">
+    <div class="section-inner">
+      <div class="section-header fade-in">
+        <div class="section-tag" data-i18n="about_tag">Über uns</div>
+        <h2 data-i18n="about_title">Erfahrung trifft Innovation</h2>
+        <p data-i18n="about_desc">Box Cargo Service GmbH ist Ihr zuverlässiger Partner für europäische Transportlösungen.</p>
+      </div>
+
+      <!-- 物流场景图片 -->
+      <div class="fade-in" style="margin-bottom:40px;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.08)">
+        <img src="https://images.unsplash.com/photo-1553413077-190dd305871c?w=1200&q=80" alt="Logistics Warehouse" style="width:100%;height:300px;object-fit:cover;display:block">
+      </div>
+
+      <p class="about-intro fade-in" data-i18n="about_intro">Box Cargo Service GmbH mit Sitz in Deutschland bietet professionelle Transport- und Speditionsdienstleistungen in ganz Europa. Wir verbinden langjährige Branchenerfahrung mit modernster digitaler Technologie, um Ihnen maßgeschneiderte Logistiklösungen zu bieten. Ob Planentransport oder Containerlogistik — wir sorgen dafür, dass Ihre Waren sicher und pünktlich ans Ziel kommen.</p>
+
+      <!-- 数据统计 -->
+      <div class="stats-grid">
+        <div class="stat-card fade-in fade-in-delay-1">
+          <div class="stat-number"><span class="counter" data-target="15">0</span><span class="stat-suffix">+</span></div>
+          <div class="stat-label" data-i18n="stat_countries">Europäische Länder</div>
+        </div>
+        <div class="stat-card fade-in fade-in-delay-2">
+          <div class="stat-number"><span class="counter" data-target="1000">0</span><span class="stat-suffix">+</span></div>
+          <div class="stat-label" data-i18n="stat_orders">Aufträge pro Jahr</div>
+        </div>
+        <div class="stat-card fade-in fade-in-delay-3">
+          <div class="stat-number"><span class="counter" data-target="98">0</span><span class="stat-suffix">%</span></div>
+          <div class="stat-label" data-i18n="stat_ontime">Pünktliche Lieferung</div>
+        </div>
+      </div>
+
+      <!-- 优势卡片 -->
+      <div class="advantages-grid">
+        <div class="advantage-card fade-in fade-in-delay-1">
+          <div class="advantage-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <h3 data-i18n="adv1_title">Europaweite Abdeckung</h3>
+          <p data-i18n="adv1_desc">Flächendeckendes Netzwerk in über 15 europäischen Ländern mit zuverlässigen Partnern.</p>
+        </div>
+        <div class="advantage-card fade-in fade-in-delay-2">
+          <div class="advantage-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+          </div>
+          <h3 data-i18n="adv2_title">Echtzeit-Tracking</h3>
+          <p data-i18n="adv2_desc">Verfolgen Sie Ihre Sendungen in Echtzeit über unser digitales Kundenportal.</p>
+        </div>
+        <div class="advantage-card fade-in fade-in-delay-3">
+          <div class="advantage-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+          </div>
+          <h3 data-i18n="adv3_title">Flexible Lösungen</h3>
+          <p data-i18n="adv3_desc">Maßgeschneiderte Logistikkonzepte für jede Anforderung — FTL, LTL oder Sondertransporte.</p>
+        </div>
+        <div class="advantage-card fade-in fade-in-delay-4">
+          <div class="advantage-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <h3 data-i18n="adv4_title">Professionelles Team</h3>
+          <p data-i18n="adv4_desc">Erfahrene Logistikexperten mit mehrsprachigem Service — DE, EN, ZH.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Leistungen ===== -->
+  <section class="section services" id="services">
+    <div class="section-inner">
+      <div class="section-header fade-in">
+        <div class="section-tag" data-i18n="services_tag">Leistungen</div>
+        <h2 data-i18n="services_title">Unsere Kernleistungen</h2>
+        <p data-i18n="services_desc">Zwei Schwerpunkte — eine Lösung für Ihre europäische Logistik.</p>
+      </div>
+
+      <div class="services-grid">
+        <!-- 篷布车运输 -->
+        <div class="service-card fade-in fade-in-delay-1">
+          <img class="service-card-img" src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80" alt="Curtain Side Transport">
+          <div class="service-card-body">
+          <div class="service-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="8" width="15" height="10" rx="1"/><path d="M16 12h4l3 3v3h-7v-6z"/><circle cx="5.5" cy="20.5" r="2.5"/><circle cx="18.5" cy="20.5" r="2.5"/>
+            </svg>
+          </div>
+          <h3 data-i18n="svc1_title">Planentransport</h3>
+          <div class="service-subtitle" data-i18n="svc1_subtitle">Curtain Side Transport</div>
+          <ul>
+            <li data-i18n="svc1_item1">Vollladung (FTL) und Teilladung (LTL)</li>
+            <li data-i18n="svc1_item2">Temperaturkontrollierte Transporte</li>
+            <li data-i18n="svc1_item3">ADR-Gefahrguttransporte</li>
+            <li data-i18n="svc1_item4">Überbreite und Schwertransporte</li>
+            <li data-i18n="svc1_item5">Europaweite Abdeckung: DE, PL, FR, IT, ES u.v.m.</li>
+          </ul>
+          <a href="#contact" class="service-link" data-i18n="svc_more">Mehr erfahren &#8594;</a>
+          </div><!-- end service-card-body -->
+        </div>
+
+        <!-- 集装箱物流 -->
+        <div class="service-card fade-in fade-in-delay-2">
+          <img class="service-card-img" src="https://images.unsplash.com/photo-1577563908411-5077b6dc7624?w=800&q=80" alt="Container Logistics">
+          <div class="service-card-body">
+          <div class="service-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="12" rx="2"/><line x1="7" y1="7" x2="7" y2="19"/><line x1="12" y1="7" x2="12" y2="19"/><line x1="17" y1="7" x2="17" y2="19"/><line x1="2" y1="13" x2="22" y2="13"/><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </div>
+          <h3 data-i18n="svc2_title">Containerlogistik</h3>
+          <div class="service-subtitle" data-i18n="svc2_subtitle">Container Logistics</div>
+          <ul>
+            <li data-i18n="svc2_item1">Containertypen: 20GP, 40GP, 40HQ, 45HQ</li>
+            <li data-i18n="svc2_item2">Schifffahrtslinien-Freigabemanagement</li>
+            <li data-i18n="svc2_item3">Zollabfertigung und Koordination</li>
+            <li data-i18n="svc2_item4">Letzte-Meile-Lieferung ab Hafen</li>
+            <li data-i18n="svc2_item5">Vollständige Containerrückverfolgung</li>
+          </ul>
+          <a href="#contact" class="service-link" data-i18n="svc_more">Mehr erfahren &#8594;</a>
+          </div><!-- end service-card-body -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Netzwerk ===== -->
+  <section class="section network" id="network">
+    <div class="section-inner">
+      <div class="section-header fade-in">
+        <div class="section-tag" data-i18n="network_tag">Netzwerk</div>
+        <h2 data-i18n="network_title">Unser europäisches Netzwerk</h2>
+        <p data-i18n="network_desc">Flächendeckende Präsenz in über 15 europäischen Ländern.</p>
+      </div>
+
+      <!-- 欧洲物流网络示意图 -->
+      <div class="fade-in" style="margin-bottom:48px;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.08);position:relative">
+        <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=1200&q=80" alt="European Network Map" style="width:100%;height:320px;object-fit:cover;display:block;filter:brightness(0.7)">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;color:white;text-align:center">
+          <div style="font-size:48px;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,0.4)">15+</div>
+          <div style="font-size:18px;font-weight:500;text-shadow:0 2px 4px rgba(0,0,0,0.3)" data-i18n="network_overlay">Europäische Länder verbunden</div>
+        </div>
+      </div>
+
+      <div class="network-map">
+        <div class="country-card fade-in"><span class="country-flag">&#127465;&#127466;</span><span class="country-name" data-i18n="c_de">Deutschland</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127467;&#127479;</span><span class="country-name" data-i18n="c_fr">Frankreich</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127477;&#127473;</span><span class="country-name" data-i18n="c_pl">Polen</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127470;&#127481;</span><span class="country-name" data-i18n="c_it">Italien</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127466;&#127480;</span><span class="country-name" data-i18n="c_es">Spanien</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127475;&#127473;</span><span class="country-name" data-i18n="c_nl">Niederlande</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127463;&#127466;</span><span class="country-name" data-i18n="c_be">Belgien</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127464;&#127487;</span><span class="country-name" data-i18n="c_cz">Tschechien</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127462;&#127481;</span><span class="country-name" data-i18n="c_at">Österreich</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127469;&#127482;</span><span class="country-name" data-i18n="c_hu">Ungarn</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127464;&#127469;</span><span class="country-name" data-i18n="c_ch">Schweiz</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127465;&#127472;</span><span class="country-name" data-i18n="c_dk">Dänemark</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127480;&#127466;</span><span class="country-name" data-i18n="c_se">Schweden</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127468;&#127463;</span><span class="country-name" data-i18n="c_gb">Großbritannien</span></div>
+        <div class="country-card fade-in"><span class="country-flag">&#127470;&#127466;</span><span class="country-name" data-i18n="c_ie">Irland</span></div>
+      </div>
+
+      <p class="network-more fade-in" data-i18n="network_more">Und weitere Länder auf Anfrage — kontaktieren Sie uns!</p>
+    </div>
+  </section>
+
+  <!-- ===== EU-TMS 门户 ===== -->
+  <section class="section portal" id="portal">
+    <div class="section-inner">
+      <div class="section-header fade-in">
+        <div class="section-tag" data-i18n="portal_tag">EU-TMS</div>
+        <h2 data-i18n="portal_title">Unser digitales Transportmanagement</h2>
+        <p data-i18n="portal_desc">Verwalten Sie Ihre Transporte digital — jederzeit und überall mit dem EU-TMS System.</p>
+      </div>
+
+      <div class="portal-grid">
+        <!-- 管理端 -->
+        <div class="portal-card admin fade-in fade-in-delay-1">
+          <div class="portal-card-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6BB5FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <h3 data-i18n="portal_admin_title">Verwaltung</h3>
+          <div class="portal-card-subtitle" data-i18n="portal_admin_sub">Administration</div>
+          <ul>
+            <li data-i18n="portal_admin_f1">Auftrags- und Dispositionsmanagement</li>
+            <li data-i18n="portal_admin_f2">Finanzverwaltung und Rechnungsstellung</li>
+            <li data-i18n="portal_admin_f3">Berichte und Unternehmensanalysen</li>
+          </ul>
+          <a href="/admin/" class="portal-btn" data-i18n="portal_login">Einloggen &#8594;</a>
+        </div>
+
+        <!-- 客户门户 -->
+        <div class="portal-card customer fade-in fade-in-delay-2">
+          <div class="portal-card-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#68D391" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <h3 data-i18n="portal_customer_title">Kundenportal</h3>
+          <div class="portal-card-subtitle" data-i18n="portal_customer_sub">Client Portal</div>
+          <ul>
+            <li data-i18n="portal_customer_f1">Online-Auftragserteilung und -verfolgung</li>
+            <li data-i18n="portal_customer_f2">Rechnungen und Zahlungsübersicht</li>
+            <li data-i18n="portal_customer_f3">Zollabfertigungsdokumente</li>
+          </ul>
+          <a href="/customer/" class="portal-btn" data-i18n="portal_login">Einloggen &#8594;</a>
+        </div>
+
+        <!-- 承运商门户 -->
+        <div class="portal-card carrier fade-in fade-in-delay-3">
+          <div class="portal-card-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F6AD55" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="8" width="15" height="10" rx="1"/><path d="M16 12h4l3 3v3h-7v-6z"/><circle cx="5.5" cy="20.5" r="2.5"/><circle cx="18.5" cy="20.5" r="2.5"/>
+            </svg>
+          </div>
+          <h3 data-i18n="portal_carrier_title">Spediteursportal</h3>
+          <div class="portal-card-subtitle" data-i18n="portal_carrier_sub">Carrier Portal</div>
+          <ul>
+            <li data-i18n="portal_carrier_f1">Auftragsannahme und CMR-Upload</li>
+            <li data-i18n="portal_carrier_f2">GPS-Tracking und Statusmeldungen</li>
+            <li data-i18n="portal_carrier_f3">Abrechnungen und Zahlungsübersicht</li>
+          </ul>
+          <a href="/carrier/" class="portal-btn" data-i18n="portal_login">Einloggen &#8594;</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Kontakt ===== -->
+  <section class="section contact" id="contact">
+    <div class="section-inner">
+      <div class="section-header fade-in">
+        <div class="section-tag" data-i18n="contact_tag">Kontakt</div>
+        <h2 data-i18n="contact_title">Kontaktieren Sie uns</h2>
+        <p data-i18n="contact_desc">Wir freuen uns auf Ihre Anfrage und beraten Sie gerne.</p>
+      </div>
+
+      <div class="contact-grid">
+        <!-- 联系表单 -->
+        <div class="contact-form fade-in fade-in-delay-1">
+          <h3 data-i18n="form_title">Nachricht senden</h3>
+          <form id="contactForm" onsubmit="handleSubmit(event)">
+            <div class="form-group">
+              <label data-i18n="form_name">Name *</label>
+              <input type="text" id="formName" required placeholder="Ihr vollständiger Name" data-i18n-placeholder="form_name_ph">
+            </div>
+            <div class="form-group">
+              <label data-i18n="form_email">E-Mail *</label>
+              <input type="email" id="formEmail" required placeholder="ihre@email.de" data-i18n-placeholder="form_email_ph">
+            </div>
+            <div class="form-group">
+              <label data-i18n="form_phone">Telefon (optional)</label>
+              <input type="tel" id="formPhone" placeholder="+49 ..." data-i18n-placeholder="form_phone_ph">
+            </div>
+            <div class="form-group">
+              <label data-i18n="form_message">Nachricht *</label>
+              <textarea id="formMessage" required placeholder="Wie können wir Ihnen helfen?" data-i18n-placeholder="form_message_ph"></textarea>
+            </div>
+            <button type="submit" class="form-submit" data-i18n="form_submit">Absenden</button>
+          </form>
+          <div class="form-success" id="formSuccess">
+            <div class="success-icon">&#10003;</div>
+            <h4 data-i18n="form_success_title">Vielen Dank!</h4>
+            <p data-i18n="form_success_msg">Ihre Nachricht wurde erfolgreich gesendet. Wir melden uns in Kürze bei Ihnen.</p>
+          </div>
+        </div>
+
+        <!-- 公司信息 -->
+        <div class="contact-info fade-in fade-in-delay-2">
+          <h3 data-i18n="info_title">Unternehmensinformationen</h3>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div class="info-content">
+              <h4 data-i18n="info_address_label">Adresse</h4>
+              <p>Box Cargo Service GmbH<br>Mintarder Weg 53<br>45219 Essen, Deutschland</p>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </div>
+            <div class="info-content">
+              <h4 data-i18n="info_phone_label">Telefon</h4>
+              <p>+49 176 42990898</p>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <div class="info-content">
+              <h4 data-i18n="info_email_label">E-Mail</h4>
+              <p>info@box-cargo.de</p>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2B6CB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div class="info-content">
+              <h4 data-i18n="info_hours_label">Geschäftszeiten</h4>
+              <p data-i18n="info_hours">Mo - Fr: 08:00 - 18:00 Uhr</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 页脚 ===== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <div style="display:flex;align-items:center;gap:4px;margin-right:12px">
+          <span style="font-size:18px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
+          <span style="font-size:18px;font-weight:800;color:rgba(255,255,255,0.25)">·</span>
+          <span style="font-size:18px;font-weight:800;letter-spacing:1px;color:#FFFFFF">CARGO</span>
+        </div>
+        <div>
+          <div class="footer-brand">Service GmbH</div>
+          <div class="footer-copyright">&copy; 2026 Box Cargo Service GmbH. Alle Rechte vorbehalten.</div>
+        </div>
+      </div>
+
+      <div class="footer-links">
+        <a href="#" data-i18n="footer_impressum">Impressum</a>
+        <a href="#" data-i18n="footer_datenschutz">Datenschutz</a>
+        <a href="#" data-i18n="footer_agb">AGB</a>
+      </div>
+
+      <div class="footer-social">
+        <div class="social-icon" title="LinkedIn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)">
+            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z M2 9h4v12H2z M4 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
+          </svg>
+        </div>
+        <div class="social-icon" title="Xing">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)">
+            <path d="M18.188 0c-.517 0-.741.325-.927.66 0 0-7.455 13.224-7.702 13.657.015.024 4.919 9.023 4.919 9.023.17.308.436.66.967.66h3.454c.211 0 .375-.078.463-.22.089-.151.089-.346-.009-.536l-4.879-8.916c-.004-.006-.004-.016 0-.022L22.139.756c.095-.191.097-.387.006-.535C22.056.078 21.894 0 21.686 0h-3.498zM3.648 4.74c-.211 0-.385.074-.473.216-.09.149-.078.339.02.531l2.34 4.05c.004.01.004.016 0 .021L3.169 13.89c-.09.186-.089.383 0 .534.085.142.25.223.464.223h3.455c.525 0 .745-.336.92-.66l2.42-4.41-.004-.01-2.358-4.155c-.18-.317-.39-.67-.924-.67H3.648z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ===== 多语言翻译 =====
+    const translations = {
+      de: {
+        // 导航
+        nav_about: 'Über uns',
+        nav_services: 'Leistungen',
+        nav_network: 'Netzwerk',
+        nav_portal: 'Portal',
+        nav_contact: 'Kontakt',
+        nav_login: 'Kundenportal',
+        // Hero
+        hero_badge: 'Ihr Partner für europäische Logistik',
+        hero_title: 'Ihre Logistiklösung<br>für Europa',
+        hero_subtitle: 'Zuverlässige Transport- und Speditionsdienstleistungen in ganz Europa. Von Planentransport bis Containerlogistik — alles aus einer Hand.',
+        hero_cta1: 'Angebot anfordern \u2192',
+        hero_cta2: 'Zum Kundenportal \u2192',
+        hero_scroll: 'Mehr erfahren',
+        // Uber uns
+        about_tag: 'Über uns',
+        about_title: 'Erfahrung trifft Innovation',
+        about_desc: 'Box Cargo Service GmbH ist Ihr zuverlässiger Partner für europäische Transportlösungen.',
+        about_intro: 'Box Cargo Service GmbH mit Sitz in Deutschland bietet professionelle Transport- und Speditionsdienstleistungen in ganz Europa. Wir verbinden langjährige Branchenerfahrung mit modernster digitaler Technologie, um Ihnen maßgeschneiderte Logistiklösungen zu bieten. Ob Planentransport oder Containerlogistik — wir sorgen dafür, dass Ihre Waren sicher und pünktlich ans Ziel kommen.',
+        stat_countries: 'Europäische Länder',
+        stat_orders: 'Aufträge pro Jahr',
+        stat_ontime: 'Pünktliche Lieferung',
+        adv1_title: 'Europaweite Abdeckung',
+        adv1_desc: 'Flächendeckendes Netzwerk in über 15 europäischen Ländern mit zuverlässigen Partnern.',
+        adv2_title: 'Echtzeit-Tracking',
+        adv2_desc: 'Verfolgen Sie Ihre Sendungen in Echtzeit über unser digitales Kundenportal.',
+        adv3_title: 'Flexible Lösungen',
+        adv3_desc: 'Maßgeschneiderte Logistikkonzepte für jede Anforderung — FTL, LTL oder Sondertransporte.',
+        adv4_title: 'Professionelles Team',
+        adv4_desc: 'Erfahrene Logistikexperten mit mehrsprachigem Service — DE, EN, ZH.',
+        // Leistungen
+        services_tag: 'Leistungen',
+        services_title: 'Unsere Kernleistungen',
+        services_desc: 'Zwei Schwerpunkte — eine Lösung für Ihre europäische Logistik.',
+        svc1_title: 'Planentransport',
+        svc1_subtitle: 'Curtain Side Transport',
+        svc1_item1: 'Vollladung (FTL) und Teilladung (LTL)',
+        svc1_item2: 'Temperaturkontrollierte Transporte',
+        svc1_item3: 'ADR-Gefahrguttransporte',
+        svc1_item4: 'Überbreite und Schwertransporte',
+        svc1_item5: 'Europaweite Abdeckung: DE, PL, FR, IT, ES u.v.m.',
+        svc2_title: 'Containerlogistik',
+        svc2_subtitle: 'Container Logistics',
+        svc2_item1: 'Containertypen: 20GP, 40GP, 40HQ, 45HQ',
+        svc2_item2: 'Schifffahrtslinien-Freigabemanagement',
+        svc2_item3: 'Zollabfertigung und Koordination',
+        svc2_item4: 'Letzte-Meile-Lieferung ab Hafen',
+        svc2_item5: 'Vollständige Containerrückverfolgung',
+        svc_more: 'Mehr erfahren \u2192',
+        // Netzwerk
+        network_tag: 'Netzwerk',
+        network_title: 'Unser europäisches Netzwerk',
+        network_desc: 'Flächendeckende Präsenz in über 15 europäischen Ländern.',
+        c_de: 'Deutschland', c_fr: 'Frankreich', c_pl: 'Polen', c_it: 'Italien',
+        c_es: 'Spanien', c_nl: 'Niederlande', c_be: 'Belgien', c_cz: 'Tschechien',
+        c_at: 'Österreich', c_hu: 'Ungarn', c_ch: 'Schweiz', c_dk: 'Dänemark',
+        c_se: 'Schweden', c_gb: 'Großbritannien', c_ie: 'Irland',
+        network_more: 'Und weitere Länder auf Anfrage — kontaktieren Sie uns!',
+        // Portal
+        portal_tag: 'EU-TMS',
+        portal_title: 'Unser digitales Transportmanagement',
+        portal_desc: 'Verwalten Sie Ihre Transporte digital — jederzeit und überall mit dem EU-TMS System.',
+        portal_admin_title: 'Verwaltung',
+        portal_admin_sub: 'Administration',
+        portal_admin_f1: 'Auftrags- und Dispositionsmanagement',
+        portal_admin_f2: 'Finanzverwaltung und Rechnungsstellung',
+        portal_admin_f3: 'Berichte und Unternehmensanalysen',
+        portal_customer_title: 'Kundenportal',
+        portal_customer_sub: 'Client Portal',
+        portal_customer_f1: 'Online-Auftragserteilung und -verfolgung',
+        portal_customer_f2: 'Rechnungen und Zahlungsübersicht',
+        portal_customer_f3: 'Zollabfertigungsdokumente',
+        portal_carrier_title: 'Spediteursportal',
+        portal_carrier_sub: 'Carrier Portal',
+        portal_carrier_f1: 'Auftragsannahme und CMR-Upload',
+        portal_carrier_f2: 'GPS-Tracking und Statusmeldungen',
+        portal_carrier_f3: 'Abrechnungen und Zahlungsübersicht',
+        portal_login: 'Einloggen \u2192',
+        // Kontakt
+        contact_tag: 'Kontakt',
+        contact_title: 'Kontaktieren Sie uns',
+        contact_desc: 'Wir freuen uns auf Ihre Anfrage und beraten Sie gerne.',
+        form_title: 'Nachricht senden',
+        form_name: 'Name *',
+        form_email: 'E-Mail *',
+        form_phone: 'Telefon (optional)',
+        form_message: 'Nachricht *',
+        form_submit: 'Absenden',
+        form_name_ph: 'Ihr vollständiger Name',
+        form_email_ph: 'ihre@email.de',
+        form_phone_ph: '+49 ...',
+        form_message_ph: 'Wie können wir Ihnen helfen?',
+        form_success_title: 'Vielen Dank!',
+        form_success_msg: 'Ihre Nachricht wurde erfolgreich gesendet. Wir melden uns in Kürze bei Ihnen.',
+        info_title: 'Unternehmensinformationen',
+        info_address_label: 'Adresse',
+        info_phone_label: 'Telefon',
+        info_email_label: 'E-Mail',
+        info_hours_label: 'Geschäftszeiten',
+        info_hours: 'Mo - Fr: 08:00 - 18:00 Uhr',
+        // Footer
+        footer_impressum: 'Impressum',
+        footer_datenschutz: 'Datenschutz',
+        footer_agb: 'AGB'
+      },
+      en: {
+        nav_about: 'About Us',
+        nav_services: 'Services',
+        nav_network: 'Network',
+        nav_portal: 'Portal',
+        nav_contact: 'Contact',
+        nav_login: 'Client Portal',
+        hero_badge: 'Your partner for European logistics',
+        hero_title: 'Your Logistics Solution<br>for Europe',
+        hero_subtitle: 'Reliable transport and freight forwarding services across Europe. From curtain side transport to container logistics — all from one source.',
+        hero_cta1: 'Request a Quote \u2192',
+        hero_cta2: 'Client Portal \u2192',
+        hero_scroll: 'Learn more',
+        about_tag: 'About Us',
+        about_title: 'Experience meets Innovation',
+        about_desc: 'Box Cargo Service GmbH is your reliable partner for European transport solutions.',
+        about_intro: 'Based in Germany, Box Cargo Service GmbH provides professional transport and freight forwarding services across Europe. We combine years of industry experience with cutting-edge digital technology to deliver tailored logistics solutions. Whether curtain side transport or container logistics — we ensure your goods arrive safely and on time.',
+        stat_countries: 'European Countries',
+        stat_orders: 'Orders per Year',
+        stat_ontime: 'On-time Delivery',
+        adv1_title: 'Europe-wide Coverage',
+        adv1_desc: 'Comprehensive network across 15+ European countries with reliable partners.',
+        adv2_title: 'Real-time Tracking',
+        adv2_desc: 'Track your shipments in real time through our digital client portal.',
+        adv3_title: 'Flexible Solutions',
+        adv3_desc: 'Tailored logistics concepts for every requirement — FTL, LTL, or special transports.',
+        adv4_title: 'Professional Team',
+        adv4_desc: 'Experienced logistics experts with multilingual service — DE, EN, ZH.',
+        services_tag: 'Services',
+        services_title: 'Our Core Services',
+        services_desc: 'Two focus areas — one solution for your European logistics.',
+        svc1_title: 'Curtain Side Transport',
+        svc1_subtitle: 'Planentransport',
+        svc1_item1: 'Full Truckload (FTL) and Less-than-Truckload (LTL)',
+        svc1_item2: 'Temperature-controlled transports',
+        svc1_item3: 'ADR hazardous goods transports',
+        svc1_item4: 'Oversized and heavy transports',
+        svc1_item5: 'Europe-wide coverage: DE, PL, FR, IT, ES and more',
+        svc2_title: 'Container Logistics',
+        svc2_subtitle: 'Containerlogistik',
+        svc2_item1: 'Container types: 20GP, 40GP, 40HQ, 45HQ',
+        svc2_item2: 'Shipping line release management',
+        svc2_item3: 'Customs clearance and coordination',
+        svc2_item4: 'Last-mile delivery from port',
+        svc2_item5: 'Full container traceability',
+        svc_more: 'Learn more \u2192',
+        network_tag: 'Network',
+        network_title: 'Our European Network',
+        network_desc: 'Comprehensive presence across 15+ European countries.',
+        c_de: 'Germany', c_fr: 'France', c_pl: 'Poland', c_it: 'Italy',
+        c_es: 'Spain', c_nl: 'Netherlands', c_be: 'Belgium', c_cz: 'Czech Republic',
+        c_at: 'Austria', c_hu: 'Hungary', c_ch: 'Switzerland', c_dk: 'Denmark',
+        c_se: 'Sweden', c_gb: 'United Kingdom', c_ie: 'Ireland',
+        network_more: 'And more countries on request — contact us!',
+        portal_tag: 'EU-TMS',
+        portal_title: 'Our Digital Transport Management',
+        portal_desc: 'Manage your transports digitally — anytime, anywhere with the EU-TMS System.',
+        portal_admin_title: 'Administration',
+        portal_admin_sub: 'Verwaltung',
+        portal_admin_f1: 'Order and dispatch management',
+        portal_admin_f2: 'Financial management and invoicing',
+        portal_admin_f3: 'Reports and business analytics',
+        portal_customer_title: 'Client Portal',
+        portal_customer_sub: 'Kundenportal',
+        portal_customer_f1: 'Online order placement and tracking',
+        portal_customer_f2: 'Invoices and payment overview',
+        portal_customer_f3: 'Customs clearance documents',
+        portal_carrier_title: 'Carrier Portal',
+        portal_carrier_sub: 'Spediteursportal',
+        portal_carrier_f1: 'Order acceptance and CMR upload',
+        portal_carrier_f2: 'GPS tracking and status updates',
+        portal_carrier_f3: 'Billing and payment overview',
+        portal_login: 'Log in \u2192',
+        contact_tag: 'Contact',
+        contact_title: 'Contact Us',
+        contact_desc: 'We look forward to your inquiry and are happy to advise you.',
+        form_title: 'Send a Message',
+        form_name: 'Name *',
+        form_email: 'Email *',
+        form_phone: 'Phone (optional)',
+        form_message: 'Message *',
+        form_submit: 'Send',
+        form_name_ph: 'Your full name',
+        form_email_ph: 'your@email.com',
+        form_phone_ph: '+49 ...',
+        form_message_ph: 'How can we help you?',
+        form_success_title: 'Thank you!',
+        form_success_msg: 'Your message has been sent successfully. We will get back to you shortly.',
+        info_title: 'Company Information',
+        info_address_label: 'Address',
+        info_phone_label: 'Phone',
+        info_email_label: 'Email',
+        info_hours_label: 'Business Hours',
+        info_hours: 'Mon - Fri: 08:00 - 18:00',
+        footer_impressum: 'Legal Notice',
+        footer_datenschutz: 'Privacy Policy',
+        footer_agb: 'Terms & Conditions'
+      },
+      zh: {
+        nav_about: '关于我们',
+        nav_services: '服务范围',
+        nav_network: '覆盖网络',
+        nav_portal: '系统门户',
+        nav_contact: '联系我们',
+        nav_login: '客户门户',
+        hero_badge: '您值得信赖的欧洲物流合作伙伴',
+        hero_title: '您的欧洲物流<br>解决方案',
+        hero_subtitle: '覆盖全欧洲的可靠运输与货代服务。从篷布车运输到集装箱物流，一站式解决您的物流需求。',
+        hero_cta1: '获取报价 \u2192',
+        hero_cta2: '进入客户门户 \u2192',
+        hero_scroll: '了解更多',
+        about_tag: '关于我们',
+        about_title: '经验与创新的结合',
+        about_desc: 'Box Cargo Service GmbH 是您可靠的欧洲运输解决方案合作伙伴。',
+        about_intro: 'Box Cargo Service GmbH 总部位于德国，提供覆盖全欧洲的专业运输与货代服务。我们将多年的行业经验与先进的数字化技术相结合，为您量身定制物流解决方案。无论是篷布车运输还是集装箱物流，我们确保您的货物安全、准时到达目的地。',
+        stat_countries: '覆盖欧洲国家',
+        stat_orders: '年运输订单',
+        stat_ontime: '准时交付率',
+        adv1_title: '全欧覆盖',
+        adv1_desc: '在15个以上欧洲国家拥有完善的合作网络。',
+        adv2_title: '实时追踪',
+        adv2_desc: '通过数字化客户门户实时追踪您的货物状态。',
+        adv3_title: '灵活方案',
+        adv3_desc: '为各类需求定制物流方案 — 整车、拼车或特种运输。',
+        adv4_title: '专业团队',
+        adv4_desc: '经验丰富的物流专家，提供中德英三语服务。',
+        services_tag: '服务范围',
+        services_title: '核心服务',
+        services_desc: '两大业务板块，一站式欧洲物流解决方案。',
+        svc1_title: '篷布车运输',
+        svc1_subtitle: 'Planentransport / Curtain Side',
+        svc1_item1: '整车运输 (FTL) 和拼车运输 (LTL)',
+        svc1_item2: '温控运输服务',
+        svc1_item3: 'ADR 危险品运输',
+        svc1_item4: '超宽超重特种运输',
+        svc1_item5: '覆盖德国、波兰、法国、意大利、西班牙等国',
+        svc2_title: '集装箱物流',
+        svc2_subtitle: 'Containerlogistik / Container Logistics',
+        svc2_item1: '柜型：20GP、40GP、40HQ、45HQ',
+        svc2_item2: '船司放单管理',
+        svc2_item3: '清关协调服务',
+        svc2_item4: '港口至目的地最后一公里配送',
+        svc2_item5: '全程集装箱追踪',
+        svc_more: '了解更多 \u2192',
+        network_tag: '覆盖网络',
+        network_title: '我们的欧洲网络',
+        network_desc: '覆盖15个以上欧洲国家的物流网络。',
+        c_de: '德国', c_fr: '法国', c_pl: '波兰', c_it: '意大利',
+        c_es: '西班牙', c_nl: '荷兰', c_be: '比利时', c_cz: '捷克',
+        c_at: '奥地利', c_hu: '匈牙利', c_ch: '瑞士', c_dk: '丹麦',
+        c_se: '瑞典', c_gb: '英国', c_ie: '爱尔兰',
+        network_more: '更多国家可咨询 — 欢迎联系我们！',
+        portal_tag: 'EU-TMS',
+        portal_title: '数字化运输管理系统',
+        portal_desc: '随时随地通过 EU-TMS 系统数字化管理您的运输业务。',
+        portal_admin_title: '运营管理端',
+        portal_admin_sub: 'Verwaltung / Administration',
+        portal_admin_f1: '订单管理与调度',
+        portal_admin_f2: '财务管理与开票',
+        portal_admin_f3: '报表与经营分析',
+        portal_customer_title: '客户门户',
+        portal_customer_sub: 'Kundenportal / Client Portal',
+        portal_customer_f1: '在线下单与货物追踪',
+        portal_customer_f2: '账单与付款查看',
+        portal_customer_f3: '清关文件管理',
+        portal_carrier_title: '承运商门户',
+        portal_carrier_sub: 'Spediteursportal / Carrier Portal',
+        portal_carrier_f1: '接单与 CMR 文件上传',
+        portal_carrier_f2: 'GPS 追踪与状态更新',
+        portal_carrier_f3: '结算与付款查看',
+        portal_login: '登录 \u2192',
+        contact_tag: '联系我们',
+        contact_title: '联系我们',
+        contact_desc: '期待您的咨询，我们将竭诚为您服务。',
+        form_title: '发送消息',
+        form_name: '姓名 *',
+        form_email: '邮箱 *',
+        form_phone: '电话（选填）',
+        form_message: '留言 *',
+        form_submit: '发送',
+        form_name_ph: '请输入您的姓名',
+        form_email_ph: 'your@email.com',
+        form_phone_ph: '+49 ...',
+        form_message_ph: '请问有什么可以帮到您？',
+        form_success_title: '感谢您的来信！',
+        form_success_msg: '您的消息已成功发送，我们将尽快回复您。',
+        info_title: '公司信息',
+        info_address_label: '地址',
+        info_phone_label: '电话',
+        info_email_label: '邮箱',
+        info_hours_label: '营业时间',
+        info_hours: '周一至周五: 08:00 - 18:00',
+        footer_impressum: '法律声明',
+        footer_datenschutz: '隐私政策',
+        footer_agb: '服务条款'
+      }
+    };
+
+    let currentLang = 'de';
+
+    // 语言切换
+    function switchLang(lang) {
+      currentLang = lang;
+      const t = translations[lang];
+
+      // 更新所有 data-i18n 文本
+      document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n');
+        if (t[key]) {
+          el.innerHTML = t[key];
+        }
+      });
+
+      // 更新 placeholder
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n-placeholder');
+        if (t[key]) {
+          el.placeholder = t[key];
+        }
+      });
+
+      // 更新语言按钮状态
+      document.querySelectorAll('.lang-btn').forEach(function(btn) {
+        btn.classList.remove('active');
+        if (
+          (lang === 'de' && btn.textContent === 'DE') ||
+          (lang === 'en' && btn.textContent === 'EN') ||
+          (lang === 'zh' && btn.textContent.includes('中文'))
+        ) {
+          btn.classList.add('active');
+        }
+      });
+
+      // 更新 HTML lang 属性
+      document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
+    }
+
+    // ===== 汉堡菜单 =====
+    function toggleMenu() {
+      var hamburger = document.getElementById('hamburger');
+      var menu = document.getElementById('mobileMenu');
+      hamburger.classList.toggle('open');
+      menu.classList.toggle('open');
+    }
+
+    function closeMenu() {
+      var hamburger = document.getElementById('hamburger');
+      var menu = document.getElementById('mobileMenu');
+      hamburger.classList.remove('open');
+      menu.classList.remove('open');
+    }
+
+    // ===== 导航栏滚动效果 =====
+    var navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', function() {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+
+    // ===== 导航高亮 =====
+    var sections = document.querySelectorAll('section[id]');
+    var navLinks = document.querySelectorAll('.nav-links a');
+
+    window.addEventListener('scroll', function() {
+      var current = '';
+      sections.forEach(function(section) {
+        var sectionTop = section.offsetTop - 100;
+        if (window.scrollY >= sectionTop) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(function(link) {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // ===== 滚动动画 (IntersectionObserver) =====
+    var fadeElements = document.querySelectorAll('.fade-in');
+    var observerOptions = {
+      threshold: 0.15,
+      rootMargin: '0px 0px -40px 0px'
+    };
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    fadeElements.forEach(function(el) {
+      observer.observe(el);
+    });
+
+    // ===== 计数动画 =====
+    var counterStarted = false;
+
+    function animateCounters() {
+      if (counterStarted) return;
+      var counters = document.querySelectorAll('.counter');
+      var allVisible = true;
+
+      counters.forEach(function(counter) {
+        var rect = counter.getBoundingClientRect();
+        if (rect.top > window.innerHeight) {
+          allVisible = false;
+        }
+      });
+
+      if (!allVisible) return;
+      counterStarted = true;
+
+      counters.forEach(function(counter) {
+        var target = parseInt(counter.getAttribute('data-target'));
+        var duration = 2000;
+        var startTime = null;
+
+        function step(timestamp) {
+          if (!startTime) startTime = timestamp;
+          var progress = Math.min((timestamp - startTime) / duration, 1);
+          // 缓动函数
+          var eased = 1 - Math.pow(1 - progress, 3);
+          counter.textContent = Math.floor(eased * target);
+          if (progress < 1) {
+            requestAnimationFrame(step);
+          } else {
+            counter.textContent = target;
+          }
+        }
+
+        requestAnimationFrame(step);
+      });
+    }
+
+    window.addEventListener('scroll', animateCounters);
+    // 页面加载时也检查一次
+    animateCounters();
+
+    // ===== 联系表单 =====
+    function handleSubmit(e) {
+      e.preventDefault();
+
+      var form = document.getElementById('contactForm');
+      var success = document.getElementById('formSuccess');
+
+      // 简单的前端验证
+      var name = document.getElementById('formName').value.trim();
+      var email = document.getElementById('formEmail').value.trim();
+      var message = document.getElementById('formMessage').value.trim();
+
+      if (!name || !email || !message) return;
+
+      // 隐藏表单，显示成功消息
+      form.style.display = 'none';
+      success.classList.add('show');
+
+      // 5秒后恢复表单
+      setTimeout(function() {
+        form.reset();
+        form.style.display = 'block';
+        success.classList.remove('show');
+      }, 5000);
+    }
+
+    // ===== 平滑滚动处理（兼容性） =====
+    document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+      anchor.addEventListener('click', function(e) {
+        var targetId = this.getAttribute('href');
+        if (targetId === '#') return;
+        e.preventDefault();
+        var target = document.querySelector(targetId);
+        if (target) {
+          var offset = target.offsetTop - 72; // 导航栏高度
+          window.scrollTo({
+            top: offset,
+            behavior: 'smooth'
+          });
+        }
+        closeMenu();
+      });
+    });
+  </script>
+
+</body>
+</html>

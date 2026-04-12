@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" width="480" height="200">
+  <!-- 完整 Logo - 浅色背景版（用于白色背景、文档、名片） -->
+  <rect width="480" height="200" rx="0" fill="#FFFFFF"/>
+  <text x="145" y="105" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="2" fill="#F6AD55">BOX</text>
+  <text x="237" y="105" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="0" fill="rgba(26,54,93,0.2)">·</text>
+  <text x="255" y="105" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="2" fill="#1A365D">CARGO</text>
+  <text x="148" y="128" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="400" letter-spacing="3" fill="#718096">S E R V I C E   G M B H</text>
+  <rect x="210" y="138" width="60" height="2" rx="1" fill="#F6AD55"/>
+  <text x="155" y="162" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="300" fill="#A0AEC0">European Transport Solutions</text>
+</svg>
