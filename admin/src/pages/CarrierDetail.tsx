@@ -505,7 +505,7 @@ export default function CarrierDetail() {
               <span className="text-xs text-slate-300">|</span>
               <span className={`text-xs font-medium ${getScoreColor(carrier.rating || 0)}`}>
                 <Star className="w-3 h-3 inline mr-0.5 fill-current" />
-                {carrier.rating?.toFixed(1) || '-'}/10
+                {carrier.rating ? Number(carrier.rating).toFixed(1) : '-'}/10
               </span>
             </div>
           </div>

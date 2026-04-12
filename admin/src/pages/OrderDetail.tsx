@@ -374,7 +374,7 @@ function StarRating({ score }: { score: number }) {
       {Array.from({ length: emptyStars }).map((_, i) => (
         <Star key={`empty-${i}`} className="w-4 h-4 text-slate-200 fill-slate-200" />
       ))}
-      <span className="text-sm text-slate-500 ml-1">{score.toFixed(1)}</span>
+      <span className="text-sm text-slate-500 ml-1">{Number(score).toFixed(1)}</span>
     </div>
   )
 }
@@ -1017,7 +1017,7 @@ export default function OrderDetail() {
                       isProfitable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}
                   >
-                    {grossMargin.toFixed(1)}%
+                    {Number(grossMargin).toFixed(1)}%
                   </span>
                 </div>
               </div>

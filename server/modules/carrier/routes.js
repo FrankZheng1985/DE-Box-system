@@ -60,6 +60,27 @@ router.get('/', async (req, res) => {
 })
 
 /**
+ * 匹配承运商（派单用）- 必须在 /:id 前面
+ */
+router.get('/match', async (req, res) => {
+  try {
+    const { routeFrom, routeTo, vehicleType } = req.query
+    const result = await query(
+      `SELECT cr.id, cr.carrier_code, cr.company_name, cr.country,
+              cr.performance_score, cr.vehicle_types,
+              (SELECT COUNT(*) FROM carrier_vehicles cv WHERE cv.carrier_id = cr.id AND cv.status = 'IDLE') as available_vehicles
+       FROM carriers cr
+       WHERE cr.status = 'ACTIVE'
+       ORDER BY cr.performance_score DESC
+       LIMIT 10`
+    )
+    res.json({ code: 200, message: 'success', data: result.rows })
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '匹配承运商失败', data: null })
+  }
+})
+
+/**
  * 承运商详情
  */
 router.get('/:id', async (req, res) => {
@@ -201,27 +222,6 @@ router.post('/:id/vehicles', async (req, res) => {
     res.json({ code: 200, message: '车辆添加成功', data: result.rows[0] })
   } catch (error) {
     res.status(500).json({ code: 500, message: error.message, data: null })
-  }
-})
-
-/**
- * 匹配承运商（派单用）
- */
-router.get('/match', async (req, res) => {
-  try {
-    const { routeFrom, routeTo, vehicleType } = req.query
-    const result = await query(
-      `SELECT cr.id, cr.carrier_code, cr.company_name, cr.country,
-              cr.performance_score, cr.vehicle_types,
-              (SELECT COUNT(*) FROM carrier_vehicles cv WHERE cv.carrier_id = cr.id AND cv.status = 'IDLE') as available_vehicles
-       FROM carriers cr
-       WHERE cr.status = 'ACTIVE'
-       ORDER BY cr.performance_score DESC
-       LIMIT 10`
-    )
-    res.json({ code: 200, message: 'success', data: result.rows })
-  } catch (error) {
-    res.status(500).json({ code: 500, message: '匹配承运商失败', data: null })
   }
 })
 

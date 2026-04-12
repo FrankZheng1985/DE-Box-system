@@ -7,6 +7,7 @@ import { Router } from 'express'
 import { authenticateToken } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import multer from 'multer'
+import { uploadToOSS } from '../../utils/oss-service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -143,15 +144,35 @@ router.post('/:orderId/documents', upload.single('file'), async (req, res) => {
         [req.params.orderId])
     }
 
-    // 保存上传文件到磁盘
+    // 查询订单信息（用于文件目录组织）
+    const orderInfo = await query(
+      `SELECT order_number, container_no FROM orders WHERE id = $1`, [req.params.orderId]
+    )
+    const orderNumber = orderInfo.rows[0]?.order_number || 'unknown'
+    const containerNo = orderInfo.rows[0]?.container_no || ''
+
+    // 文件路径：按订单号/柜号组织
     const originalName = req.file?.originalname || req.body.fileName || 'document'
     const safeOriginalName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const folderName = containerNo ? `${orderNumber}_${containerNo}` : orderNumber
     const filename = `${Date.now()}-${safeOriginalName}`
-    const fileUrl = `/uploads/customs/${filename}`
+    const ossPath = `customs/${folderName}/${filename}`
+    let fileUrl = `/uploads/customs/${filename}`
 
     if (req.file?.buffer) {
-      const filePath = path.join(CUSTOMS_UPLOAD_DIR, filename)
-      fs.writeFileSync(filePath, req.file.buffer)
+      try {
+        const ossResult = await uploadToOSS(req.file.buffer, ossPath)
+        if (ossResult) {
+          fileUrl = ossResult.url
+        } else {
+          const filePath = path.join(CUSTOMS_UPLOAD_DIR, filename)
+          fs.writeFileSync(filePath, req.file.buffer)
+        }
+      } catch (ossErr) {
+        console.warn('[Customs] OSS上传失败，回退到本地:', ossErr.message)
+        const filePath = path.join(CUSTOMS_UPLOAD_DIR, filename)
+        fs.writeFileSync(filePath, req.file.buffer)
+      }
     }
 
     const result = await query(

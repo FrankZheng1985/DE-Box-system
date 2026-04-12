@@ -531,7 +531,7 @@ export default function FinanceManagement() {
         <StatCard title="本月营收" value={summary ? fmt(summary.monthly_revenue) : '-'} icon={<DollarSign className="w-5 h-5" />} color="green" />
         <StatCard title="应收余额" value={summary ? fmt(summary.receivable_balance) : '-'} icon={<CreditCard className="w-5 h-5" />} color="blue" />
         <StatCard title="应付余额" value={summary ? fmt(summary.payable_balance) : '-'} icon={<TrendingUp className="w-5 h-5" />} color="yellow" />
-        <StatCard title="平均毛利率" value={summary ? `${(summary.avg_margin || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
+        <StatCard title="平均毛利率" value={summary ? `${Number(summary.avg_margin || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
       </div>
 
       {/* Tab 标签栏 */}
@@ -576,7 +576,7 @@ export default function FinanceManagement() {
                       <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(p.revenue)}</span></div>
                       <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(p.cost)}</span></div>
                       <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(p.profit)}</span></div>
-                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{p.margin?.toFixed(1)}%</span></div>
+                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{p.margin ? Number(p.margin).toFixed(1) : '0'}%</span></div>
                     </div>
                     <p className="text-xs text-slate-400 mt-2">订单数: {p.order_count}</p>
                   </div>

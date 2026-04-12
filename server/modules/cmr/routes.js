@@ -8,6 +8,7 @@ import { authenticateToken } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, documentFlow, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import multer from 'multer'
+import { uploadToOSS } from '../../utils/oss-service.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -115,15 +116,38 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         createdBy: req.user.id
       })
 
-      // 保存上传文件到磁盘
+      // 查询订单信息（用于文件目录组织）
+      const orderInfo = await client.query(
+        `SELECT order_number, container_no FROM orders WHERE id = $1`, [req.body.orderId]
+      )
+      const orderNumber = orderInfo.rows[0]?.order_number || 'unknown'
+      const containerNo = orderInfo.rows[0]?.container_no || ''
+
+      // 文件路径：按订单号/柜号组织
+      // 例如：cmr/EU-20260410-0001/CMR-xxx.pdf
+      // 或者：cmr/EU-20260410-0001_MSCU1234567/CMR-xxx.pdf
       const originalName = req.file?.originalname || `${doc.docNumber}.pdf`
       const safeOriginalName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const filename = `CMR-${Date.now()}-${safeOriginalName}`
-      const fileUrl = `/uploads/cmr/${filename}`
+      const folderName = containerNo ? `${orderNumber}_${containerNo}` : orderNumber
+      const filename = `${doc.docNumber}-${safeOriginalName}`
+      const ossPath = `cmr/${folderName}/${filename}`
+      let fileUrl = `/uploads/cmr/${filename}`
 
       if (req.file?.buffer) {
-        const filePath = path.join(CMR_UPLOAD_DIR, filename)
-        fs.writeFileSync(filePath, req.file.buffer)
+        try {
+          const ossResult = await uploadToOSS(req.file.buffer, ossPath)
+          if (ossResult) {
+            fileUrl = ossResult.url
+          } else {
+            // OSS 未配置，存本地（本地不建子目录，保持简单）
+            const filePath = path.join(CMR_UPLOAD_DIR, filename)
+            fs.writeFileSync(filePath, req.file.buffer)
+          }
+        } catch (ossErr) {
+          console.warn('[CMR] OSS 上传失败，回退到本地:', ossErr.message)
+          const filePath = path.join(CMR_UPLOAD_DIR, filename)
+          fs.writeFileSync(filePath, req.file.buffer)
+        }
       }
 
       const result = await client.query(

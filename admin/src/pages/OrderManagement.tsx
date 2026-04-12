@@ -25,34 +25,35 @@ import StatusBadge from '../components/StatusBadge'
 
 // ==================== 类型定义 ====================
 
-// 篷布车运输订单
+// 篷布车运输订单（字段名与后端 API 一致，snake_case）
 interface CurtainSideOrder {
   id: string
-  orderNo: string
-  customerName: string
-  originCity: string
-  destinationCity: string
+  order_number: string
+  client_name: string
+  pickup_city: string
+  delivery_city: string
   status: string
-  transportType: 'FTL' | 'LTL'
-  weight: number
-  carrierName: string
-  quotation: number
-  createTime: string
+  transport_type: string
+  cargo_weight_kg: string | number | null
+  carrier_name: string | null
+  client_price: string | number | null
+  currency: string
+  created_at: string
 }
 
 // 集装箱物流订单
 interface ContainerOrder {
   id: string
-  orderNo: string
-  customerName: string
-  shippingLine: string
-  containerNo: string
-  blNumber: string
-  destination: string
-  deliveryStatus: string
-  releaseStatus: string
-  eta: string
-  createTime: string
+  order_number: string
+  client_name: string
+  shipping_line: string | null
+  container_no: string | null
+  bl_number: string | null
+  delivery_city: string | null
+  delivery_status: string | null
+  release_status: string | null
+  eta: string | null
+  created_at: string
 }
 
 // API 返回的分页信息
@@ -66,8 +67,8 @@ interface Pagination {
 
 // 业务类型 Tab
 const BUSINESS_TABS = [
-  { key: 'curtain_side', label: '篷布车运输', icon: Truck },
-  { key: 'container', label: '集装箱物流', icon: Container },
+  { key: 'CURTAIN_SIDE', label: '篷布车运输', icon: Truck },
+  { key: 'CONTAINER', label: '集装箱物流', icon: Container },
 ] as const
 
 type BusinessType = typeof BUSINESS_TABS[number]['key']
@@ -75,21 +76,22 @@ type BusinessType = typeof BUSINESS_TABS[number]['key']
 // 篷布车运输状态子标签
 const CURTAIN_SIDE_STATUS_TABS = [
   { key: '', label: '全部' },
-  { key: 'pending_review', label: '待审核' },
-  { key: 'pending_dispatch', label: '待派单' },
-  { key: 'in_transit', label: '运输中' },
-  { key: 'arrived', label: '已到达' },
-  { key: 'abnormal', label: '异常' },
+  { key: 'PENDING_REVIEW', label: '待审核' },
+  { key: 'PENDING_ASSIGN', label: '待派单' },
+  { key: 'IN_TRANSIT', label: '运输中' },
+  { key: 'DELIVERED', label: '已到达' },
+  { key: 'COMPLETED', label: '已完成' },
+  { key: 'EXCEPTION', label: '异常' },
 ]
 
 // 集装箱物流状态子标签
 const CONTAINER_STATUS_TABS = [
   { key: '', label: '全部' },
-  { key: 'waiting', label: '等待安排' },
-  { key: 'fleet_confirmed', label: '车队已确认' },
-  { key: 'in_transit', label: '运输中' },
-  { key: 'transport_completed', label: '运输完成' },
-  { key: 'abnormal', label: '异常' },
+  { key: 'WAITING_ARRANGE', label: '等待安排' },
+  { key: 'FLEET_CONFIRMED', label: '车队已确认' },
+  { key: 'IN_TRANSIT', label: '运输中' },
+  { key: 'TRANSPORT_DONE', label: '运输完成' },
+  { key: 'EXCEPTION', label: '异常' },
 ]
 
 const PAGE_SIZE = 15
@@ -101,7 +103,7 @@ export default function OrderManagement() {
 
   // ---------- 状态 ----------
   // 业务类型 Tab
-  const [businessType, setBusinessType] = useState<BusinessType>('curtain_side')
+  const [businessType, setBusinessType] = useState<BusinessType>('CURTAIN_SIDE')
   // 状态筛选
   const [statusFilter, setStatusFilter] = useState('')
   // 搜索关键词
@@ -168,7 +170,7 @@ export default function OrderManagement() {
         `/orders?${params.toString()}`
       )
 
-      if (businessType === 'curtain_side') {
+      if (businessType === 'CURTAIN_SIDE') {
         setCurtainSideOrders((response.data || []) as CurtainSideOrder[])
         setCurtainSidePagination(
           response.pagination || { total: 0, page: currentPage, pageSize: PAGE_SIZE }
@@ -182,7 +184,7 @@ export default function OrderManagement() {
     } catch (error) {
       console.error('[OrderManagement] 获取订单列表失败:', error)
       // 请求失败时清空数据，避免残留旧数据
-      if (businessType === 'curtain_side') {
+      if (businessType === 'CURTAIN_SIDE') {
         setCurtainSideOrders([])
         setCurtainSidePagination({ total: 0, page: 1, pageSize: PAGE_SIZE })
       } else {
@@ -211,10 +213,10 @@ export default function OrderManagement() {
   }
 
   // ---------- 当前使用的数据 ----------
-  const orders = businessType === 'curtain_side' ? curtainSideOrders : containerOrders
-  const pagination = businessType === 'curtain_side' ? curtainSidePagination : containerPagination
+  const orders = businessType === 'CURTAIN_SIDE' ? curtainSideOrders : containerOrders
+  const pagination = businessType === 'CURTAIN_SIDE' ? curtainSidePagination : containerPagination
   const totalPages = Math.max(1, Math.ceil(pagination.total / PAGE_SIZE))
-  const statusTabs = businessType === 'curtain_side' ? CURTAIN_SIDE_STATUS_TABS : CONTAINER_STATUS_TABS
+  const statusTabs = businessType === 'CURTAIN_SIDE' ? CURTAIN_SIDE_STATUS_TABS : CONTAINER_STATUS_TABS
 
   // ==================== 渲染 ====================
 
@@ -278,7 +280,7 @@ export default function OrderManagement() {
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 placeholder={
-                  businessType === 'curtain_side'
+                  businessType === 'CURTAIN_SIDE'
                     ? '搜索订单号、客户、路线...'
                     : '搜索柜号、提单号、客户...'
                 }
@@ -322,7 +324,7 @@ export default function OrderManagement() {
             <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Calendar className="w-4 h-4" />
-                {businessType === 'curtain_side' ? '创建日期：' : 'ETA 范围：'}
+                {businessType === 'CURTAIN_SIDE' ? '创建日期：' : 'ETA 范围：'}
               </div>
               <input
                 type="date"
@@ -373,7 +375,7 @@ export default function OrderManagement() {
 
         {/* ===== 表格 ===== */}
         <div className="overflow-x-auto">
-          {businessType === 'curtain_side'
+          {businessType === 'CURTAIN_SIDE'
             ? renderCurtainSideTable()
             : renderContainerTable()
           }
@@ -480,21 +482,21 @@ export default function OrderManagement() {
                 <button
                   onClick={() => navigate(`/orders/${order.id}`)}
                   className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-full text-left"
-                  title={order.orderNo}
+                  title={order.order_number}
                 >
-                  {order.orderNo}
+                  {order.order_number}
                 </button>
               </td>
               {/* 客户 */}
-              <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.customerName}>
-                {order.customerName}
+              <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.client_name}>
+                {order.client_name}
               </td>
               {/* 路线 */}
               <td className="px-4 py-3 text-xs text-slate-600">
-                <span className="truncate block" title={`${order.originCity} → ${order.destinationCity}`}>
-                  {order.originCity}
+                <span className="truncate block" title={`${order.pickup_city} → ${order.delivery_city}`}>
+                  {order.pickup_city}
                   <span className="text-slate-400 mx-1">→</span>
-                  {order.destinationCity}
+                  {order.delivery_city}
                 </span>
               </td>
               {/* 状态 */}
@@ -504,24 +506,24 @@ export default function OrderManagement() {
               {/* 类型 FTL/LTL */}
               <td className="px-4 py-3 text-center">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                  order.transportType === 'FTL'
+                  order.transport_type === 'FTL'
                     ? 'bg-purple-100 text-purple-700'
                     : 'bg-teal-100 text-teal-700'
                 }`}>
-                  {order.transportType}
+                  {order.transport_type}
                 </span>
               </td>
               {/* 重量 */}
               <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums">
-                {order.weight != null ? order.weight.toLocaleString() : '-'}
+                {order.cargo_weight_kg != null ? order.cargo_weight_kg.toLocaleString() : '-'}
               </td>
               {/* 承运商 */}
-              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.carrierName}>
-                {order.carrierName || '-'}
+              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.carrier_name}>
+                {order.carrier_name || '-'}
               </td>
               {/* 报价 */}
               <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums font-medium">
-                {order.quotation != null ? `€${order.quotation.toLocaleString('de-DE', { minimumFractionDigits: 2 })}` : '-'}
+                {order.client_price != null ? `€${order.client_price.toLocaleString('de-DE', { minimumFractionDigits: 2 })}` : '-'}
               </td>
               {/* 操作 */}
               <td className="px-4 py-3 text-center">
@@ -613,38 +615,38 @@ export default function OrderManagement() {
                 <button
                   onClick={() => navigate(`/orders/${order.id}`)}
                   className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-full text-left"
-                  title={order.orderNo}
+                  title={order.order_number}
                 >
-                  {order.orderNo}
+                  {order.order_number}
                 </button>
               </td>
               {/* 客户 */}
-              <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.customerName}>
-                {order.customerName}
+              <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.client_name}>
+                {order.client_name}
               </td>
               {/* 船司 */}
-              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.shippingLine}>
-                {order.shippingLine || '-'}
+              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.shipping_line}>
+                {order.shipping_line || '-'}
               </td>
               {/* 柜号 */}
-              <td className="px-4 py-3 text-xs text-slate-700 font-mono truncate" title={order.containerNo}>
-                {order.containerNo || '-'}
+              <td className="px-4 py-3 text-xs text-slate-700 font-mono truncate" title={order.container_no}>
+                {order.container_no || '-'}
               </td>
               {/* 提单号 */}
-              <td className="px-4 py-3 text-xs text-slate-700 font-mono truncate" title={order.blNumber}>
-                {order.blNumber || '-'}
+              <td className="px-4 py-3 text-xs text-slate-700 font-mono truncate" title={order.bl_number}>
+                {order.bl_number || '-'}
               </td>
               {/* 目的地 */}
-              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.destination}>
-                {order.destination || '-'}
+              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.delivery_city}>
+                {order.delivery_city || '-'}
               </td>
               {/* 派送状态 */}
               <td className="px-4 py-3 text-center">
-                <StatusBadge status={order.deliveryStatus} />
+                <StatusBadge status={order.delivery_status} />
               </td>
               {/* 放单状态 */}
               <td className="px-4 py-3 text-center">
-                <StatusBadge status={order.releaseStatus} />
+                <StatusBadge status={order.release_status} />
               </td>
               {/* ETA */}
               <td className="px-4 py-3 text-xs text-slate-600 text-center">

@@ -129,7 +129,7 @@ function ScoreStars({ score }: { score: number }) {
       {Array.from({ length: maxScore - fullStars - (hasHalf ? 1 : 0) }).map((_, i) => (
         <Star key={`e-${i}`} className="w-3.5 h-3.5 text-slate-200 fill-slate-200" />
       ))}
-      <span className="ml-1 text-xs text-slate-500">{score.toFixed(1)}</span>
+      <span className="ml-1 text-xs text-slate-500">{Number(score).toFixed(1)}</span>
     </div>
   )
 }
@@ -480,7 +480,7 @@ export default function OrderAssign() {
                   {compareCarriers.map((c) => (
                     <td key={c.id} className="py-3 px-3 text-center">
                       <span className="text-sm font-medium text-slate-700">
-                        {c.performance_score?.toFixed(1) || '-'} / 10
+                        {c.performance_score ? Number(c.performance_score).toFixed(1) : '-'} / 10
                       </span>
                     </td>
                   ))}

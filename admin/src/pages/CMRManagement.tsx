@@ -89,6 +89,7 @@ export default function CMRManagement() {
   // 上传 CMR Modal 状态
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm, setUploadForm] = useState({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' })
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadSubmitting, setUploadSubmitting] = useState(false)
 
   // 更新签署状态 Modal
@@ -155,16 +156,29 @@ export default function CMRManagement() {
     if (!uploadForm.orderId.trim()) return
     setUploadSubmitting(true)
     try {
-      const res = await api.post<ApiResponse<unknown>>('/cmr/upload', {
-        orderId: uploadForm.orderId.trim(),
-        cmrNumber: uploadForm.cmrNumber.trim(),
-        fileType: uploadForm.fileType,
-        remark: uploadForm.remark.trim(),
+      // 使用 FormData 支持文件上传
+      const formData = new FormData()
+      formData.append('orderId', uploadForm.orderId.trim())
+      formData.append('cmrNumber', uploadForm.cmrNumber.trim())
+      formData.append('fileType', uploadForm.fileType)
+      if (uploadFile) {
+        formData.append('file', uploadFile)
+      }
+
+      const token = localStorage.getItem('eu_tms_auth')
+      const authData = token ? JSON.parse(token) : null
+      const response = await fetch('/api/v1/cmr/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authData?.token || ''}` },
+        body: formData,
       })
+      const res = await response.json()
+
       if (res.code === 200) {
         setToast('CMR 上传成功')
         setUploadModalOpen(false)
         setUploadForm({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' })
+        setUploadFile(null)
         refreshAll()
       }
     } catch (err) {
@@ -461,6 +475,26 @@ export default function CMRManagement() {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          </div>
+
+          {/* 文件上传 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              上传文件 <span className="text-slate-400 font-normal">(PDF/JPG/PNG, 最大20MB)</span>
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 file:mr-4 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 cursor-pointer"
+              />
+              {uploadFile && (
+                <p className="mt-1.5 text-xs text-green-600">
+                  已选择: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
+            </div>
           </div>
 
           {/* 备注 */}

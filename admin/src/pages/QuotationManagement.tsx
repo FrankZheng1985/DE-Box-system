@@ -345,7 +345,7 @@ export default function QuotationManagement() {
         <StatCard title="待回复" value={stats.pending_reply} icon={<Clock className="w-5 h-5" />} color="yellow" />
         <StatCard title="已接受" value={stats.accepted} icon={<CheckCircle className="w-5 h-5" />} color="green" />
         <StatCard title="已拒绝" value={stats.rejected} icon={<XCircle className="w-5 h-5" />} color="red" />
-        <StatCard title="转化率" value={`${(stats.conversion_rate || 0).toFixed(1)}%`} icon={<TrendingUp className="w-5 h-5" />} color="purple" />
+        <StatCard title="转化率" value={`${Number(stats.conversion_rate || 0).toFixed(1)}%`} icon={<TrendingUp className="w-5 h-5" />} color="purple" />
       </div>
 
       {/* 搜索栏 + 新建按钮 */}
