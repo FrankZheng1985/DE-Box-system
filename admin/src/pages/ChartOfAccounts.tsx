@@ -1,50 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, ArrowLeft, Search } from 'lucide-react'
+import api, { type ApiResponse } from '../utils/api'
 
-// ==================== 科目数据 ====================
+// ==================== 类型定义 ====================
 
 interface Account {
-  code: string
-  name: string
-  type: 'ASSET' | 'LIABILITY' | 'REVENUE' | 'EXPENSE'
-  parentCode: string | null
-  isReconciliation: boolean
-  isPostable: boolean
+  id: string
+  account_code: string
+  account_name: string
+  account_type: 'ASSET' | 'LIABILITY' | 'REVENUE' | 'EXPENSE'
+  parent_code: string | null
+  is_reconciliation: boolean
+  is_postable: boolean
 }
-
-const ACCOUNTS: Account[] = [
-  // 资产类
-  { code: '1000', name: '银行存款', type: 'ASSET', parentCode: null, isReconciliation: false, isPostable: true },
-  { code: '1100', name: '银行存款-EUR', type: 'ASSET', parentCode: '1000', isReconciliation: false, isPostable: true },
-  { code: '1110', name: '银行存款-GBP', type: 'ASSET', parentCode: '1000', isReconciliation: false, isPostable: true },
-  { code: '1120', name: '银行存款-PLN', type: 'ASSET', parentCode: '1000', isReconciliation: false, isPostable: true },
-  { code: '1200', name: '应收账款', type: 'ASSET', parentCode: null, isReconciliation: true, isPostable: false },
-  { code: '1210', name: '应收账款-客户', type: 'ASSET', parentCode: '1200', isReconciliation: true, isPostable: false },
-  { code: '1300', name: '预付款项', type: 'ASSET', parentCode: null, isReconciliation: false, isPostable: true },
-  { code: '1400', name: 'GR/IR 暂估清算', type: 'ASSET', parentCode: null, isReconciliation: false, isPostable: true },
-  // 负债类
-  { code: '2000', name: '应付账款', type: 'LIABILITY', parentCode: null, isReconciliation: true, isPostable: false },
-  { code: '2100', name: '应付账款-承运商', type: 'LIABILITY', parentCode: '2000', isReconciliation: true, isPostable: false },
-  { code: '2200', name: '应付税款', type: 'LIABILITY', parentCode: null, isReconciliation: false, isPostable: true },
-  { code: '2210', name: '应付增值税', type: 'LIABILITY', parentCode: '2200', isReconciliation: false, isPostable: true },
-  { code: '2300', name: '预收款项', type: 'LIABILITY', parentCode: null, isReconciliation: false, isPostable: true },
-  // 收入类
-  { code: '4000', name: '运输收入', type: 'REVENUE', parentCode: null, isReconciliation: false, isPostable: false },
-  { code: '4100', name: '篷布车运输收入', type: 'REVENUE', parentCode: '4000', isReconciliation: false, isPostable: true },
-  { code: '4200', name: '集装箱物流收入', type: 'REVENUE', parentCode: '4000', isReconciliation: false, isPostable: true },
-  { code: '4300', name: '附加服务收入', type: 'REVENUE', parentCode: '4000', isReconciliation: false, isPostable: true },
-  // 成本/费用类
-  { code: '5000', name: '运输成本', type: 'EXPENSE', parentCode: null, isReconciliation: false, isPostable: false },
-  { code: '5100', name: '篷布车运输成本', type: 'EXPENSE', parentCode: '5000', isReconciliation: false, isPostable: true },
-  { code: '5200', name: '集装箱物流成本', type: 'EXPENSE', parentCode: '5000', isReconciliation: false, isPostable: true },
-  { code: '5300', name: '燃油附加费', type: 'EXPENSE', parentCode: '5000', isReconciliation: false, isPostable: true },
-  { code: '5400', name: '保险费用', type: 'EXPENSE', parentCode: '5000', isReconciliation: false, isPostable: true },
-  { code: '5900', name: '价格差异', type: 'EXPENSE', parentCode: '5000', isReconciliation: false, isPostable: true },
-  { code: '6000', name: '营业费用', type: 'EXPENSE', parentCode: null, isReconciliation: false, isPostable: false },
-  { code: '6100', name: '管理费用', type: 'EXPENSE', parentCode: '6000', isReconciliation: false, isPostable: true },
-  { code: '6200', name: '销售费用', type: 'EXPENSE', parentCode: '6000', isReconciliation: false, isPostable: true },
-]
 
 // 类型颜色映射
 const TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -59,10 +28,58 @@ const TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> =
 export default function ChartOfAccounts() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = search.trim()
-    ? ACCOUNTS.filter(a => a.code.includes(search) || a.name.includes(search))
-    : ACCOUNTS
+  // 获取科目表数据
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchAccounts() {
+      try {
+        const res = await api.get<ApiResponse<Account[]>>('/system/chart-of-accounts')
+        if (cancelled) return
+        if (res.code === 200 && res.data) {
+          setAccounts(res.data)
+        }
+      } catch (err: any) {
+        if (cancelled) return
+        console.error('[ChartOfAccounts] 获取科目表失败:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    fetchAccounts()
+    return () => { cancelled = true }
+  }, [])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return accounts
+    return accounts.filter(a => a.account_code.includes(search) || a.account_name.includes(search))
+  }, [accounts, search])
+
+  // 按类型统计
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const a of accounts) {
+      counts[a.account_type] = (counts[a.account_type] || 0) + 1
+    }
+    return counts
+  }, [accounts])
+
+  // 骨架屏
+  if (loading) {
+    return (
+      <div className="p-4 lg:p-6 animate-pulse">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-10 h-10 bg-slate-200 rounded-xl" />
+          <div className="h-7 w-32 bg-slate-200 rounded-lg" />
+        </div>
+        <div className="bg-white/80 rounded-2xl p-6 h-96" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 lg:p-6">
@@ -121,19 +138,19 @@ export default function ChartOfAccounts() {
             </thead>
             <tbody>
               {filtered.map((a) => {
-                const style = TYPE_STYLES[a.type]
-                const isChild = a.parentCode !== null
+                const style = TYPE_STYLES[a.account_type] || TYPE_STYLES.EXPENSE
+                const isChild = a.parent_code !== null
                 return (
                   <tr
-                    key={a.code}
+                    key={a.id}
                     className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200"
                   >
                     <td className="px-4 py-3 text-xs font-mono font-medium text-slate-900">
-                      {a.code}
+                      {a.account_code}
                     </td>
                     <td className={`px-4 py-3 text-sm text-slate-700 ${isChild ? 'pl-10' : ''}`}>
                       {isChild && <span className="text-slate-300 mr-1">└</span>}
-                      {a.name}
+                      {a.account_name}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${style.bg} ${style.text}`}>
@@ -141,14 +158,14 @@ export default function ChartOfAccounts() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {a.isReconciliation ? (
+                      {a.is_reconciliation ? (
                         <span className="inline-block w-2 h-2 rounded-full bg-blue-500" title="调节科目" />
                       ) : (
                         <span className="text-xs text-slate-300">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {a.isPostable ? (
+                      {a.is_postable ? (
                         <span className="text-xs text-green-600 font-medium">是</span>
                       ) : (
                         <span className="text-xs text-slate-400">否</span>
@@ -171,7 +188,7 @@ export default function ChartOfAccounts() {
             {Object.entries(TYPE_STYLES).map(([key, style]) => (
               <span key={key} className="flex items-center gap-1.5 text-xs text-slate-500">
                 <span className={`w-2 h-2 rounded-full ${style.bg.replace('100', '500')}`} />
-                {style.label} {ACCOUNTS.filter(a => a.type === key).length}
+                {style.label} {typeCounts[key] || 0}
               </span>
             ))}
           </div>

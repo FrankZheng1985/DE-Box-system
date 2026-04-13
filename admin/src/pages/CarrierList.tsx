@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Truck, Search, Plus, Eye, Edit, Star, ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from 'lucide-react'
+import { Truck, Search, Plus, Eye, Edit, Star, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
@@ -218,13 +218,22 @@ export default function CarrierList() {
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           />
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 text-white text-sm font-medium rounded-xl hover:bg-orange-700 transition-all duration-200"
-        >
-          <Plus className="w-4 h-4" />
-          添加运输公司
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.open('/api/v1/carriers/export', '_blank')}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all duration-200"
+          >
+            <Download className="w-4 h-4" />
+            导出
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 text-white text-sm font-medium rounded-xl hover:bg-orange-700 transition-all duration-200"
+          >
+            <Plus className="w-4 h-4" />
+            添加运输公司
+          </button>
+        </div>
       </div>
 
       {/* 表格 */}

@@ -346,54 +346,177 @@ export default function CarrierDetail() {
     )
   }
 
-  // Tab 2: 覆盖路线 (占位)
+  // Tab 2: 覆盖路线
   const renderRoutes = () => (
-    <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
-      <Globe className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-      <p className="text-slate-500 text-sm">覆盖路线功能开发中</p>
+    <div className="space-y-4">
+      {/* 表头区域 */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900">覆盖路线列表</h3>
+        <button
+          disabled
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
+        >
+          <Plus className="w-4 h-4" />
+          添加覆盖路线（功能即将上线）
+        </button>
+      </div>
+
+      {/* 表格结构 */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">起点</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">终点</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">车型偏好</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">完成订单数</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">平均耗时 (天)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={5} className="px-4 py-16 text-center">
+                  <Globe className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 mb-1">暂无覆盖路线数据</p>
+                  <p className="text-xs text-slate-400">路线管理功能即将上线，届时可录入该承运商的常跑路线与运输能力</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 
-  // Tab 3: 绩效统计 (占位数据)
-  const renderPerformance = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="准时率"
-          value="--"
-          subtitle="暂无数据"
-          icon={Clock}
-          color="blue"
-        />
-        <StatCard
-          title="货损率"
-          value="--"
-          subtitle="暂无数据"
-          icon={AlertTriangle}
-          color="yellow"
-        />
-        <StatCard
-          title="综合评分"
-          value="--"
-          subtitle="暂无数据"
-          icon={Star}
-          color="purple"
-        />
-        <StatCard
-          title="完成订单"
-          value="--"
-          subtitle="暂无数据"
-          icon={CheckCircle}
-          color="green"
-        />
-      </div>
+  // Tab 3: 绩效统计
+  const renderPerformance = () => {
+    const performanceScore = carrier ? Number(carrier.rating || 0) : 0
 
-      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
-        <Gauge className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <p className="text-slate-500 text-sm">绩效详细数据尚未接入，统计功能即将上线</p>
+    return (
+      <div className="space-y-6">
+        {/* 核心指标卡片 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="准时率"
+            value="--%"
+            subtitle="数据接入中"
+            icon={Clock}
+            color="blue"
+          />
+          <StatCard
+            title="货损率"
+            value="--%"
+            subtitle="数据接入中"
+            icon={AlertTriangle}
+            color="yellow"
+          />
+          <StatCard
+            title="综合评分"
+            value={performanceScore > 0 ? `${Number(performanceScore).toFixed(1)}/10` : '--'}
+            subtitle={performanceScore > 0 ? '基于历史评分' : '暂无评分'}
+            icon={Star}
+            color="purple"
+          />
+          <StatCard
+            title="完成订单"
+            value="--"
+            subtitle="数据接入中"
+            icon={CheckCircle}
+            color="green"
+          />
+        </div>
+
+        {/* 绩效详情 */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900">绩效指标明细</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* 准时交付 */}
+              <div className="border border-slate-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium text-slate-900">准时交付</span>
+                </div>
+                <div className="flex items-end gap-2 mb-2">
+                  <span className="text-2xl font-semibold text-slate-300">--%</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-slate-200 h-2 rounded-full" style={{ width: '0%' }} />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">准时 -- 次 / 总计 -- 次</p>
+              </div>
+
+              {/* 货物完好 */}
+              <div className="border border-slate-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-medium text-slate-900">货物完好率</span>
+                </div>
+                <div className="flex items-end gap-2 mb-2">
+                  <span className="text-2xl font-semibold text-slate-300">--%</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div className="bg-slate-200 h-2 rounded-full" style={{ width: '0%' }} />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">货损 -- 次 / 总计 -- 次</p>
+              </div>
+
+              {/* 响应速度 */}
+              <div className="border border-slate-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gauge className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-medium text-slate-900">平均响应速度</span>
+                </div>
+                <div className="flex items-end gap-2 mb-2">
+                  <span className="text-2xl font-semibold text-slate-300">-- 小时</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">从询价到确认的平均用时</p>
+              </div>
+
+              {/* 综合评价 */}
+              <div className="border border-slate-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Star className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm font-medium text-slate-900">综合评价</span>
+                </div>
+                <div className="flex items-end gap-2 mb-2">
+                  <span className={`text-2xl font-semibold ${performanceScore > 0 ? getScoreColor(performanceScore) : 'text-slate-300'}`}>
+                    {performanceScore > 0 ? Number(performanceScore).toFixed(1) : '--'}
+                  </span>
+                  <span className="text-sm text-slate-400 mb-0.5">/ 10</span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      performanceScore >= 8 ? 'bg-green-500' :
+                      performanceScore >= 6 ? 'bg-blue-500' :
+                      performanceScore >= 4 ? 'bg-amber-500' : 'bg-slate-200'
+                    }`}
+                    style={{ width: performanceScore > 0 ? `${(performanceScore / 10) * 100}%` : '0%' }}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">基于历史运输表现的综合评分</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 text-center mt-6">
+              绩效详细数据将在系统积累足够运输记录后自动计算，统计功能即将完善
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // Tab 4: 财务概览
   const renderFinance = () => {

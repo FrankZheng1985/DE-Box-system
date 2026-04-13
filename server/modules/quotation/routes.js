@@ -75,6 +75,29 @@ router.get('/stats', async (req, res) => {
 })
 
 /**
+ * 自动定价计算
+ * POST /api/v1/quotations/calculate-price
+ * 使用定价引擎根据业务类型和输入数据计算价格
+ */
+router.post('/calculate-price', async (req, res) => {
+  try {
+    const { procedureCode, inputData } = req.body
+    if (!procedureCode || !inputData) {
+      return res.status(400).json({ code: 400, message: '缺少 procedureCode 或 inputData', data: null })
+    }
+
+    const result = await withTransaction(async (client) => {
+      return await pricingEngine.calculatePrice(client, procedureCode, inputData)
+    })
+
+    res.json({ code: 200, message: '定价计算成功', data: result })
+  } catch (error) {
+    console.error('定价计算失败:', error)
+    res.status(500).json({ code: 500, message: error.message || '定价计算失败', data: null })
+  }
+})
+
+/**
  * 报价详情
  */
 router.get('/:id', async (req, res) => {

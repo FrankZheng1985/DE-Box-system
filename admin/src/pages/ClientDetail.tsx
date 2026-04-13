@@ -246,19 +246,107 @@ export default function ClientDetail() {
     )
   }
 
-  // Tab 1: 合同管理 (占位)
+  // Tab 1: 合同管理
   const renderContracts = () => (
-    <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
-      <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-      <p className="text-slate-500 text-sm">合同管理功能开发中</p>
+    <div className="space-y-4">
+      {/* 表头区域 */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900">合同列表</h3>
+        <button
+          disabled
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
+        >
+          <FileText className="w-4 h-4" />
+          新增合同（功能即将上线）
+        </button>
+      </div>
+
+      {/* 表格结构 */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[14%]" />
+              <col className="w-[20%]" />
+              <col className="w-[20%]" />
+              <col className="w-[14%]" />
+              <col className="w-[14%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">合同编号</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">类型</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期开始</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期结束</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center">
+                  <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 mb-1">暂无合同数据</p>
+                  <p className="text-xs text-slate-400">合同管理功能即将上线，届时可录入框架合同与临时合同</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 
-  // Tab 2: 价格体系 (占位)
+  // Tab 2: 价格体系
   const renderPricing = () => (
-    <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
-      <CreditCard className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-      <p className="text-slate-500 text-sm">价格体系功能开发中</p>
+    <div className="space-y-4">
+      {/* 表头区域 */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900">价格规则</h3>
+        <button
+          disabled
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
+        >
+          <DollarSign className="w-4 h-4" />
+          新增价格规则（功能即将上线）
+        </button>
+      </div>
+
+      {/* 表格结构 */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[22%]" />
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
+              <col className="w-[18%]" />
+              <col className="w-[14%]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">路线</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">业务类型</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">运输类型</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">单价 (EUR)</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={6} className="px-4 py-16 text-center">
+                  <CreditCard className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500 mb-1">暂无价格规则</p>
+                  <p className="text-xs text-slate-400">价格体系功能即将上线，届时可为该客户配置按路线、业务类型的定价规则</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 

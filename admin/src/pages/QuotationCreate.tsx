@@ -18,6 +18,7 @@ import {
   Calendar,
   Banknote,
   Package,
+  Calculator,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 
@@ -140,6 +141,7 @@ export default function QuotationCreate() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [globalError, setGlobalError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [calculatingPrice, setCalculatingPrice] = useState(false)
 
   // 获取客户列表
   useEffect(() => {
@@ -199,6 +201,54 @@ export default function QuotationCreate() {
         delete next[field]
         return next
       })
+    }
+  }
+
+  // 自动定价
+  async function handleAutoPrice() {
+    if (!form.businessType) {
+      setGlobalError('请先选择业务类型')
+      return
+    }
+    setCalculatingPrice(true)
+    setGlobalError('')
+    try {
+      const procedureCode = form.businessType === 'CONTAINER' ? 'CONTAINER' : 'CURTAIN_SIDE'
+      const res = await api.post<ApiResponse<{ items: any[]; subtotal: number; total: number }>>(
+        '/quotations/calculate-price',
+        {
+          procedureCode,
+          inputData: {
+            client_id: form.clientId || undefined,
+            route_from: form.originCountry ? { country: form.originCountry, city: form.originCity } : undefined,
+            route_to: form.destCountry ? { country: form.destCountry, city: form.destCity } : undefined,
+            currency: form.currency,
+          },
+        }
+      )
+      if (res.code === 200 && res.data) {
+        const data = res.data
+        // 从定价结果填充价格字段
+        const baseItem = data.items?.find((i: any) => i.typeCode === 'BASE_FREIGHT' || i.stepNumber === 10)
+        const surchargeItem = data.items?.find((i: any) => i.typeCode === 'SURCHARGE' || i.stepNumber === 20)
+        const insuranceItem = data.items?.find((i: any) => i.typeCode === 'INSURANCE' || i.stepNumber === 30)
+
+        setForm(prev => ({
+          ...prev,
+          baseFreight: baseItem ? Number(baseItem.amount) : Number(data.subtotal) || Number(data.total) || prev.baseFreight,
+          surcharge: surchargeItem ? Number(surchargeItem.amount) : prev.surcharge,
+          insuranceFee: insuranceItem ? Number(insuranceItem.amount) : prev.insuranceFee,
+        }))
+        setSuccessMsg('定价引擎计算完成')
+        setTimeout(() => setSuccessMsg(''), 2000)
+      } else {
+        setGlobalError(res.message || '定价计算失败')
+      }
+    } catch (err: any) {
+      console.error('[QuotationCreate] 自动定价失败:', err)
+      setGlobalError(err.message || '定价计算失败，请稍后重试')
+    } finally {
+      setCalculatingPrice(false)
     }
   }
 
@@ -440,10 +490,24 @@ export default function QuotationCreate() {
 
           {/* ---------- 价格明细 ---------- */}
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Banknote className="w-5 h-5 text-blue-600" />
-              价格明细
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-blue-600" />
+                价格明细
+              </h2>
+              <button
+                onClick={handleAutoPrice}
+                disabled={calculatingPrice}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all duration-200 disabled:opacity-50"
+              >
+                {calculatingPrice ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Calculator className="w-3.5 h-3.5" />
+                )}
+                自动定价
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* 基础运费 */}

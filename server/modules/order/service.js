@@ -6,7 +6,7 @@
  * 而是通过凭证引擎、信用管理、变更追踪等内核引擎来执行。
  */
 
-import { documentEngine, creditManager, changeTracker, documentFlow } from '../../core/index.js'
+import { documentEngine, creditManager, changeTracker, documentFlow, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import orderModel, { ORDER_TRACKED_FIELDS } from './model.js'
 
 // 篷布车订单状态机：定义允许的状态流转
@@ -103,6 +103,24 @@ export const orderService = {
       await creditManager.updateExposure(client, orderData.clientId)
     }
 
+    // 步骤 8：通知所有操作员有新订单
+    try {
+      const operators = await client.query(
+        `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`
+      )
+      if (operators.rows.length > 0) {
+        await notificationEngine.notify(client, {
+          userIds: operators.rows.map(u => u.id),
+          type: NOTIFICATION_TYPES.STATUS_UPDATE,
+          title: `新订单 ${doc.docNumber}`,
+          message: `新订单 ${doc.docNumber} 已创建，请及时审核`,
+          relatedOrderId: order.id
+        })
+      }
+    } catch (notifyErr) {
+      console.warn('创建订单通知发送失败（不影响主流程）:', notifyErr.message)
+    }
+
     return order
   },
 
@@ -141,6 +159,84 @@ export const orderService = {
       changedBy: userId,
       changeReason: remarks
     })
+
+    // 状态变更通知
+    try {
+      if (newStatus === 'CONFIRMED' && order.client_id) {
+        // 订单确认 -> 通知客户
+        const users = await client.query(
+          `SELECT id FROM users WHERE linked_entity_id = $1 AND user_type = 'CLIENT' AND is_active = true`,
+          [order.client_id]
+        )
+        if (users.rows.length > 0) {
+          await notificationEngine.notify(client, {
+            userIds: users.rows.map(u => u.id),
+            type: NOTIFICATION_TYPES.ORDER_CONFIRMED,
+            title: `订单 ${order.order_number} 已确认`,
+            message: `您的订单 ${order.order_number} 已通过审核`,
+            relatedOrderId: orderId
+          })
+        }
+      } else if (newStatus === 'IN_TRANSIT' && order.client_id) {
+        // 开始运输（承运商接单） -> 通知客户
+        const users = await client.query(
+          `SELECT id FROM users WHERE linked_entity_id = $1 AND user_type = 'CLIENT' AND is_active = true`,
+          [order.client_id]
+        )
+        if (users.rows.length > 0) {
+          await notificationEngine.notify(client, {
+            userIds: users.rows.map(u => u.id),
+            type: NOTIFICATION_TYPES.CARRIER_ACCEPTED,
+            title: `订单 ${order.order_number} 已发运`,
+            message: `您的订单 ${order.order_number} 承运商已接单，正在运输中`,
+            relatedOrderId: orderId
+          })
+        }
+      } else if (newStatus === 'DELIVERED' && order.client_id) {
+        // 已送达 -> 通知客户
+        const users = await client.query(
+          `SELECT id FROM users WHERE linked_entity_id = $1 AND user_type = 'CLIENT' AND is_active = true`,
+          [order.client_id]
+        )
+        if (users.rows.length > 0) {
+          await notificationEngine.notify(client, {
+            userIds: users.rows.map(u => u.id),
+            type: NOTIFICATION_TYPES.DELIVERED,
+            title: `订单 ${order.order_number} 已送达`,
+            message: `您的订单 ${order.order_number} 已成功送达目的地`,
+            relatedOrderId: orderId
+          })
+        }
+      } else if (newStatus === 'EXCEPTION') {
+        // 异常 -> 通知客户 + 操作员
+        const notifyIds = []
+
+        if (order.client_id) {
+          const clientUsers = await client.query(
+            `SELECT id FROM users WHERE linked_entity_id = $1 AND user_type = 'CLIENT' AND is_active = true`,
+            [order.client_id]
+          )
+          notifyIds.push(...clientUsers.rows.map(u => u.id))
+        }
+
+        const operators = await client.query(
+          `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`
+        )
+        notifyIds.push(...operators.rows.map(u => u.id))
+
+        if (notifyIds.length > 0) {
+          await notificationEngine.notify(client, {
+            userIds: [...new Set(notifyIds)],
+            type: NOTIFICATION_TYPES.EXCEPTION,
+            title: `订单 ${order.order_number} 出现异常`,
+            message: `订单 ${order.order_number} 出现异常：${remarks || '请及时处理'}`,
+            relatedOrderId: orderId
+          })
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('订单状态变更通知发送失败（不影响主流程）:', notifyErr.message)
+    }
 
     return { orderId, oldStatus: order.status, newStatus }
   },
@@ -211,6 +307,25 @@ export const orderService = {
       ],
       changedBy: userId
     })
+
+    // 派单通知 -> 通知承运商
+    try {
+      const carrierUsers = await client.query(
+        `SELECT id FROM users WHERE linked_entity_id = $1 AND user_type = 'CARRIER' AND is_active = true`,
+        [carrierId]
+      )
+      if (carrierUsers.rows.length > 0) {
+        await notificationEngine.notify(client, {
+          userIds: carrierUsers.rows.map(u => u.id),
+          type: NOTIFICATION_TYPES.STATUS_UPDATE,
+          title: `新派单：订单 ${order.order_number}`,
+          message: `您有新的运输任务，订单号 ${order.order_number}，请及时确认`,
+          relatedOrderId: orderId
+        })
+      }
+    } catch (notifyErr) {
+      console.warn('派单通知发送失败（不影响主流程）:', notifyErr.message)
+    }
 
     return { orderId, carrierId, newStatus: 'ASSIGNED' }
   },

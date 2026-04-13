@@ -1,34 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, ArrowLeft, Lock, Unlock, CheckCircle } from 'lucide-react'
+import { CalendarDays, ArrowLeft, Lock, Unlock, CheckCircle, Loader2 } from 'lucide-react'
+import api, { type ApiResponse } from '../utils/api'
 
-// ==================== 过账期间数据 ====================
+// ==================== 类型定义 ====================
 
 interface PostingPeriod {
-  month: number
-  label: string
-  isOpen: boolean
-  openedBy: string | null
-  openedAt: string | null
-  closedBy: string | null
-  closedAt: string | null
+  id: string
+  period_month: number
+  is_open: boolean
+  opened_by: string | null
+  opened_at: string | null
+  closed_by: string | null
+  closed_at: string | null
 }
-
-const INITIAL_PERIODS: PostingPeriod[] = Array.from({ length: 12 }, (_, i) => ({
-  month: i + 1,
-  label: `2026年${i + 1}月`,
-  isOpen: i + 1 === 4, // 仅四月开放
-  openedBy: i + 1 <= 3 ? '系统管理员' : i + 1 === 4 ? '系统管理员' : null,
-  openedAt: i + 1 <= 3 ? '2026-01-01 00:00' : i + 1 === 4 ? '2026-04-01 00:00' : null,
-  closedBy: i + 1 <= 3 ? '系统管理员' : null,
-  closedAt: i + 1 === 1 ? '2026-02-01 00:00' : i + 1 === 2 ? '2026-03-01 00:00' : i + 1 === 3 ? '2026-04-01 00:00' : null,
-}))
 
 // ==================== 组件 ====================
 
 export default function PostingPeriods() {
   const navigate = useNavigate()
-  const [periods] = useState<PostingPeriod[]>(INITIAL_PERIODS)
+  const [periods, setPeriods] = useState<PostingPeriod[]>([])
+  const [loading, setLoading] = useState(true)
+  const [toggling, setToggling] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
@@ -36,8 +29,54 @@ export default function PostingPeriods() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  const handleToggle = (_month: number) => {
-    showToast('功能对接中，暂不可操作')
+  // 获取过账期间数据
+  async function fetchPeriods() {
+    try {
+      const res = await api.get<ApiResponse<PostingPeriod[]>>('/system/posting-periods?companyCode=DE01&fiscalYear=2026')
+      if (res.code === 200 && res.data) {
+        setPeriods(res.data)
+      }
+    } catch (err: any) {
+      console.error('[PostingPeriods] 获取数据失败:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPeriods()
+  }, [])
+
+  const handleToggle = async (period: PostingPeriod) => {
+    setToggling(period.id)
+    try {
+      const res = await api.put<ApiResponse<null>>(`/system/posting-periods/${period.id}/toggle`)
+      if (res.code === 200) {
+        showToast(res.message || '操作成功')
+        // 刷新数据
+        await fetchPeriods()
+      } else {
+        showToast(res.message || '操作失败')
+      }
+    } catch (err: any) {
+      console.error('[PostingPeriods] 切换失败:', err)
+      showToast('操作失败，请稍后重试')
+    } finally {
+      setToggling(null)
+    }
+  }
+
+  // 骨架屏
+  if (loading) {
+    return (
+      <div className="p-4 lg:p-6 animate-pulse">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-10 h-10 bg-slate-200 rounded-xl" />
+          <div className="h-7 w-40 bg-slate-200 rounded-lg" />
+        </div>
+        <div className="bg-white/80 rounded-2xl p-6 h-96" />
+      </div>
+    )
   }
 
   return (
@@ -86,12 +125,14 @@ export default function PostingPeriods() {
             <tbody>
               {periods.map((p) => (
                 <tr
-                  key={p.month}
+                  key={p.id}
                   className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200"
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-slate-900">{p.label}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                    2026年{Number(p.period_month)}月
+                  </td>
                   <td className="px-4 py-3 text-center">
-                    {p.isOpen ? (
+                    {p.is_open ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
                         <Unlock className="w-3 h-3" /> 开放
                       </span>
@@ -101,20 +142,27 @@ export default function PostingPeriods() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{p.openedBy || '-'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 text-center">{p.openedAt || '-'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{p.closedBy || '-'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 text-center">{p.closedAt || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{p.opened_by || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500 text-center">
+                    {p.opened_at ? new Date(p.opened_at).toLocaleString('zh-CN') : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{p.closed_by || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500 text-center">
+                    {p.closed_at ? new Date(p.closed_at).toLocaleString('zh-CN') : '-'}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <button
-                      onClick={() => handleToggle(p.month)}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                        p.isOpen
+                      onClick={() => handleToggle(p)}
+                      disabled={toggling === p.id}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50 ${
+                        p.is_open
                           ? 'text-red-700 bg-red-50 hover:bg-red-100'
                           : 'text-green-700 bg-green-50 hover:bg-green-100'
                       }`}
                     >
-                      {p.isOpen ? (
+                      {toggling === p.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : p.is_open ? (
                         <><Lock className="w-3.5 h-3.5" /> 关闭期间</>
                       ) : (
                         <><Unlock className="w-3.5 h-3.5" /> 开放期间</>

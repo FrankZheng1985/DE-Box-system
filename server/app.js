@@ -36,10 +36,14 @@ import invoiceTemplateRoutes from './modules/invoice-template/routes.js'
 import contactRoutes from './modules/contact/routes.js'
 import notificationRoutes from './modules/notification/routes.js'
 import systemRoutes from './modules/system/routes.js'
+import userRoutes from './modules/user/routes.js'
 
 // 中间件
 import { errorHandler } from './middleware/errorHandler.js'
 import { requestLogger, securityHeaders, rateLimiter } from './middleware/security.js'
+
+// 定时任务（自动启动）
+import './utils/cron-jobs.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -85,6 +89,7 @@ app.use('/api/v1/invoice-templates', invoiceTemplateRoutes)
 app.use('/api/v1/contact', contactRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/system', systemRoutes)
+app.use('/api/v1/users', userRoutes)
 
 // ==================== 系统端点 ====================
 app.get('/api/health', (req, res) => {

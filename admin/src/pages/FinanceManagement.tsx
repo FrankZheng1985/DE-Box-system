@@ -546,7 +546,18 @@ export default function FinanceManagement() {
 
       {/* Tab 内容 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
-        {/* 应收/应付 共用表格 */}
+        {/* 应收/应付 导出按钮 + 共用表格 */}
+        {(activeTab === 'receivable' || activeTab === 'payable') && (
+          <div className="flex items-center justify-end px-4 pt-4 pb-2">
+            <button
+              onClick={() => window.open(`/api/v1/finance/export/${activeTab === 'receivable' ? 'receivables' : 'payables'}`, '_blank')}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-all duration-200"
+            >
+              <Download className="w-3.5 h-3.5" />
+              导出
+            </button>
+          </div>
+        )}
         {(activeTab === 'receivable' || activeTab === 'payable') && (
           <BillTable
             rows={billRows}
