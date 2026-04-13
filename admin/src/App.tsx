@@ -38,6 +38,7 @@ const GPSTracking = lazy(() => import('./pages/GPSTracking'))
 
 // 财务管理
 const FinanceManagement = lazy(() => import('./pages/FinanceManagement'))
+const FinanceDetail = lazy(() => import('./pages/FinanceDetail'))
 
 // 发票模板
 const InvoiceTemplates = lazy(() => import('./pages/InvoiceTemplates'))
@@ -133,6 +134,7 @@ function AppRoutes() {
 
           {/* 财务管理 */}
           <Route path="/finance" element={<FinanceManagement />} />
+          <Route path="/finance/:id" element={<FinanceDetail />} />
 
           {/* 发票模板 */}
           <Route path="/invoice-templates" element={<InvoiceTemplates />} />

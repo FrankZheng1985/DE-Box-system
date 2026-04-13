@@ -259,10 +259,16 @@ router.put('/:id/payment', async (req, res) => {
         subledgerType: record.counterparty_type, subledgerId: record.counterparty_id, orderId: record.order_id
       })
 
-      await client.query(
-        `UPDATE financial_records SET paid_amount = $1, payment_status = $2,
-         paid_date = CASE WHEN $2 = 'PAID' THEN NOW() ELSE paid_date END, updated_at = NOW()
-         WHERE id = $3`, [newPaidAmount, newStatus, req.params.id])
+      const updateFields = { paid_amount: newPaidAmount, payment_status: newStatus, updated_at: 'NOW()' }
+      if (newStatus === 'PAID') {
+        await client.query(
+          `UPDATE financial_records SET paid_amount = $1, payment_status = $2, paid_date = NOW(), updated_at = NOW() WHERE id = $3`,
+          [newPaidAmount, newStatus, req.params.id])
+      } else {
+        await client.query(
+          `UPDATE financial_records SET paid_amount = $1, payment_status = $2, updated_at = NOW() WHERE id = $3`,
+          [newPaidAmount, newStatus, req.params.id])
+      }
     })
     res.json({ code: 200, message: '付款记录成功', data: null })
   } catch (error) { res.status(400).json({ code: 400, message: error.message, data: null }) }

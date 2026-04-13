@@ -103,7 +103,32 @@ export const orderService = {
       await creditManager.updateExposure(client, orderData.clientId)
     }
 
-    // 步骤 8：通知所有操作员有新订单
+    // 步骤 8：集装箱订单自动创建清关记录和船司放单记录
+    if (orderData.businessType === 'CONTAINER') {
+      try {
+        // 需要清关 → 自动创建清关记录
+        if (orderData.needsClearance) {
+          await client.query(
+            `INSERT INTO customs_clearances (order_id, status) VALUES ($1, 'PENDING')
+             ON CONFLICT (order_id) DO NOTHING`,
+            [order.id]
+          )
+        }
+        // 需要放单 → 自动创建放单记录
+        if (orderData.needsRelease || orderData.releaseMethod) {
+          const releaseStatus = orderData.releaseMethod === 'TELEX' ? 'PENDING_RELEASE' : 'ORIGINAL_PENDING'
+          await client.query(
+            `INSERT INTO shipping_releases (order_id, release_status) VALUES ($1, $2)
+             ON CONFLICT (order_id) DO NOTHING`,
+            [order.id, releaseStatus]
+          )
+        }
+      } catch (autoErr) {
+        console.warn('自动创建清关/放单记录失败（不影响主流程）:', autoErr.message)
+      }
+    }
+
+    // 步骤 9：通知所有操作员有新订单
     try {
       const operators = await client.query(
         `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`

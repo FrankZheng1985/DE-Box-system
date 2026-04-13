@@ -20,12 +20,16 @@ interface FinanceSummary {
 
 interface BillRow {
   id: string
-  bill_no: string
-  name: string        // 客户名 或 承运商名
-  order_no: string
-  amount: number
-  status: string
+  record_number: string
+  name: string
+  order_number: string
+  order_id: string
+  amount: string | number
+  payment_status: string
   due_date: string
+  paid_amount: string | number
+  counterparty_name: string
+  [key: string]: any
 }
 
 interface ClientProfit {
@@ -121,11 +125,11 @@ function BillTable({
             <tr><td colSpan={7} className="px-4 py-16 text-center text-sm text-slate-500">暂无数据</td></tr>
           ) : rows.map(r => (
             <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
-              <td className="px-4 py-3 text-xs text-slate-900 font-medium">{r.bill_no}</td>
-              <td className="px-4 py-3 text-xs text-slate-600 truncate">{r.name}</td>
-              <td className="px-4 py-3 text-xs text-blue-600">{r.order_no || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-900 font-medium">{r.record_number || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-600 truncate">{r.name || r.counterparty_name || '-'}</td>
+              <td className="px-4 py-3 text-xs text-blue-600 cursor-pointer hover:underline" onClick={() => r.order_id && onView(r)}>{r.order_number || '-'}</td>
               <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{fmt(r.amount)}</td>
-              <td className="px-4 py-3 text-center"><StatusBadge status={r.status} type="payment" /></td>
+              <td className="px-4 py-3 text-center"><StatusBadge status={r.payment_status || r.status} type="payment" /></td>
               <td className="px-4 py-3 text-xs text-slate-500 text-center">{r.due_date?.split('T')[0] || '-'}</td>
               <td className="px-4 py-3 text-center">
                 <div className="flex items-center justify-center gap-1">
@@ -137,7 +141,7 @@ function BillTable({
                     <Eye className="w-4 h-4" />
                   </button>
                   {/* 记录收款/审核付款 按钮 - 仅未付或部分付款状态显示 */}
-                  {(r.status === 'UNPAID' || r.status === 'PARTIAL') && (
+                  {((r.payment_status || r.status) === 'UNPAID' || (r.payment_status || r.status) === 'PARTIAL') && (
                     <button
                       onClick={() => onPayment(r)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-all duration-200"
@@ -148,7 +152,7 @@ function BillTable({
                     </button>
                   )}
                   {/* 作废按钮 - 仅未付款状态显示 */}
-                  {r.status === 'UNPAID' && (
+                  {(r.payment_status || r.status) === 'UNPAID' && (
                     <button
                       onClick={() => onVoid(r)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-all duration-200"
@@ -170,27 +174,39 @@ function BillTable({
 
 // ==================== 报表 Tab ====================
 
-const MONTHLY_DATA = [
-  { month: '11月', revenue: 85000 },
-  { month: '12月', revenue: 92000 },
-  { month: '1月', revenue: 78000 },
-  { month: '2月', revenue: 105000 },
-  { month: '3月', revenue: 98000 },
-  { month: '4月', revenue: 112000 },
-]
-
-const RECENT_REPORTS = [
-  { name: '2026年3月运营收入报表', type: '运营收入', date: '2026-04-02', status: '已生成' },
-  { name: '2026年Q1利润分析', type: '利润分析', date: '2026-04-01', status: '已生成' },
-  { name: '2026年3月运输成本报表', type: '运输成本', date: '2026-04-01', status: '已生成' },
-  { name: '2026年2月运营收入报表', type: '运营收入', date: '2026-03-02', status: '已生成' },
-]
-
 function ReportTab() {
   const [reportType, setReportType] = useState('revenue')
   const [timeRange, setTimeRange] = useState('month')
+  const [monthlyData, setMonthlyData] = useState<{month: string; revenue: number}[]>([])
+  const [loadingReport, setLoadingReport] = useState(true)
 
-  const maxRevenue = Math.max(...MONTHLY_DATA.map(d => d.revenue))
+  // 从真实订单数据计算月度营收
+  useEffect(() => {
+    (async () => {
+      setLoadingReport(true)
+      try {
+        // 获取最近6个月已完成订单的营收
+        const months: {month: string; revenue: number}[] = []
+        const now = new Date()
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+          const monthLabel = `${d.getMonth() + 1}月`
+          const from = d.toISOString().slice(0, 10)
+          const to = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10)
+          try {
+            const res = await api.get<any>(`/orders?businessType=CURTAIN_SIDE&status=COMPLETED&dateFrom=${from}&dateTo=${to}&pageSize=100`)
+            const orders = Array.isArray(res.data) ? res.data : []
+            const total = orders.reduce((sum: number, o: any) => sum + (parseFloat(o.client_price) || 0), 0)
+            months.push({ month: monthLabel, revenue: total })
+          } catch { months.push({ month: monthLabel, revenue: 0 }) }
+        }
+        setMonthlyData(months)
+      } catch (e) { console.error('加载月度数据失败:', e) }
+      finally { setLoadingReport(false) }
+    })()
+  }, [])
+
+  const maxRevenue = Math.max(...monthlyData.map(d => d.revenue), 1)
 
   return (
     <div className="p-6 space-y-6">
@@ -235,27 +251,44 @@ function ReportTab() {
 
       {/* 简易柱状图：近6个月收入 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 mb-4">近 6 个月营收趋势</h3>
-        <div className="flex items-end gap-3 h-48 px-2">
-          {MONTHLY_DATA.map((d) => {
-            const heightPct = Math.round((d.revenue / maxRevenue) * 100)
+        <h3 className="text-sm font-semibold text-slate-900 mb-4">近 6 个月营收趋势（基于已完成订单）</h3>
+        {loadingReport ? (
+          <div className="flex items-end gap-3 h-48 px-2">
+            {Array.from({length: 6}).map((_, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                <div className="h-4 w-16 bg-slate-100 rounded animate-pulse" />
+                <div className="w-full flex justify-center" style={{height:'140px'}}>
+                  <div className="w-full max-w-[48px] rounded-t-lg bg-slate-100 animate-pulse" style={{height:`${30+Math.random()*50}%`}} />
+                </div>
+                <div className="h-3 w-8 bg-slate-100 rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : (
+        <div className="flex items-end gap-4 h-64 px-4 pt-8 pb-2">
+          {monthlyData.map((d) => {
+            const heightPct = Math.max(Math.round((d.revenue / maxRevenue) * 100), d.revenue > 0 ? 8 : 2)
             return (
-              <div key={d.month} className="flex-1 flex flex-col items-center gap-2">
-                <span className="text-xs font-medium text-slate-700">
-                  {fmt(d.revenue)}
+              <div key={d.month} className="flex-1 flex flex-col items-center gap-3 min-w-0">
+                <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                  {d.revenue > 0 ? fmt(d.revenue) : '-'}
                 </span>
-                <div className="w-full flex justify-center" style={{ height: '140px' }}>
+                <div className="w-full flex justify-center" style={{ height: '160px' }}>
                   <div
-                    className="w-full max-w-[48px] rounded-t-lg bg-blue-500 hover:bg-blue-600 transition-all duration-200"
-                    style={{ height: `${heightPct}%` }}
+                    className="w-full max-w-[52px] rounded-t-lg transition-all duration-300"
+                    style={{
+                      height: `${heightPct}%`,
+                      backgroundColor: d.revenue > 0 ? '#3B82F6' : '#E2E8F0'
+                    }}
                     title={`${d.month}: ${fmt(d.revenue)}`}
                   />
                 </div>
-                <span className="text-xs text-slate-500">{d.month}</span>
+                <span className="text-xs font-medium text-slate-500">{d.month}</span>
               </div>
             )
           })}
         </div>
+        )}
       </div>
 
       {/* 最近报表 */}
@@ -280,26 +313,11 @@ function ReportTab() {
               </tr>
             </thead>
             <tbody>
-              {RECENT_REPORTS.map((r, idx) => (
-                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
-                  <td className="px-4 py-2.5 text-xs text-slate-900 font-medium flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    {r.name}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-slate-600">{r.type}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-500 text-center">{r.date}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-center">
-                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title="下载">
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
+                  暂无报表记录，点击"生成报表"创建
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -313,6 +331,7 @@ function ReportTab() {
 export default function FinanceManagement() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('receivable')
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<FinanceSummary | null>(null)
   const [billRows, setBillRows] = useState<BillRow[]>([])
@@ -361,19 +380,32 @@ export default function FinanceManagement() {
       if (activeTab === 'receivable' || activeTab === 'payable') {
         const endpoint = activeTab === 'receivable' ? '/finance/receivables' : '/finance/payables'
         const nameKey = activeTab === 'receivable' ? 'client_name' : 'carrier_name'
-        const res = await api.get<ApiResponse<{ items: any[]; pagination: { total: number } }>>(
-          `${endpoint}?page=${page}&pageSize=${pageSize}`
-        )
-        if (res.code === 200 && res.data) {
-          setBillRows((res.data.items || []).map((r: any) => ({ ...r, name: r[nameKey] || '-' })))
-          setTotal(res.data.pagination?.total || 0)
+        const statusParam = paymentStatusFilter ? `&paymentStatus=${paymentStatusFilter}` : ''
+        const res = await api.get<any>(`${endpoint}?page=${page}&pageSize=${pageSize}${statusParam}`)
+        if (res.code === 200) {
+          const rows = Array.isArray(res.data) ? res.data : (res.data?.items || [])
+          setBillRows(rows.map((r: any) => ({ ...r, name: r[nameKey] || r.counterparty_name || '-' })))
+          setTotal(res.pagination?.total || res.data?.pagination?.total || rows.length)
         }
       } else if (activeTab === 'profit') {
         const res = await api.get<ApiResponse<ClientProfit[]>>('/finance/profit/by-client')
         if (res.code === 200) setProfits(Array.isArray(res.data) ? res.data : [])
       } else if (activeTab === 'aging') {
-        const res = await api.get<ApiResponse<AgingData[]>>('/finance/aging/receivable')
-        if (res.code === 200) setAging(Array.isArray(res.data) ? res.data : [])
+        const res = await api.get<any>('/finance/aging/receivable')
+        if (res.code === 200 && res.data) {
+          // API 返回对象 { "0_30": "8040", "31_60": "0", ... }，转换为数组
+          const d = res.data
+          if (Array.isArray(d)) {
+            setAging(d)
+          } else {
+            setAging([
+              { range: '0-30天', amount: parseFloat(d['0_30']) || 0, count: 0 },
+              { range: '31-60天', amount: parseFloat(d['31_60']) || 0, count: 0 },
+              { range: '61-90天', amount: parseFloat(d['61_90']) || 0, count: 0 },
+              { range: '90天以上', amount: parseFloat(d['90_plus']) || 0, count: 0 },
+            ].filter(a => a.amount > 0 || true)) // 保留所有
+          }
+        }
       }
     } catch (err) {
       console.error('获取财务数据失败:', err)
@@ -384,7 +416,7 @@ export default function FinanceManagement() {
 
   useEffect(() => {
     loadData()
-  }, [activeTab, page])
+  }, [activeTab, page, paymentStatusFilter])
 
   // ==================== 收款/付款操作 ====================
 
@@ -548,7 +580,27 @@ export default function FinanceManagement() {
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
         {/* 应收/应付 导出按钮 + 共用表格 */}
         {(activeTab === 'receivable' || activeTab === 'payable') && (
-          <div className="flex items-center justify-end px-4 pt-4 pb-2">
+          <div className="flex items-center justify-between px-4 pt-4 pb-2">
+            {/* 状态子 Tab */}
+            <div className="flex gap-1 bg-slate-50 rounded-lg p-0.5">
+              {[
+                { key: '', label: '全部' },
+                { key: 'UNPAID', label: '未付款' },
+                { key: 'PARTIAL', label: '部分付款' },
+                { key: 'PAID', label: '已付款' },
+                { key: 'VOID', label: '已作废' },
+              ].map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => { setPaymentStatusFilter(s.key); setPage(1) }}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                    paymentStatusFilter === s.key
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >{s.label}</button>
+              ))}
+            </div>
             <button
               onClick={() => window.open(`/api/v1/finance/export/${activeTab === 'receivable' ? 'receivables' : 'payables'}`, '_blank')}
               className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-all duration-200"
@@ -565,7 +617,7 @@ export default function FinanceManagement() {
             nameLabel={activeTab === 'receivable' ? '客户' : '承运商'}
             onPayment={openPaymentModal}
             onVoid={openVoidModal}
-            onView={(row) => navigate(`/orders?search=${encodeURIComponent(row.order_no)}`)}
+            onView={(row) => navigate(`/finance/${row.id}`)}
           />
         )}
 
@@ -584,10 +636,10 @@ export default function FinanceManagement() {
                   <div key={p.client_name} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-all duration-200">
                     <h3 className="text-sm font-semibold text-slate-900 mb-3">{p.client_name}</h3>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(p.revenue)}</span></div>
-                      <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(p.cost)}</span></div>
-                      <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(p.profit)}</span></div>
-                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{p.margin ? Number(p.margin).toFixed(1) : '0'}%</span></div>
+                      <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(p.total_revenue || p.revenue)}</span></div>
+                      <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(p.total_cost || p.cost)}</span></div>
+                      <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(p.gross_profit || p.profit)}</span></div>
+                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{Number(p.margin_pct || p.margin || 0).toFixed(1)}%</span></div>
                     </div>
                     <p className="text-xs text-slate-400 mt-2">订单数: {p.order_count}</p>
                   </div>
