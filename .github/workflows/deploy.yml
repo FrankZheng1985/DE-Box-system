@@ -159,7 +159,14 @@ jobs:
             pm2 status
           DEPLOY_SCRIPT
 
-      # ========== 第十步：健康检查 ==========
+      # ========== 第十步：恢复官网主页 ==========
+      - name: Restore Homepage
+        run: |
+          REMOTE="${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${REMOTE} \
+            "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-box-system/admin/dist/homepage.html"
+
+      # ========== 第十一步：健康检查 ==========
       - name: Health Check
         run: |
           echo ">>> 等待服务启动..."
