@@ -89,7 +89,7 @@ router.get('/', async (req, res) => {
       `SELECT u.id, u.username, u.display_name, u.email, u.phone,
               u.user_type, u.role_id, u.linked_entity_id, u.is_active,
               u.created_at, u.updated_at,
-              r.name AS role_name, r.code AS role_code
+              r.role_name, r.role_code
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        ${whereClause}
@@ -124,7 +124,7 @@ router.get('/:id', async (req, res) => {
       `SELECT u.id, u.username, u.display_name, u.email, u.phone,
               u.user_type, u.role_id, u.linked_entity_id, u.is_active,
               u.created_at, u.updated_at,
-              r.name AS role_name, r.code AS role_code
+              r.role_name, r.role_code
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
        WHERE u.id = $1`,

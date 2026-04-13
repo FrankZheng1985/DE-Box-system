@@ -106,8 +106,8 @@ router.get('/number-ranges', async (req, res) => {
   try {
     const { companyCode = 'DE01' } = req.query
     const result = await query(
-      `SELECT id, object_type, object_label, prefix, current_number,
-              range_start, range_end, format_pattern, company_code
+      `SELECT id, object_type, prefix, current_number,
+              range_start, range_end, number_format, company_code
        FROM number_ranges
        WHERE company_code = $1
        ORDER BY object_type`,
