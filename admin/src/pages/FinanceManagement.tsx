@@ -12,10 +12,10 @@ import Modal from '../components/Modal'
 // ==================== 类型定义 ====================
 
 interface FinanceSummary {
-  monthly_revenue: number
-  receivable_balance: number
-  payable_balance: number
-  avg_margin: number
+  monthRevenue: number
+  arOutstanding: number
+  apOutstanding: number
+  marginPct: string | number
 }
 
 interface BillRow {
@@ -370,10 +370,10 @@ export default function FinanceManagement() {
         }
       } else if (activeTab === 'profit') {
         const res = await api.get<ApiResponse<ClientProfit[]>>('/finance/profit/by-client')
-        if (res.code === 200) setProfits(res.data || [])
+        if (res.code === 200) setProfits(Array.isArray(res.data) ? res.data : [])
       } else if (activeTab === 'aging') {
         const res = await api.get<ApiResponse<AgingData[]>>('/finance/aging/receivable')
-        if (res.code === 200) setAging(res.data || [])
+        if (res.code === 200) setAging(Array.isArray(res.data) ? res.data : [])
       }
     } catch (err) {
       console.error('获取财务数据失败:', err)
@@ -528,10 +528,10 @@ export default function FinanceManagement() {
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="本月营收" value={summary ? fmt(summary.monthly_revenue) : '-'} icon={<DollarSign className="w-5 h-5" />} color="green" />
-        <StatCard title="应收余额" value={summary ? fmt(summary.receivable_balance) : '-'} icon={<CreditCard className="w-5 h-5" />} color="blue" />
-        <StatCard title="应付余额" value={summary ? fmt(summary.payable_balance) : '-'} icon={<TrendingUp className="w-5 h-5" />} color="yellow" />
-        <StatCard title="平均毛利率" value={summary ? `${Number(summary.avg_margin || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
+        <StatCard title="本月营收" value={summary ? fmt(summary.monthRevenue) : '-'} icon={<DollarSign className="w-5 h-5" />} color="green" />
+        <StatCard title="应收余额" value={summary ? fmt(summary.arOutstanding) : '-'} icon={<CreditCard className="w-5 h-5" />} color="blue" />
+        <StatCard title="应付余额" value={summary ? fmt(summary.apOutstanding) : '-'} icon={<TrendingUp className="w-5 h-5" />} color="yellow" />
+        <StatCard title="平均毛利率" value={summary ? `${Number(summary.marginPct || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
       </div>
 
       {/* Tab 标签栏 */}

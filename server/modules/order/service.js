@@ -6,7 +6,7 @@
  * 而是通过凭证引擎、信用管理、变更追踪等内核引擎来执行。
  */
 
-import { documentEngine, creditManager, changeTracker, documentFlow, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
+import { documentEngine, creditManager, changeTracker, documentFlow, accountDetermination, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import orderModel, { ORDER_TRACKED_FIELDS } from './model.js'
 
 // 篷布车订单状态机：定义允许的状态流转
@@ -236,6 +236,65 @@ export const orderService = {
       }
     } catch (notifyErr) {
       console.warn('订单状态变更通知发送失败（不影响主流程）:', notifyErr.message)
+    }
+
+    // 订单完成时自动创建财务记录（应收 + 应付）
+    if (newStatus === 'COMPLETED') {
+      try {
+        const clientPrice = parseFloat(order.client_price) || 0
+        const carrierCost = parseFloat(order.carrier_cost) || 0
+        const dueDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10) // 30天后
+
+        // 创建应收发票（客户报价）
+        if (clientPrice > 0 && order.client_id) {
+          const arDoc = await documentEngine.createDocument(client, {
+            docType: 'FI_AR', companyCode: 'DE01', postingDate: new Date(),
+            headerText: `应收 - 订单 ${order.order_number}`,
+            sourceDocType: 'ORD', sourceDocId: order.document_id,
+            createdBy: userId
+          })
+          await accountDetermination.createJournalEntries(client, {
+            documentId: arDoc.id, transactionType: 'AR_INVOICE',
+            businessType: order.business_type, amount: clientPrice,
+            currency: order.currency || 'EUR', postingDate: new Date(), companyCode: 'DE01',
+            subledgerType: 'CLIENT', subledgerId: order.client_id, orderId
+          })
+          await client.query(
+            `INSERT INTO financial_records
+             (document_id, record_number, order_id, type, counterparty_type, counterparty_id,
+              amount, currency, payment_status, due_date, company_code, auto_generated)
+             VALUES ($1, $2, $3, 'RECEIVABLE', 'CLIENT', $4, $5, $6, 'UNPAID', $7, 'DE01', true)`,
+            [arDoc.id, arDoc.docNumber, orderId, order.client_id, clientPrice, order.currency || 'EUR', dueDate]
+          )
+        }
+
+        // 创建应付记录（承运商成本）
+        if (carrierCost > 0 && order.carrier_id) {
+          const apDoc = await documentEngine.createDocument(client, {
+            docType: 'FI_AP', companyCode: 'DE01', postingDate: new Date(),
+            headerText: `应付 - 订单 ${order.order_number}`,
+            sourceDocType: 'ORD', sourceDocId: order.document_id,
+            createdBy: userId
+          })
+          await accountDetermination.createJournalEntries(client, {
+            documentId: apDoc.id, transactionType: 'AP_INVOICE',
+            businessType: order.business_type, amount: carrierCost,
+            currency: order.currency || 'EUR', postingDate: new Date(), companyCode: 'DE01',
+            subledgerType: 'CARRIER', subledgerId: order.carrier_id, orderId
+          })
+          await client.query(
+            `INSERT INTO financial_records
+             (document_id, record_number, order_id, type, counterparty_type, counterparty_id,
+              amount, currency, payment_status, due_date, company_code, auto_generated)
+             VALUES ($1, $2, $3, 'PAYABLE', 'CARRIER', $4, $5, $6, 'UNPAID', $7, 'DE01', true)`,
+            [apDoc.id, apDoc.docNumber, orderId, order.carrier_id, carrierCost, order.currency || 'EUR', dueDate]
+          )
+        }
+
+        console.log(`[自动开票] 订单 ${order.order_number} 完成 → 应收 €${clientPrice} / 应付 €${carrierCost}`)
+      } catch (finErr) {
+        console.error('订单完成自动开票失败（不影响主流程）:', finErr.message)
+      }
     }
 
     return { orderId, oldStatus: order.status, newStatus }
