@@ -48,31 +48,23 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: |
-            admin/package-lock.json
-            customer-portal/package-lock.json
-            carrier-portal/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      # ========== 第三步：构建管理后台 ==========
+      # ========== 第三步：安装根依赖（workspace） ==========
+      - name: Install Dependencies
+        run: npm install
+
+      # ========== 第四步：构建管理后台 ==========
       - name: Build Admin Frontend
-        run: |
-          cd admin
-          npm ci
-          npm run build
+        run: cd admin && npm run build
 
-      # ========== 第四步：构建客户门户 ==========
+      # ========== 第五步：构建客户门户 ==========
       - name: Build Customer Portal
-        run: |
-          cd customer-portal
-          npm ci
-          npm run build
+        run: cd customer-portal && npm run build
 
       # ========== 第五步：构建承运商门户 ==========
       - name: Build Carrier Portal
-        run: |
-          cd carrier-portal
-          npm ci
-          npm run build
+        run: cd carrier-portal && npm run build
 
       # ========== 第六步：配置 SSH ==========
       - name: Setup SSH Key
