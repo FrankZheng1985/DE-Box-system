@@ -55,7 +55,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', f
       onClick={handleOverlayClick}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]"
     >
-      <div className={`w-full ${sizeMap[size]} bg-white rounded-2xl shadow-2xl animate-[scaleIn_200ms_ease-out] flex flex-col max-h-[90vh]`}>
+      <div className={`w-full ${sizeMap[size]} modal-mobile-full bg-white rounded-2xl shadow-2xl animate-[scaleIn_200ms_ease-out] flex flex-col max-h-[90vh]`}>
         {/* 头部 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>

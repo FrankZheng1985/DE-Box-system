@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
@@ -8,6 +8,16 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // 移动端自动收起侧边栏
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) setSidebarCollapsed(true)
+    }
+    handleResize() // 初始检查
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   return (
     <div className="flex h-screen bg-slate-50/50">

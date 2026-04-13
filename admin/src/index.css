@@ -477,3 +477,82 @@ td {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* ============================================
+   移动端优化
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* 表格字体缩小、内边距压缩 */
+  th, td {
+    font-size: 10px !important;
+    padding: 6px 8px !important;
+  }
+
+  /* 表格容器横向滚动 */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 统计卡片强制单列 */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 表单两列布局改为单列 */
+  .sm\:grid-cols-2,
+  .lg\:grid-cols-2,
+  .lg\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 弹窗全屏宽度 */
+  .modal-mobile-full {
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  /* 隐藏不必要的桌面端元素 */
+  .hidden-mobile {
+    display: none !important;
+  }
+
+  /* 页面内边距缩小 */
+  main {
+    padding: 12px !important;
+  }
+
+  /* 标题字号适配 */
+  .text-page-title {
+    font-size: 16px;
+  }
+}
+
+/* 小屏幕（手机） */
+@media (max-width: 640px) {
+  /* 弹窗内容区全宽 */
+  [class*="max-w-"] {
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  /* 弹窗内边距缩小 */
+  .px-6 {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* 按钮组换行 */
+  .flex.gap-2 {
+    flex-wrap: wrap;
+  }
+
+  /* Header 右侧操作区紧凑 */
+  header .gap-3 {
+    gap: 4px;
+  }
+
+  /* 用户下拉菜单不溢出 */
+  header .absolute.right-0 {
+    right: -8px;
+    max-width: calc(100vw - 24px);
+  }
+}

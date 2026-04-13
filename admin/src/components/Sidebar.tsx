@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Truck,
+  UserCog,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -45,6 +46,7 @@ const menuItems: MenuItem[] = [
   { path: '/carriers', label: '运输公司', icon: Building },
   { path: '/notifications', label: '通知中心', icon: Bell },
   { path: '/settings', label: '系统设置', icon: Settings },
+  { path: '/system/users', label: '用户管理', icon: UserCog },
 ]
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {

@@ -1,5 +1,28 @@
+# ================================================
 # GitHub Actions 自动部署工作流
-# 德国Box运输管理系统 - 自动部署到阿里云服务器
+# 德国Box运输管理系统 (EU-TMS)
+# ================================================
+#
+# 触发条件: push 到 main 分支，或手动触发
+#
+# 部署流程:
+#   1. 在 GitHub Actions 中构建三个前端项目
+#   2. 通过 SSH + rsync 上传构建产物和后端代码到服务器
+#   3. 在服务器上安装后端依赖并重启 PM2 服务
+#
+# 需要配置的 GitHub Secrets:
+#   - SSH_PRIVATE_KEY : SSH ed25519 私钥（用于免密登录服务器）
+#   - SSH_HOST        : 服务器 IP（47.83.241.117）
+#   - SSH_USER        : SSH 登录用户（root）
+#
+# 服务器目录结构:
+#   /var/www/germany-box-system/
+#   ├── admin/dist/              # 管理后台前端
+#   ├── customer-portal/dist/    # 客户门户前端
+#   ├── carrier-portal/dist/     # 承运商门户前端
+#   ├── server/                  # 后端代码
+#   └── deploy/                  # 部署配置
+# ================================================
 
 name: Deploy to Production
 
@@ -10,63 +33,154 @@ on:
   workflow_dispatch:  # 支持手动触发
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Aliyun Server
-    
+    name: Build & Deploy to Production
+
     steps:
+      # ========== 第一步：拉取代码 ==========
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+
+      # ========== 第二步：设置 Node.js ==========
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            admin/package-lock.json
+            customer-portal/package-lock.json
+            carrier-portal/package-lock.json
+
+      # ========== 第三步：构建管理后台 ==========
+      - name: Build Admin Frontend
+        run: |
+          cd admin
+          npm ci
+          npm run build
+
+      # ========== 第四步：构建客户门户 ==========
+      - name: Build Customer Portal
+        run: |
+          cd customer-portal
+          npm ci
+          npm run build
+
+      # ========== 第五步：构建承运商门户 ==========
+      - name: Build Carrier Portal
+        run: |
+          cd carrier-portal
+          npm ci
+          npm run build
+
+      # ========== 第六步：配置 SSH ==========
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # 自动信任服务器指纹，避免首次连接交互
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      # ========== 第七步：上传前端构建产物 ==========
+      - name: Deploy Frontend Assets
+        run: |
+          SSH_OPTS="-o StrictHostKeyChecking=no -i ~/.ssh/deploy_key"
+          REMOTE="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          REMOTE_DIR="/var/www/germany-box-system"
+
+          echo ">>> 上传管理后台..."
+          rsync -avz --delete -e "ssh ${SSH_OPTS}" \
+            admin/dist/ \
+            ${REMOTE}:${REMOTE_DIR}/admin/dist/
+
+          echo ">>> 上传客户门户..."
+          rsync -avz --delete -e "ssh ${SSH_OPTS}" \
+            customer-portal/dist/ \
+            ${REMOTE}:${REMOTE_DIR}/customer-portal/dist/
+
+          echo ">>> 上传承运商门户..."
+          rsync -avz --delete -e "ssh ${SSH_OPTS}" \
+            carrier-portal/dist/ \
+            ${REMOTE}:${REMOTE_DIR}/carrier-portal/dist/
+
+      # ========== 第八步：上传后端代码 ==========
+      - name: Deploy Server Code
+        run: |
+          SSH_OPTS="-o StrictHostKeyChecking=no -i ~/.ssh/deploy_key"
+          REMOTE="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          REMOTE_DIR="/var/www/germany-box-system"
+
+          echo ">>> 上传后端代码..."
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.env' \
+            --exclude 'uploads/' \
+            --exclude '*.log' \
+            -e "ssh ${SSH_OPTS}" \
+            server/ \
+            ${REMOTE}:${REMOTE_DIR}/server/
+
+          echo ">>> 上传部署配置..."
+          rsync -avz -e "ssh ${SSH_OPTS}" \
+            deploy/ecosystem.config.cjs \
+            ${REMOTE}:${REMOTE_DIR}/deploy/
+
+      # ========== 第九步：安装依赖并重启服务 ==========
+      - name: Install Dependencies & Restart Server
+        run: |
+          SSH_OPTS="-o StrictHostKeyChecking=no -i ~/.ssh/deploy_key"
+          REMOTE="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+
+          ssh ${SSH_OPTS} ${REMOTE} << 'DEPLOY_SCRIPT'
+            set -e
             echo "=========================================="
-            echo "  开始自动部署 - $(date '+%Y-%m-%d %H:%M:%S')"
+            echo "  开始部署 - $(date '+%Y-%m-%d %H:%M:%S')"
             echo "=========================================="
-            
-            # 进入项目目录
+
             cd /var/www/germany-box-system
-            
-            # 拉取最新代码
-            echo ">>> 拉取最新代码..."
-            git fetch origin main
-            git reset --hard origin/main
-            
-            # 安装依赖
-            echo ">>> 安装依赖..."
-            npm install
-            npm run install:all
-            
-            # 运行数据库迁移
-            echo ">>> 运行数据库迁移..."
+
+            # 安装后端依赖
+            echo ">>> 安装后端依赖..."
             cd server
-            node scripts/init-db.js || echo "数据库迁移完成或已是最新"
+            npm install --production
             cd ..
-            
-            # 构建前端
-            echo ">>> 构建管理后台..."
-            cd admin && npm run build && cd ..
-            
-            echo ">>> 构建客户门户..."
-            cd customer-portal && npm run build && cd ..
-            
-            # 重启后端服务
+
+            # 重启 PM2 服务
             echo ">>> 重启后端服务..."
-            pm2 reload germany-box-server --update-env || pm2 start deploy/ecosystem.config.cjs --env production
-            
-            # 重载 Nginx
+            if pm2 describe germany-box-server > /dev/null 2>&1; then
+              pm2 reload germany-box-server --update-env
+            else
+              pm2 start deploy/ecosystem.config.cjs --env production
+            fi
+
+            # 重载 Nginx（确保配置正确）
             echo ">>> 重载 Nginx..."
-            sudo nginx -t && sudo systemctl reload nginx
-            
+            nginx -t && systemctl reload nginx
+
             echo "=========================================="
             echo "  部署完成 - $(date '+%Y-%m-%d %H:%M:%S')"
             echo "=========================================="
-            
+
             # 显示服务状态
             pm2 status
+          DEPLOY_SCRIPT
+
+      # ========== 第十步：健康检查 ==========
+      - name: Health Check
+        run: |
+          echo ">>> 等待服务启动..."
+          sleep 5
+          echo ">>> 检查服务健康状态..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SSH_HOST }}/api/health || echo "000")
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "健康检查通过 (HTTP $HTTP_STATUS)"
+          else
+            echo "警告: 健康检查返回 HTTP $HTTP_STATUS（可能服务还在启动中）"
+          fi
+
+      # ========== 清理 SSH ==========
+      - name: Cleanup SSH Key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

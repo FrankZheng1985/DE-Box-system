@@ -5,8 +5,10 @@
  */
 
 import { Router } from 'express'
+import ExcelJS from 'exceljs'
 import { authenticateToken } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { getPool } from '../../core/db.js'
 import { documentEngine, accountDetermination, documentFlow } from '../../core/index.js'
 
 const router = Router()
@@ -50,6 +52,130 @@ router.get('/payables', async (req, res) => {
     res.json({ code: 200, message: 'success', data: result.rows,
       pagination: { total: parseInt(countResult.rows[0].total), page: parseInt(page), pageSize: parseInt(pageSize) } })
   } catch (error) { res.status(500).json({ code: 500, message: '获取应付列表失败', data: null }) }
+})
+
+// === 应收导出 Excel ===
+router.get('/export/receivables', async (req, res) => {
+  try {
+    const pool = getPool()
+    const result = await pool.query(
+      `SELECT fr.record_number, c.company_name as counterparty_name, o.order_number,
+              fr.amount, fr.currency, fr.payment_status, fr.due_date, fr.paid_amount
+       FROM financial_records fr
+       LEFT JOIN clients c ON c.id = fr.counterparty_id
+       LEFT JOIN orders o ON o.id = fr.order_id
+       WHERE fr.type = 'RECEIVABLE'
+       ORDER BY fr.due_date ASC LIMIT 5000`
+    )
+
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'EU-TMS'
+    workbook.created = new Date()
+    const sheet = workbook.addWorksheet('应收账款')
+
+    const statusMap = {
+      UNPAID: '未付款', PARTIAL: '部分付款', PAID: '已付款', OVERDUE: '已逾期', VOID: '已作废'
+    }
+
+    sheet.columns = [
+      { header: '账单号', key: 'recordNumber', width: 18 },
+      { header: '客户', key: 'client', width: 24 },
+      { header: '关联订单', key: 'orderNumber', width: 18 },
+      { header: '金额', key: 'amount', width: 14 },
+      { header: '币种', key: 'currency', width: 8 },
+      { header: '状态', key: 'status', width: 12 },
+      { header: '到期日', key: 'dueDate', width: 14 },
+      { header: '已付金额', key: 'paidAmount', width: 14 },
+    ]
+
+    sheet.getRow(1).font = { bold: true }
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF5' } }
+
+    for (const row of result.rows) {
+      sheet.addRow({
+        recordNumber: row.record_number || '-',
+        client: row.counterparty_name || '-',
+        orderNumber: row.order_number || '-',
+        amount: row.amount ? Number(row.amount) : 0,
+        currency: row.currency || 'EUR',
+        status: statusMap[row.payment_status] || row.payment_status || '-',
+        dueDate: row.due_date ? new Date(row.due_date).toISOString().slice(0, 10) : '-',
+        paidAmount: row.paid_amount ? Number(row.paid_amount) : 0,
+      })
+    }
+
+    const filename = `receivables_${new Date().toISOString().slice(0, 10)}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    await workbook.xlsx.write(res)
+    res.end()
+  } catch (error) {
+    console.error('应收导出失败:', error)
+    res.status(500).json({ code: 500, message: '导出失败' })
+  }
+})
+
+// === 应付导出 Excel ===
+router.get('/export/payables', async (req, res) => {
+  try {
+    const pool = getPool()
+    const result = await pool.query(
+      `SELECT fr.record_number, cr.company_name as counterparty_name, o.order_number,
+              fr.amount, fr.currency, fr.payment_status, fr.due_date, fr.paid_amount
+       FROM financial_records fr
+       LEFT JOIN carriers cr ON cr.id = fr.counterparty_id
+       LEFT JOIN orders o ON o.id = fr.order_id
+       WHERE fr.type = 'PAYABLE'
+       ORDER BY fr.due_date ASC LIMIT 5000`
+    )
+
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'EU-TMS'
+    workbook.created = new Date()
+    const sheet = workbook.addWorksheet('应付账款')
+
+    const statusMap = {
+      UNPAID: '未付款', PARTIAL: '部分付款', PAID: '已付款', OVERDUE: '已逾期', VOID: '已作废'
+    }
+
+    sheet.columns = [
+      { header: '账单号', key: 'recordNumber', width: 18 },
+      { header: '承运商', key: 'carrier', width: 24 },
+      { header: '关联订单', key: 'orderNumber', width: 18 },
+      { header: '金额', key: 'amount', width: 14 },
+      { header: '币种', key: 'currency', width: 8 },
+      { header: '状态', key: 'status', width: 12 },
+      { header: '到期日', key: 'dueDate', width: 14 },
+      { header: '已付金额', key: 'paidAmount', width: 14 },
+    ]
+
+    sheet.getRow(1).font = { bold: true }
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF5' } }
+
+    for (const row of result.rows) {
+      sheet.addRow({
+        recordNumber: row.record_number || '-',
+        carrier: row.counterparty_name || '-',
+        orderNumber: row.order_number || '-',
+        amount: row.amount ? Number(row.amount) : 0,
+        currency: row.currency || 'EUR',
+        status: statusMap[row.payment_status] || row.payment_status || '-',
+        dueDate: row.due_date ? new Date(row.due_date).toISOString().slice(0, 10) : '-',
+        paidAmount: row.paid_amount ? Number(row.paid_amount) : 0,
+      })
+    }
+
+    const filename = `payables_${new Date().toISOString().slice(0, 10)}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    await workbook.xlsx.write(res)
+    res.end()
+  } catch (error) {
+    console.error('应付导出失败:', error)
+    res.status(500).json({ code: 500, message: '导出失败' })
+  }
 })
 
 // === 创建财务记录（应收/应付发票） ===

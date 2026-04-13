@@ -3,8 +3,10 @@
  */
 
 import { Router } from 'express'
+import ExcelJS from 'exceljs'
 import { authenticateToken } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
 
 const router = Router()
@@ -77,6 +79,71 @@ router.get('/match', async (req, res) => {
     res.json({ code: 200, message: 'success', data: result.rows })
   } catch (error) {
     res.status(500).json({ code: 500, message: '匹配承运商失败', data: null })
+  }
+})
+
+/**
+ * 承运商导出 Excel（放在 /:id 前面，避免被匹配为 id）
+ * GET /api/v1/carriers/export
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const pool = getPool()
+    const result = await pool.query(
+      `SELECT carrier_code, company_name, vat_number, country,
+              transport_license, license_expiry, insurance_number, insurance_expiry,
+              performance_score, status
+       FROM carriers WHERE status = 'ACTIVE'
+       ORDER BY performance_score DESC LIMIT 5000`
+    )
+
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'EU-TMS'
+    workbook.created = new Date()
+    const sheet = workbook.addWorksheet('承运商列表')
+
+    const statusMap = { ACTIVE: '活跃', INACTIVE: '停用', SUSPENDED: '暂停' }
+
+    sheet.columns = [
+      { header: '承运商编码', key: 'carrierCode', width: 16 },
+      { header: '公司名称', key: 'companyName', width: 28 },
+      { header: 'VAT税号', key: 'vatNumber', width: 22 },
+      { header: '国家', key: 'country', width: 12 },
+      { header: '许可证号', key: 'license', width: 20 },
+      { header: '许可证到期', key: 'licenseExpiry', width: 14 },
+      { header: '保险号', key: 'insurance', width: 20 },
+      { header: '保险到期', key: 'insuranceExpiry', width: 14 },
+      { header: '评分', key: 'score', width: 8 },
+      { header: '状态', key: 'status', width: 10 },
+    ]
+
+    sheet.getRow(1).font = { bold: true }
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF5' } }
+
+    for (const row of result.rows) {
+      sheet.addRow({
+        carrierCode: row.carrier_code || '-',
+        companyName: row.company_name || '-',
+        vatNumber: row.vat_number || '-',
+        country: row.country || '-',
+        license: row.transport_license || '-',
+        licenseExpiry: row.license_expiry ? new Date(row.license_expiry).toISOString().slice(0, 10) : '-',
+        insurance: row.insurance_number || '-',
+        insuranceExpiry: row.insurance_expiry ? new Date(row.insurance_expiry).toISOString().slice(0, 10) : '-',
+        score: row.performance_score ? Number(row.performance_score) : 0,
+        status: statusMap[row.status] || row.status || '-',
+      })
+    }
+
+    const filename = `carriers_${new Date().toISOString().slice(0, 10)}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    await workbook.xlsx.write(res)
+    res.end()
+  } catch (error) {
+    console.error('承运商导出失败:', error)
+    res.status(500).json({ code: 500, message: '导出失败' })
   }
 })
 

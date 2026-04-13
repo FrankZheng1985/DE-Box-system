@@ -3,8 +3,10 @@
  */
 
 import { Router } from 'express'
+import ExcelJS from 'exceljs'
 import { authenticateToken } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
 
 const router = Router()
@@ -66,6 +68,75 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('获取客户列表失败:', error)
     res.status(500).json({ code: 500, message: '获取客户列表失败', data: null })
+  }
+})
+
+/**
+ * 客户导出 Excel（放在 /:id 前面，避免被匹配为 id）
+ * GET /api/v1/clients/export
+ */
+router.get('/export', async (req, res) => {
+  try {
+    const pool = getPool()
+    const result = await pool.query(
+      `SELECT client_code, company_name, vat_number, country, city,
+              contact_name, contact_email, contact_phone,
+              credit_limit, credit_level, payment_terms
+       FROM clients WHERE status = 'ACTIVE'
+       ORDER BY client_code ASC LIMIT 5000`
+    )
+
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'EU-TMS'
+    workbook.created = new Date()
+    const sheet = workbook.addWorksheet('客户列表')
+
+    const creditLevelMap = {
+      A: 'A - 优质', B: 'B - 良好', C: 'C - 一般', D: 'D - 较差'
+    }
+
+    sheet.columns = [
+      { header: '客户编码', key: 'clientCode', width: 16 },
+      { header: '公司名称', key: 'companyName', width: 28 },
+      { header: 'VAT税号', key: 'vatNumber', width: 22 },
+      { header: '国家', key: 'country', width: 12 },
+      { header: '城市', key: 'city', width: 14 },
+      { header: '联系人', key: 'contactName', width: 14 },
+      { header: '邮箱', key: 'email', width: 24 },
+      { header: '电话', key: 'phone', width: 16 },
+      { header: '信用额度', key: 'creditLimit', width: 14 },
+      { header: '信用等级', key: 'creditLevel', width: 12 },
+      { header: '账期(天)', key: 'paymentTerms', width: 10 },
+    ]
+
+    sheet.getRow(1).font = { bold: true }
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF5' } }
+
+    for (const row of result.rows) {
+      sheet.addRow({
+        clientCode: row.client_code || '-',
+        companyName: row.company_name || '-',
+        vatNumber: row.vat_number || '-',
+        country: row.country || '-',
+        city: row.city || '-',
+        contactName: row.contact_name || '-',
+        email: row.contact_email || '-',
+        phone: row.contact_phone || '-',
+        creditLimit: row.credit_limit ? Number(row.credit_limit) : 0,
+        creditLevel: creditLevelMap[row.credit_level] || row.credit_level || '-',
+        paymentTerms: row.payment_terms ? Number(row.payment_terms) : 30,
+      })
+    }
+
+    const filename = `clients_${new Date().toISOString().slice(0, 10)}.xlsx`
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    await workbook.xlsx.write(res)
+    res.end()
+  } catch (error) {
+    console.error('客户导出失败:', error)
+    res.status(500).json({ code: 500, message: '导出失败' })
   }
 })
 
