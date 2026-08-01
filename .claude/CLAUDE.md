@@ -17,7 +17,7 @@
 
 - **项目名称**: EU-TMS 欧洲运输管理系统
 - **公司**: Box Cargo Service GmbH
-- **访问地址**: https://47.83.241.117 ← **过渡期直接用 IP**（详见下方"域名迁移过渡期"）
+- **访问地址**: https://kalunasped.com （IP 直访 https://47.83.241.117 保留作应急回退，详见下方"域名"章节）
 - **架构**: SAP S/4HANA ERP 标准
 - **三端**: 运营管理端 + 客户门户 + 承运商门户
 
@@ -32,31 +32,58 @@
 
 ---
 
-## 域名迁移过渡期（2026-08-01 起）
+## 域名 kalunasped.com（2026-08-02 启用）
 
-> **现状：服务器已不再绑定 box-cargo.de，只按 IP 访问。** 新域名尚未注册。
+> **正式域名已上线**：`https://kalunasped.com`。域名注册与 DNS 均在 **Cloudflare**
+> （旧域名 box-cargo.de 在 Strato，已弃用）。
 
 | 项 | 现状 |
 |----|------|
-| 访问地址 | `https://47.83.241.117`（HTTP 会 301 跳 HTTPS） |
-| SSL 证书 | **自签名**（`/etc/nginx/ssl/eutms-ip.crt`，有效期到 2028-11-03）。Let's Encrypt 不给纯 IP 签证书，浏览器首次访问会弹警告，点"高级 → 继续前往"即可 |
-| nginx | `server_name _` + `default_server`，不再匹配任何域名 |
-| CORS_ORIGIN | `https://47.83.241.117` |
-| 旧配置备份 | `/etc/nginx/sites-available/germany-box.bak-*`、`server/.env.bak-*` |
-| box-cargo.de | DNS 仍指向本机，但 nginx 已不认它，访问会证书不匹配。Let's Encrypt 证书还在（2026-09-07 到期），未删除 |
+| 访问地址 | `https://kalunasped.com`（`www` 同样可用，HTTP 会 301 跳 HTTPS） |
+| DNS | Cloudflare，A `@` 和 A `www` → `47.83.241.117`，**代理状态必须是「仅 DNS」灰云** |
+| SSL 证书 | Let's Encrypt，`/etc/letsencrypt/live/kalunasped.com/`，到 2026-10-30，certbot 自动续期 |
+| nginx | 公共配置在 `snippets/eutms-app.conf`，域名块与 IP 块各自 include |
+| IP 直访 | `https://47.83.241.117` **保留作应急回退**，仍是自签名证书（会弹警告），nginx 里是 `default_server` |
+| CORS_ORIGIN | `https://kalunasped.com,https://www.kalunasped.com,https://47.83.241.117`（**逗号分隔多来源**） |
+| APP_BASE_URL | `https://kalunasped.com`（报价确认邮件的链接前缀，只能单值） |
+| 备份 | `/etc/nginx/sites-available/germany-box.bak-*`、`server/.env.bak-*`、`homepage/index.html.bak-*` |
 
-### ⚠️ 新域名注册好之后必须做的事
+### ⚠️ 为什么 Cloudflare 代理必须关（灰云）
 
-1. **DNS 解析**指向 47.83.241.117
-2. **签正式证书**：`certbot --nginx -d 新域名`
-3. **nginx**：`server_name` 改成新域名，`ssl_certificate` 指回 Let's Encrypt
-4. **`.env`**：`CORS_ORIGIN` 改成 `https://新域名`，改完必须 `pm2 delete all` 再 `pm2 start`（踩坑 005）
-5. **邮件认证一定要第一天就配齐**（旧域名就是栽在这上面，详见踩坑 012）：
-   - SPF（TXT `@`）：`v=spf1 include:_spf.strato.com -all`
-   - DKIM：Strato 后台开启
-   - DMARC（TXT `_dmarc`）：先 `p=none`，等 SPF/DKIM 验证通过再收紧到 `p=reject`
-6. `SMTP_FROM` / `ADMIN_EMAIL` 换成新域名邮箱
-7. 前端 Login 页两个 `mailto:` 链接（密码重置、账号申请）里的旧域名一并换掉
+开橙云后 Cloudflare 会挡在源站前面，Let's Encrypt 的 HTTP-01 验证拿不到
+`/.well-known/acme-challenge/`，certbot 续期会失败；而且还要额外配 Cloudflare
+到源站的加密模式。要用 CDN/WAF 的话得先改成 DNS-01 验证再开。
+
+### 证书续期
+
+certbot 用的是 `--webroot -w /var/www/certbot`。nginx 的 80 端口块里有一段
+`location ^~ /.well-known/acme-challenge/` 例外**不能删** —— 删了续期就会失败，
+因为其余请求全被 301 到 HTTPS 了。
+
+### 邮件（2026-08-02 方案调整）
+
+域名在 Cloudflare 而非 Strato，Strato 的邮箱套餐不再适用，改为：
+
+- **发信**：Brevo（EU 公司，SMTP 中继，代码不用改只换 SMTP_* 环境变量）
+- **收信**：Cloudflare Email Routing，`info@kalunasped.com` 转发到实际邮箱
+
+⚠️ **一个域名只能有一条 SPF TXT 记录**。Cloudflare Email Routing 和 Brevo
+各自会让你加一条，必须**合并成一条**，否则 SPF 直接判定失效：
+
+```
+v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com -all
+```
+
+DMARC 一律先 `p=none` 观察，确认 SPF/DKIM 都通过再收紧到 `p=reject`。
+**顺序反了会全域断邮 —— 旧域名 box-cargo.de 就是这么废掉的，详见踩坑 012。**
+
+### 旧域名 box-cargo.de 遗留
+
+- 仍在 Strato，DNS 仍指向本机，但 nginx 的域名块只认 kalunasped.com，
+  访问 box-cargo.de 会落到 IP 那个 default_server（自签名证书，会弹警告）
+- 它的 Let's Encrypt 证书 2026-09-07 到期，续期会失败（webroot 例外只对当前配置有效），
+  确认不再需要后可以 `certbot delete --cert-name box-cargo.de` 清掉
+- `info@box-cargo.de` 邮箱在 Brevo 切换完成前仍是生产的发信账号
 
 ---
 
@@ -172,8 +199,9 @@ scp -r admin/dist/* root@47.83.241.117:/var/www/germany-box-system/admin/dist/
 
 ### 官网部署
 ```bash
-# 官网放在两个位置
-scp 原型图.html root@47.83.241.117:/var/www/germany-box-system/homepage/index.html
+# 官网不在 CI/CD 流程里，改了必须手工 scp，否则线上不会变
+# 覆盖前先 diff 一下线上那份，确认只差你要改的地方
+scp Box-Cargo-Homepage原型图.html root@47.83.241.117:/var/www/germany-box-system/homepage/index.html
 ssh eu-tms "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-box-system/admin/dist/homepage.html"
 ```
 
@@ -223,6 +251,15 @@ ssh eu-tms "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-
 
 ## SMTP 邮件
 
-- SMTP: smtp.strato.de:587
-- 发件人: info@box-cargo.de
-- 客户咨询通知自动发送到 info@box-cargo.de
+> 2026-08-02 起随域名迁移改用 Brevo 发信。切换完成前生产仍是下面的 Strato 配置。
+
+| 项 | 目标（Brevo） | 切换前（Strato，旧域名） |
+|----|--------------|------------------------|
+| SMTP | `smtp-relay.brevo.com:587` | `smtp.strato.de:587` |
+| 发件人 | `info@kalunasped.com` | `info@box-cargo.de` |
+| 收信 | Cloudflare Email Routing 转发 | Strato 邮箱 |
+
+- 全部走环境变量（`SMTP_HOST/PORT/USER/PASS/FROM`），**换服务商不用改代码**
+- 客户咨询通知自动发送到 `ADMIN_EMAIL`
+- 改完 `.env` 必须 `pm2 delete all` 再 `pm2 start`（踩坑 005）
+- **验证发信一律以真人收件箱为准**，不能只看队列日志说"成功"（踩坑 012）
