@@ -19,6 +19,7 @@ import {
   BookOpen,
   Hash,
   ChevronRight,
+  Database,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 
@@ -69,6 +70,14 @@ const ERP_ADMIN_LINKS = [
     title: '编号范围管理',
     description: '管理各业务对象的自动编号规则',
     path: '/settings/number-ranges',
+  },
+  {
+    icon: Database,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-600',
+    title: '基础数据维护',
+    description: '管理船司、箱型、币种、国家、港口、车型等基础配置数据',
+    path: '/settings/master-data',
   },
 ]
 

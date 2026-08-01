@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 import {
   ArrowLeft,
   FileText,
@@ -56,12 +57,6 @@ const BUSINESS_TYPES = [
 const TRANSPORT_TYPES = [
   { value: 'FTL', label: '整车运输 (FTL)' },
   { value: 'LTL', label: '零担运输 (LTL)' },
-]
-
-const CURRENCIES = [
-  { value: 'EUR', label: 'EUR - 欧元', symbol: '€' },
-  { value: 'GBP', label: 'GBP - 英镑', symbol: '£' },
-  { value: 'PLN', label: 'PLN - 兹罗提', symbol: 'zł' },
 ]
 
 const INITIAL_FORM: QuotationFormData = {
@@ -132,6 +127,9 @@ function FormField({ label, required, children, error }: FieldProps) {
 export default function QuotationCreate() {
   const navigate = useNavigate()
 
+  // 基础数据选项
+  const { options: currencyOpts } = useMasterDataOptions('currencies')
+
   // 状态
   const [form, setForm] = useState<QuotationFormData>({ ...INITIAL_FORM })
   const [clients, setClients] = useState<Client[]>([])
@@ -177,7 +175,7 @@ export default function QuotationCreate() {
 
   // 获取币种符号
   const currencySymbol = useMemo(() => {
-    return CURRENCIES.find((c) => c.value === form.currency)?.symbol || '€'
+    return currencyOpts.find((c) => c.value === form.currency)?.symbol || '€'
   }, [form.currency])
 
   // 获取选中的客户名称
@@ -571,7 +569,7 @@ export default function QuotationCreate() {
                   onChange={(e) => updateField('currency', e.target.value)}
                   className={inputClass}
                 >
-                  {CURRENCIES.map((c) => (
+                  {currencyOpts.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}
                     </option>

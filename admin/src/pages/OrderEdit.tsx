@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 import {
   ArrowLeft,
   Save,
@@ -73,11 +74,6 @@ interface OrderData {
 }
 
 // ==================== 常量 ====================
-
-const EUROPEAN_COUNTRIES = [
-  'Germany', 'France', 'Poland', 'Italy', 'Spain',
-  'Netherlands', 'Belgium', 'Czech Republic', 'Austria', 'Hungary',
-]
 
 const EDITABLE_STATUSES = ['PENDING_REVIEW', 'CONFIRMED']
 
@@ -158,6 +154,9 @@ function parseAddress(addr: Address | string | null): Address {
 export default function OrderEdit() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+
+  // 基础数据选项
+  const { options: countryOpts } = useMasterDataOptions('countries')
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -386,7 +385,7 @@ export default function OrderEdit() {
   }
 
   const isCurtainSide = order.business_type === 'CURTAIN_SIDE'
-  const countryOptions = EUROPEAN_COUNTRIES.map(c => ({ value: c, label: c }))
+  const countryOptions = countryOpts.map(o => ({ value: o.value, label: o.value }))
 
   // ==================== 不可编辑提示 ====================
 

@@ -25,16 +25,13 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
+import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 
 // ==================== 类型定义 ====================
 
 type BusinessType = 'CURTAIN_SIDE' | 'CONTAINER'
 type TransportType = 'FTL' | 'LTL'
-type Currency = 'EUR' | 'GBP' | 'PLN'
-type SpecialRequirement = '无' | '温控运输' | '危险品 ADR' | '超宽超重' | '需要尾板'
-type ContainerType = '20GP' | '40GP' | '40HQ' | '45HQ'
 type ReleaseMethod = 'TELEX' | 'ORIGINAL'
-type ShippingLine = 'MSC' | 'Maersk' | 'CMA CGM' | 'Hapag-Lloyd' | 'COSCO' | 'Evergreen' | 'ONE'
 
 // 客户数据
 interface Client {
@@ -73,22 +70,22 @@ interface CurtainSideForm {
   deliveryDate: string
   deliveryContact: string
   deliveryPhone: string
-  specialRequirements: SpecialRequirement
+  specialRequirements: string
   remarks: string
   clientPrice: string
-  currency: Currency
+  currency: string
 }
 
 // 集装箱物流表单
 interface ContainerForm {
   clientId: string
   transportType: TransportType
-  shippingLine: ShippingLine | ''
+  shippingLine: string
   blNumber: string
   eta: string
   cnee: string
   containerNo: string
-  containerType: ContainerType | ''
+  containerType: string
   sealNo: string
   pod: string
   finalDestination: string
@@ -100,7 +97,7 @@ interface ContainerForm {
   needsClearance: boolean
   remarks: string
   clientPrice: string
-  currency: Currency
+  currency: string
 }
 
 // ==================== 初始值 ====================
@@ -154,29 +151,6 @@ const initialContainerForm: ContainerForm = {
   clientPrice: '',
   currency: 'EUR',
 }
-
-// ==================== 常量选项 ====================
-
-const EUROPEAN_COUNTRIES = [
-  'Germany', 'France', 'Poland', 'Italy', 'Spain',
-  'Netherlands', 'Belgium', 'Czech Republic', 'Austria', 'Hungary',
-]
-
-const SHIPPING_LINES: ShippingLine[] = [
-  'MSC', 'Maersk', 'CMA CGM', 'Hapag-Lloyd', 'COSCO', 'Evergreen', 'ONE',
-]
-
-const CONTAINER_TYPES: ContainerType[] = ['20GP', '40GP', '40HQ', '45HQ']
-
-const SPECIAL_REQUIREMENTS: SpecialRequirement[] = [
-  '无', '温控运输', '危险品 ADR', '超宽超重', '需要尾板',
-]
-
-const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
-  { value: 'EUR', label: 'EUR (欧元)' },
-  { value: 'GBP', label: 'GBP (英镑)' },
-  { value: 'PLN', label: 'PLN (兹罗提)' },
-]
 
 // ==================== 通用输入组件 ====================
 
@@ -287,6 +261,13 @@ function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; child
 
 export default function OrderCreate() {
   const navigate = useNavigate()
+
+  // 基础数据选项（从数据库加载）
+  const { options: countryOptions } = useMasterDataOptions('countries')
+  const { options: shippingLineOptions } = useMasterDataOptions('shipping-lines')
+  const { options: containerTypeOptions } = useMasterDataOptions('container-types')
+  const { options: specialReqOptions } = useMasterDataOptions('special-requirements')
+  const { options: currencyOptions } = useMasterDataOptions('currencies')
 
   // 业务类型
   const [businessType, setBusinessType] = useState<BusinessType>('CURTAIN_SIDE')
@@ -649,7 +630,10 @@ function CurtainSideFormSection({
   clientOptions: { value: string; label: string }[]
   clientsLoading: boolean
 }) {
-  const countryOptions = EUROPEAN_COUNTRIES.map((c) => ({ value: c, label: c }))
+  const { options: countryOpts } = useMasterDataOptions('countries')
+  const { options: specialReqOpts } = useMasterDataOptions('special-requirements')
+  const { options: currencyOpts } = useMasterDataOptions('currencies')
+  const countryOptions = countryOpts.map(o => ({ value: o.value, label: o.value }))
 
   return (
     <>
@@ -851,8 +835,8 @@ function CurtainSideFormSection({
             <Label>特殊要求</Label>
             <SelectInput
               value={form.specialRequirements}
-              onChange={(v) => onUpdate('specialRequirements', v as SpecialRequirement)}
-              options={SPECIAL_REQUIREMENTS.map((r) => ({ value: r, label: r }))}
+              onChange={(v) => onUpdate('specialRequirements', v)}
+              options={specialReqOpts.map(o => ({ value: o.value, label: o.label }))}
             />
           </div>
           <div className="sm:col-span-2">
@@ -883,8 +867,8 @@ function CurtainSideFormSection({
             <Label>币种</Label>
             <SelectInput
               value={form.currency}
-              onChange={(v) => onUpdate('currency', v as Currency)}
-              options={CURRENCY_OPTIONS}
+              onChange={(v) => onUpdate('currency', v)}
+              options={currencyOpts.map(o => ({ value: o.value, label: o.label }))}
             />
           </div>
         </div>
@@ -906,6 +890,10 @@ function ContainerFormSection({
   clientOptions: { value: string; label: string }[]
   clientsLoading: boolean
 }) {
+  const { options: shippingLineOpts } = useMasterDataOptions('shipping-lines')
+  const { options: containerTypeOpts } = useMasterDataOptions('container-types')
+  const { options: currencyOpts } = useMasterDataOptions('currencies')
+
   return (
     <>
       {/* 基本信息 */}
@@ -943,8 +931,8 @@ function ContainerFormSection({
             <Label required>船司</Label>
             <SelectInput
               value={form.shippingLine}
-              onChange={(v) => onUpdate('shippingLine', v as ShippingLine)}
-              options={SHIPPING_LINES.map((s) => ({ value: s, label: s }))}
+              onChange={(v) => onUpdate('shippingLine', v)}
+              options={shippingLineOpts.map(o => ({ value: o.value, label: o.label }))}
               placeholder="请选择船司"
             />
           </div>
@@ -991,8 +979,8 @@ function ContainerFormSection({
             <Label required>柜型</Label>
             <SelectInput
               value={form.containerType}
-              onChange={(v) => onUpdate('containerType', v as ContainerType)}
-              options={CONTAINER_TYPES.map((t) => ({ value: t, label: t }))}
+              onChange={(v) => onUpdate('containerType', v)}
+              options={containerTypeOpts.map(o => ({ value: o.value, label: o.label }))}
               placeholder="请选择柜型"
             />
           </div>
@@ -1116,8 +1104,8 @@ function ContainerFormSection({
             <Label>币种</Label>
             <SelectInput
               value={form.currency}
-              onChange={(v) => onUpdate('currency', v as Currency)}
-              options={CURRENCY_OPTIONS}
+              onChange={(v) => onUpdate('currency', v)}
+              options={currencyOpts.map(o => ({ value: o.value, label: o.label }))}
             />
           </div>
         </div>

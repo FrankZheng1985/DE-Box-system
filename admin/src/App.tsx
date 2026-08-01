@@ -62,6 +62,7 @@ const PostingPeriods = lazy(() => import('./pages/PostingPeriods'))
 const ChartOfAccounts = lazy(() => import('./pages/ChartOfAccounts'))
 const NumberRanges = lazy(() => import('./pages/NumberRanges'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
+const MasterData = lazy(() => import('./pages/MasterData'))
 
 // ==================== 加载组件 ====================
 
@@ -157,6 +158,7 @@ function AppRoutes() {
           <Route path="/settings/posting-periods" element={<PostingPeriods />} />
           <Route path="/settings/chart-of-accounts" element={<ChartOfAccounts />} />
           <Route path="/settings/number-ranges" element={<NumberRanges />} />
+          <Route path="/settings/master-data" element={<MasterData />} />
           <Route path="/system/users" element={<UserManagement />} />
         </Routes>
       </Suspense>

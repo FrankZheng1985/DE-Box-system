@@ -519,3 +519,48 @@ export interface FinanceQueryParams extends SearchParams {
   status?: PaymentStatus
   counterpartyId?: string
 }
+
+// ==================== 基础数据 (Master Data) ====================
+
+/** 基础数据通用字段 */
+export interface MasterDataItem {
+  id: string
+  code: string
+  name_zh: string
+  name_en?: string
+  is_active: boolean
+  sort_order: number
+  created_at?: string
+  updated_at?: string
+  // 各类型特有字段
+  country?: string
+  website?: string
+  length_ft?: number
+  symbol?: string
+  region?: string
+  country_code?: string
+  port_type?: string
+  max_weight_kg?: number
+  max_volume_m3?: number
+  description?: string
+  // 允许动态字段访问
+  [key: string]: unknown
+}
+
+/** 基础数据下拉选项 */
+export interface MasterDataOption {
+  value: string
+  label: string
+  code?: string
+  symbol?: string
+  country_code?: string
+}
+
+/** 基础数据表单 */
+export interface MasterDataForm {
+  code: string
+  name_zh: string
+  name_en: string
+  sort_order: number
+  [key: string]: string | number
+}
