@@ -33,12 +33,14 @@ interface BillRow {
 }
 
 interface ClientProfit {
-  client_name: string
-  revenue: number
-  cost: number
-  profit: number
-  margin: number
-  order_count: number
+  id: string
+  company_name: string
+  client_code: string
+  total_revenue: string | number
+  total_cost: string | number
+  gross_profit: string | number
+  margin_pct: string | number
+  order_count: string | number
 }
 
 interface AgingData { range: string; amount: number; count: number }
@@ -634,13 +636,13 @@ export default function FinanceManagement() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {profits.map(p => (
-                  <div key={p.client_name} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-all duration-200">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-3">{p.client_name}</h3>
+                  <div key={p.id} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-all duration-200">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3">{p.company_name}</h3>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(p.total_revenue || p.revenue)}</span></div>
-                      <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(p.total_cost || p.cost)}</span></div>
-                      <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(p.gross_profit || p.profit)}</span></div>
-                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{Number(p.margin_pct || p.margin || 0).toFixed(1)}%</span></div>
+                      <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(Number(p.total_revenue))}</span></div>
+                      <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(Number(p.total_cost))}</span></div>
+                      <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(Number(p.gross_profit))}</span></div>
+                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{Number(p.margin_pct ?? 0).toFixed(1)}%</span></div>
                     </div>
                     <p className="text-xs text-slate-400 mt-2">订单数: {p.order_count}</p>
                   </div>
