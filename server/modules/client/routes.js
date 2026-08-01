@@ -12,6 +12,22 @@ import { changeTracker, numberRange } from '../../core/index.js'
 const router = Router()
 router.use(authenticateToken)
 
+/**
+ * 校验账期：clients.payment_terms 是 INTEGER（天数）
+ * 前端历史上传过 'net_30' 这种字符串，会让 PostgreSQL 直接报类型错误，
+ * 所以在入库前先挡一道
+ * @param {*} value - 请求里的账期值
+ * @returns {number|null} 合法天数，或 null 表示"没传"
+ */
+function parsePaymentTerms(value) {
+  if (value === undefined || value === null || value === '') return null
+  const days = Number(value)
+  if (!Number.isInteger(days) || days < 0 || days > 365) {
+    throw new Error('参数错误：账期必须是 0-365 之间的整数天数')
+  }
+  return days
+}
+
 // 客户变更追踪字段
 const CLIENT_FIELDS = [
   { name: 'company_name', label: '公司名称' },
@@ -163,6 +179,8 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    const paymentTerms = parsePaymentTerms(req.body.paymentTerms)
+
     const client = await withTransaction(async (tx) => {
       // 通过编号范围生成客户编码
       const { docNumber } = await numberRange.getNextNumber(tx, 'CLT', 'DE01')
@@ -178,7 +196,7 @@ router.post('/', async (req, res) => {
          req.body.city, req.body.address, req.body.contactName, req.body.contactEmail,
          req.body.contactPhone, req.body.invoiceEmail,
          req.body.creditLimit || 0, req.body.creditLevel || 'C',
-         req.body.riskCategory || 'MEDIUM', req.body.paymentTerms || 30,
+         req.body.riskCategory || 'MEDIUM', paymentTerms ?? 30,
          'ACTIVE', 'DE01']
       )
 
@@ -196,7 +214,9 @@ router.post('/', async (req, res) => {
     res.json({ code: 200, message: '客户创建成功', data: client })
   } catch (error) {
     console.error('创建客户失败:', error)
-    res.status(500).json({ code: 500, message: error.message, data: null })
+    // 参数校验失败返回 400，其余按系统错误返回 500
+    const statusCode = error.message.startsWith('参数错误') ? 400 : 500
+    res.status(statusCode).json({ code: statusCode, message: error.message, data: null })
   }
 })
 
@@ -206,6 +226,18 @@ router.post('/', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
+    // 账期先校验再进 SQL（见 parsePaymentTerms 注释）
+    const paymentTerms = parsePaymentTerms(
+      req.body.paymentTerms !== undefined ? req.body.paymentTerms : req.body.payment_terms
+    )
+    delete req.body.payment_terms
+    if (paymentTerms !== null) {
+      req.body.paymentTerms = paymentTerms
+    } else {
+      // 传了空字符串等于"不改这个字段"，别让空值进 SQL
+      delete req.body.paymentTerms
+    }
+
     await withTransaction(async (tx) => {
       const old = await tx.query(`SELECT * FROM clients WHERE id = $1`, [req.params.id])
       if (old.rows.length === 0) throw new Error('客户不存在')

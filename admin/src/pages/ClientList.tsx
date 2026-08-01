@@ -13,8 +13,11 @@ interface Client {
   vat_number: string
   country: string
   order_count: number
-  credit_rating: string
-  receivable_balance: number
+  // ⚠️ 字段名必须和后端返回一致：后端返的是 credit_level / outstanding_amount，
+  //    历史上写成 credit_rating / receivable_balance，导致信用等级永远显示 "-"、应收永远 0（踩坑 003）
+  credit_level: string
+  // outstanding_amount 来自 SUM(NUMERIC)，pg 驱动返回的是字符串（踩坑 002）
+  outstanding_amount: string | number
   contact_person: string
   email: string
   status: string
@@ -56,8 +59,18 @@ const INITIAL_FORM: ClientForm = {
 
 // ==================== 格式化函数 ====================
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
+// 金额可能是数据库 NUMERIC 返回的字符串，格式化前先转数字（踩坑 002）
+function formatCurrency(amount: string | number | null | undefined): string {
+  const value = Number(amount) || 0
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value)
+}
+
+// 信用等级 A-D 对应的配色：A 最好（绿），D 最差（红）
+const CREDIT_LEVEL_STYLES: Record<string, string> = {
+  A: 'bg-green-100 text-green-700',
+  B: 'bg-blue-100 text-blue-700',
+  C: 'bg-amber-100 text-amber-700',
+  D: 'bg-red-100 text-red-700',
 }
 
 // ==================== 组件 ====================
@@ -305,13 +318,13 @@ export default function ClientList() {
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{client.order_count ?? 0}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${
-                        client.credit_rating === 'A' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                        CREDIT_LEVEL_STYLES[client.credit_level] || 'bg-gray-100 text-gray-600'
                       }`}>
-                        {client.credit_rating || '-'}
+                        {client.credit_level || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">
-                      {formatCurrency(client.receivable_balance || 0)}
+                      {formatCurrency(client.outstanding_amount)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">

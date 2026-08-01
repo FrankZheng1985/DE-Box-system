@@ -101,7 +101,8 @@ export default function ClientEdit() {
             invoiceEmail: d.invoice_email || d.invoiceEmail || '',
             creditLimit: d.credit_limit || d.creditLimit || 0,
             creditLevel: d.credit_level || d.creditLevel || '',
-            paymentTerms: d.payment_terms || d.paymentTerms || '',
+            // payment_terms 是 INTEGER（天数），0 表示预付，不能用 || 兜底会把 0 吞掉
+            paymentTerms: String(d.payment_terms ?? d.paymentTerms ?? ''),
           })
         } else {
           setError(res.message || '获取客户信息失败')
@@ -135,7 +136,12 @@ export default function ClientEdit() {
     setSubmitting(true)
     setError('')
     try {
-      const res = await api.put<ApiResponse<any>>(`/clients/${id}`, form)
+      const payload = {
+        ...form,
+        // 账期是 INTEGER，没选就不提交这个字段（保持库里原值）
+        paymentTerms: form.paymentTerms === '' ? undefined : Number(form.paymentTerms),
+      }
+      const res = await api.put<ApiResponse<any>>(`/clients/${id}`, payload)
       if (res.code === 200) {
         setSuccessMsg('客户信息已更新')
         setTimeout(() => navigate(`/clients/${id}`), 1200)
@@ -258,14 +264,17 @@ export default function ClientEdit() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">付款条件</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">付款条件（账期天数）</label>
+              {/* ⚠️ clients.payment_terms 是 INTEGER（天数），value 必须是数字字符串。
+                  原来存的是 net_30 这种字符串，保存时 PostgreSQL 直接报类型错误 */}
               <select value={form.paymentTerms} onChange={(e) => updateField('paymentTerms', e.target.value)} className={inputClass}>
                 <option value="">请选择</option>
-                <option value="prepaid">预付</option>
-                <option value="net_7">Net 7</option>
-                <option value="net_14">Net 14</option>
-                <option value="net_30">Net 30</option>
-                <option value="net_60">Net 60</option>
+                <option value="0">预付（0 天）</option>
+                <option value="7">Net 7（7 天）</option>
+                <option value="14">Net 14（14 天）</option>
+                <option value="30">Net 30（30 天）</option>
+                <option value="60">Net 60（60 天）</option>
+                <option value="90">Net 90（90 天）</option>
               </select>
             </div>
           </div>
