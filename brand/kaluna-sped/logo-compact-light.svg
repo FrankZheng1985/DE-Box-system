@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" width="200" height="40">
+  <!-- KALUNA SPED 紧凑 Logo - 浅色背景（移动端导航、邮件签名） -->
+  <g transform="translate(0,2) scale(0.72)">
+    <rect x="7" y="9" width="7" height="30" fill="#1C1C1E"/>
+    <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
+  </g>
+  <text x="40" y="28" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="800" letter-spacing="1"><tspan fill="#1C1C1E">KALUNA</tspan><tspan dx="6" fill="#E5432E">SPED</tspan></text>
+</svg>

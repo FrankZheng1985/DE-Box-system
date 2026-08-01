@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- KALUNA SPED Favicon 32x32（浏览器标签页图标） -->
+  <rect width="32" height="32" rx="6" fill="#1C1C1E"/>
+  <g transform="translate(4.2,4.2) scale(0.485)">
+    <rect x="7" y="9" width="7" height="30" fill="#FFFFFF"/>
+    <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
+  </g>
+</svg>

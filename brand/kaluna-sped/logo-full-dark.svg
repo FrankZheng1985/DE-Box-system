@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" width="480" height="200">
+  <!-- KALUNA SPED 完整 Logo - 深色背景版（深色页头、文档封面） -->
+  <!-- TODO 法人形式后缀（GmbH / UG 等）待工商信息确认后补入 -->
+  <rect width="480" height="200" fill="#1C1C1E"/>
+  <g transform="translate(57,52) scale(1.583)">
+    <rect x="7" y="9" width="7" height="30" fill="#FFFFFF"/>
+    <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
+  </g>
+  <text x="157" y="100" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="2.5"><tspan fill="#FFFFFF">KALUNA</tspan><tspan dx="10" fill="#FF6A55">SPED</tspan></text>
+  <rect x="158" y="117" width="52" height="3" rx="1.5" fill="#E5432E"/>
+  <text x="158" y="141" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="400" letter-spacing="2.4" fill="rgba(255,255,255,0.62)">EUROPEAN TRANSPORT SOLUTIONS</text>
+</svg>

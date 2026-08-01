@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="300" height="80">
+  <!-- KALUNA SPED 邮件签名版（邮件底部签名、文档页脚） -->
+  <!-- TODO 法人形式后缀（GmbH / UG 等）待工商信息确认后补入 -->
+  <g transform="translate(0,1) scale(0.62)">
+    <rect x="7" y="9" width="7" height="30" fill="#1C1C1E"/>
+    <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
+  </g>
+  <text x="34" y="26" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="1"><tspan fill="#1C1C1E">KALUNA</tspan><tspan dx="5" fill="#E5432E">SPED</tspan></text>
+  <rect x="0" y="42" width="300" height="1" fill="#E5E5EA"/>
+  <text x="0" y="56" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="400" fill="#6E6E73">www.kalunasped.com</text>
+  <text x="105" y="56" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="400" fill="#D2D2D7">|</text>
+  <text x="115" y="56" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="400" fill="#6E6E73">info@kalunasped.com</text>
+  <text x="0" y="70" font-family="Inter, Arial, sans-serif" font-size="7" font-weight="300" fill="#A1A1A6">European Transport Solutions</text>
+</svg>
