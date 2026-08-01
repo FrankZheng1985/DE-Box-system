@@ -90,19 +90,22 @@ cron.schedule('5 0 1 * *', async () => {
     const closeMonth = currentMonth <= 2 ? currentMonth + 10 : currentMonth - 2
     const closeYear = currentMonth <= 2 ? currentYear - 1 : currentYear
 
-    // 开放当月
-    await query(
-      `UPDATE posting_periods SET is_open = true, opened_by = '系统自动', opened_at = NOW()
+    // ⚠️ opened_by / closed_by 是 UUID 列（REFERENCES users(id)），
+    //    原来写的是中文字符串 '系统自动'，每月都报
+    //    invalid input syntax for type uuid，这个任务从来没成功过。
+    //    系统自动操作没有对应用户，写 NULL；"什么时候开的"看 opened_at / closed_at。
+    const opened = await query(
+      `UPDATE posting_periods SET is_open = true, opened_by = NULL, opened_at = NOW()
        WHERE fiscal_year = $1 AND period_month = $2 AND is_open = false`,
       [currentYear, currentMonth]
     )
     // 关闭上上月
-    await query(
-      `UPDATE posting_periods SET is_open = false, closed_by = '系统自动', closed_at = NOW()
+    const closed = await query(
+      `UPDATE posting_periods SET is_open = false, closed_by = NULL, closed_at = NOW()
        WHERE fiscal_year = $1 AND period_month = $2 AND is_open = true`,
       [closeYear, closeMonth]
     )
-    console.warn(`[定时任务] 过账期间管理完成: 开放 ${currentYear}-${currentMonth}, 关闭 ${closeYear}-${closeMonth}`)
+    console.warn(`[定时任务] 过账期间管理完成: 开放 ${currentYear}-${currentMonth} (${opened.rowCount} 条), 关闭 ${closeYear}-${closeMonth} (${closed.rowCount} 条)`)
   } catch (err) {
     console.error('[定时任务] 过账期间管理失败:', err.message)
   }
