@@ -17,7 +17,7 @@
 
 - **项目名称**: EU-TMS 欧洲运输管理系统
 - **公司**: Box Cargo Service GmbH
-- **域名**: box-cargo.de
+- **访问地址**: https://47.83.241.117 ← **过渡期直接用 IP**（详见下方"域名迁移过渡期"）
 - **架构**: SAP S/4HANA ERP 标准
 - **三端**: 运营管理端 + 客户门户 + 承运商门户
 
@@ -29,7 +29,34 @@
 - **RDS**: pgm-j6crhh9h8562qvfm.pg.rds.aliyuncs.com:5432
 - **数据库名**: germany_box_transport
 - **OSS**: box-cargo-files (oss-cn-hongkong)
-- **域名**: box-cargo.de (Strato DNS, Let's Encrypt SSL)
+
+---
+
+## 域名迁移过渡期（2026-08-01 起）
+
+> **现状：服务器已不再绑定 box-cargo.de，只按 IP 访问。** 新域名尚未注册。
+
+| 项 | 现状 |
+|----|------|
+| 访问地址 | `https://47.83.241.117`（HTTP 会 301 跳 HTTPS） |
+| SSL 证书 | **自签名**（`/etc/nginx/ssl/eutms-ip.crt`，有效期到 2028-11-03）。Let's Encrypt 不给纯 IP 签证书，浏览器首次访问会弹警告，点"高级 → 继续前往"即可 |
+| nginx | `server_name _` + `default_server`，不再匹配任何域名 |
+| CORS_ORIGIN | `https://47.83.241.117` |
+| 旧配置备份 | `/etc/nginx/sites-available/germany-box.bak-*`、`server/.env.bak-*` |
+| box-cargo.de | DNS 仍指向本机，但 nginx 已不认它，访问会证书不匹配。Let's Encrypt 证书还在（2026-09-07 到期），未删除 |
+
+### ⚠️ 新域名注册好之后必须做的事
+
+1. **DNS 解析**指向 47.83.241.117
+2. **签正式证书**：`certbot --nginx -d 新域名`
+3. **nginx**：`server_name` 改成新域名，`ssl_certificate` 指回 Let's Encrypt
+4. **`.env`**：`CORS_ORIGIN` 改成 `https://新域名`，改完必须 `pm2 delete all` 再 `pm2 start`（踩坑 005）
+5. **邮件认证一定要第一天就配齐**（旧域名就是栽在这上面，详见踩坑 012）：
+   - SPF（TXT `@`）：`v=spf1 include:_spf.strato.com -all`
+   - DKIM：Strato 后台开启
+   - DMARC（TXT `_dmarc`）：先 `p=none`，等 SPF/DKIM 验证通过再收紧到 `p=reject`
+6. `SMTP_FROM` / `ADMIN_EMAIL` 换成新域名邮箱
+7. 前端 Login 页两个 `mailto:` 链接（密码重置、账号申请）里的旧域名一并换掉
 
 ---
 
