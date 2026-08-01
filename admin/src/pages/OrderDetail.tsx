@@ -35,6 +35,7 @@ import {
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
+import OrderFilesSection from '../components/OrderFilesSection'
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getStatusLabel } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
@@ -795,6 +796,15 @@ export default function OrderDetail() {
               </div>
             </div>
           )}
+
+          {/* ---------- 订单文件（需求 3 文件中心） ---------- */}
+          <OrderFilesSection
+            orderId={order.id}
+            businessType={order.business_type}
+            status={order.status}
+            deliveryStatus={order.delivery_status}
+            onToast={(message, type) => setToast({ message, type })}
+          />
 
           {/* ---------- 运输路线可视化 ---------- */}
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">

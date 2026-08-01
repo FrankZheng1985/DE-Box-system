@@ -5,8 +5,12 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
+import multer from 'multer'
+import fs from 'fs'
+import path from 'path'
 import { authenticateToken, requireUserType } from '../../middleware/auth.js'
 import { getPool } from '../../core/db.js'
+import { uploadToOSS, deleteFromOSS } from '../../utils/oss-service.js'
 import orderController from './controller.js'
 import { BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
 
@@ -14,6 +18,217 @@ const router = Router()
 
 // 所有订单路由需要认证
 router.use(authenticateToken)
+
+// ==================== 订单文件中心（需求 3） ====================
+
+// 本地回退目录（OSS 不可用时；与 CMR 模块同一套约定）
+const ORDER_FILES_UPLOAD_DIR = '/var/www/germany-box-system/uploads/orders'
+try {
+  fs.mkdirSync(ORDER_FILES_UPLOAD_DIR, { recursive: true })
+} catch {
+  // 本地开发机可能没有 /var/www 写权限；OSS 正常时用不到这个目录
+}
+
+// 文件上传配置（与 CMR 模块一致：内存存储，20MB，PDF/JPG/PNG/WebP）
+const orderFileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+    cb(null, allowed.includes(file.mimetype))
+  }
+})
+
+const FILE_CATEGORIES = ['LOADING_PHOTO', 'CMR', 'POD_PROOF', 'OTHER']
+
+const MIME_TO_FILE_TYPE = {
+  'application/pdf': 'PDF',
+  'image/jpeg': 'JPG',
+  'image/png': 'PNG',
+  'image/webp': 'WEBP',
+}
+
+/**
+ * 校验当前用户是否有权访问该订单（客户/承运商只能看自己的）
+ * @returns {Promise<object|null>} 有权限时返回订单行，无权限/不存在返回 null 并已写响应
+ */
+async function loadOrderWithAccessCheck(orderId, user, res) {
+  const pool = getPool()
+  const result = await pool.query(
+    `SELECT id, order_number, container_no, client_id, carrier_id FROM orders WHERE id = $1`,
+    [orderId]
+  )
+  if (result.rows.length === 0) {
+    res.status(404).json({ code: 404, message: '订单不存在', data: null })
+    return null
+  }
+  const order = result.rows[0]
+  const userType = user.userType || user.roleCode
+  if (userType === 'CLIENT' && order.client_id !== user.linkedEntityId) {
+    res.status(403).json({ code: 403, message: '无权访问该订单的文件', data: null })
+    return null
+  }
+  if (userType === 'CARRIER' && order.carrier_id !== user.linkedEntityId) {
+    res.status(403).json({ code: 403, message: '无权访问该订单的文件', data: null })
+    return null
+  }
+  return order
+}
+
+/**
+ * 订单文件列表（order_files + cmr_documents 统一视图）
+ * GET /api/v1/orders/:id/files
+ */
+router.get('/:id/files', async (req, res) => {
+  try {
+    const order = await loadOrderWithAccessCheck(req.params.id, req.user, res)
+    if (!order) return
+
+    const pool = getPool()
+    const [files, cmrDocs] = await Promise.all([
+      pool.query(
+        `SELECT f.id, f.file_category, f.file_name, f.file_url, f.file_type,
+                f.file_size_bytes, f.remarks, f.uploaded_at,
+                u.display_name AS uploaded_by_name
+         FROM order_files f
+         LEFT JOIN users u ON u.id = f.uploaded_by
+         WHERE f.order_id = $1
+         ORDER BY f.uploaded_at DESC`,
+        [order.id]
+      ),
+      pool.query(
+        `SELECT cmr.id, cmr.cmr_number, cmr.file_url, cmr.file_type,
+                cmr.sign_status, cmr.has_damage_note, cmr.uploaded_at,
+                u.display_name AS uploaded_by_name
+         FROM cmr_documents cmr
+         LEFT JOIN users u ON u.id = cmr.uploaded_by
+         WHERE cmr.order_id = $1
+         ORDER BY cmr.uploaded_at DESC`,
+        [order.id]
+      ),
+    ])
+
+    // 统一成一个数组：CMR 单据来自 cmr_documents（签署状态是它的专属价值），
+    // 只在这里聚合展示，不复制进 order_files
+    const unified = [
+      ...files.rows.map((f) => ({ ...f, source: 'ORDER_FILE' })),
+      ...cmrDocs.rows.map((c) => ({
+        id: c.id,
+        file_category: 'CMR',
+        file_name: c.cmr_number || 'CMR',
+        file_url: c.file_url,
+        file_type: c.file_type,
+        file_size_bytes: null,
+        remarks: null,
+        uploaded_at: c.uploaded_at,
+        uploaded_by_name: c.uploaded_by_name,
+        sign_status: c.sign_status,
+        has_damage_note: c.has_damage_note,
+        source: 'CMR_DOC',
+      })),
+    ].sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at))
+
+    res.json({ code: 200, message: 'success', data: unified })
+  } catch (error) {
+    console.error('获取订单文件失败:', error)
+    res.status(500).json({ code: 500, message: '获取订单文件失败', data: null })
+  }
+})
+
+/**
+ * 上传订单文件（装车图/签收凭证/其他；CMR 请走 /cmr/upload 以保留签署状态跟踪）
+ * POST /api/v1/orders/:id/files
+ */
+router.post('/:id/files', orderFileUpload.single('file'), async (req, res) => {
+  try {
+    const order = await loadOrderWithAccessCheck(req.params.id, req.user, res)
+    if (!order) return
+
+    const category = req.body.fileCategory || 'OTHER'
+    if (!FILE_CATEGORIES.includes(category)) {
+      return res.status(400).json({ code: 400, message: `无效的文件类别: ${category}`, data: null })
+    }
+    if (category === 'CMR') {
+      return res.status(400).json({ code: 400, message: 'CMR 请通过 /cmr/upload 上传（需要跟踪签署状态）', data: null })
+    }
+    if (!req.file?.buffer) {
+      return res.status(400).json({ code: 400, message: '未选择文件或文件类型不支持（仅 PDF/JPG/PNG/WebP，20MB 以内）', data: null })
+    }
+
+    // 文件路径：orders/{订单号}_{柜号}/{时间戳}-{原文件名}
+    const safeName = (req.file.originalname || 'file').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const folderName = order.container_no
+      ? `${order.order_number}_${order.container_no}`
+      : order.order_number
+    const filename = `${Date.now()}-${safeName}`
+    const ossPath = `orders/${folderName}/${filename}`
+
+    let fileUrl = `/uploads/orders/${filename}`
+    let storedOssPath = null
+    try {
+      const ossResult = await uploadToOSS(req.file.buffer, ossPath)
+      if (ossResult) {
+        fileUrl = ossResult.url
+        storedOssPath = ossResult.ossPath
+      } else {
+        fs.writeFileSync(path.join(ORDER_FILES_UPLOAD_DIR, filename), req.file.buffer)
+      }
+    } catch (ossErr) {
+      console.warn('[订单文件] OSS 上传失败，回退到本地:', ossErr.message)
+      fs.writeFileSync(path.join(ORDER_FILES_UPLOAD_DIR, filename), req.file.buffer)
+    }
+
+    const pool = getPool()
+    const result = await pool.query(
+      `INSERT INTO order_files
+       (order_id, file_category, file_name, file_url, oss_path, file_type, file_size_bytes, remarks, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [order.id, category, safeName, fileUrl, storedOssPath,
+       MIME_TO_FILE_TYPE[req.file.mimetype] || 'PDF', req.file.size,
+       req.body.remarks || null, req.user.id]
+    )
+
+    res.json({ code: 200, message: '文件上传成功', data: result.rows[0] })
+  } catch (error) {
+    console.error('上传订单文件失败:', error)
+    res.status(500).json({ code: 500, message: error.message, data: null })
+  }
+})
+
+/**
+ * 删除订单文件（仅运营；CMR 单据不在此删除）
+ * DELETE /api/v1/orders/files/:fileId
+ */
+router.delete('/files/:fileId', requireUserType('OPERATOR'), async (req, res) => {
+  try {
+    const pool = getPool()
+    const result = await pool.query(
+      `DELETE FROM order_files WHERE id = $1 RETURNING file_url, oss_path`,
+      [req.params.fileId]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '文件不存在', data: null })
+    }
+
+    // 同步清理存储（失败不影响删除结果，OSS 里最多留个孤儿对象）
+    const { file_url, oss_path } = result.rows[0]
+    if (oss_path) {
+      deleteFromOSS(oss_path).catch(() => {})
+    } else if (file_url?.startsWith('/uploads/orders/')) {
+      try {
+        fs.unlinkSync(path.join(ORDER_FILES_UPLOAD_DIR, path.basename(file_url)))
+      } catch {
+        // 本地文件可能已不存在
+      }
+    }
+
+    res.json({ code: 200, message: '文件已删除', data: null })
+  } catch (error) {
+    console.error('删除订单文件失败:', error)
+    res.status(500).json({ code: 500, message: error.message, data: null })
+  }
+})
 
 // 统计（放在 /:id 前面，避免被匹配为 id）
 router.get('/stats', orderController.getStats)

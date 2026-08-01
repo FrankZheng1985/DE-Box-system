@@ -92,6 +92,44 @@ export default function CMRManagement() {
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadSubmitting, setUploadSubmitting] = useState(false)
 
+  // 上传弹窗里的订单搜索选择器（替代原来手粘 UUID）
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderOptions, setOrderOptions] = useState<{ id: string; order_number: string; client_name: string }[]>([])
+  const [orderSearching, setOrderSearching] = useState(false)
+  const [selectedOrderLabel, setSelectedOrderLabel] = useState('')
+
+  const closeUploadModal = () => {
+    setUploadModalOpen(false)
+    setUploadForm({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' })
+    setUploadFile(null)
+    setOrderSearch('')
+    setOrderOptions([])
+    setSelectedOrderLabel('')
+  }
+
+  // 订单搜索防抖
+  useEffect(() => {
+    if (!orderSearch.trim() || uploadForm.orderId) {
+      setOrderOptions([])
+      return
+    }
+    const timer = setTimeout(async () => {
+      setOrderSearching(true)
+      try {
+        const res = await api.get<ApiResponse<{ id: string; order_number: string; client_name: string }[]>>(
+          `/orders?search=${encodeURIComponent(orderSearch.trim())}&pageSize=8`
+        )
+        setOrderOptions(res.data || [])
+      } catch (err) {
+        console.error('搜索订单失败:', err)
+        setOrderOptions([])
+      } finally {
+        setOrderSearching(false)
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [orderSearch, uploadForm.orderId])
+
   // 更新签署状态 Modal
   const [signModalOpen, setSignModalOpen] = useState(false)
   const [signTarget, setSignTarget] = useState<CMR | null>(null)
@@ -177,9 +215,7 @@ export default function CMRManagement() {
 
       if (res.code === 200) {
         setToast('CMR 上传成功')
-        setUploadModalOpen(false)
-        setUploadForm({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' })
-        setUploadFile(null)
+        closeUploadModal()
         refreshAll()
       }
     } catch (err) {
@@ -416,13 +452,13 @@ export default function CMRManagement() {
       {/* ==================== 上传 CMR Modal ==================== */}
       <Modal
         isOpen={uploadModalOpen}
-        onClose={() => { setUploadModalOpen(false); setUploadForm({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' }) }}
+        onClose={closeUploadModal}
         title="上传 CMR"
         size="lg"
         footer={
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => { setUploadModalOpen(false); setUploadForm({ orderId: '', cmrNumber: '', fileType: 'PDF', remark: '' }) }}
+              onClick={closeUploadModal}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
               取消
@@ -438,18 +474,56 @@ export default function CMRManagement() {
         }
       >
         <div className="space-y-4">
-          {/* 关联订单ID */}
+          {/* 关联订单（搜索选择，替代手粘 UUID） */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              关联订单ID <span className="text-red-500">*</span>
+              关联订单 <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              value={uploadForm.orderId}
-              onChange={e => setUploadForm(prev => ({ ...prev, orderId: e.target.value }))}
-              placeholder="输入订单UUID或订单号"
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
-            />
+            {uploadForm.orderId ? (
+              <div className="flex items-center justify-between px-4 py-2.5 border border-blue-200 bg-blue-50/50 rounded-xl">
+                <span className="text-sm text-slate-800 font-medium">{selectedOrderLabel}</span>
+                <button
+                  onClick={() => { setUploadForm(prev => ({ ...prev, orderId: '' })); setSelectedOrderLabel(''); setOrderSearch('') }}
+                  className="text-xs text-blue-600 hover:text-blue-700"
+                >
+                  重新选择
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  placeholder="输入订单号、柜号或提单号搜索订单"
+                  className="w-full min-w-[320px] px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+                />
+                {orderSearch.trim() && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                    {orderSearching ? (
+                      <div className="px-4 py-3 text-xs text-slate-400">搜索中...</div>
+                    ) : orderOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-xs text-slate-400">没有匹配的订单</div>
+                    ) : (
+                      orderOptions.map(o => (
+                        <button
+                          key={o.id}
+                          onClick={() => {
+                            setUploadForm(prev => ({ ...prev, orderId: o.id }))
+                            setSelectedOrderLabel(`${o.order_number}（${o.client_name || '-'}）`)
+                            setOrderOptions([])
+                          }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors duration-150"
+                        >
+                          <span className="text-sm font-medium text-slate-800">{o.order_number}</span>
+                          <span className="text-xs text-slate-400 ml-2">{o.client_name || '-'}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* CMR 编号 */}

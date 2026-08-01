@@ -50,6 +50,14 @@ router.get('/', async (req, res) => {
     if (orderId) { params.push(orderId); sql += ` AND cmr.order_id = $${++idx}` }
     if (search) { params.push(`%${search}%`); sql += ` AND (cmr.cmr_number ILIKE $${++idx} OR o.order_number ILIKE $${idx})` }
 
+    // 承运商/客户只能看自己订单的 CMR（按登录身份强制过滤，不信任前端传参）
+    const userType = req.user.userType || req.user.roleCode
+    if (userType === 'CARRIER') {
+      params.push(req.user.linkedEntityId); sql += ` AND o.carrier_id = $${++idx}`
+    } else if (userType === 'CLIENT') {
+      params.push(req.user.linkedEntityId); sql += ` AND o.client_id = $${++idx}`
+    }
+
     const countResult = await query(`SELECT COUNT(*) as total FROM (${sql}) t`, params)
     sql += ` ORDER BY cmr.uploaded_at DESC`
     params.push(parseInt(pageSize)); sql += ` LIMIT $${++idx}`
@@ -160,13 +168,33 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       )
 
       // 更新单据流：订单 → CMR
-      const order = await client.query(`SELECT document_id FROM orders WHERE id = $1`, [req.body.orderId])
+      const order = await client.query(
+        `SELECT document_id, order_number FROM orders WHERE id = $1`, [req.body.orderId]
+      )
       if (order.rows[0]?.document_id) {
         await documentFlow.createFlowLink(client, {
           precedingDocType: 'ORD', precedingDocId: order.rows[0].document_id,
           subsequentDocType: 'CMR', subsequentDocId: doc.id,
           flowType: 'ORDER_TO_CMR'
         })
+      }
+
+      // CMR 上传通知运营（承运商在门户传的 CMR 运营第一时间能看到）
+      try {
+        const operators = await client.query(
+          `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`
+        )
+        if (operators.rows.length > 0) {
+          await notificationEngine.notify(client, {
+            userIds: operators.rows.map(u => u.id),
+            type: NOTIFICATION_TYPES.CMR_UPLOADED,
+            title: `订单 ${orderNumber} 的 CMR 已上传`,
+            message: `CMR ${result.rows[0].cmr_number} 已上传，请及时核对签署状态`,
+            relatedOrderId: req.body.orderId
+          })
+        }
+      } catch (notifyErr) {
+        console.warn('CMR 上传通知发送失败（不影响主流程）:', notifyErr.message)
       }
 
       return result.rows[0]
