@@ -64,18 +64,31 @@ certbot 用的是 `--webroot -w /var/www/certbot`。nginx 的 80 端口块里有
 
 域名在 Cloudflare 而非 Strato，Strato 的邮箱套餐不再适用，改为：
 
-- **发信**：Brevo（EU 公司，SMTP 中继，代码不用改只换 SMTP_* 环境变量）
+- **发信**：Resend（爱尔兰 eu-west-1，SMTP 中继，**代码不用改**只换 SMTP_* 环境变量）
 - **收信**：Cloudflare Email Routing，`info@kalunasped.com` 转发到实际邮箱
 
-⚠️ **一个域名只能有一条 SPF TXT 记录**。Cloudflare Email Routing 和 Brevo
-各自会让你加一条，必须**合并成一条**，否则 SPF 直接判定失效：
+生产 SMTP：`smtp.resend.com:587`，`SMTP_SECURE=false`（STARTTLS），
+用户名固定 `resend`，密码是 API key（**Sending access + 仅限本域**，
+该 Resend 账号下还有别的项目，别用 Full access / All domains）。
+
+⚠️ **根域只能有一条 SPF TXT 记录**，两条并存 SPF 直接判定失效。当前是：
 
 ```
-v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com -all
+v=spf1 include:_spf.mx.cloudflare.net ~all
 ```
 
-DMARC 一律先 `p=none` 观察，确认 SPF/DKIM 都通过再收紧到 `p=reject`。
+**不需要在根域 include Resend** —— Resend 把 Return-Path 放在 `send` 子域，
+SPF 检查针对那个子域（`send` 的 TXT 是 `v=spf1 include:amazonses.com ~all`）。
+DMARC 照样对齐：send 子域与根域同组织域（relaxed），DKIM 签的是 `d=kalunasped.com`。
+
+两个 DKIM 选择器共存是正常的：`resend._domainkey`（发信）+ `cf2024-1._domainkey`（转发）。
+
+DMARC 现为 `p=none` 观察期。**1-2 周后**再依次收紧到 `p=quarantine` → `p=reject`，
+收紧前先看 DMARC 聚合报告确认认证稳定通过。
 **顺序反了会全域断邮 —— 旧域名 box-cargo.de 就是这么废掉的，详见踩坑 012。**
+
+> 新域名首次发信进收件方垃圾箱是常态（零发信信誉），和旧域名"静默丢弃"性质不同，
+> 靠时间和正常发信量自然好转，不是配置问题。
 
 ### 旧域名 box-cargo.de 遗留
 
@@ -251,13 +264,13 @@ ssh eu-tms "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-
 
 ## SMTP 邮件
 
-> 2026-08-02 起随域名迁移改用 Brevo 发信。切换完成前生产仍是下面的 Strato 配置。
+> 2026-08-02 随域名迁移从 Strato 切到 Resend，已完成并验证。
 
-| 项 | 目标（Brevo） | 切换前（Strato，旧域名） |
-|----|--------------|------------------------|
-| SMTP | `smtp-relay.brevo.com:587` | `smtp.strato.de:587` |
-| 发件人 | `info@kalunasped.com` | `info@box-cargo.de` |
-| 收信 | Cloudflare Email Routing 转发 | Strato 邮箱 |
+| 项 | 现状（2026-08-02 起） |
+|----|---------------------|
+| SMTP | `smtp.resend.com:587`，STARTTLS，用户名 `resend` |
+| 发件人 | `EU-TMS <info@kalunasped.com>` |
+| 收信 | Cloudflare Email Routing 转发 |
 
 - 全部走环境变量（`SMTP_HOST/PORT/USER/PASS/FROM`），**换服务商不用改代码**
 - 客户咨询通知自动发送到 `ADMIN_EMAIL`

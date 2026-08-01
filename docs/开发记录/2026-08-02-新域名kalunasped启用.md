@@ -2,7 +2,7 @@
 
 **日期**：2026-08-02
 **模块**：运维 / nginx / 证书 / CORS / 官网
-**状态**：✅ **网站侧已完成上线并验证**；⚠️ **邮件侧待办**（见「遗留」）
+**状态**：✅ **网站侧与邮件侧均已完成并验证**
 
 ---
 
@@ -120,58 +120,106 @@ APP_BASE_URL=https://kalunasped.com
 
 ---
 
-## 遗留：邮件侧尚未完成
+## 邮件（已完成）
 
-### 方案调整的原因
+### 方案：Resend 发信 + Cloudflare Email Routing 收信
 
 原计划「继续用 Strato 加个邮箱」不成立 —— 新域名在 Cloudflare 而非 Strato。
-实测确认 Strato 还不认识这个域名：
+实测确认 Strato 不认识这个域名：
 
 ```
 info@kalunasped.com  → 550 5.1.2 No such mailbox
 info@box-cargo.de    → 250 Recipient ok
 ```
 
-2026-08-02 Frank 定的新方案：
+最终方案：
 
-- **发信**：Brevo（EU 公司，SMTP 中继，**代码不用改**只换 SMTP_* 环境变量）
-- **收信**：Cloudflare Email Routing，`info@kalunasped.com` 转发到实际邮箱
+| 方向 | 服务 | 说明 |
+|------|------|------|
+| 发信 | **Resend**（爱尔兰 eu-west-1，EU 数据存放） | 标准 SMTP 中继，**后端代码一行没改**，只换环境变量 |
+| 收信 | **Cloudflare Email Routing** | `info@kalunasped.com` 转发到实际邮箱 |
 
-### 当前 DNS 状态（已 dig 核实）
+### 最终 DNS（逐条 dig 核实）
 
-| 记录 | 值 | 说明 |
+| 记录 | 值 | 用途 |
 |------|-----|------|
-| MX | `5 smtpin.rzone.de` | **指向 Strato，改用 Brevo 后要换成 Cloudflare Email Routing 的** |
-| SPF | `v=spf1 include:_spf.strato.com -all` | **要换成合并后的值** |
-| DMARC | `v=DMARC1; p=none; rua=mailto:info@kalunasped.com` | ✅ 正确地从 p=none 起步，保留 |
+| MX `@` | `8 route1` / `17 route2` / `71 route3 .mx.cloudflare.net` | 收信 |
+| TXT `@` | `v=spf1 include:_spf.mx.cloudflare.net ~all` | **有且仅有一条 SPF** |
+| TXT `send` | `v=spf1 include:amazonses.com ~all` | Resend 发信的 Return-Path 域 |
+| MX `send` | `10 feedback-smtp.eu-west-1.amazonses.com` | Resend 退信处理 |
+| TXT `resend._domainkey` | RSA 公钥 | Resend 的 DKIM |
+| TXT `cf2024-1._domainkey` | RSA 公钥 | Cloudflare 转发的 DKIM |
+| TXT `_dmarc` | `v=DMARC1; p=none; rua=mailto:info@kalunasped.com` | 观察期 |
 
-### ⚠️ 一个域名只能有一条 SPF 记录
+**⚠️ 两个 DKIM 选择器共存是正常的**（`resend._domainkey` 与 `cf2024-1._domainkey`），
+选择器不同互不干扰。但**SPF 必须只有一条** —— 开 Email Routing 时 Cloudflare
+会要求加一条 SPF，它的值和手工设的一致，是替换而非新增，事后 dig 确认过只有一条。
 
-Cloudflare Email Routing 和 Brevo 各自会让你加一条 SPF，
-**两条并存 SPF 直接判定失效**，必须合并：
+**为什么根域 SPF 不用写 Resend**：Resend 把 Return-Path 放在 `send` 子域，
+SPF 检查针对的是那个子域，根域留给 Cloudflare Email Routing 即可。
+DMARC 对齐仍然通过：`send.kalunasped.com` 与根域同组织域（relaxed 对齐），
+DKIM 签的是 `d=kalunasped.com`（直接对齐）。
+
+### 生产 SMTP 配置
 
 ```
-v=spf1 include:_spf.mx.cloudflare.net include:spf.brevo.com -all
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_SECURE=false          # 587 走 STARTTLS，不是隐式 TLS
+SMTP_USER=resend           # Resend 的用户名固定是 resend
+SMTP_PASS=<API key>        # Sending access 权限、限定 kalunasped.com 域
+SMTP_FROM=EU-TMS <info@kalunasped.com>
+ADMIN_EMAIL=info@kalunasped.com
 ```
 
-### 待办清单
+API key 由 Frank 在自己终端用 `sed` 直接写进服务器 `.env`，**没有经过对话记录**。
+改完 `pm2 delete all && pm2 start`（踩坑 005）。
 
-**Frank（我没有这些后台的权限）**
-1. 注册 Brevo，在其后台添加并验证 `kalunasped.com`，拿到 SMTP 用户名 + API key
-2. Cloudflare 开启 Email Routing，建 `info@kalunasped.com` 转发规则
-3. 按 Brevo 的提示加 DKIM 记录；**SPF 合并成上面那一条**；MX 换成 Cloudflare Email Routing 的
-4. DMARC 保持 `p=none`，等 SPF/DKIM 都验证通过再收紧到 `p=reject`
+### 验证结果
 
-**我（拿到 Brevo 凭据后）**
-5. 改生产 `.env` 的 `SMTP_HOST/PORT/USER/PASS/FROM/ADMIN_EMAIL`
-6. `pm2 delete all && pm2 start`（踩坑 005：改环境变量必须删除重建）
-7. 用 P4 的邮件队列真发一封，**以真人收件箱确认收到**，不能只看日志说"成功"（踩坑 012）
+| 验证项 | 结果 |
+|--------|------|
+| 服务器 → smtp.resend.com | 587 / 465 均可达，TLS 正常 |
+| SMTP 认证 | ✅ 服务器上实测 login 通过 |
+| PM2 重建 | ✅ 两进程在线，重启计数归零 |
+| **发信（真实投递）** | ✅ **收件人确认收到**（详见下方「进垃圾箱」） |
+| **收信（Cloudflare 转发）** | ✅ **收件人确认收到** —— 发往 `info@kalunasped.com` 的信经 Cloudflare 转发到达 iCloud |
 
-### 旧域名 box-cargo.de 的处理
+> 两封测试邮件（一封发给 iCloud、一封发给 `info@kalunasped.com` 再转发到 iCloud）
+> **都实际收到了**，收发两个方向均已闭环验证。
 
-- 仍在 Strato，DNS 仍指向本机；nginx 域名块只认 kalunasped.com，
-  访问它会落到 IP 那个 default_server（自签名证书，会弹警告）
-- 它的 Let's Encrypt 证书 2026-09-07 到期，续期会失败。
-  确认不再需要后可 `certbot delete --cert-name box-cargo.de` 清掉
-- `info@box-cargo.de` 在 Brevo 切换完成前仍是生产的发信账号
-  （但因为它自己的 SPF/DKIM 从来没配过，实际发出去也会被丢弃 —— 踩坑 012）
+### ⚠️ 两封测试邮件都进了 iCloud 垃圾箱
+
+这和旧域名的问题**性质完全不同**，不要混为一谈：
+
+| | 旧域名 box-cargo.de | 新域名 kalunasped.com |
+|---|---|---|
+| 结果 | **静默丢弃**，垃圾箱都没有 | **投递成功**，进了垃圾箱 |
+| 原因 | DMARC `p=reject` 但 SPF/DKIM 一个没配，认证必然失败 | 认证通过，但域名当天注册、零发信信誉 |
+| 能否修 | 配 DNS 即可 | 只能靠时间和正常发信量养 |
+
+新域名首发进垃圾箱是常态。处理方式：
+
+1. 收件人点「非垃圾邮件」或把邮件拖回收件箱（只影响该收件人自己的过滤器，对客户无效）
+2. 随着系统正常发报价单、账单提醒，信誉会逐步建立，一般几天到两三周
+3. **过 1-2 周后把 DMARC 从 `p=none` 收紧到 `p=quarantine`**，再稳定后到 `p=reject`
+   —— 收紧本身是给收件方的正面信任信号
+
+**收紧 DMARC 的前提**：先确认真实发信中 SPF/DKIM 稳定通过。
+顺序反了会把正常邮件也打掉 —— 旧域名就是这么废掉的（踩坑 012）。
+
+---
+
+## 遗留
+
+1. **DMARC 仍是 `p=none`**，按上面的节奏在 1-2 周后收紧。收紧前建议先看 DMARC
+   聚合报告（`rua` 已指向 `info@kalunasped.com`，现在能收到了）确认没有认证失败。
+2. **旧域名 box-cargo.de**：仍在 Strato，DNS 仍指向本机；nginx 域名块只认
+   kalunasped.com，访问它会落到 IP 那个 default_server（自签名证书，会弹警告）。
+   它的 Let's Encrypt 证书 2026-09-07 到期、续期会失败，确认不再需要后可
+   `certbot delete --cert-name box-cargo.de` 清掉。
+3. **Resend API key 权限**：已限定为 Sending access + 仅 kalunasped.com 域。
+   该 Resend 账号下还有其它项目（railway-prod / shipglobal-prod / solo-ai-team 等），
+   不要图省事换成 Full access + All domains。
+4. 验证用的两条 notifications 测试记录（`user_id` 为 NULL 的对外邮件行）留在库里，
+   不影响任何人的站内信列表，作为链路验证的痕迹保留。
