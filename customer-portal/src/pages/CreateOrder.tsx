@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function CreateOrder() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -41,9 +43,16 @@ export default function CreateOrder() {
     try {
       const payload = {
         ...form,
-        totalWeight: form.totalWeight ? Number(form.totalWeight) : undefined,
-        totalVolume: form.totalVolume ? Number(form.totalVolume) : undefined,
-        packageCount: form.packageCount ? Number(form.packageCount) : undefined,
+        clientId: user?.linkedEntityId,
+        businessType: 'CURTAIN_SIDE',
+        pickupCountry: form.origin,
+        deliveryCountry: form.destination,
+        cargoDescription: form.cargoDescription || form.specialRequirements,
+        cargoWeightKg: form.totalWeight ? Number(form.totalWeight) : undefined,
+        cargoVolumeM3: form.totalVolume ? Number(form.totalVolume) : undefined,
+        cargoQuantity: form.packageCount ? Number(form.packageCount) : undefined,
+        clientPrice: 0,
+        currency: 'EUR',
       }
       const res = await api.post<ApiResponse<any>>('/orders', payload)
       if (res.code === 200 || res.code === 201) {

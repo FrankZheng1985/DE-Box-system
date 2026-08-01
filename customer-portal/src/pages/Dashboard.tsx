@@ -32,11 +32,12 @@ export default function Dashboard() {
     try {
       const res = await api.get<ApiResponse<any>>('/dashboard/client')
       if (res.code === 200 && res.data) {
+        const s = res.data.stats || res.data
         setStats({
-          totalOrders: res.data.totalOrders || 0,
-          inTransit: res.data.inTransit || 0,
-          completed: res.data.completed || 0,
-          abnormal: res.data.abnormal || 0,
+          totalOrders: Number(s.total_orders || s.totalOrders || 0),
+          inTransit: Number(s.in_transit || s.inTransit || 0),
+          completed: Number(s.completed || 0),
+          abnormal: Number(s.exceptions || s.abnormal || 0),
         })
         setRecentOrders(res.data.recentOrders || [])
       }
@@ -130,22 +131,27 @@ export default function Dashboard() {
                   </td>
                 </tr>
               ) : (
-                recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="text-left px-4 py-2.5 text-xs font-medium text-slate-900">
-                      {order.orderNo}
+                recentOrders.map((order: any) => {
+                  const statusKey = (order.status || '').toLowerCase()
+                  return (
+                  <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/orders`)}>
+                    <td className="text-left px-4 py-2.5 text-xs font-medium text-primary-600">
+                      {order.order_number || order.orderNo || '-'}
                     </td>
-                    <td className="text-left px-4 py-2.5 text-xs text-slate-600">{order.route}</td>
+                    <td className="text-left px-4 py-2.5 text-xs text-slate-600">
+                      {order.from_city || '-'} → {order.to_city || '-'}
+                    </td>
                     <td className="text-center px-4 py-2.5">
                       <span className="inline-block px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700">
-                        {statusMap[order.status] || order.status}
+                        {statusMap[statusKey] || order.status}
                       </span>
                     </td>
                     <td className="text-center px-4 py-2.5 text-xs text-slate-500">
-                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString('zh-CN') : '-'}
+                      {order.created_at ? new Date(order.created_at).toLocaleDateString('zh-CN') : '-'}
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>

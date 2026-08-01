@@ -48,11 +48,14 @@ interface DashboardData {
 }
 
 // 格式化金额
-function formatCurrency(amount: number, currency = 'EUR'): string {
+function formatCurrency(amount: number | null | undefined, currency = 'EUR'): string {
+  if (amount === null || amount === undefined) return '-'
+  const num = Number(amount)
+  if (isNaN(num)) return '-'
   if (currency === 'EUR' || currency === 'eur') {
-    return `€${amount.toLocaleString('de-DE')}`
+    return `€${num.toLocaleString('de-DE')}`
   }
-  return `${amount.toLocaleString()} ${currency}`
+  return `${num.toLocaleString()} ${currency}`
 }
 
 // 格式化日期
@@ -313,8 +316,14 @@ export default function Dashboard() {
                   key={order.id}
                   className="hover:bg-blue-50/30 transition-colors cursor-pointer"
                 >
-                  <td className="px-3 py-2.5 text-sm font-medium border-b border-gray-50" style={{ color: '#4472C4' }}>
-                    {order.order_number}
+                  <td className="px-3 py-2.5 text-sm font-medium border-b border-gray-50">
+                    <button
+                      onClick={() => navigate(`/orders/${order.id}`)}
+                      className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                      title={order.order_number}
+                    >
+                      {order.order_number}
+                    </button>
                   </td>
                   <td className="px-3 py-2.5 text-sm text-slate-700 border-b border-gray-50 truncate">
                     {order.client_name}

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download } from 'lucide-react'
+import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download, Ban, RotateCcw } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // ==================== 类型定义 ====================
 
@@ -17,6 +18,7 @@ interface Client {
   contact_person: string
   email: string
   status: string
+  void_reason?: string
 }
 
 interface ClientListResponse {
@@ -65,6 +67,7 @@ export default function ClientList() {
   const [loading, setLoading] = useState(true)
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('all')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const pageSize = 20
@@ -75,16 +78,20 @@ export default function ClientList() {
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  // 作废/恢复确认
+  const [confirmTarget, setConfirmTarget] = useState<Client | null>(null)
+
   // 获取客户列表
   const fetchClients = async () => {
     setLoading(true)
     try {
-      const res = await api.get<ApiResponse<ClientListResponse>>(
-        `/clients?search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
-      )
-      if (res.code === 200 && res.data) {
-        setClients(res.data.items || [])
-        setTotal(res.data.pagination?.total || 0)
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+      if (search) params.set('search', search)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      const res = await api.get<ApiResponse<Client[]>>(`/clients?${params.toString()}`)
+      if (res.code === 200) {
+        setClients(res.data || [])
+        setTotal(res.pagination?.total || 0)
       }
     } catch (err) {
       console.error('获取客户列表失败:', err)
@@ -95,7 +102,7 @@ export default function ClientList() {
 
   useEffect(() => {
     fetchClients()
-  }, [page])
+  }, [page, statusFilter])
 
   // 搜索（回车或点击按钮）
   const handleSearch = () => {
@@ -150,6 +157,22 @@ export default function ClientList() {
     }
   }
 
+  // 作废/恢复提交
+  const handleToggleStatus = async (reason?: string) => {
+    if (!confirmTarget) return
+    const res = await api.put<ApiResponse<{ status: string }>>(
+      `/clients/${confirmTarget.id}/toggle-status`,
+      { reason }
+    )
+    if (res.code === 200) {
+      setToast({ type: 'success', message: res.message || '操作成功' })
+      setConfirmTarget(null)
+      fetchClients()
+    } else {
+      throw new Error(res.message || '操作失败')
+    }
+  }
+
   const totalPages = Math.ceil(total / pageSize)
 
   return (
@@ -174,16 +197,27 @@ export default function ClientList() {
 
       {/* 搜索栏 + 新建按钮 */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="搜索公司名称、VAT税号..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="搜索公司名称、VAT税号..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value as any); setPage(1) }}
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          >
+            <option value="all">全部状态</option>
+            <option value="ACTIVE">有效</option>
+            <option value="INACTIVE">已作废</option>
+          </select>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -247,15 +281,24 @@ export default function ClientList() {
                   </td>
                 </tr>
               ) : (
-                clients.map(client => (
-                  <tr key={client.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
+                clients.map(client => {
+                  const isInactive = client.status === 'INACTIVE'
+                  return (
+                  <tr key={client.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200 ${isInactive ? 'opacity-60 bg-slate-50/30' : ''}`}>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => navigate(`/clients/${client.id}`)}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline truncate block max-w-full text-left"
-                      >
-                        {client.company_name}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => navigate(`/clients/${client.id}`)}
+                          className={`text-sm font-medium hover:underline truncate block max-w-full text-left ${isInactive ? 'text-slate-500 line-through' : 'text-blue-600 hover:text-blue-700'}`}
+                        >
+                          {client.company_name}
+                        </button>
+                        {isInactive && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-600 border border-red-100 flex-shrink-0">
+                            已作废
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{client.vat_number || '-'}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-center">{client.country || '-'}</td>
@@ -279,17 +322,27 @@ export default function ClientList() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        {!isInactive && (
+                          <button
+                            onClick={() => navigate(`/clients/${client.id}/edit`)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
+                            title="编辑"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
-                          onClick={() => navigate(`/clients/${client.id}/edit`)}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-                          title="编辑"
+                          onClick={() => setConfirmTarget(client)}
+                          className={`p-1.5 rounded-lg transition-all duration-200 ${isInactive ? 'text-slate-400 hover:text-green-600 hover:bg-green-50' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
+                          title={isInactive ? '恢复' : '作废'}
                         >
-                          <Edit className="w-4 h-4" />
+                          {isInactive ? <RotateCcw className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -486,6 +539,26 @@ export default function ClientList() {
           </div>
         </div>
       </Modal>
+
+      {/* 作废/恢复确认弹窗 */}
+      <ConfirmDialog
+        isOpen={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={handleToggleStatus}
+        title={confirmTarget?.status === 'INACTIVE' ? '恢复客户' : '作废客户'}
+        message={confirmTarget?.status === 'INACTIVE'
+          ? '恢复后，该客户将重新可用，可以创建新订单。确认继续？'
+          : '作废后，该客户将不可用，无法创建新订单。历史数据会完整保留，后续可随时恢复。'
+        }
+        targetLabel={confirmTarget?.company_name}
+        requireReason={confirmTarget?.status === 'ACTIVE'}
+        reasonPlaceholder="请填写作废原因，例如：客户已停业、长期无合作等"
+        variant={confirmTarget?.status === 'INACTIVE' ? 'primary' : 'danger'}
+        confirmText={confirmTarget?.status === 'INACTIVE' ? '确认恢复' : '确认作废'}
+        warningText={confirmTarget?.status === 'ACTIVE'
+          ? '作废前请确保该客户没有进行中的订单和未结清的应收账款'
+          : undefined}
+      />
     </div>
   )
 }

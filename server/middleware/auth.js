@@ -74,6 +74,7 @@ export function requireUserType(...allowedTypes) {
       return next()
     }
     if (!allowedTypes.includes(userType)) {
+      console.warn('[权限拒绝] username:', req.user?.username, '| userType:', req.user?.userType, '| roleCode:', req.user?.roleCode, '| allowedTypes:', allowedTypes, '| path:', req.method, req.path)
       return res.status(403).json({ code: 403, message: '没有权限执行此操作', data: null })
     }
     next()

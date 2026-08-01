@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, ArrowLeft, Lock, Unlock, CheckCircle, Loader2 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // ==================== 类型定义 ====================
 
@@ -23,6 +24,7 @@ export default function PostingPeriods() {
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [confirmTarget, setConfirmTarget] = useState<PostingPeriod | null>(null)
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -47,20 +49,22 @@ export default function PostingPeriods() {
     fetchPeriods()
   }, [])
 
-  const handleToggle = async (period: PostingPeriod) => {
-    setToggling(period.id)
+  const handleToggle = (period: PostingPeriod) => {
+    setConfirmTarget(period)
+  }
+
+  const confirmToggle = async () => {
+    if (!confirmTarget) return
+    setToggling(confirmTarget.id)
     try {
-      const res = await api.put<ApiResponse<null>>(`/system/posting-periods/${period.id}/toggle`)
+      const res = await api.put<ApiResponse<null>>(`/system/posting-periods/${confirmTarget.id}/toggle`)
       if (res.code === 200) {
         showToast(res.message || '操作成功')
-        // 刷新数据
+        setConfirmTarget(null)
         await fetchPeriods()
       } else {
-        showToast(res.message || '操作失败')
+        throw new Error(res.message || '操作失败')
       }
-    } catch (err: any) {
-      console.error('[PostingPeriods] 切换失败:', err)
-      showToast('操作失败，请稍后重试')
     } finally {
       setToggling(null)
     }
@@ -183,6 +187,22 @@ export default function PostingPeriods() {
           {toast}
         </div>
       )}
+
+      {/* 开放/关闭期间确认 */}
+      <ConfirmDialog
+        isOpen={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={confirmToggle}
+        title={confirmTarget?.is_open ? '关闭过账期间' : '开放过账期间'}
+        message={confirmTarget?.is_open
+          ? '关闭后，该期间将不能再过账任何凭证。已过账的凭证不受影响。确认继续？'
+          : '开放后，该期间将可以过账新凭证。确认继续？'
+        }
+        targetLabel={confirmTarget ? `2026年 ${confirmTarget.period_month} 月` : undefined}
+        variant={confirmTarget?.is_open ? 'warning' : 'primary'}
+        confirmText={confirmTarget?.is_open ? '确认关闭' : '确认开放'}
+        warningText={confirmTarget?.is_open ? '期间关闭后无法创建新的财务凭证' : undefined}
+      />
     </div>
   )
 }

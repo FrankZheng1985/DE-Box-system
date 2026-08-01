@@ -314,4 +314,81 @@ router.get('/:id/finance', async (req, res) => {
   }
 })
 
+// 客户作废/恢复：切换 status (ACTIVE <-> INACTIVE)
+router.put('/:id/toggle-status', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body || {}
+
+    const current = await query('SELECT id, client_code, company_name, status FROM clients WHERE id = $1', [id])
+    if (current.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '客户不存在', data: null })
+    }
+    const old = current.rows[0]
+
+    // 如果要作废，需检查是否还有未完成的订单和未结清的应收
+    if (old.status === 'ACTIVE') {
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({ code: 400, message: '请填写作废原因', data: null })
+      }
+      const activeOrders = await query(
+        `SELECT COUNT(*) as c FROM orders WHERE client_id = $1 AND status NOT IN ('COMPLETED','CANCELLED')`,
+        [id]
+      )
+      if (parseInt(activeOrders.rows[0].c) > 0) {
+        return res.status(400).json({
+          code: 400,
+          message: `该客户还有 ${activeOrders.rows[0].c} 个进行中的订单，请先处理完毕再作废`,
+          data: null,
+        })
+      }
+      const unpaidFinance = await query(
+        `SELECT COUNT(*) as c FROM financial_records
+         WHERE counterparty_type = 'CLIENT' AND counterparty_id = $1
+         AND type = 'RECEIVABLE' AND payment_status IN ('UNPAID','PARTIAL','OVERDUE')`,
+        [id]
+      )
+      if (parseInt(unpaidFinance.rows[0].c) > 0) {
+        return res.status(400).json({
+          code: 400,
+          message: `该客户还有 ${unpaidFinance.rows[0].c} 笔未结清的应收账款，请先处理`,
+          data: null,
+        })
+      }
+    }
+
+    const newStatus = old.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+    const voidReason = old.status === 'ACTIVE' ? (reason || '').trim() : null
+
+    await withTransaction(async (tx) => {
+      await tx.query(
+        `UPDATE clients SET status = $1, void_reason = $2, updated_at = NOW() WHERE id = $3`,
+        [newStatus, voidReason, id]
+      )
+
+      // 变更追踪
+      await changeTracker.trackChanges(tx, {
+        objectType: 'CLIENT',
+        objectId: id,
+        changeType: 'UPDATE',
+        transactionType: newStatus === 'INACTIVE' ? 'VOID_CLIENT' : 'RESTORE_CLIENT',
+        tableName: 'clients',
+        oldData: { status: old.status },
+        newData: { status: newStatus, void_reason: voidReason },
+        trackedFields: [
+          { name: 'status', label: '状态' },
+          { name: 'void_reason', label: '作废原因' },
+        ],
+        changedBy: req.user.id,
+      })
+    })
+
+    const actionText = newStatus === 'INACTIVE' ? '作废' : '恢复'
+    res.json({ code: 200, message: `客户 "${old.company_name}" 已${actionText}`, data: { status: newStatus } })
+  } catch (error) {
+    console.error('[Client] 切换状态失败:', error)
+    res.status(500).json({ code: 500, message: error.message || '操作失败', data: null })
+  }
+})
+
 export default router

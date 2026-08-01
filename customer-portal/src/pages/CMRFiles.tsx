@@ -4,13 +4,15 @@ import api, { ApiResponse } from '../utils/api'
 
 interface CMRDocument {
   id: string
-  cmrNo: string
-  orderNo: string
-  origin: string
-  destination: string
+  cmr_number: string
+  order_number: string
+  from_city: string
+  to_city: string
   status: string
-  fileUrl: string
-  createdAt: string
+  sign_status: string
+  file_url: string
+  uploaded_at: string
+  created_at: string
 }
 
 const statusMap: Record<string, { label: string; style: string }> = {
@@ -93,26 +95,27 @@ export default function CMRFiles() {
                 </tr>
               ) : (
                 documents.map((doc) => {
-                  const st = statusMap[doc.status] || { label: doc.status, style: 'bg-gray-100 text-gray-600' }
+                  const statusKey = (doc.sign_status || doc.status || '').toLowerCase()
+                  const st = statusMap[statusKey] || { label: doc.sign_status || doc.status || '-', style: 'bg-gray-100 text-gray-600' }
                   return (
                     <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{doc.cmrNo}</td>
-                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{doc.orderNo}</td>
+                      <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{doc.cmr_number || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{doc.order_number || '-'}</td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
-                        {doc.origin} → {doc.destination}
+                        {doc.from_city || '-'} → {doc.to_city || '-'}
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>{st.label}</span>
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('zh-CN') : '-'}
+                        {(doc.uploaded_at || doc.created_at) ? new Date(doc.uploaded_at || doc.created_at).toLocaleDateString('zh-CN') : '-'}
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <div className="flex items-center justify-center gap-1">
-                          {doc.fileUrl && (
+                          {doc.file_url && (
                             <>
                               <a
-                                href={doc.fileUrl}
+                                href={doc.file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-primary-600 hover:bg-primary-50 rounded transition-colors"
@@ -121,7 +124,7 @@ export default function CMRFiles() {
                                 查看
                               </a>
                               <a
-                                href={doc.fileUrl}
+                                href={doc.file_url}
                                 download
                                 className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-slate-600 hover:bg-gray-100 rounded transition-colors"
                               >
@@ -130,7 +133,7 @@ export default function CMRFiles() {
                               </a>
                             </>
                           )}
-                          {!doc.fileUrl && (
+                          {!doc.file_url && (
                             <span className="text-[10px] text-slate-400">暂无文件</span>
                           )}
                         </div>

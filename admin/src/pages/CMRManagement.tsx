@@ -122,12 +122,13 @@ export default function CMRManagement() {
   const fetchList = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get<ApiResponse<{ items: CMR[]; pagination: { total: number } }>>(
+      const res = await api.get<ApiResponse<CMR[]>>(
         `/cmr?signStatus=${statusFilter}&search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
       )
-      if (res.code === 200 && res.data) {
-        setCmrList(res.data.items || [])
-        setTotal(res.data.pagination?.total || 0)
+      if (res.code === 200) {
+        const list = Array.isArray(res.data) ? res.data : ((res.data as any)?.items || [])
+        setCmrList(list)
+        setTotal(res.pagination?.total || (res.data as any)?.pagination?.total || 0)
       }
     } catch (err) {
       console.error('获取CMR列表失败:', err)

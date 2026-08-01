@@ -37,18 +37,18 @@ cron.schedule('0 8 * * *', async () => {
 cron.schedule('0 9 * * *', async () => {
   try {
     const result = await query(
-      `SELECT fr.id, fr.document_number, fr.total_amount, fr.currency, fr.due_date,
+      `SELECT fr.id, fr.record_number, fr.amount, fr.currency, fr.due_date,
               c.company_name as client_name
        FROM financial_records fr
-       LEFT JOIN clients c ON c.id = fr.client_id
-       WHERE fr.due_date < CURRENT_DATE AND fr.status = 'UNPAID'
+       LEFT JOIN clients c ON c.id = fr.counterparty_id AND fr.counterparty_type = 'CLIENT'
+       WHERE fr.due_date < CURRENT_DATE AND fr.payment_status = 'UNPAID'
        ORDER BY fr.due_date`
     )
     for (const record of result.rows) {
       await notificationEngine.send({
         type: 'OVERDUE_PAYMENT',
-        title: `账单逾期: ${record.document_number}`,
-        content: `客户 ${record.client_name || '未知'}, 金额 ${record.currency} ${record.total_amount}, 到期日 ${record.due_date}`,
+        title: `账单逾期: ${record.record_number}`,
+        content: `客户 ${record.client_name || '未知'}, 金额 ${record.currency} ${record.amount}, 到期日 ${record.due_date}`,
         targetRole: 'FINANCE'
       }).catch(() => {})
     }

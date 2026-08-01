@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight,
-  Send, CheckCircle, XCircle, Clock, TrendingUp, ShoppingCart, AlertCircle,
+  Send, CheckCircle, XCircle, Clock, TrendingUp, ShoppingCart, AlertCircle, Ban,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // ==================== 类型定义 ====================
 
@@ -98,6 +99,9 @@ export default function QuotationManagement() {
   // 操作弹窗状态
   const [rejectModal, setRejectModal] = useState<{ open: boolean; quotation: Quotation | null }>({ open: false, quotation: null })
   const [rejectReason, setRejectReason] = useState('')
+
+  // 作废确认
+  const [voidTarget, setVoidTarget] = useState<Quotation | null>(null)
   const [acceptModal, setAcceptModal] = useState<{ open: boolean; quotation: Quotation | null }>({ open: false, quotation: null })
   const [convertModal, setConvertModal] = useState<{ open: boolean; quotation: Quotation | null }>({ open: false, quotation: null })
   const [submitting, setSubmitting] = useState(false)
@@ -119,12 +123,13 @@ export default function QuotationManagement() {
   const fetchList = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get<ApiResponse<{ items: Quotation[]; pagination: { total: number } }>>(
+      const res = await api.get<ApiResponse<Quotation[]>>(
         `/quotations?status=${statusFilter}&search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
       )
-      if (res.code === 200 && res.data) {
-        setQuotations(res.data.items || [])
-        setTotal(res.data.pagination?.total || 0)
+      if (res.code === 200) {
+        const list = Array.isArray(res.data) ? res.data : ((res.data as any)?.items || [])
+        setQuotations(list)
+        setTotal(res.pagination?.total || (res.data as any)?.pagination?.total || 0)
       }
     } catch (err) {
       console.error('获取报价列表失败:', err)
@@ -150,6 +155,19 @@ export default function QuotationManagement() {
       if (res.code === 200 && res.data) setStats(res.data)
     } catch (err) {
       console.error('刷新统计失败:', err)
+    }
+  }
+
+  // ==================== 操作：作废报价 ====================
+  const handleVoid = async (reason?: string) => {
+    if (!voidTarget) return
+    const res = await api.post<ApiResponse<any>>(`/quotations/${voidTarget.id}/void`, { reason })
+    if (res.code === 200) {
+      setToast({ message: res.message || '报价已作废', type: 'success' })
+      setVoidTarget(null)
+      await refreshData()
+    } else {
+      throw new Error(res.message || '作废失败')
     }
   }
 
@@ -318,6 +336,17 @@ export default function QuotationManagement() {
             title="一键下单"
           >
             <ShoppingCart className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* 作废按钮（除 ACCEPTED/CANCELLED/CONVERTED 外都可作废） */}
+        {!['ACCEPTED', 'CANCELLED', 'CONVERTED'].includes(s) && (
+          <button
+            onClick={() => setVoidTarget(q)}
+            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+            title="作废"
+          >
+            <Ban className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -623,6 +652,21 @@ export default function QuotationManagement() {
           )}
         </div>
       </Modal>
+
+      {/* 作废报价确认弹窗 */}
+      <ConfirmDialog
+        isOpen={voidTarget !== null}
+        onClose={() => setVoidTarget(null)}
+        onConfirm={handleVoid}
+        title="作废报价"
+        message={'作废后，该报价将不可再接受或转为订单。历史数据会完整保留，可在"已作废"筛选中查看。'}
+        targetLabel={voidTarget?.quote_number}
+        requireReason
+        reasonPlaceholder="请填写作废原因，例如：客户取消询价、报价错误等"
+        variant="danger"
+        confirmText="确认作废"
+        warningText="此操作不可撤销，请谨慎操作"
+      />
     </div>
   )
 }

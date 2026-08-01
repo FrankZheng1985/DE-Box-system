@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Plus, RefreshCw, Send, X } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { useAuth } from '../contexts/AuthContext'
 
 interface Inquiry {
   id: string
-  inquiryNo: string
-  origin: string
-  destination: string
-  cargoType: string
+  inquiry_number: string
+  route_from: any
+  route_to: any
+  cargo_description: string
   status: string
-  quotedPrice: number
   currency: string
-  createdAt: string
+  created_at: string
 }
 
 const statusMap: Record<string, { label: string; style: string }> = {
+  pending_quote: { label: '待报价', style: 'bg-gray-100 text-gray-600' },
   pending: { label: '待报价', style: 'bg-gray-100 text-gray-600' },
   quoted: { label: '已报价', style: 'bg-blue-100 text-blue-700' },
   accepted: { label: '已接受', style: 'bg-green-100 text-green-700' },
@@ -23,6 +24,7 @@ const statusMap: Record<string, { label: string; style: string }> = {
 }
 
 export default function InquiryList() {
+  const { user } = useAuth()
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -60,8 +62,14 @@ export default function InquiryList() {
     setSubmitting(true)
     try {
       const res = await api.post<ApiResponse<any>>('/inquiries', {
-        ...form,
-        totalWeight: form.totalWeight ? Number(form.totalWeight) : undefined,
+        clientId: user?.linkedEntityId,
+        businessType: 'CURTAIN_SIDE',
+        transportType: 'FTL',
+        routeFrom: { city: form.origin },
+        routeTo: { city: form.destination },
+        cargoDescription: form.cargoType || form.description,
+        cargoWeightKg: form.totalWeight ? Number(form.totalWeight) : null,
+        remarks: form.description,
       })
       if (res.code === 200 || res.code === 201) {
         setShowCreate(false)
@@ -202,20 +210,21 @@ export default function InquiryList() {
                 </tr>
               ) : (
                 inquiries.map((item) => {
-                  const st = statusMap[item.status] || { label: item.status, style: 'bg-gray-100 text-gray-600' }
+                  const statusKey = (item.status || '').toLowerCase()
+                  const st = statusMap[statusKey] || { label: item.status, style: 'bg-gray-100 text-gray-600' }
+                  const fromCity = typeof item.route_from === 'object' ? item.route_from?.city : item.route_from
+                  const toCity = typeof item.route_to === 'object' ? item.route_to?.city : item.route_to
                   return (
                     <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{item.inquiryNo}</td>
-                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{item.origin} → {item.destination}</td>
-                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{item.cargoType || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{item.inquiry_number || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{fromCity || '-'} → {toCity || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{item.cargo_description || '-'}</td>
                       <td className="text-center px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>{st.label}</span>
                       </td>
-                      <td className="text-right px-3 py-2.5 text-xs text-slate-600">
-                        {item.quotedPrice ? `${item.currency || 'EUR'} ${item.quotedPrice.toLocaleString()}` : '-'}
-                      </td>
+                      <td className="text-right px-3 py-2.5 text-xs text-slate-600">-</td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString('zh-CN') : '-'}
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString('zh-CN') : '-'}
                       </td>
                     </tr>
                   )

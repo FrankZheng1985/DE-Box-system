@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Users, Plus, Pencil, KeyRound, UserX, UserCheck, Search } from 'lucide-react'
 import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { getAuthHeaders } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -30,17 +31,12 @@ interface EntityOption {
   name: string
 }
 
-// 系统角色（对应 seed data 中的 8 个角色）
-const SYSTEM_ROLES = [
-  { id: 1, code: 'sys_admin', name: '系统管理员' },
-  { id: 2, code: 'boss', name: '老板' },
-  { id: 3, code: 'operations_manager', name: '运营经理' },
-  { id: 4, code: 'operations_staff', name: '运营专员' },
-  { id: 5, code: 'finance_manager', name: '财务经理' },
-  { id: 6, code: 'finance_staff', name: '财务专员' },
-  { id: 7, code: 'sales', name: '销售人员' },
-  { id: 8, code: 'viewer', name: '只读用户' },
-]
+interface RoleOption {
+  id: string
+  role_code: string
+  role_name: string
+  role_type: string
+}
 
 // 用户类型显示
 const USER_TYPE_MAP: Record<string, { label: string; color: string }> = {
@@ -76,10 +72,12 @@ export default function UserManagement() {
   })
   const [newPassword, setNewPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [toggleTarget, setToggleTarget] = useState<UserRecord | null>(null)
 
   // 关联实体选项
   const [clients, setClients] = useState<EntityOption[]>([])
   const [carriers, setCarriers] = useState<EntityOption[]>([])
+  const [roles, setRoles] = useState<RoleOption[]>([])
 
   // ==================== 数据获取 ====================
 
@@ -105,6 +103,13 @@ export default function UserManagement() {
 
   const fetchEntities = useCallback(async () => {
     try {
+      // 获取角色列表
+      const roleRes = await fetch('/api/v1/system/roles', { headers: { ...getAuthHeaders() } })
+      const roleJson = await roleRes.json()
+      if (roleJson.code === 200 && roleJson.data) {
+        setRoles(roleJson.data)
+      }
+
       // 获取客户列表
       const clientRes = await fetch('/api/v1/clients?page_size=500', {
         headers: { ...getAuthHeaders() }
@@ -249,23 +254,22 @@ export default function UserManagement() {
     }
   }
 
-  const handleToggleActive = async (user: UserRecord) => {
-    const action = user.is_active ? '停用' : '启用'
-    if (!confirm(`确认${action}用户「${user.display_name}」？`)) return
+  const handleToggleActive = (user: UserRecord) => {
+    setToggleTarget(user)
+  }
 
-    try {
-      const res = await fetch(`/api/v1/users/${user.id}`, {
-        method: 'DELETE',
-        headers: { ...getAuthHeaders() }
-      })
-      const json = await res.json()
-      if (json.code === 200) {
-        fetchUsers()
-      } else {
-        alert(json.message || `${action}失败`)
-      }
-    } catch (error) {
-      console.error('切换用户状态失败:', error)
+  const confirmToggleActive = async () => {
+    if (!toggleTarget) return
+    const res = await fetch(`/api/v1/users/${toggleTarget.id}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeaders() }
+    })
+    const json = await res.json()
+    if (json.code === 200) {
+      setToggleTarget(null)
+      fetchUsers()
+    } else {
+      throw new Error(json.message || '操作失败')
     }
   }
 
@@ -294,6 +298,13 @@ export default function UserManagement() {
 
   // 关联实体选项（根据用户类型显示不同列表）
   const entityOptions = form.user_type === 'CLIENT' ? clients : form.user_type === 'CARRIER' ? carriers : []
+
+  // 根据用户类型筛选可用角色
+  const roleOptions = roles.filter(r =>
+    form.user_type === 'OPERATOR' ? r.role_type === 'OPERATOR' :
+    form.user_type === 'CLIENT' ? r.role_type === 'CLIENT' :
+    form.user_type === 'CARRIER' ? r.role_type === 'CARRIER' : true
+  )
 
   return (
     <div className="p-4 lg:p-6 space-y-6 min-h-screen bg-slate-50/50">
@@ -476,6 +487,7 @@ export default function UserManagement() {
           form={form}
           setForm={setForm}
           entityOptions={entityOptions}
+          roleOptions={roleOptions}
           isCreate={true}
         />
       </Modal>
@@ -509,6 +521,7 @@ export default function UserManagement() {
           form={form}
           setForm={setForm}
           entityOptions={entityOptions}
+          roleOptions={roleOptions}
           isCreate={false}
         />
       </Modal>
@@ -556,6 +569,21 @@ export default function UserManagement() {
           </div>
         </div>
       </Modal>
+
+      {/* 停用/启用确认 */}
+      <ConfirmDialog
+        isOpen={toggleTarget !== null}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={confirmToggleActive}
+        title={toggleTarget?.is_active ? '停用用户' : '启用用户'}
+        message={toggleTarget?.is_active
+          ? '停用后，该用户将无法登录系统。历史数据保留，可随时重新启用。'
+          : '启用后，该用户将恢复登录权限。'
+        }
+        targetLabel={toggleTarget ? `${toggleTarget.display_name || toggleTarget.username} (${toggleTarget.username})` : undefined}
+        variant={toggleTarget?.is_active ? 'warning' : 'primary'}
+        confirmText={toggleTarget?.is_active ? '确认停用' : '确认启用'}
+      />
     </div>
   )
 }
@@ -575,10 +603,11 @@ interface UserFormProps {
   }
   setForm: (f: any) => void
   entityOptions: EntityOption[]
+  roleOptions: RoleOption[]
   isCreate: boolean
 }
 
-function UserForm({ form, setForm, entityOptions, isCreate }: UserFormProps) {
+function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserFormProps) {
   const updateField = (field: string, value: string) => {
     setForm((prev: typeof form) => ({ ...prev, [field]: value }))
   }
@@ -691,8 +720,8 @@ function UserForm({ form, setForm, entityOptions, isCreate }: UserFormProps) {
             transition-all duration-200"
         >
           <option value="">请选择角色</option>
-          {SYSTEM_ROLES.map(role => (
-            <option key={role.id} value={role.id}>{role.name}（{role.code}）</option>
+          {roleOptions.map(role => (
+            <option key={role.id} value={role.id}>{role.role_name}（{role.role_code}）</option>
           ))}
         </select>
       </div>

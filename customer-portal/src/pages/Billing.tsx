@@ -4,22 +4,25 @@ import api, { ApiResponse } from '../utils/api'
 
 interface BillingItem {
   id: string
-  invoiceNo: string
-  orderNo: string
+  record_number: string
+  order_number: string
   amount: number
   currency: string
-  status: string
-  dueDate: string
-  paidDate: string
-  description: string
-  createdAt: string
+  payment_status: string
+  due_date: string
+  paid_date: string
+  counterparty_name: string
+  created_at: string
 }
 
 const statusMap: Record<string, { label: string; style: string }> = {
   draft: { label: '草稿', style: 'bg-gray-100 text-gray-600' },
+  unpaid: { label: '待付款', style: 'bg-amber-100 text-amber-700' },
   pending: { label: '待付款', style: 'bg-amber-100 text-amber-700' },
+  partial: { label: '部分付款', style: 'bg-blue-100 text-blue-700' },
   paid: { label: '已付款', style: 'bg-green-100 text-green-700' },
   overdue: { label: '已逾期', style: 'bg-red-100 text-red-700' },
+  voided: { label: '已作废', style: 'bg-gray-100 text-gray-500' },
   cancelled: { label: '已取消', style: 'bg-gray-100 text-gray-500' },
 }
 
@@ -43,8 +46,11 @@ export default function Billing() {
         setItems(list)
         // 计算待付总额
         const owed = list
-          .filter((item: BillingItem) => item.status === 'pending' || item.status === 'overdue')
-          .reduce((sum: number, item: BillingItem) => sum + (item.amount || 0), 0)
+          .filter((item: BillingItem) => {
+            const s = (item.payment_status || '').toLowerCase()
+            return s === 'unpaid' || s === 'overdue' || s === 'partial'
+          })
+          .reduce((sum: number, item: BillingItem) => sum + (Number(item.amount) || 0), 0)
         setTotalOwed(owed)
       }
     } catch (err) {
@@ -113,27 +119,28 @@ export default function Billing() {
                 </tr>
               ) : (
                 items.map((item) => {
-                  const st = statusMap[item.status] || { label: item.status, style: 'bg-gray-100 text-gray-600' }
+                  const statusKey = (item.payment_status || '').toLowerCase()
+                  const st = statusMap[statusKey] || { label: item.payment_status || '-', style: 'bg-gray-100 text-gray-600' }
                   return (
                     <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">
-                        {item.invoiceNo || '-'}
+                        {item.record_number || '-'}
                       </td>
-                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{item.orderNo || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{item.order_number || '-'}</td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
-                        {item.description || '-'}
+                        {item.counterparty_name || '-'}
                       </td>
                       <td className="text-right px-3 py-2.5 text-xs font-medium text-slate-900">
-                        {item.currency || 'EUR'} {item.amount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                        {item.currency || 'EUR'} {Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>{st.label}</span>
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {item.dueDate ? new Date(item.dueDate).toLocaleDateString('zh-CN') : '-'}
+                        {item.due_date ? new Date(item.due_date).toLocaleDateString('zh-CN') : '-'}
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {item.paidDate ? new Date(item.paidDate).toLocaleDateString('zh-CN') : '-'}
+                        {item.paid_date ? new Date(item.paid_date).toLocaleDateString('zh-CN') : '-'}
                       </td>
                     </tr>
                   )

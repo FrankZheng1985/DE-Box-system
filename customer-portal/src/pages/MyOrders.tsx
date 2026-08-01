@@ -5,16 +5,16 @@ import api, { ApiResponse } from '../utils/api'
 
 interface Order {
   id: string
-  orderNo: string
-  origin: string
-  destination: string
+  order_number: string
+  pickup_city: string
+  delivery_city: string
   status: string
-  transportType: string
-  totalWeight: number
-  quotedPrice: number
+  transport_type: string
+  cargo_weight_kg: number
+  client_price: number
   currency: string
-  estimatedArrival: string
-  createdAt: string
+  delivery_date: string
+  created_at: string
 }
 
 const statusMap: Record<string, { label: string; style: string }> = {
@@ -140,14 +140,15 @@ export default function MyOrders() {
                 </tr>
               ) : (
                 orders.map((order) => {
-                  const st = statusMap[order.status] || { label: order.status, style: 'bg-gray-100 text-gray-600' }
+                  const statusKey = (order.status || '').toLowerCase()
+                  const st = statusMap[statusKey] || { label: order.status, style: 'bg-gray-100 text-gray-600' }
                   return (
                     <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="text-left px-3 py-2.5 text-xs font-medium text-primary-600">
-                        {order.orderNo}
+                        {order.order_number || '-'}
                       </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
-                        {order.origin} → {order.destination}
+                        {order.pickup_city || '-'} → {order.delivery_city || '-'}
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>
@@ -155,19 +156,19 @@ export default function MyOrders() {
                         </span>
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-600">
-                        {order.transportType || '-'}
+                        {order.transport_type || '-'}
                       </td>
                       <td className="text-right px-3 py-2.5 text-xs text-slate-600">
-                        {order.totalWeight ? order.totalWeight.toLocaleString() : '-'}
+                        {order.cargo_weight_kg ? Number(order.cargo_weight_kg).toLocaleString() : '-'}
                       </td>
                       <td className="text-right px-3 py-2.5 text-xs text-slate-600">
-                        {order.quotedPrice ? `${order.currency || 'EUR'} ${order.quotedPrice.toLocaleString()}` : '-'}
+                        {order.client_price ? `${order.currency || 'EUR'} ${Number(order.client_price).toLocaleString()}` : '-'}
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {order.estimatedArrival ? new Date(order.estimatedArrival).toLocaleDateString('zh-CN') : '-'}
+                        {order.delivery_date ? new Date(order.delivery_date).toLocaleDateString('zh-CN') : '-'}
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString('zh-CN') : '-'}
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString('zh-CN') : '-'}
                       </td>
                     </tr>
                   )

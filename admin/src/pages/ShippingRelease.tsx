@@ -109,12 +109,13 @@ export default function ShippingRelease() {
   const fetchList = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await api.get<ApiResponse<{ items: ShippingReleaseItem[]; pagination: { total: number } }>>(
+      const res = await api.get<ApiResponse<ShippingReleaseItem[]>>(
         `/shipping-releases?status=${statusFilter}&search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
       )
-      if (res.code === 200 && res.data) {
-        setItems(res.data.items || [])
-        setTotal(res.data.pagination?.total || 0)
+      if (res.code === 200) {
+        const list = Array.isArray(res.data) ? res.data : ((res.data as any)?.items || [])
+        setItems(list)
+        setTotal(res.pagination?.total || (res.data as any)?.pagination?.total || 0)
       }
     } catch (err) {
       console.error('获取放单列表失败:', err)

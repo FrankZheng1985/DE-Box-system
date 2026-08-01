@@ -374,4 +374,60 @@ router.post('/:id/convert-order', async (req, res) => {
   }
 })
 
+// 报价作废（软删除）: status -> CANCELLED
+router.post('/:id/void', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { reason } = req.body || {}
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ code: 400, message: '请填写作废原因', data: null })
+    }
+
+    const current = await query('SELECT id, quotation_number, status FROM quotations WHERE id = $1', [id])
+    if (current.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '报价不存在', data: null })
+    }
+    const old = current.rows[0]
+
+    // 已接受/已转订单的报价不允许作废
+    if (['ACCEPTED', 'CONVERTED'].includes(old.status)) {
+      return res.status(400).json({
+        code: 400,
+        message: `报价状态为 ${old.status}，不可作废`,
+        data: null,
+      })
+    }
+    if (old.status === 'CANCELLED') {
+      return res.status(400).json({ code: 400, message: '报价已作废', data: null })
+    }
+
+    await withTransaction(async (tx) => {
+      await tx.query(
+        `UPDATE quotations SET status = 'CANCELLED', void_reason = $1, updated_at = NOW() WHERE id = $2`,
+        [reason.trim(), id]
+      )
+      await changeTracker.trackChanges(tx, {
+        objectType: 'QUOTATION',
+        objectId: id,
+        changeType: 'UPDATE',
+        transactionType: 'VOID_QUOTATION',
+        tableName: 'quotations',
+        oldData: { status: old.status },
+        newData: { status: 'CANCELLED', void_reason: reason.trim() },
+        trackedFields: [
+          { name: 'status', label: '状态' },
+          { name: 'void_reason', label: '作废原因' },
+        ],
+        changedBy: req.user.id,
+      })
+    })
+
+    res.json({ code: 200, message: `报价 "${old.quotation_number}" 已作废`, data: null })
+  } catch (error) {
+    console.error('[Quotation] 作废失败:', error)
+    res.status(500).json({ code: 500, message: error.message || '作废失败', data: null })
+  }
+})
+
 export default router

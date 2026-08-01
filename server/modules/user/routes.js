@@ -186,7 +186,7 @@ router.post('/', async (req, res) => {
        RETURNING id, username, display_name, email, phone, user_type, role_id,
                  linked_entity_id, is_active, created_at`,
       [username, password_hash, display_name, email || null, phone || null,
-       user_type, role_id ? Number(role_id) : null, linked_entity_id ? Number(linked_entity_id) : null]
+       user_type, role_id || null, linked_entity_id || null]
     )
 
     res.status(201).json({
@@ -246,11 +246,11 @@ router.put('/:id', async (req, res) => {
     }
     if (role_id !== undefined) {
       updates.push(`role_id = $${paramIdx++}`)
-      params.push(role_id ? Number(role_id) : null)
+      params.push(role_id || null)
     }
     if (linked_entity_id !== undefined) {
       updates.push(`linked_entity_id = $${paramIdx++}`)
-      params.push(linked_entity_id ? Number(linked_entity_id) : null)
+      params.push(linked_entity_id || null)
     }
 
     if (updates.length === 0) {
