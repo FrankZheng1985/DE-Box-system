@@ -29,6 +29,7 @@ const statusColorMap: Record<string, ColorGroup> = {
   IN_TRANSIT: 'blue',
   FLEET_CONFIRMED: 'blue',
   SENT: 'blue',
+  QUOTED: 'blue',
   IN_PROGRESS: 'blue',
   confirmed: 'blue',
   in_transit: 'blue',
@@ -47,14 +48,16 @@ const statusColorMap: Record<string, ColorGroup> = {
   // 橙色：待分配/待派送/原件已寄/逾期
   PENDING_ASSIGN: 'orange',
   PENDING_DISPATCH: 'orange',
+  PENDING_DECISION: 'orange',   // 客户待定（需求 2）
   ORIGINAL_SENT: 'orange',
   OVERDUE: 'orange',
   pending_assign: 'orange',
   pending_dispatch: 'orange',
   pending_release: 'orange',
-  // 紫色：已分配/待放单
+  // 紫色：已分配/待放单/已下单
   ASSIGNED: 'purple',
   PENDING_RELEASE: 'purple',
+  CONVERTED: 'purple',
   assigned: 'purple',
   // 红色：异常/取消/驳回/冻结/作废
   EXCEPTION: 'red',
@@ -119,6 +122,9 @@ const statusLabelMap: Record<string, string> = {
   NOT_REQUIRED: '无需处理',
   DRAFT: '草稿',
   EXPIRED: '已过期',
+  PENDING_DECISION: '客户待定',
+  CONVERTED: '已下单',
+  QUOTED: '已报价',
   // 小写兼容值（保留原有映射）
   pending_review: '待审核',
   confirmed: '已确认',

@@ -19,6 +19,11 @@ const OrderDetail = lazy(() => import('./pages/OrderDetail'))
 const OrderEdit = lazy(() => import('./pages/OrderEdit'))
 const OrderAssign = lazy(() => import('./pages/OrderAssign'))
 
+// 询价管理
+const InquiryManagement = lazy(() => import('./pages/InquiryManagement'))
+const InquiryDetail = lazy(() => import('./pages/InquiryDetail'))
+const InquiryEdit = lazy(() => import('./pages/InquiryEdit'))
+
 // 报价管理
 const QuotationManagement = lazy(() => import('./pages/QuotationManagement'))
 const QuotationCreate = lazy(() => import('./pages/QuotationCreate'))
@@ -115,6 +120,13 @@ function AppRoutes() {
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/orders/:id/edit" element={<OrderEdit />} />
           <Route path="/orders/:id/assign" element={<OrderAssign />} />
+
+          {/* 询价管理 */}
+          {/* create 必须写在 :id 之前，否则 "create" 会被当成 id（和后端路由顺序同理） */}
+          <Route path="/inquiries" element={<InquiryManagement />} />
+          <Route path="/inquiries/create" element={<InquiryEdit />} />
+          <Route path="/inquiries/:id" element={<InquiryDetail />} />
+          <Route path="/inquiries/:id/edit" element={<InquiryEdit />} />
 
           {/* 报价管理 */}
           <Route path="/quotes" element={<QuotationManagement />} />

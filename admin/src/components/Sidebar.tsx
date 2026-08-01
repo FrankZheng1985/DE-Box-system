@@ -35,7 +35,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { path: '/dashboard', label: '仪表板', icon: BarChart3 },
   { path: '/orders', label: '订单管理', icon: Package },
-  { path: '/quotes', label: '询价报价', icon: Tag },
+  { path: '/inquiries', label: '询价报价', icon: Tag },
   { path: '/cmr', label: 'CMR 管理', icon: FileText },
   { path: '/shipping-release', label: '船司放单', icon: Anchor },
   { path: '/customs', label: '清关管理', icon: Shield },
@@ -57,6 +57,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const isActive = (path: string) => {
     if (path === '/dashboard') {
       return location.pathname === '/dashboard' || location.pathname === '/'
+    }
+    // 询价和报价是同一个菜单项下的两个视图，任一路径都要点亮「询价报价」
+    if (path === '/inquiries') {
+      return location.pathname.startsWith('/inquiries') || location.pathname.startsWith('/quotes')
     }
     return location.pathname.startsWith(path)
   }

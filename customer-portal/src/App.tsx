@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import MyOrders from './pages/MyOrders'
 import CreateOrder from './pages/CreateOrder'
 import InquiryList from './pages/InquiryList'
+import MyQuotations from './pages/MyQuotations'
 import Tracking from './pages/Tracking'
 import CustomsOp from './pages/CustomsOp'
 import CMRFiles from './pages/CMRFiles'
@@ -56,6 +57,7 @@ function AppRoutes() {
         <Route path="orders/create" element={<CreateOrder />} />
         <Route path="inquiry" element={<InquiryList />} />
         <Route path="inquiry/create" element={<InquiryList />} />
+        <Route path="quotations" element={<MyQuotations />} />
         <Route path="tracking" element={<Tracking />} />
         <Route path="customs" element={<CustomsOp />} />
         <Route path="cmr" element={<CMRFiles />} />

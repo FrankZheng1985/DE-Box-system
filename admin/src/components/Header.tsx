@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 const routeTitleMap: Record<string, string> = {
   '/dashboard': '仪表板',
   '/orders': '订单管理',
+  '/inquiries': '询价报价',
   '/quotes': '询价报价',
   '/cmr': 'CMR 管理',
   '/shipping-release': '船司放单',

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 import {
   ArrowLeft,
@@ -20,6 +20,7 @@ import {
   Banknote,
   Package,
   Calculator,
+  MessageSquare,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import { BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
@@ -128,6 +129,10 @@ function FormField({ label, required, children, error }: FieldProps) {
 
 export default function QuotationCreate() {
   const navigate = useNavigate()
+  // 从询价列表点「由此报价」跳过来时带的 ?inquiryId=xxx
+  // 后端 POST /quotations 一直支持 inquiryId 字段，只是前端此前从没传过
+  const [searchParams] = useSearchParams()
+  const inquiryId = searchParams.get('inquiryId')
 
   // 基础数据选项
   const { options: currencyOpts } = useMasterDataOptions('currencies')
@@ -142,6 +147,16 @@ export default function QuotationCreate() {
   const [globalError, setGlobalError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [calculatingPrice, setCalculatingPrice] = useState(false)
+  // 来源询价（带 inquiryId 进来时加载，用于表单预填 + 顶部提示条）
+  const [sourceInquiry, setSourceInquiry] = useState<{
+    id: string
+    inquiry_number: string
+    client_name: string | null
+    cargo_description: string | null
+    cargo_weight_kg: string | null
+    cargo_quantity: number | null
+    ldm: string | null
+  } | null>(null)
 
   // 获取客户列表
   useEffect(() => {
@@ -169,6 +184,49 @@ export default function QuotationCreate() {
     fetchClients()
     return () => { cancelled = true }
   }, [])
+
+  // 由询价发起报价：拉询价详情预填客户、服务类型、路线
+  useEffect(() => {
+    if (!inquiryId) return
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const res = await api.get<ApiResponse<any>>(`/inquiries/${inquiryId}`)
+        if (cancelled) return
+        if (res.code !== 200 || !res.data) {
+          setGlobalError(res.message || '来源询价加载失败，请手工填写')
+          return
+        }
+        const d = res.data
+        setSourceInquiry({
+          id: d.id,
+          inquiry_number: d.inquiry_number,
+          client_name: d.client_name,
+          cargo_description: d.cargo_description,
+          cargo_weight_kg: d.cargo_weight_kg,
+          cargo_quantity: d.cargo_quantity,
+          ldm: d.ldm,
+        })
+        setForm((prev) => ({
+          ...prev,
+          clientId: d.client_id || prev.clientId,
+          businessType: d.business_type || prev.businessType,
+          transportType: d.transport_type || prev.transportType,
+          originCountry: d.route_from?.country || prev.originCountry,
+          originCity: d.route_from?.city || prev.originCity,
+          destCountry: d.route_to?.country || prev.destCountry,
+          destCity: d.route_to?.city || prev.destCity,
+        }))
+      } catch (err) {
+        if (cancelled) return
+        console.error('[QuotationCreate] 获取来源询价失败:', err)
+        setGlobalError('来源询价加载失败，请手工填写')
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [inquiryId])
 
   // 计算总价
   const totalPrice = useMemo(() => {
@@ -276,6 +334,8 @@ export default function QuotationCreate() {
     setGlobalError('')
 
     const payload = {
+      // 带上来源询价：后端据此关联报价、并把询价状态推进为 QUOTED
+      inquiryId: inquiryId || null,
       clientId: form.clientId,
       businessType: form.businessType,
       transportType: form.transportType,
@@ -311,7 +371,8 @@ export default function QuotationCreate() {
       const msg = type === 'draft' ? '报价已保存为草稿' : '报价已成功发送'
       setSuccessMsg(msg)
       setTimeout(() => {
-        navigate('/quotes')
+        // 从询价来的就回询价详情，方便继续看这张单
+        navigate(inquiryId ? `/inquiries/${inquiryId}` : '/quotes')
       }, 1500)
     } catch (err: any) {
       console.error('[QuotationCreate] 提交失败:', err)
@@ -364,6 +425,32 @@ export default function QuotationCreate() {
           <h1 className="text-xl font-semibold text-slate-900">创建报价</h1>
         </div>
       </div>
+
+      {/* ==================== 来源询价提示条 ==================== */}
+      {sourceInquiry && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-blue-600" />
+            <span className="text-sm text-slate-700">
+              由询价单
+              <button
+                type="button"
+                onClick={() => navigate(`/inquiries/${sourceInquiry.id}`)}
+                className="mx-1 font-semibold text-blue-700 hover:underline"
+              >
+                {sourceInquiry.inquiry_number}
+              </button>
+              发起，客户、服务类型、路线已自动带入
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+            {sourceInquiry.cargo_description && <span>货物：{sourceInquiry.cargo_description}</span>}
+            {sourceInquiry.cargo_quantity !== null && <span>件数：{sourceInquiry.cargo_quantity}</span>}
+            {sourceInquiry.cargo_weight_kg !== null && <span>实重：{Number(sourceInquiry.cargo_weight_kg).toFixed(2)} kg</span>}
+            {sourceInquiry.ldm !== null && <span>LDM：{Number(sourceInquiry.ldm).toFixed(2)}</span>}
+          </div>
+        </div>
+      )}
 
       {/* ==================== 主体：左侧表单 + 右侧摘要 ==================== */}
       <div className="flex flex-col lg:flex-row gap-6">
