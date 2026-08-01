@@ -32,6 +32,7 @@ interface BillRow {
   [key: string]: any
 }
 
+// 对应 GET /finance/profit/by-client 返回行；NUMERIC/COUNT 字段是字符串（踩坑 002）
 interface ClientProfit {
   id: string
   company_name: string
@@ -86,8 +87,9 @@ const INITIAL_CREATE_FORM: CreateRecordForm = {
 }
 const INITIAL_VOID_FORM: VoidForm = { reason: '' }
 
-function fmt(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
+// PostgreSQL NUMERIC 经 API 返回是字符串（踩坑 002），统一在这里 Number() 转换
+function fmt(amount: string | number): string {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(amount))
 }
 
 // ==================== 账单表格（应收/应付共用，含操作按钮） ====================
