@@ -166,10 +166,10 @@ const doc = new Document({
 
         heading('1.2 域名与路径', HeadingLevel.HEADING_2),
         makeTable(['路径', '用途'], [
-          ['box-cargo.de/', '公司主页（品牌官网）'],
-          ['box-cargo.de/admin/', '运营管理端（EU-TMS）'],
-          ['box-cargo.de/customer/', '客户门户'],
-          ['box-cargo.de/carrier/', '承运商门户'],
+          ['kalunasped.com/', '公司主页（品牌官网）'],
+          ['kalunasped.com/admin/', '运营管理端（EU-TMS）'],
+          ['kalunasped.com/customer/', '客户门户'],
+          ['kalunasped.com/carrier/', '承运商门户'],
         ], [4000, 5500]),
 
         heading('1.3 语言', HeadingLevel.HEADING_2),

@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
     // 发送邮件通知管理员
     try {
       await sendEmail({
-        to: process.env.ADMIN_EMAIL || 'info@box-cargo.de',
+        to: process.env.ADMIN_EMAIL || 'info@kalunasped.com',
         subject: `[Box Cargo] 新客户咨询 - ${name}`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
@@ -50,8 +50,8 @@ router.post('/', async (req, res) => {
               </table>
               <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#a0aec0">
                 提交时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Europe/Berlin' })}<br>
-                来源：box-cargo.de 官网<br>
-                <a href="https://box-cargo.de/admin/" style="color:#2B6CB0">登录管理后台查看</a>
+                来源：kalunasped.com 官网<br>
+                <a href="${process.env.APP_BASE_URL || 'https://kalunasped.com'}/admin/" style="color:#2B6CB0">登录管理后台查看</a>
               </div>
             </div>
           </div>
