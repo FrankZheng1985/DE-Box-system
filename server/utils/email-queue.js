@@ -11,7 +11,33 @@
  */
 
 import { query } from '../core/db.js'
-import { sendEmail, isConfigured, notificationEmail } from './email-service.js'
+import {
+  sendEmail, isConfigured,
+  notificationEmail, quotationEmail, paymentReminderEmail,
+} from './email-service.js'
+
+/**
+ * 邮件模板分发表
+ *
+ * notifications.email_template 存模板名，email_payload 存模板变量。
+ * 认不出的模板名一律退回通用模板 —— 宁可发一封朴素邮件，
+ * 也不要因为模板名写错就把整封邮件卡在队列里（迁移 108 之前的老数据也走这条路）。
+ */
+const TEMPLATES = {
+  QUOTATION_RESPONSE: (row) => quotationEmail(row.email_payload || {}),
+  PAYMENT_REMINDER: (row) => paymentReminderEmail(row.email_payload || {}),
+}
+
+function renderEmail(row) {
+  const render = row.email_template ? TEMPLATES[row.email_template] : null
+  if (!render) {
+    if (row.email_template) {
+      console.warn(`[邮件队列] 未知模板 ${row.email_template}，退回通用模板`)
+    }
+    return notificationEmail(row.title, row.message)
+  }
+  return render(row)
+}
 
 // 单次轮询最多处理多少封，避免一次拉太多把 SMTP 打挂
 const BATCH_SIZE = 20
@@ -56,7 +82,8 @@ export async function processPendingEmails() {
        LIMIT $1
        FOR UPDATE SKIP LOCKED
      )
-     RETURNING id, type, title, message, email_to, email_attempts`,
+     RETURNING id, type, title, message, email_to, email_attempts,
+               email_template, email_payload`,
     [BATCH_SIZE]
   )
 
@@ -68,7 +95,7 @@ export async function processPendingEmails() {
     const attempts = parseInt(row.email_attempts, 10) || 0
 
     try {
-      const { subject, html } = notificationEmail(row.title, row.message)
+      const { subject, html } = renderEmail(row)
       const result = await sendEmail({ to: row.email_to, subject, html })
 
       if (result.skipped) {

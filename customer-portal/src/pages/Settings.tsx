@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Save, Loader2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api, { ApiResponse } from '../utils/api'
+import NotificationPreferences from '../components/NotificationPreferences'
 
 interface AccountInfo {
   name: string
@@ -93,7 +94,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-lg mx-auto space-y-4">
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
         <h2 className="text-sm font-semibold text-slate-900 mb-4">账户信息</h2>
 
@@ -178,6 +179,9 @@ export default function Settings() {
           </div>
         </form>
       </div>
+
+      {/* 通知设置（需求 8） */}
+      <NotificationPreferences />
     </div>
   )
 }

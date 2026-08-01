@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType } from '../../middleware/auth.js'
 import { query, withTransaction } from '../../core/db.js'
 
 const router = Router()
@@ -24,14 +24,34 @@ router.get('/settings', async (req, res) => {
   } catch (error) { res.status(500).json({ code: 500, message: '获取系统配置失败', data: null }) }
 })
 
-router.put('/settings', async (req, res) => {
+// ⚠️ 系统配置是全局开关（信用检查、自动开票、提醒天数等），
+//    以前只挂 authenticateToken，任何登录账号——包括客户门户和承运商门户的账号——
+//    都能改。收紧为仅运营可写（踩坑 016 的同类问题）。
+router.put('/settings', requireUserType('OPERATOR'), async (req, res) => {
   try {
-    for (const [key, value] of Object.entries(req.body)) {
-      await query(`UPDATE system_settings SET setting_value = $1, updated_at = NOW() WHERE setting_key = $2`,
+    let updated = 0
+    const unknown = []
+    for (const [key, value] of Object.entries(req.body || {})) {
+      const r = await query(
+        `UPDATE system_settings SET setting_value = $1, updated_at = NOW() WHERE setting_key = $2`,
         [String(value), key])
+      // 原来不看影响行数：key 写错时 UPDATE 影响 0 行，接口照样回"更新成功"，
+      // 用户以为改了其实没改。现在把没命中的 key 如实报回去。
+      if (r.rowCount === 0) unknown.push(key)
+      else updated += r.rowCount
     }
-    res.json({ code: 200, message: '系统配置更新成功', data: null })
-  } catch (error) { res.status(500).json({ code: 500, message: error.message, data: null }) }
+    if (unknown.length > 0) {
+      return res.status(400).json({
+        code: 400,
+        message: `以下配置项不存在，未保存：${unknown.join(', ')}`,
+        data: { updated, unknown },
+      })
+    }
+    res.json({ code: 200, message: '系统配置更新成功', data: { updated } })
+  } catch (error) {
+    console.error('[系统配置] 保存失败:', error)
+    res.status(500).json({ code: 500, message: error.message, data: null })
+  }
 })
 
 router.get('/settings/account', async (req, res) => {

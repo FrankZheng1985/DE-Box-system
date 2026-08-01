@@ -7,6 +7,7 @@ import cron from 'node-cron'
 import { query, withTransaction } from '../core/db.js'
 import { notificationEngine, NOTIFICATION_TYPES } from '../core/index.js'
 import { processPendingEmails } from './email-queue.js'
+import { getBoolSetting, getNumberSetting } from './settings.js'
 
 // 资质到期提醒 - 每天 8:00
 cron.schedule('0 8 * * *', async () => {
@@ -45,38 +46,112 @@ cron.schedule('0 8 * * *', async () => {
   }
 })
 
-// 账单逾期催款 - 每天 9:00
+// 账单到期提醒 + 逾期催款 + 自动标记逾期 - 每天 9:00
+//
+// 需求 8：到期前 N 天提醒、逾期催款，两者都要发给客户而不只是内部站内信。
+// 提醒天数、开关都读 system_settings，运营在系统设置页能改，不用改代码。
 cron.schedule('0 9 * * *', async () => {
   try {
+    // ---- 1. 先把已逾期但状态还是 UNPAID 的账单翻成 OVERDUE ----
+    // 这一步以前完全没有，逾期账单在系统里一直显示"未付款"，
+    // 财务页的逾期统计因此永远是 0。
+    if (await getBoolSetting('overdue_auto_flag_enabled', true)) {
+      const flagged = await query(
+        `UPDATE financial_records
+         SET payment_status = 'OVERDUE'
+         WHERE due_date < CURRENT_DATE
+           AND payment_status = 'UNPAID'
+           AND COALESCE(paid_amount, 0) < amount
+         RETURNING id`
+      )
+      if (flagged.rowCount > 0) {
+        console.warn(`[定时任务] 自动标记逾期账单 ${flagged.rowCount} 条`)
+      }
+    }
+
+    // ---- 2. 到期前 N 天提醒 + 逾期催款 ----
+    const remindBefore = await getNumberSetting('payment_reminder_days_before', 7)
+    const remindEnabled = await getBoolSetting('payment_reminder_enabled', true)
+    const overdueEnabled = await getBoolSetting('overdue_reminder_enabled', true)
+
+    // due_date - 今天 的天数：正数=还剩几天，负数=已逾期几天
     const result = await query(
       `SELECT fr.id, fr.record_number, fr.amount, fr.currency, fr.due_date,
-              c.company_name as client_name
+              (fr.due_date - CURRENT_DATE) AS days_diff,
+              c.id AS client_id, c.company_name AS client_name,
+              c.contact_email, c.invoice_email
        FROM financial_records fr
-       LEFT JOIN clients c ON c.id = fr.counterparty_id AND fr.counterparty_type = 'CLIENT'
-       WHERE fr.due_date < CURRENT_DATE AND fr.payment_status = 'UNPAID'
-       ORDER BY fr.due_date`
+       LEFT JOIN clients c
+         ON c.id = fr.counterparty_id AND fr.counterparty_type = 'CLIENT'
+       WHERE fr.payment_status IN ('UNPAID', 'OVERDUE')
+         AND fr.due_date IS NOT NULL
+         AND (fr.due_date < CURRENT_DATE OR fr.due_date = CURRENT_DATE + $1::int)
+       ORDER BY fr.due_date`,
+      [Math.max(0, Math.round(remindBefore))]
     )
-    if (result.rows.length > 0) {
-      await withTransaction(async (client) => {
-        const userIds = await notificationEngine.getUserIdsByRoles(client, ['finance', 'sys_admin'])
-        if (userIds.length === 0) {
-          console.warn('[定时任务] 逾期催款：没有找到财务/管理员用户，跳过通知')
-          return
-        }
-        for (const record of result.rows) {
+
+    let mailed = 0
+    await withTransaction(async (client) => {
+      // 内部站内信照旧发给财务和管理员
+      const userIds = await notificationEngine.getUserIdsByRoles(client, ['finance', 'sys_admin'])
+
+      for (const record of result.rows) {
+        const daysDiff = Number(record.days_diff)
+        const overdue = daysDiff < 0
+        if (overdue && !overdueEnabled) continue
+        if (!overdue && !remindEnabled) continue
+
+        const title = overdue
+          ? `账单逾期: ${record.record_number}`
+          : `账单即将到期: ${record.record_number}`
+        const message = `客户 ${record.client_name || '未知'}, 金额 ${record.currency} ${record.amount}, 到期日 ${record.due_date}`
+
+        if (userIds.length > 0) {
           await notificationEngine.notify(client, {
             userIds,
             type: NOTIFICATION_TYPES.INVOICE_DUE,
-            title: `账单逾期: ${record.record_number}`,
-            message: `客户 ${record.client_name || '未知'}, 金额 ${record.currency} ${record.amount}, 到期日 ${record.due_date}`
+            title,
+            message,
           })
         }
-      })
-    }
 
-    console.warn(`[定时任务] 逾期催款检查完成，发现 ${result.rows.length} 条`)
+        // ---- 发给客户本人 ----
+        // 开票邮箱优先（账单类邮件本来就该走财务对接人）
+        const to = record.invoice_email || record.contact_email
+        if (!to) continue
+
+        // 同一张账单同一天不重复发，避免 cron 因重启/补跑轰炸客户
+        const dup = await client.query(
+          `SELECT 1 FROM notifications
+           WHERE email_to = $1 AND email_template = 'PAYMENT_REMINDER'
+             AND email_payload->>'recordNumber' = $2
+             AND created_at >= CURRENT_DATE
+           LIMIT 1`,
+          [to, record.record_number]
+        )
+        if (dup.rows.length > 0) continue
+
+        const payload = {
+          recordNumber: record.record_number,
+          clientName: record.client_name || '客户',
+          amount: `${record.currency} ${Number(record.amount).toFixed(2)}`,
+          dueDate: new Date(record.due_date).toLocaleDateString('de-DE'),
+          daysDiff,
+        }
+        await client.query(
+          `INSERT INTO notifications
+             (user_id, type, title, message, channel, email_to, email_status,
+              email_template, email_payload)
+           VALUES (NULL, $1, $2, $3, 'EMAIL', $4, 'PENDING', 'PAYMENT_REMINDER', $5)`,
+          [NOTIFICATION_TYPES.INVOICE_DUE, title, message, to, JSON.stringify(payload)]
+        )
+        mailed++
+      }
+    })
+
+    console.warn(`[定时任务] 账单提醒完成，命中 ${result.rows.length} 条，客户邮件入队 ${mailed} 封`)
   } catch (err) {
-    console.error('[定时任务] 逾期催款检查失败:', err.message)
+    console.error('[定时任务] 账单提醒失败:', err.message)
   }
 })
 
@@ -121,4 +196,4 @@ cron.schedule('*/2 * * * *', async () => {
   }
 })
 
-console.warn('[定时任务] 已注册: 邮件队列(每2分钟), 资质到期提醒(8:00), 逾期催款(9:00), 过账期间管理(每月1号)')
+console.warn('[定时任务] 已注册: 邮件队列(每2分钟), 资质到期提醒(8:00), 账单提醒+逾期标记(9:00), 过账期间管理(每月1号)')

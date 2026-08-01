@@ -8,6 +8,8 @@ interface User {
   name: string
   email: string
   userType: string
+  // 登录接口一直有返回，只是此前没声明；公司级通知设置要靠它判断是不是 client_admin
+  roleCode?: string
   linkedEntityId?: string
   company?: string
 }

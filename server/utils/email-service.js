@@ -114,12 +114,145 @@ function emailWrapper(title, bodyHtml) {
  */
 export function notificationEmail(title, message) {
   const subject = `[EU-TMS] ${title}`
-  const bodyText = (message || '').replace(/\n/g, '<br/>')
+  // 通知标题/正文里会拼客户名、承运商名等外部可控内容，先转义再换行
+  const bodyText = esc(message || '').replace(/\n/g, '<br/>')
   const html = emailWrapper('系统通知', `
-    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">${title}</h2>
+    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">${esc(title)}</h2>
     ${bodyText ? `<p style="color:#475569;line-height:1.6;font-size:14px;">${bodyText}</p>` : ''}
     <p style="color:#94a3b8;font-size:12px;margin-top:24px;">
       登录 EU-TMS 系统查看详情。
+    </p>
+  `)
+  return { subject, html }
+}
+
+/**
+ * HTML 转义
+ *
+ * 模板里所有来自数据库/用户输入的值都要过这一层。
+ * 客户名、备注这些字段客户自己填得进内容，不转义就是把 HTML 注入
+ * 直接送进收件人的邮箱（客户名写成 `<script>` 或伪造一个假按钮）。
+ */
+function esc(value) {
+  if (value === null || value === undefined) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * 报价确认邮件（需求 5.2）
+ *
+ * 系统没有 IMAP 收信能力，做不了"解析客户回复邮件"，
+ * 改为邮件里放三个带一次性 token 的确认链接，客户点哪个就回写哪个状态。
+ *
+ * ⚠️ 三个链接都是 GET，会被邮件客户端的安全扫描器预取。
+ *    所以链接落地页只是**展示确认页**，真正改状态要在页面上再点一次（POST）。
+ *
+ * @param {object} p
+ * @param {string} p.quotationNumber 报价单号
+ * @param {string} p.clientName      客户名称
+ * @param {string} p.route           路线描述
+ * @param {string} p.totalPrice      报价金额（已格式化）
+ * @param {string} [p.validUntil]    有效期
+ * @param {string} [p.remarks]       备注
+ * @param {string} p.acceptUrl       同意链接
+ * @param {string} p.rejectUrl       拒绝链接
+ * @param {string} p.pendingUrl      待定链接
+ * @returns {{ subject: string, html: string }}
+ */
+export function quotationEmail(p) {
+  const subject = `[EU-TMS] 报价单 ${p.quotationNumber} 请确认`
+
+  const row = (label, value) => value
+    ? `<tr><td style="padding:10px 14px;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;">${esc(label)}</td>
+           <td style="padding:10px 14px;color:#1e293b;font-size:13px;border-bottom:1px solid #f1f5f9;">${esc(value)}</td></tr>`
+    : ''
+
+  // 邮件客户端对 flex/grid 支持极差，按钮用表格排，才能在 Outlook 里也不散架
+  const button = (url, text, bg) =>
+    `<td align="center" style="padding:0 6px;">
+       <a href="${esc(url)}" style="display:inline-block;background:${bg};color:#fff;text-decoration:none;
+          padding:12px 22px;border-radius:6px;font-size:14px;font-weight:bold;">${esc(text)}</a>
+     </td>`
+
+  const html = emailWrapper('报价确认', `
+    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">您的报价已出</h2>
+    <p style="color:#475569;line-height:1.6;font-size:14px;">
+      尊敬的 <strong>${esc(p.clientName)}</strong>，您好！
+    </p>
+    <p style="color:#475569;line-height:1.6;font-size:14px;">
+      报价单 <strong style="color:#2563eb;">${esc(p.quotationNumber)}</strong> 详情如下，请确认：
+    </p>
+
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border-radius:6px;">
+      ${row('路线', p.route)}
+      ${row('有效期至', p.validUntil)}
+      ${row('备注', p.remarks)}
+      <tr>
+        <td style="padding:14px;color:#64748b;font-size:13px;">报价金额</td>
+        <td style="padding:14px;color:#2563eb;font-size:20px;font-weight:bold;">${esc(p.totalPrice)}</td>
+      </tr>
+    </table>
+
+    <p style="color:#475569;font-size:14px;margin:24px 0 12px;">请选择：</p>
+    <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+      ${button(p.acceptUrl,  '同意报价', '#16a34a')}
+      ${button(p.pendingUrl, '暂时待定', '#d97706')}
+      ${button(p.rejectUrl,  '拒绝报价', '#dc2626')}
+    </tr></table>
+
+    <p style="color:#94a3b8;font-size:12px;margin-top:24px;line-height:1.6;">
+      点击「同意报价」后，系统会自动为您生成运输订单并转入我司审核。<br/>
+      以上链接仅可使用一次${p.validUntil ? `，并在 ${esc(p.validUntil)} 后失效` : ''}。<br/>
+      您也可以登录客户门户，在「我的报价」中完成确认。
+    </p>
+  `)
+  return { subject, html }
+}
+
+/**
+ * 账单到期 / 逾期提醒邮件（需求 8）
+ *
+ * @param {object} p
+ * @param {string} p.recordNumber 账单号
+ * @param {string} p.clientName   客户名称
+ * @param {string} p.amount       金额（已格式化）
+ * @param {string} p.dueDate      到期日
+ * @param {number} p.daysDiff     距到期天数；正数=还剩几天，负数=已逾期几天
+ * @returns {{ subject: string, html: string }}
+ */
+export function paymentReminderEmail(p) {
+  const overdue = p.daysDiff < 0
+  const days = Math.abs(p.daysDiff)
+  const headline = overdue ? `账单已逾期 ${days} 天` : `账单将于 ${days} 天后到期`
+  const subject = `[EU-TMS] ${overdue ? '逾期催款' : '账单到期提醒'} - ${p.recordNumber}`
+  const accent = overdue ? '#dc2626' : '#d97706'
+
+  const html = emailWrapper(overdue ? '逾期催款' : '账单提醒', `
+    <h2 style="color:${accent};margin:0 0 16px;font-size:18px;">${esc(headline)}</h2>
+    <p style="color:#475569;line-height:1.6;font-size:14px;">
+      尊敬的 <strong>${esc(p.clientName)}</strong>，您好！
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border-radius:6px;">
+      <tr>
+        <td style="padding:10px 14px;color:#64748b;font-size:13px;">账单号</td>
+        <td style="padding:10px 14px;color:#1e293b;font-size:13px;font-weight:bold;">${esc(p.recordNumber)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 14px;color:#64748b;font-size:13px;">到期日</td>
+        <td style="padding:10px 14px;color:${accent};font-size:13px;font-weight:bold;">${esc(p.dueDate)}</td>
+      </tr>
+      <tr>
+        <td style="padding:14px;color:#64748b;font-size:13px;">应付金额</td>
+        <td style="padding:14px;color:${accent};font-size:20px;font-weight:bold;">${esc(p.amount)}</td>
+      </tr>
+    </table>
+    <p style="color:#475569;font-size:13px;">
+      ${overdue ? '请尽快安排付款。' : '请在到期日前完成付款。'}如已付款请忽略本邮件，或联系财务部门核对。
     </p>
   `)
   return { subject, html }
@@ -232,6 +365,8 @@ export default {
   sendEmail,
   isConfigured,
   notificationEmail,
+  quotationEmail,
+  paymentReminderEmail,
   orderConfirmationEmail,
   statusUpdateEmail,
   invoiceEmail,

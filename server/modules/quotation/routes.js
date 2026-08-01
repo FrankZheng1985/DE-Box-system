@@ -7,33 +7,14 @@ import { Router } from 'express'
 import { authenticateToken, requireUserType } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, documentFlow, pricingEngine, changeTracker } from '../../core/index.js'
-import orderService, { BUSINESS_TYPES } from '../order/service.js'
+import quotationService, {
+  QUOTATION_STATUS, CLIENT_DECIDABLE, DECISION_ACTIONS,
+  createOrderFromQuotation,
+} from './service.js'
+import { queueQuotationEmail } from './email.js'
 
 const router = Router()
 router.use(authenticateToken)
-
-/**
- * 报价单状态
- *   DRAFT            草稿，运营还在编
- *   SENT             已发送给客户，等客户决策
- *   PENDING_DECISION 客户点了「待定」，还没拿定主意（需求 2，2026-08-01 新增）
- *   ACCEPTED         客户已接受
- *   CONVERTED        已生成订单（接受后自动建单成功即为此状态）
- *   REJECTED / EXPIRED / CANCELLED
- */
-const QUOTATION_STATUS = {
-  DRAFT: 'DRAFT',
-  SENT: 'SENT',
-  PENDING_DECISION: 'PENDING_DECISION',
-  ACCEPTED: 'ACCEPTED',
-  CONVERTED: 'CONVERTED',
-  REJECTED: 'REJECTED',
-  EXPIRED: 'EXPIRED',
-  CANCELLED: 'CANCELLED',
-}
-
-/** 客户可以做决策的状态：已发送、或之前点过待定 */
-const CLIENT_DECIDABLE = [QUOTATION_STATUS.SENT, QUOTATION_STATUS.PENDING_DECISION]
 
 /**
  * 取报价单并校验访问权限
@@ -66,87 +47,6 @@ async function loadQuotationWithAccessCheck(quotationId, req, res) {
     return null
   }
   return quotation
-}
-
-/**
- * 由报价单生成订单（需求 2 的核心）
- *
- * 报价里只有路线和金额，货物信息在询价单上，所以有 inquiry_id 时
- * 把询价的货物字段一并带过来，否则运营拿到的是一张空订单还得手工补。
- *
- * ⚠️ 信用超额（creditManager 返回 BLOCKED）时 createOrder 会抛错，
- *    调用方在事务里，整笔回滚 —— 报价状态不会变，符合 Frank 2026-08-01
- *    定的口径「拒绝建单，报价退回 SENT，让客户联系业务」。
- *
- * @returns {Promise<object>} 新建的订单
- */
-async function createOrderFromQuotation(client, quotation, userId, extra = {}) {
-  const routeFrom = parseJsonColumn(quotation.route_from)
-  const routeTo = parseJsonColumn(quotation.route_to)
-
-  // 询价单上的货物信息带进订单
-  let inquiryData = {}
-  if (quotation.inquiry_id) {
-    const inq = await client.query(
-      `SELECT cargo_description, cargo_weight_kg, cargo_volume_m3, cargo_quantity,
-              special_requirements, pod, container_type, remarks
-       FROM inquiries WHERE id = $1`,
-      [quotation.inquiry_id]
-    )
-    if (inq.rows.length > 0) {
-      const i = inq.rows[0]
-      inquiryData = {
-        cargoDescription: i.cargo_description,
-        cargoWeightKg: i.cargo_weight_kg,
-        cargoVolumeM3: i.cargo_volume_m3,
-        cargoQuantity: i.cargo_quantity,
-        specialRequirements: i.special_requirements,
-        pod: i.pod,
-        containerType: i.container_type,
-        remarks: i.remarks,
-      }
-    }
-  }
-
-  const order = await orderService.createOrder(client, {
-    ...inquiryData,
-    clientId: quotation.client_id,
-    businessType: quotation.business_type,
-    transportType: quotation.transport_type,
-    pickupAddress: routeFrom,
-    deliveryAddress: routeTo,
-    clientPrice: parseFloat(quotation.total_price),
-    currency: quotation.currency,
-    quotationDocId: quotation.document_id,   // createOrder 据此建 QUOTATION_TO_ORDER 单据流
-    ...extra,
-  }, userId)
-
-  // 本地派送的初始状态是 PENDING_QUOTE（待报价），但报价已经被接受了，
-  // 停在"待报价"是自相矛盾的 —— 推进一格到待派送。
-  // 卡车 LTL/FTL 的初始状态就是 PENDING_REVIEW（待审核），正是需求 2 要的，不动。
-  if (quotation.business_type === BUSINESS_TYPES.LOCAL_DELIVERY) {
-    await orderService.updateStatus(
-      client, order.id, 'PENDING_DISPATCH', userId, '客户接受报价，自动建单'
-    )
-  }
-
-  await client.query(
-    `UPDATE quotations
-     SET status = $1, converted_order_id = $2, updated_at = NOW()
-     WHERE id = $3`,
-    [QUOTATION_STATUS.CONVERTED, order.id, quotation.id]
-  )
-
-  return order
-}
-
-/** JSONB 列可能是对象也可能是字符串，统一成对象 */
-function parseJsonColumn(value) {
-  if (!value) return {}
-  if (typeof value === 'string') {
-    try { return JSON.parse(value) || {} } catch { return {} }
-  }
-  return value
 }
 
 /**
@@ -411,26 +311,48 @@ router.put('/:id', requireUserType('OPERATOR'), async (req, res) => {
  */
 router.post('/:id/send', requireUserType('OPERATOR'), async (req, res) => {
   try {
-    // 旧版无条件 UPDATE ... WHERE status='DRAFT'，非草稿时影响 0 行却照样回
-    // "报价已发送"，运营以为发出去了其实没有。改成按影响行数如实反馈。
-    const result = await query(
-      `UPDATE quotations SET status = $1, updated_at = NOW()
-       WHERE id = $2 AND status = $3
-       RETURNING id`,
-      [QUOTATION_STATUS.SENT, req.params.id, QUOTATION_STATUS.DRAFT]
-    )
-    if (result.rowCount === 0) {
-      const current = await query(`SELECT status FROM quotations WHERE id = $1`, [req.params.id])
-      if (current.rows.length === 0) {
-        return res.status(404).json({ code: 404, message: '报价不存在', data: null })
+    const outcome = await withTransaction(async (client) => {
+      // 旧版无条件 UPDATE ... WHERE status='DRAFT'，非草稿时影响 0 行却照样回
+      // "报价已发送"，运营以为发出去了其实没有。改成按影响行数如实反馈。
+      const updated = await client.query(
+        `UPDATE quotations SET status = $1, updated_at = NOW()
+         WHERE id = $2 AND status = $3
+         RETURNING id`,
+        [QUOTATION_STATUS.SENT, req.params.id, QUOTATION_STATUS.DRAFT]
+      )
+      if (updated.rowCount === 0) {
+        const current = await client.query(`SELECT status FROM quotations WHERE id = $1`, [req.params.id])
+        if (current.rows.length === 0) return { notFound: true }
+        return { badStatus: current.rows[0].status }
       }
+
+      // 签发一次性确认 token 并把邮件排进队列（真正发信由 cron 每 2 分钟处理）。
+      // 放在同一笔事务里：入队失败就连状态一起回滚，
+      // 不允许出现"状态已是已发送、但客户永远收不到邮件"的半截状态。
+      const mail = await queueQuotationEmail(client, req.params.id, req.user.id)
+      return { mail }
+    })
+
+    if (outcome.notFound) {
+      return res.status(404).json({ code: 404, message: '报价不存在', data: null })
+    }
+    if (outcome.badStatus) {
       return res.status(400).json({
         code: 400,
-        message: `报价当前状态为 ${current.rows[0].status}，仅草稿可以发送`,
+        message: `报价当前状态为 ${outcome.badStatus}，仅草稿可以发送`,
         data: null,
       })
     }
-    res.json({ code: 200, message: '报价已发送', data: null })
+
+    const { mail } = outcome
+    res.json({
+      code: 200,
+      // 邮件没发出去时如实说明原因，不要让运营以为客户已经收到了
+      message: mail.queued
+        ? `报价已发送，确认邮件将发往 ${mail.to}`
+        : `报价已发送（${mail.reason}）`,
+      data: { emailQueued: mail.queued, emailTo: mail.to || null, reason: mail.reason || null },
+    })
   } catch (error) {
     console.error('发送报价失败:', error)
     res.status(500).json({ code: 500, message: error.message, data: null })
@@ -451,44 +373,14 @@ router.post('/:id/accept', requireUserType('OPERATOR', 'CLIENT'), async (req, re
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
-    if (!CLIENT_DECIDABLE.includes(quotation.status)) {
-      return res.status(400).json({
-        code: 400,
-        message: `报价当前状态为 ${quotation.status}，仅「已发送」或「待定」的报价可以接受`,
-        data: null,
+
+    const result = await withTransaction((client) =>
+      quotationService.applyClientDecision(client, req.params.id, DECISION_ACTIONS.ACCEPT, {
+        userId: req.user.id,
+        note: req.body?.note || null,
       })
-    }
-
-    const order = await withTransaction(async (client) => {
-      // 行锁：防止客户在两个浏览器标签同时点接受，建出两张订单
-      const locked = await client.query(
-        `SELECT * FROM quotations WHERE id = $1 FOR UPDATE`, [req.params.id]
-      )
-      const quo = locked.rows[0]
-      if (!CLIENT_DECIDABLE.includes(quo.status)) {
-        throw new Error(`报价当前状态为 ${quo.status}，不能重复接受`)
-      }
-
-      await client.query(
-        `UPDATE quotations
-         SET status = $1, client_response_at = NOW(), client_response_by = $2,
-             client_response_note = $3, updated_at = NOW()
-         WHERE id = $4`,
-        [QUOTATION_STATUS.ACCEPTED, req.user.id, req.body?.note || null, req.params.id]
-      )
-
-      if (quo.inquiry_id) {
-        await client.query(
-          `UPDATE inquiries SET status = 'ACCEPTED', updated_at = NOW() WHERE id = $1`,
-          [quo.inquiry_id]
-        )
-      }
-
-      // 建单失败（信用超额等）会抛错 → 整笔事务回滚 → 报价退回原状态
-      return await createOrderFromQuotation(
-        client, { ...quo, client_name: quotation.client_name }, req.user.id, req.body?.orderOverrides || {}
-      )
-    })
+    )
+    const order = result.order
 
     res.json({
       code: 200,
@@ -520,20 +412,12 @@ router.post('/:id/pending', requireUserType('OPERATOR', 'CLIENT'), async (req, r
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
-    if (quotation.status !== QUOTATION_STATUS.SENT) {
-      return res.status(400).json({
-        code: 400,
-        message: `报价当前状态为 ${quotation.status}，仅「已发送」的报价可以标记待定`,
-        data: null,
-      })
-    }
 
-    await query(
-      `UPDATE quotations
-       SET status = $1, client_response_at = NOW(), client_response_by = $2,
-           client_response_note = $3, updated_at = NOW()
-       WHERE id = $4`,
-      [QUOTATION_STATUS.PENDING_DECISION, req.user.id, req.body?.note || null, req.params.id]
+    await withTransaction((client) =>
+      quotationService.applyClientDecision(client, req.params.id, DECISION_ACTIONS.PENDING, {
+        userId: req.user.id,
+        note: req.body?.note || null,
+      })
     )
     res.json({ code: 200, message: '已标记为待定', data: null })
   } catch (error) {
@@ -550,29 +434,13 @@ router.post('/:id/reject', requireUserType('OPERATOR', 'CLIENT'), async (req, re
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
-    if (!CLIENT_DECIDABLE.includes(quotation.status)) {
-      return res.status(400).json({
-        code: 400,
-        message: `报价当前状态为 ${quotation.status}，仅「已发送」或「待定」的报价可以拒绝`,
-        data: null,
-      })
-    }
 
-    await withTransaction(async (client) => {
-      await client.query(
-        `UPDATE quotations
-         SET status = $1, client_response_at = NOW(), client_response_by = $2,
-             client_response_note = $3, updated_at = NOW()
-         WHERE id = $4`,
-        [QUOTATION_STATUS.REJECTED, req.user.id, req.body?.note || req.body?.reason || null, req.params.id]
-      )
-      if (quotation.inquiry_id) {
-        await client.query(
-          `UPDATE inquiries SET status = 'REJECTED', updated_at = NOW() WHERE id = $1`,
-          [quotation.inquiry_id]
-        )
-      }
-    })
+    await withTransaction((client) =>
+      quotationService.applyClientDecision(client, req.params.id, DECISION_ACTIONS.REJECT, {
+        userId: req.user.id,
+        note: req.body?.note || req.body?.reason || null,
+      })
+    )
     res.json({ code: 200, message: '报价已拒绝', data: null })
   } catch (error) {
     console.error('拒绝报价失败:', error)

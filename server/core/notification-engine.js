@@ -111,11 +111,33 @@ export class NotificationEngine {
     )
   }
 
-  // 根据用户偏好确定通知渠道
+  /**
+   * 根据偏好确定通知渠道
+   *
+   * 三级回退（需求 8，迁移 108 起）：
+   *   1. 这个人自己的偏好
+   *   2. 他所属客户公司的默认偏好（client_admin 给全公司设的）
+   *   3. 系统默认：仅站内信
+   *
+   * 公司级偏好只对 user_type = 'CLIENT' 的账号生效 ——
+   * 运营和承运商账号的 linked_entity_id 指向的不是 clients 表。
+   */
   async _resolveChannel(client, userId, eventType) {
     const pref = await client.query(
-      `SELECT channel_email, channel_system FROM notification_preferences
-       WHERE user_id = $1 AND event_type = $2`,
+      `SELECT p.channel_email, p.channel_system,
+              -- 个人偏好排在前面，取第一行即可
+              CASE WHEN p.user_id IS NOT NULL THEN 0 ELSE 1 END AS priority
+       FROM notification_preferences p
+       WHERE p.event_type = $2
+         AND (
+           p.user_id = $1
+           OR p.client_id = (
+             SELECT u.linked_entity_id FROM users u
+             WHERE u.id = $1 AND u.user_type = 'CLIENT'
+           )
+         )
+       ORDER BY priority
+       LIMIT 1`,
       [userId, eventType]
     )
 
