@@ -20,6 +20,11 @@ import {
   Hash,
   ChevronRight,
   Database,
+  Truck,
+  PackageCheck,
+  RefreshCw,
+  Ship,
+  Stamp,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 
@@ -41,6 +46,39 @@ interface NotificationPreference {
   email: boolean
   system: boolean
 }
+
+// 后端返回的通知偏好行（snake_case，和 API 一致）
+interface NotificationPreferenceRow {
+  event_type: string
+  channel_email: boolean
+  channel_system: boolean
+}
+
+/**
+ * 通知事件清单
+ * ⚠️ key 必须与后端 core/notification-engine.js 的 NOTIFICATION_TYPES 完全一致（全大写），
+ *    否则存进库的偏好匹配不到任何实际通知（踩坑 004）
+ */
+const NOTIFICATION_EVENTS: Omit<NotificationPreference, 'email' | 'system'>[] = [
+  { key: 'ORDER_CONFIRMED', label: '订单已确认', icon: CheckCircle, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+  { key: 'CARRIER_ACCEPTED', label: '承运商接单', icon: Truck, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
+  { key: 'PICKED_UP', label: '货物已提货', icon: Package, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
+  { key: 'STATUS_UPDATE', label: '订单状态变更', icon: RefreshCw, iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+  { key: 'DELIVERED', label: '货物已送达', icon: PackageCheck, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+  { key: 'CMR_UPLOADED', label: 'CMR 单据上传', icon: FileText, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+  { key: 'EXCEPTION', label: '订单异常预警', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
+  { key: 'CLEARANCE_RELEASED', label: '清关放行', icon: Stamp, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
+  { key: 'RELEASE_STATUS_CHANGED', label: '船司放单状态变更', icon: Ship, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
+  { key: 'QUALIFICATION_EXPIRING', label: '承运商资质到期', icon: ShieldAlert, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+  { key: 'INVOICE_DUE', label: '账单到期 / 逾期', icon: DollarSign, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+]
+
+// 没有存过偏好时的默认值（和后端 _resolveChannel 的默认行为保持一致：只发站内信）
+const DEFAULT_PREFS: NotificationPreference[] = NOTIFICATION_EVENTS.map((event) => ({
+  ...event,
+  email: false,
+  system: true,
+}))
 
 // ==================== 组件 ====================
 
@@ -95,53 +133,8 @@ export default function Settings() {
   const [savingAccount, setSavingAccount] = useState(false)
 
   // 通知偏好
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreference[]>([
-    {
-      key: 'order_status',
-      label: '订单状态变更',
-      icon: Package,
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-600',
-      email: true,
-      system: true,
-    },
-    {
-      key: 'cmr_upload',
-      label: 'CMR 上传通知',
-      icon: FileText,
-      iconBg: 'bg-green-50',
-      iconColor: 'text-green-600',
-      email: true,
-      system: true,
-    },
-    {
-      key: 'payment_reminder',
-      label: '付款提醒',
-      icon: DollarSign,
-      iconBg: 'bg-amber-50',
-      iconColor: 'text-amber-600',
-      email: true,
-      system: true,
-    },
-    {
-      key: 'alert_warning',
-      label: '异常预警',
-      icon: AlertTriangle,
-      iconBg: 'bg-red-50',
-      iconColor: 'text-red-600',
-      email: true,
-      system: true,
-    },
-    {
-      key: 'qualification_expiry',
-      label: '资质到期',
-      icon: ShieldAlert,
-      iconBg: 'bg-purple-50',
-      iconColor: 'text-purple-600',
-      email: false,
-      system: true,
-    },
-  ])
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreference[]>(DEFAULT_PREFS)
+  const [loadingPrefs, setLoadingPrefs] = useState(true)
 
   // Toast
   const [showToast, setShowToast] = useState(false)
@@ -169,6 +162,34 @@ export default function Settings() {
       }
     }
     fetchAccount()
+  }, [])
+
+  // 加载已保存的通知偏好（库里没存过的事件用默认值）
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      setLoadingPrefs(true)
+      try {
+        const res = await api.get<ApiResponse<NotificationPreferenceRow[]>>('/notifications/preferences')
+        if (res.code === 200 && Array.isArray(res.data)) {
+          const saved = new Map(res.data.map((row) => [row.event_type, row]))
+          setNotificationPrefs(
+            NOTIFICATION_EVENTS.map((event) => {
+              const row = saved.get(event.key)
+              return {
+                ...event,
+                email: row ? Boolean(row.channel_email) : false,
+                system: row ? Boolean(row.channel_system) : true,
+              }
+            })
+          )
+        }
+      } catch (err) {
+        console.error('[Settings] 加载通知偏好失败:', err)
+      } finally {
+        setLoadingPrefs(false)
+      }
+    }
+    fetchPreferences()
   }, [])
 
   // 保存账户信息
@@ -213,6 +234,8 @@ export default function Settings() {
       const res = await api.put<ApiResponse<null>>('/notifications/preferences', { preferences })
       if (res.code === 200) {
         showToastMessage('通知偏好已保存')
+      } else {
+        showToastMessage(res.message || '保存失败，请重试')
       }
     } catch (err) {
       console.error('[Settings] 保存通知偏好失败:', err)
@@ -370,6 +393,13 @@ export default function Settings() {
             </div>
 
             {/* 通知项列表 */}
+            {loadingPrefs ? (
+              <div className="space-y-2 animate-pulse">
+                {NOTIFICATION_EVENTS.map((event) => (
+                  <div key={event.key} className="h-14 bg-slate-100 rounded-xl" />
+                ))}
+              </div>
+            ) : (
             <div className="space-y-2">
               {notificationPrefs.map((pref) => {
                 const IconComp = pref.icon
@@ -424,12 +454,13 @@ export default function Settings() {
                 )
               })}
             </div>
+            )}
 
             {/* 保存通知偏好按钮 */}
             <div className="flex justify-end pt-4">
               <button
                 onClick={handleSaveNotifications}
-                disabled={savingNotifications}
+                disabled={savingNotifications || loadingPrefs}
                 className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-all duration-200 ease-in-out"
               >
                 {savingNotifications ? (

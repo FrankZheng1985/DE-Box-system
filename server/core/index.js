@@ -16,7 +16,7 @@ export { default as postingPeriod } from './posting-period.js'
 export { default as accountDetermination } from './account-determination.js'
 export { default as creditManager } from './credit-manager.js'
 export { default as pricingEngine } from './pricing-engine.js'
-export { default as notificationEngine, NOTIFICATION_TYPES } from './notification-engine.js'
+export { default as notificationEngine, NOTIFICATION_TYPES, NOTIFICATION_TYPE_LABELS } from './notification-engine.js'
 export { default as workflowEngine } from './workflow-engine.js'
 
 // 导出类（用于需要自定义实例的场景）

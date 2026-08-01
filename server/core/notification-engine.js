@@ -29,7 +29,7 @@ export class NotificationEngine {
     relatedOrderId,
     channel = 'AUTO'
   }) {
-    const ids = Array.isArray(userIds) ? userIds : [userIds]
+    const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean))]
 
     for (const userId of ids) {
       // 确定通知渠道
@@ -38,19 +38,31 @@ export class NotificationEngine {
         actualChannel = await this._resolveChannel(client, userId, type)
       }
 
-      // 创建系统通知
-      if (actualChannel === 'SYSTEM' || actualChannel === 'BOTH') {
-        await client.query(
-          `INSERT INTO notifications (user_id, type, title, message, related_order_id, channel)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [userId, type, title, message, relatedOrderId, actualChannel]
-        )
+      const needsEmail = actualChannel === 'EMAIL' || actualChannel === 'BOTH'
+
+      // 需要发邮件时，先取用户邮箱做快照；取不到就退回纯站内信
+      let emailTo = null
+      if (needsEmail) {
+        const user = await client.query(`SELECT email FROM users WHERE id = $1`, [userId])
+        emailTo = user.rows[0]?.email || null
+        if (!emailTo) {
+          console.warn(`[通知引擎] 用户 ${userId} 没有邮箱，${type} 通知改为仅站内信`)
+          actualChannel = 'SYSTEM'
+        }
       }
 
-      // 邮件通知（记录到待发送队列，实际发送由定时任务处理）
-      if (actualChannel === 'EMAIL' || actualChannel === 'BOTH') {
-        await this._queueEmail(client, userId, type, title, message)
-      }
+      // 一条通知只写一行：channel 决定要不要发邮件，
+      // email_status = PENDING 的行由 utils/email-queue.js 轮询发送
+      await client.query(
+        `INSERT INTO notifications
+           (user_id, type, title, message, related_order_id, channel, email_to, email_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          userId, type, title, message, relatedOrderId, actualChannel,
+          emailTo,
+          emailTo ? 'PENDING' : null
+        ]
+      )
     }
   }
 
@@ -118,21 +130,20 @@ export class NotificationEngine {
     return 'SYSTEM'
   }
 
-  // 邮件发送队列（简化实现：直接记录到通知表，实际发送在单独服务中处理）
-  async _queueEmail(client, userId, type, title, message) {
-    // 获取用户邮箱
-    const user = await client.query(
-      `SELECT email FROM users WHERE id = $1`, [userId]
+  /**
+   * 按角色代码查用户 ID（定时任务给"财务岗""管理员"群发时用）
+   * @param {object} client - 数据库客户端
+   * @param {string[]} roleCodes - 角色代码，如 ['finance', 'sys_admin']
+   * @returns {Promise<string[]>} 用户 ID 数组
+   */
+  async getUserIdsByRoles(client, roleCodes) {
+    const result = await client.query(
+      `SELECT u.id FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE r.role_code = ANY($1) AND u.is_active = true`,
+      [roleCodes]
     )
-    if (!user.rows[0]?.email) return
-
-    // 邮件发送逻辑由外部邮件服务处理
-    // 此处仅做记录，实际发送通过 node-cron 定时任务轮询
-    await client.query(
-      `INSERT INTO notifications (user_id, type, title, message, channel, is_read)
-       VALUES ($1, $2, $3, $4, 'EMAIL', false)`,
-      [userId, `EMAIL_${type}`, `[邮件] ${title}`, message]
-    )
+    return result.rows.map(row => row.id)
   }
 }
 
@@ -151,6 +162,24 @@ export const NOTIFICATION_TYPES = {
   RELEASE_STATUS_CHANGED: 'RELEASE_STATUS_CHANGED',
   QUALIFICATION_EXPIRING: 'QUALIFICATION_EXPIRING',
   INVOICE_DUE: 'INVOICE_DUE'
+}
+
+/**
+ * 通知事件的中文名称
+ * 唯一来源：前端设置页、邮件标题都从这里取，不要在别处再抄一份
+ */
+export const NOTIFICATION_TYPE_LABELS = {
+  ORDER_CONFIRMED: '订单已确认',
+  CARRIER_ACCEPTED: '承运商接单',
+  PICKED_UP: '货物已提货',
+  STATUS_UPDATE: '订单状态变更',
+  DELIVERED: '货物已送达',
+  CMR_UPLOADED: 'CMR 单据上传',
+  EXCEPTION: '订单异常预警',
+  CLEARANCE_RELEASED: '清关放行',
+  RELEASE_STATUS_CHANGED: '船司放单状态变更',
+  QUALIFICATION_EXPIRING: '承运商资质到期',
+  INVOICE_DUE: '账单到期 / 逾期'
 }
 
 export default new NotificationEngine()

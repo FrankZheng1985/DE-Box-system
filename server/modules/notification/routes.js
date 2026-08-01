@@ -4,7 +4,8 @@
 
 import { Router } from 'express'
 import { authenticateToken } from '../../middleware/auth.js'
-import { query } from '../../core/db.js'
+import { query, withTransaction } from '../../core/db.js'
+import { NOTIFICATION_TYPES, NOTIFICATION_TYPE_LABELS } from '../../core/index.js'
 
 const router = Router()
 router.use(authenticateToken)
@@ -49,16 +50,57 @@ router.get('/preferences', async (req, res) => {
   } catch (error) { res.status(500).json({ code: 500, message: '获取通知偏好失败', data: null }) }
 })
 
+/**
+ * 保存通知偏好
+ * 同时支持两种请求体：
+ *   - 批量：{ preferences: [{ eventType, channelEmail, channelSystem }, ...] }（前端设置页用）
+ *   - 单条：{ eventType, channelEmail, channelSystem }（保留旧调用方式）
+ */
 router.put('/preferences', async (req, res) => {
   try {
-    const { eventType, channelEmail, channelSystem } = req.body
-    await query(`
-      INSERT INTO notification_preferences (user_id, event_type, channel_email, channel_system)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id, event_type) DO UPDATE SET channel_email = $3, channel_system = $4`,
-      [req.user.id, eventType, channelEmail, channelSystem])
+    const body = req.body || {}
+    const list = Array.isArray(body.preferences) ? body.preferences : [body]
+
+    // 事件类型必须是后端定义的常量，防止写进一批匹配不到的 key
+    const invalid = list.filter(p => !p?.eventType || !NOTIFICATION_TYPES[p.eventType])
+    if (invalid.length > 0) {
+      return res.status(400).json({
+        code: 400,
+        message: `参数错误：不支持的通知事件类型 ${invalid.map(p => p?.eventType || '(空)').join(', ')}`,
+        data: null
+      })
+    }
+
+    await withTransaction(async (client) => {
+      for (const pref of list) {
+        await client.query(`
+          INSERT INTO notification_preferences (user_id, event_type, channel_email, channel_system)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (user_id, event_type) DO UPDATE SET channel_email = $3, channel_system = $4`,
+          [req.user.id, pref.eventType, Boolean(pref.channelEmail), Boolean(pref.channelSystem)])
+      }
+    })
+
     res.json({ code: 200, message: '通知偏好更新成功', data: null })
-  } catch (error) { res.status(500).json({ code: 500, message: error.message, data: null }) }
+  } catch (error) {
+    console.error('[通知] 保存通知偏好失败:', error)
+    res.status(500).json({ code: 500, message: error.message, data: null })
+  }
+})
+
+/**
+ * 可配置的通知事件清单（前端设置页据此渲染，不再自己硬编码 key）
+ * GET /api/v1/notifications/event-types
+ */
+router.get('/event-types', async (req, res) => {
+  res.json({
+    code: 200,
+    message: 'success',
+    data: Object.keys(NOTIFICATION_TYPES).map(key => ({
+      event_type: key,
+      label: NOTIFICATION_TYPE_LABELS[key] || key
+    }))
+  })
 })
 
 export default router

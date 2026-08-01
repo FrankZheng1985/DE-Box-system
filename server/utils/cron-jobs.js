@@ -4,8 +4,9 @@
  */
 
 import cron from 'node-cron'
-import { query } from '../core/db.js'
-import { notificationEngine } from '../core/index.js'
+import { query, withTransaction } from '../core/db.js'
+import { notificationEngine, NOTIFICATION_TYPES } from '../core/index.js'
+import { processPendingEmails } from './email-queue.js'
 
 // 资质到期提醒 - 每天 8:00
 cron.schedule('0 8 * * *', async () => {
@@ -16,17 +17,28 @@ cron.schedule('0 8 * * *', async () => {
        WHERE (license_expiry IS NOT NULL AND license_expiry <= CURRENT_DATE + INTERVAL '30 days')
           OR (insurance_expiry IS NOT NULL AND insurance_expiry <= CURRENT_DATE + INTERVAL '30 days')`
     )
-    for (const carrier of result.rows) {
-      const parts = []
-      if (carrier.license_expiry) parts.push(`营业执照 ${carrier.license_expiry}`)
-      if (carrier.insurance_expiry) parts.push(`保险 ${carrier.insurance_expiry}`)
-      await notificationEngine.send({
-        type: 'QUALIFICATION_EXPIRY',
-        title: `承运商资质即将到期: ${carrier.company_name}`,
-        content: `到期项: ${parts.join(', ')}`,
-        targetRole: 'ADMIN'
-      }).catch(() => {})
+
+    if (result.rows.length > 0) {
+      await withTransaction(async (client) => {
+        const userIds = await notificationEngine.getUserIdsByRoles(client, ['sys_admin', 'op_manager'])
+        if (userIds.length === 0) {
+          console.warn('[定时任务] 资质到期提醒：没有找到管理员用户，跳过通知')
+          return
+        }
+        for (const carrier of result.rows) {
+          const parts = []
+          if (carrier.license_expiry) parts.push(`营业执照 ${carrier.license_expiry}`)
+          if (carrier.insurance_expiry) parts.push(`保险 ${carrier.insurance_expiry}`)
+          await notificationEngine.notify(client, {
+            userIds,
+            type: NOTIFICATION_TYPES.QUALIFICATION_EXPIRING,
+            title: `承运商资质即将到期: ${carrier.company_name}`,
+            message: `到期项: ${parts.join(', ')}`
+          })
+        }
+      })
     }
+
     console.warn(`[定时任务] 资质到期检查完成，发现 ${result.rows.length} 条`)
   } catch (err) {
     console.error('[定时任务] 资质到期检查失败:', err.message)
@@ -44,14 +56,24 @@ cron.schedule('0 9 * * *', async () => {
        WHERE fr.due_date < CURRENT_DATE AND fr.payment_status = 'UNPAID'
        ORDER BY fr.due_date`
     )
-    for (const record of result.rows) {
-      await notificationEngine.send({
-        type: 'OVERDUE_PAYMENT',
-        title: `账单逾期: ${record.record_number}`,
-        content: `客户 ${record.client_name || '未知'}, 金额 ${record.currency} ${record.amount}, 到期日 ${record.due_date}`,
-        targetRole: 'FINANCE'
-      }).catch(() => {})
+    if (result.rows.length > 0) {
+      await withTransaction(async (client) => {
+        const userIds = await notificationEngine.getUserIdsByRoles(client, ['finance', 'sys_admin'])
+        if (userIds.length === 0) {
+          console.warn('[定时任务] 逾期催款：没有找到财务/管理员用户，跳过通知')
+          return
+        }
+        for (const record of result.rows) {
+          await notificationEngine.notify(client, {
+            userIds,
+            type: NOTIFICATION_TYPES.INVOICE_DUE,
+            title: `账单逾期: ${record.record_number}`,
+            message: `客户 ${record.client_name || '未知'}, 金额 ${record.currency} ${record.amount}, 到期日 ${record.due_date}`
+          })
+        }
+      })
     }
+
     console.warn(`[定时任务] 逾期催款检查完成，发现 ${result.rows.length} 条`)
   } catch (err) {
     console.error('[定时任务] 逾期催款检查失败:', err.message)
@@ -86,4 +108,14 @@ cron.schedule('5 0 1 * *', async () => {
   }
 })
 
-console.warn('[定时任务] 已注册: 资质到期提醒(8:00), 逾期催款(9:00), 过账期间管理(每月1号)')
+// 邮件队列轮询 - 每 2 分钟
+// 通知引擎只把待发邮件写进 notifications 表，真正的发信在这里做
+cron.schedule('*/2 * * * *', async () => {
+  try {
+    await processPendingEmails()
+  } catch (err) {
+    console.error('[定时任务] 邮件队列处理失败:', err.message)
+  }
+})
+
+console.warn('[定时任务] 已注册: 邮件队列(每2分钟), 资质到期提醒(8:00), 逾期催款(9:00), 过账期间管理(每月1号)')

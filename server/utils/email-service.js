@@ -32,7 +32,7 @@ function getTransporter() {
 /**
  * 检查 SMTP 是否已配置
  */
-function isConfigured() {
+export function isConfigured() {
   return Boolean(process.env.SMTP_USER && process.env.SMTP_PASS)
 }
 
@@ -103,6 +103,26 @@ function emailWrapper(title, bodyHtml) {
   </table>
 </body>
 </html>`
+}
+
+/**
+ * 通用通知邮件模板
+ * 系统通知走邮件渠道时统一用这个模板（由 utils/email-queue.js 调用）
+ * @param {string} title - 通知标题
+ * @param {string} [message] - 通知正文
+ * @returns {{ subject: string, html: string }}
+ */
+export function notificationEmail(title, message) {
+  const subject = `[EU-TMS] ${title}`
+  const bodyText = (message || '').replace(/\n/g, '<br/>')
+  const html = emailWrapper('系统通知', `
+    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">${title}</h2>
+    ${bodyText ? `<p style="color:#475569;line-height:1.6;font-size:14px;">${bodyText}</p>` : ''}
+    <p style="color:#94a3b8;font-size:12px;margin-top:24px;">
+      登录 EU-TMS 系统查看详情。
+    </p>
+  `)
+  return { subject, html }
 }
 
 /**
@@ -211,6 +231,7 @@ export function invoiceEmail(invoiceNumber, clientName, amount, currency) {
 export default {
   sendEmail,
   isConfigured,
+  notificationEmail,
   orderConfirmationEmail,
   statusUpdateEmail,
   invoiceEmail,
