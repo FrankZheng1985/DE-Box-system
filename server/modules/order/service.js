@@ -268,7 +268,24 @@ export const orderService = {
       try {
         const clientPrice = parseFloat(order.client_price) || 0
         const carrierCost = parseFloat(order.carrier_cost) || 0
-        const dueDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10) // 30天后
+
+        const DEFAULT_PAYMENT_TERMS = 30
+        const toDueDate = (days) =>
+          new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+
+        // 应收到期日按客户约定账期算（clients.payment_terms，单位天），没配就用默认 30 天
+        let clientPaymentTerms = DEFAULT_PAYMENT_TERMS
+        if (order.client_id) {
+          const clientRow = await client.query(
+            `SELECT payment_terms FROM clients WHERE id = $1`, [order.client_id]
+          )
+          const days = parseInt(clientRow.rows[0]?.payment_terms, 10)
+          if (Number.isInteger(days) && days >= 0) clientPaymentTerms = days
+        }
+        const clientDueDate = toDueDate(clientPaymentTerms)
+
+        // 应付到期日：carriers 表暂无账期字段，统一用默认 30 天
+        const carrierDueDate = toDueDate(DEFAULT_PAYMENT_TERMS)
 
         // 创建应收发票（客户报价）
         if (clientPrice > 0 && order.client_id) {
@@ -289,7 +306,7 @@ export const orderService = {
              (document_id, record_number, order_id, type, counterparty_type, counterparty_id,
               amount, currency, payment_status, due_date, company_code, auto_generated)
              VALUES ($1, $2, $3, 'RECEIVABLE', 'CLIENT', $4, $5, $6, 'UNPAID', $7, 'DE01', true)`,
-            [arDoc.id, arDoc.docNumber, orderId, order.client_id, clientPrice, order.currency || 'EUR', dueDate]
+            [arDoc.id, arDoc.docNumber, orderId, order.client_id, clientPrice, order.currency || 'EUR', clientDueDate]
           )
         }
 
@@ -312,7 +329,7 @@ export const orderService = {
              (document_id, record_number, order_id, type, counterparty_type, counterparty_id,
               amount, currency, payment_status, due_date, company_code, auto_generated)
              VALUES ($1, $2, $3, 'PAYABLE', 'CARRIER', $4, $5, $6, 'UNPAID', $7, 'DE01', true)`,
-            [apDoc.id, apDoc.docNumber, orderId, order.carrier_id, carrierCost, order.currency || 'EUR', dueDate]
+            [apDoc.id, apDoc.docNumber, orderId, order.carrier_id, carrierCost, order.currency || 'EUR', carrierDueDate]
           )
         }
 

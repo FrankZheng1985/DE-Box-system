@@ -12,8 +12,14 @@ export default function CreateOrder() {
   const [success, setSuccess] = useState(false)
 
   const [form, setForm] = useState({
-    origin: '',
-    destination: '',
+    pickupCountry: '',
+    pickupCity: '',
+    pickupZipCode: '',
+    pickupAddress: '',
+    deliveryCountry: '',
+    deliveryCity: '',
+    deliveryZipCode: '',
+    deliveryAddress: '',
     transportType: 'FTL',
     cargoDescription: '',
     totalWeight: '',
@@ -30,10 +36,17 @@ export default function CreateOrder() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const inputClass =
+    'w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none'
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.origin || !form.destination) {
-      setError('请填写起运地和目的地')
+    if (!form.pickupCountry.trim() || !form.pickupCity.trim()) {
+      setError('请填写装货国家和城市')
+      return
+    }
+    if (!form.deliveryCountry.trim() || !form.deliveryCity.trim()) {
+      setError('请填写卸货国家和城市')
       return
     }
 
@@ -41,16 +54,35 @@ export default function CreateOrder() {
     setError('')
 
     try {
+      // ⚠️ 后端 order/model.js 是 JSON.stringify(data.pickupAddress) 写进 JSONB 列，
+      //    传 pickupCountry / deliveryCountry 这种平铺字段地址会整个落成 NULL。
+      //    结构与 admin 端 OrderCreate.tsx 保持一致：{ country, city, zipCode, address }
       const payload = {
-        ...form,
         clientId: user?.linkedEntityId,
         businessType: 'CURTAIN_SIDE',
-        pickupCountry: form.origin,
-        deliveryCountry: form.destination,
+        transportType: form.transportType,
+        pickupAddress: {
+          country: form.pickupCountry,
+          city: form.pickupCity,
+          zipCode: form.pickupZipCode,
+          address: form.pickupAddress,
+        },
+        deliveryAddress: {
+          country: form.deliveryCountry,
+          city: form.deliveryCity,
+          zipCode: form.deliveryZipCode,
+          address: form.deliveryAddress,
+        },
+        pickupDate: form.pickupDate || undefined,
+        deliveryDate: form.deliveryDate || undefined,
         cargoDescription: form.cargoDescription || form.specialRequirements,
         cargoWeightKg: form.totalWeight ? Number(form.totalWeight) : undefined,
         cargoVolumeM3: form.totalVolume ? Number(form.totalVolume) : undefined,
         cargoQuantity: form.packageCount ? Number(form.packageCount) : undefined,
+        specialRequirements: form.specialRequirements || undefined,
+        remarks: form.contactName || form.contactPhone
+          ? `联系人：${form.contactName || '-'} / ${form.contactPhone || '-'}`
+          : undefined,
         clientPrice: 0,
         currency: 'EUR',
       }
@@ -101,26 +133,96 @@ export default function CreateOrder() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 路线信息 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">起运地 *</label>
+          {/* 装货地址 */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-700 mb-2">装货地址</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">国家 *</label>
+                <input
+                  type="text"
+                  value={form.pickupCountry}
+                  onChange={(e) => handleChange('pickupCountry', e.target.value)}
+                  placeholder="如：Germany"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">城市 *</label>
+                <input
+                  type="text"
+                  value={form.pickupCity}
+                  onChange={(e) => handleChange('pickupCity', e.target.value)}
+                  placeholder="如：Hamburg"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">邮编</label>
+                <input
+                  type="text"
+                  value={form.pickupZipCode}
+                  onChange={(e) => handleChange('pickupZipCode', e.target.value)}
+                  placeholder="如：20095"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-slate-600 mb-1">详细地址</label>
               <input
                 type="text"
-                value={form.origin}
-                onChange={(e) => handleChange('origin', e.target.value)}
-                placeholder="如：上海"
-                className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                value={form.pickupAddress}
+                onChange={(e) => handleChange('pickupAddress', e.target.value)}
+                placeholder="街道、门牌号"
+                className={inputClass}
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">目的地 *</label>
+          </div>
+
+          {/* 卸货地址 */}
+          <div>
+            <h3 className="text-xs font-semibold text-slate-700 mb-2">卸货地址</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">国家 *</label>
+                <input
+                  type="text"
+                  value={form.deliveryCountry}
+                  onChange={(e) => handleChange('deliveryCountry', e.target.value)}
+                  placeholder="如：Poland"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">城市 *</label>
+                <input
+                  type="text"
+                  value={form.deliveryCity}
+                  onChange={(e) => handleChange('deliveryCity', e.target.value)}
+                  placeholder="如：Warsaw"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">邮编</label>
+                <input
+                  type="text"
+                  value={form.deliveryZipCode}
+                  onChange={(e) => handleChange('deliveryZipCode', e.target.value)}
+                  placeholder="如：00-001"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-slate-600 mb-1">详细地址</label>
               <input
                 type="text"
-                value={form.destination}
-                onChange={(e) => handleChange('destination', e.target.value)}
-                placeholder="如：汉堡"
-                className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                value={form.deliveryAddress}
+                onChange={(e) => handleChange('deliveryAddress', e.target.value)}
+                placeholder="街道、门牌号"
+                className={inputClass}
               />
             </div>
           </div>
