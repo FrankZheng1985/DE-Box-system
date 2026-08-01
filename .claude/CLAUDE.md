@@ -83,9 +83,10 @@ DMARC 照样对齐：send 子域与根域同组织域（relaxed），DKIM 签的
 
 两个 DKIM 选择器共存是正常的：`resend._domainkey`（发信）+ `cf2024-1._domainkey`（转发）。
 
-DMARC 现为 `p=none` 观察期。**1-2 周后**再依次收紧到 `p=quarantine` → `p=reject`，
-收紧前先看 DMARC 聚合报告确认认证稳定通过。
-**顺序反了会全域断邮 —— 旧域名 box-cargo.de 就是这么废掉的，详见踩坑 012。**
+DMARC 现为 **`p=quarantine`**（2026-08-02 从 `p=none` 收紧一档，实测未误伤）。
+**下一档 `p=reject` 还没做**，前提是：收到 DMARC 聚合报告（`rua` 已能收到）
+并确认 SPF/DKIM pass 率 100%，一般要等 1-2 周。
+**没看过报告就上 reject = 拿生产邮件赌 —— 旧域名 box-cargo.de 就是这么废掉的，详见踩坑 012。**
 
 > 新域名首次发信进收件方垃圾箱是常态（零发信信誉），和旧域名"静默丢弃"性质不同，
 > 靠时间和正常发信量自然好转，不是配置问题。

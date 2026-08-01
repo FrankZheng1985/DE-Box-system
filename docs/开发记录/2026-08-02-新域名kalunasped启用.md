@@ -149,7 +149,7 @@ info@box-cargo.de    → 250 Recipient ok
 | MX `send` | `10 feedback-smtp.eu-west-1.amazonses.com` | Resend 退信处理 |
 | TXT `resend._domainkey` | RSA 公钥 | Resend 的 DKIM |
 | TXT `cf2024-1._domainkey` | RSA 公钥 | Cloudflare 转发的 DKIM |
-| TXT `_dmarc` | `v=DMARC1; p=none; rua=mailto:info@kalunasped.com` | 观察期 |
+| TXT `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:info@kalunasped.com` | 2026-08-02 已从 p=none 收紧一档 |
 
 **⚠️ 两个 DKIM 选择器共存是正常的**（`resend._domainkey` 与 `cf2024-1._domainkey`），
 选择器不同互不干扰。但**SPF 必须只有一条** —— 开 Email Routing 时 Cloudflare
@@ -202,18 +202,38 @@ API key 由 Frank 在自己终端用 `sed` 直接写进服务器 `.env`，**没�
 
 1. 收件人点「非垃圾邮件」或把邮件拖回收件箱（只影响该收件人自己的过滤器，对客户无效）
 2. 随着系统正常发报价单、账单提醒，信誉会逐步建立，一般几天到两三周
-3. **过 1-2 周后把 DMARC 从 `p=none` 收紧到 `p=quarantine`**，再稳定后到 `p=reject`
-   —— 收紧本身是给收件方的正面信任信号
+3. **DMARC 已于 2026-08-02 收紧到 `p=quarantine`**（见下节）
 
-**收紧 DMARC 的前提**：先确认真实发信中 SPF/DKIM 稳定通过。
-顺序反了会把正常邮件也打掉 —— 旧域名就是这么废掉的（踩坑 012）。
+### DMARC 收紧节奏
+
+**2026-08-02 已完成第一档：`p=none` → `p=quarantine`。**
+
+之所以敢在没看到聚合报告时就走这一档，是因为**此刻它的风险接近于零**：
+
+| 认证实际情况 | `p=quarantine` 的后果 |
+|---|---|
+| 通过 | 策略永不触发，无影响 |
+| 有问题 | 收件方丢垃圾箱 —— **但邮件本来就在垃圾箱**，不会更糟 |
+
+而"域名配了强制策略"本身对收件方是个正面信任信号，对养信誉有微弱帮助。
+收紧后实测又发了一封，正常送达，没有误伤。
+
+**⚠️ `p=reject` 完全是另一回事，还没做，条件如下：**
+
+- 等 1-2 周，收到几份 DMARC 聚合报告（`rua` 指向 `info@kalunasped.com`，
+  经 Cloudflare Email Routing 转发，现在收得到了）
+- 报告里 SPF 和 DKIM 的 pass 率都是 100%
+- 满足后才改成 `p=reject`
+
+认证一旦有问题，`p=reject` 是让收件方**直接拒收** —— 就是旧域名 box-cargo.de
+死掉的那个方式。**没看过聚合报告就上 reject 等于拿生产邮件赌**（踩坑 012）。
 
 ---
 
 ## 遗留
 
-1. **DMARC 仍是 `p=none`**，按上面的节奏在 1-2 周后收紧。收紧前建议先看 DMARC
-   聚合报告（`rua` 已指向 `info@kalunasped.com`，现在能收到了）确认没有认证失败。
+1. **DMARC 现为 `p=quarantine`**（2026-08-02 收紧）。**下一档 `p=reject` 尚未做**，
+   条件见上节「DMARC 收紧节奏」：必须先看到聚合报告确认 SPF/DKIM pass 率 100%。
 2. **旧域名 box-cargo.de**：仍在 Strato，DNS 仍指向本机；nginx 域名块只认
    kalunasped.com，访问它会落到 IP 那个 default_server（自签名证书，会弹警告）。
    它的 Let's Encrypt 证书 2026-09-07 到期、续期会失败，确认不再需要后可
