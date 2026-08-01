@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
 
 export default function CreateOrder() {
   const navigate = useNavigate()
@@ -12,6 +13,7 @@ export default function CreateOrder() {
   const [success, setSuccess] = useState(false)
 
   const [form, setForm] = useState({
+    businessType: BUSINESS_TYPES.TRUCK_LTL as BusinessType,
     pickupCountry: '',
     pickupCity: '',
     pickupZipCode: '',
@@ -59,8 +61,9 @@ export default function CreateOrder() {
       //    结构与 admin 端 OrderCreate.tsx 保持一致：{ country, city, zipCode, address }
       const payload = {
         clientId: user?.linkedEntityId,
-        businessType: 'CURTAIN_SIDE',
-        transportType: form.transportType,
+        businessType: form.businessType,
+        // 本地派送没有 FTL/LTL 之分
+        transportType: form.businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? null : form.transportType,
         pickupAddress: {
           country: form.pickupCountry,
           city: form.pickupCity,
@@ -227,19 +230,36 @@ export default function CreateOrder() {
             </div>
           </div>
 
-          {/* 运输类型 */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">运输类型</label>
-            <select
-              value={form.transportType}
-              onChange={(e) => handleChange('transportType', e.target.value)}
-              className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
-            >
-              <option value="FTL">整车 (FTL)</option>
-              <option value="LTL">拼车 (LTL)</option>
-              <option value="FCL">整箱 (FCL)</option>
-              <option value="LCL">拼箱 (LCL)</option>
-            </select>
+          {/* 服务类型 + 运输类型 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">服务类型 *</label>
+              <select
+                value={form.businessType}
+                onChange={(e) => handleChange('businessType', e.target.value)}
+                className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
+              >
+                {(Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((t) => (
+                  <option key={t} value={t}>{BUSINESS_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            {/* 本地派送没有 FTL/LTL 之分 */}
+            {form.businessType !== BUSINESS_TYPES.LOCAL_DELIVERY && (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">运输类型</label>
+                <select
+                  value={form.transportType}
+                  onChange={(e) => handleChange('transportType', e.target.value)}
+                  className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
+                >
+                  <option value="FTL">整车 (FTL)</option>
+                  <option value="LTL">拼车 (LTL)</option>
+                  <option value="FCL">整箱 (FCL)</option>
+                  <option value="LCL">拼箱 (LCL)</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* 货物信息 */}

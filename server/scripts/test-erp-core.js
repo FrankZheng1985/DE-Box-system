@@ -212,13 +212,13 @@ async function runTests() {
     // ================ 测试 6: 科目确定 ================
     console.log('\n📋 测试 6: 自动科目确定')
     try {
-      const accounts1 = await accountDetermination.determineAccounts(client, 'AR_INVOICE', 'CURTAIN_SIDE')
-      assert(accounts1.debitAccount === '1210', `篷布车应收借方: ${accounts1.debitAccount}`)
-      assert(accounts1.creditAccount === '4100', `篷布车应收贷方: ${accounts1.creditAccount}`)
+      const accounts1 = await accountDetermination.determineAccounts(client, 'AR_INVOICE', 'TRUCK_LTL')
+      assert(accounts1.debitAccount === '1210', `LTL应收借方: ${accounts1.debitAccount}`)
+      assert(accounts1.creditAccount === '4100', `LTL应收贷方: ${accounts1.creditAccount}`)
 
-      const accounts2 = await accountDetermination.determineAccounts(client, 'AP_INVOICE', 'CONTAINER')
-      assert(accounts2.debitAccount === '5200', `集装箱应付借方: ${accounts2.debitAccount}`)
-      assert(accounts2.creditAccount === '2100', `集装箱应付贷方: ${accounts2.creditAccount}`)
+      const accounts2 = await accountDetermination.determineAccounts(client, 'AP_INVOICE', 'TRUCK_FTL')
+      assert(accounts2.debitAccount === '5200', `FTL应付借方: ${accounts2.debitAccount}`)
+      assert(accounts2.creditAccount === '2100', `FTL应付贷方: ${accounts2.creditAccount}`)
 
       const accounts3 = await accountDetermination.determineAccounts(client, 'AR_PAYMENT', 'ALL')
       assert(accounts3.debitAccount === '1100', `收款借方(银行): ${accounts3.debitAccount}`)
@@ -230,12 +230,12 @@ async function runTests() {
     // ================ 测试 7: 定价引擎配置 ================
     console.log('\n📋 测试 7: 定价引擎')
     try {
-      const config = await pricingEngine.getProcedureConfig(client, 'CURTAIN_SIDE')
-      assert(config.procedure !== null, `篷布车定价过程: ${config.procedure.procedure_name}`)
+      const config = await pricingEngine.getProcedureConfig(client, 'TRUCK_LTL')
+      assert(config.procedure !== null, `LTL定价过程: ${config.procedure.procedure_name}`)
       assert(config.steps.length > 0, `定价步骤: ${config.steps.length} 个`)
 
-      const config2 = await pricingEngine.getProcedureConfig(client, 'CONTAINER')
-      assert(config2.steps.length > 0, `集装箱定价步骤: ${config2.steps.length} 个`)
+      const config2 = await pricingEngine.getProcedureConfig(client, 'TRUCK_FTL')
+      assert(config2.steps.length > 0, `FTL定价步骤: ${config2.steps.length} 个`)
     } catch (err) {
       console.log(`  ✗ 定价引擎测试失败: ${err.message}`)
       failed++

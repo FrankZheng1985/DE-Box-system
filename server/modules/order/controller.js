@@ -149,6 +149,22 @@ export const orderController = {
   },
 
   /**
+   * 填写/修改跟踪号（本地派送）
+   * PUT /api/v1/orders/:id/tracking-number
+   */
+  async updateTrackingNumber(req, res) {
+    try {
+      const result = await withTransaction(async (client) => {
+        return orderService.updateTrackingNumber(client, req.params.id, req.body.trackingNumber, req.user.id)
+      })
+      res.json({ code: 200, message: '跟踪号已保存', data: result })
+    } catch (error) {
+      console.error('保存跟踪号失败:', error)
+      res.status(400).json({ code: 400, message: error.message, data: null })
+    }
+  },
+
+  /**
    * 派单
    * POST /api/v1/orders/:id/assign
    */

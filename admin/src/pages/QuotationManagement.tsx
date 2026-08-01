@@ -8,6 +8,7 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import { BUSINESS_TYPE_LABELS } from '../constants/businessTypes'
 import ConfirmDialog from '../components/ConfirmDialog'
 
 // ==================== 类型定义 ====================
@@ -46,14 +47,12 @@ const STATUS_TABS = [
   { key: 'EXPIRED', label: '已过期' },
 ]
 
+// 中文名统一用共享常量 BUSINESS_TYPE_LABELS，这里只配颜色
+// （旧版键是小写 curtain_side/container，和库里的大写值永远匹配不上）
 const BUSINESS_TYPE_STYLES: Record<string, string> = {
-  curtain_side: 'bg-blue-100 text-blue-700',
-  container: 'bg-purple-100 text-purple-700',
-}
-
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  curtain_side: '篷布车',
-  container: '集装箱',
+  TRUCK_LTL: 'bg-blue-100 text-blue-700',
+  TRUCK_FTL: 'bg-purple-100 text-purple-700',
+  LOCAL_DELIVERY: 'bg-green-100 text-green-700',
 }
 
 function formatCurrency(amount: number, currency = 'EUR'): string {
@@ -462,7 +461,7 @@ export default function QuotationManagement() {
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{q.route || '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium ${BUSINESS_TYPE_STYLES[q.business_type] || 'bg-gray-100 text-gray-600'}`}>
-                        {BUSINESS_TYPE_LABELS[q.business_type] || q.business_type}
+                        {(BUSINESS_TYPE_LABELS as Record<string, string>)[q.business_type] || q.business_type}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">
@@ -637,7 +636,7 @@ export default function QuotationManagement() {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">业务类型</span>
                 <span className="text-sm text-slate-700">
-                  {BUSINESS_TYPE_LABELS[convertModal.quotation.business_type] || convertModal.quotation.business_type}
+                  {(BUSINESS_TYPE_LABELS as Record<string, string>)[convertModal.quotation.business_type] || convertModal.quotation.business_type}
                 </span>
               </div>
               <div className="border-t border-slate-200 pt-2 mt-2">

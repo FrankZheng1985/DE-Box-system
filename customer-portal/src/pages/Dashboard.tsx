@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Package, Truck, CheckCircle, AlertTriangle } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { getStatusLabel, getStatusStyle } from '../constants/businessTypes'
 
 interface DashboardStats {
   totalOrders: number
@@ -54,15 +55,6 @@ export default function Dashboard() {
     { label: '已完成', value: stats.completed, icon: CheckCircle, color: 'bg-green-100 text-green-700' },
     { label: '异常', value: stats.abnormal, icon: AlertTriangle, color: 'bg-red-100 text-red-700' },
   ]
-
-  const statusMap: Record<string, string> = {
-    pending: '待处理',
-    confirmed: '已确认',
-    in_transit: '运输中',
-    delivered: '已送达',
-    completed: '已完成',
-    cancelled: '已取消',
-  }
 
   if (loading) {
     return (
@@ -132,7 +124,6 @@ export default function Dashboard() {
                 </tr>
               ) : (
                 recentOrders.map((order: any) => {
-                  const statusKey = (order.status || '').toLowerCase()
                   return (
                   <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/orders`)}>
                     <td className="text-left px-4 py-2.5 text-xs font-medium text-primary-600">
@@ -142,8 +133,8 @@ export default function Dashboard() {
                       {order.from_city || '-'} → {order.to_city || '-'}
                     </td>
                     <td className="text-center px-4 py-2.5">
-                      <span className="inline-block px-2 py-0.5 text-[10px] rounded-full bg-blue-100 text-blue-700">
-                        {statusMap[statusKey] || order.status}
+                      <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${getStatusStyle(order.status)}`}>
+                        {getStatusLabel(order.business_type, order.status)}
                       </span>
                     </td>
                     <td className="text-center px-4 py-2.5 text-xs text-slate-500">

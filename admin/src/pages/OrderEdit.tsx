@@ -1,7 +1,8 @@
 /**
  * 订单编辑页面
  * 加载已有订单数据，根据业务类型展示对应表单
- * 仅 PENDING_REVIEW / CONFIRMED 状态可编辑
+ * 卡车运输：PENDING_REVIEW / CONFIRMED 可编辑
+ * 本地派送：PENDING_QUOTE / PENDING_DISPATCH 可编辑
  */
 
 import { useState, useEffect } from 'react'
@@ -22,6 +23,7 @@ import {
   Lock,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
@@ -75,7 +77,12 @@ interface OrderData {
 
 // ==================== 常量 ====================
 
-const EDITABLE_STATUSES = ['PENDING_REVIEW', 'CONFIRMED']
+// 与后端 editOrder 的规则保持一致
+function getEditableStatuses(businessType: string): string[] {
+  return businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+    ? ['PENDING_QUOTE', 'PENDING_DISPATCH']
+    : ['PENDING_REVIEW', 'CONFIRMED']
+}
 
 // ==================== 通用输入组件 ====================
 
@@ -164,7 +171,7 @@ export default function OrderEdit() {
   const [order, setOrder] = useState<OrderData | null>(null)
   const [isEditable, setIsEditable] = useState(false)
 
-  // 篷布车表单字段
+  // 卡车/本地派送表单字段
   const [cargoDescription, setCargoDescription] = useState('')
   const [cargoWeightKg, setCargoWeightKg] = useState('')
   const [cargoVolumeM3, setCargoVolumeM3] = useState('')
@@ -216,7 +223,7 @@ export default function OrderEdit() {
       if (res.code === 200 && res.data?.order) {
         const o = res.data.order
         setOrder(o)
-        setIsEditable(EDITABLE_STATUSES.includes(o.status?.toUpperCase()))
+        setIsEditable(getEditableStatuses(o.business_type).includes(o.status?.toUpperCase()))
         fillForm(o)
       } else {
         setErrors(['订单数据加载失败'])
@@ -240,7 +247,8 @@ export default function OrderEdit() {
     setClientPrice(o.client_price?.toString() || '')
     setCurrency(o.currency || 'EUR')
 
-    if (o.business_type === 'CURTAIN_SIDE') {
+    // FTL（原集装箱）走船运字段，LTL / 本地派送走地址字段
+    if (o.business_type !== BUSINESS_TYPES.TRUCK_FTL) {
       const pickup = parseAddress(o.pickup_address)
       const delivery = parseAddress(o.delivery_address)
       setPickupCountry(pickup.country || '')
@@ -287,12 +295,12 @@ export default function OrderEdit() {
     const errs: string[] = []
     if (!cargoDescription.trim()) errs.push('请填写货物描述')
 
-    if (order.business_type === 'CURTAIN_SIDE') {
-      if (!pickupCity.trim()) errs.push('请填写装货城市')
-      if (!deliveryCity.trim()) errs.push('请填写卸货城市')
-    } else {
+    if (order.business_type === BUSINESS_TYPES.TRUCK_FTL) {
       if (!blNumber.trim()) errs.push('请填写提单号')
       if (!containerNo.trim()) errs.push('请填写柜号')
+    } else {
+      if (!pickupCity.trim()) errs.push('请填写装货城市')
+      if (!deliveryCity.trim()) errs.push('请填写卸货城市')
     }
 
     if (errs.length > 0) {
@@ -305,7 +313,7 @@ export default function OrderEdit() {
     try {
       let payload: Record<string, unknown>
 
-      if (order.business_type === 'CURTAIN_SIDE') {
+      if (order.business_type !== BUSINESS_TYPES.TRUCK_FTL) {
         payload = {
           cargoDescription,
           cargoWeightKg: cargoWeightKg ? Number(cargoWeightKg) : null,
@@ -384,7 +392,7 @@ export default function OrderEdit() {
     )
   }
 
-  const isCurtainSide = order.business_type === 'CURTAIN_SIDE'
+  const isContainer = order.business_type === BUSINESS_TYPES.TRUCK_FTL
   const countryOptions = countryOpts.map(o => ({ value: o.value, label: o.value }))
 
   // ==================== 不可编辑提示 ====================
@@ -404,7 +412,10 @@ export default function OrderEdit() {
           <h2 className="text-lg font-semibold text-slate-700 mb-2">订单不可编辑</h2>
           <p className="text-sm text-slate-500 mb-1">订单号：{order.order_number}</p>
           <p className="text-sm text-slate-500 mb-6">
-            当前状态为 <span className="font-medium text-slate-700">{order.status}</span>，仅待审核或已确认状态的订单可编辑。
+            当前状态为 <span className="font-medium text-slate-700">{order.status}</span>，
+            {order.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
+              ? '本地派送订单仅待报价或待派送状态可编辑。'
+              : '仅待审核或已确认状态的订单可编辑。'}
           </p>
           <button onClick={() => navigate(`/orders/${id}`)}
             className="px-6 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-colors">
@@ -429,7 +440,7 @@ export default function OrderEdit() {
           <div>
             <h1 className="text-xl font-semibold text-slate-900">编辑订单</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              {order.order_number} · {isCurtainSide ? '篷布车运输' : '集装箱物流'}
+              {order.order_number} · {BUSINESS_TYPE_LABELS[order.business_type as keyof typeof BUSINESS_TYPE_LABELS] || order.business_type}
             </p>
           </div>
         </div>
@@ -483,8 +494,8 @@ export default function OrderEdit() {
           </div>
         </div>
 
-        {/* 篷布车：路线信息 */}
-        {isCurtainSide && (
+        {/* 卡车/本地派送：路线信息 */}
+        {!isContainer && (
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6">
             <SectionTitle icon={MapPin}>装货地址</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -552,8 +563,8 @@ export default function OrderEdit() {
           </div>
         )}
 
-        {/* 集装箱：船运信息 */}
-        {!isCurtainSide && (
+        {/* FTL（集装箱）：船运信息 */}
+        {isContainer && (
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6">
             <SectionTitle icon={Ship}>船运与柜信息</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -632,7 +643,7 @@ export default function OrderEdit() {
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6">
           <SectionTitle icon={FileText}>其他信息</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {isCurtainSide && (
+            {!isContainer && (
               <div>
                 <Label>特殊要求</Label>
                 <SelectInput value={specialRequirements} onChange={setSpecialRequirements}

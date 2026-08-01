@@ -136,7 +136,12 @@ router.post('/', async (req, res) => {
       // 如果提供了定价输入，使用定价引擎自动计算
       let pricingResult = null
       if (req.body.usePricingEngine && req.body.pricingInput) {
-        const procedureCode = req.body.businessType === 'CONTAINER' ? 'CONTAINER' : 'CURTAIN_SIDE'
+        // 迁移 105 已把 pricing_procedures.procedure_code 改成与业务类型同名，
+        // 所以直接用 businessType；传了不认识的值就退回 LTL，避免取不到定价过程报错
+        const VALID_PROCEDURES = ['TRUCK_LTL', 'TRUCK_FTL', 'LOCAL_DELIVERY']
+        const procedureCode = VALID_PROCEDURES.includes(req.body.businessType)
+          ? req.body.businessType
+          : 'TRUCK_LTL'
         pricingResult = await pricingEngine.calculatePrice(client, procedureCode, req.body.pricingInput)
       }
 

@@ -14,7 +14,7 @@ export class AccountDetermination {
    * 根据业务交易类型确定会计科目
    * @param {object} client - 数据库客户端
    * @param {string} transactionType - 交易类型 (AR_INVOICE/AP_INVOICE/AR_PAYMENT 等)
-   * @param {string} [businessType='ALL'] - 业务类型 (CURTAIN_SIDE/CONTAINER/ALL)
+   * @param {string} [businessType='ALL'] - 业务类型 (TRUCK_LTL/TRUCK_FTL/LOCAL_DELIVERY/ALL)
    * @returns {Promise<{debitAccount: string, creditAccount: string, description: string}>}
    */
   async determineAccounts(client, transactionType, businessType = 'ALL') {

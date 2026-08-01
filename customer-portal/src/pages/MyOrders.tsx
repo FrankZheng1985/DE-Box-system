@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { BUSINESS_TYPES, getStatusLabel, getStatusStyle } from '../constants/businessTypes'
 
 interface Order {
   id: string
   order_number: string
+  business_type: string
   pickup_city: string
   delivery_city: string
   status: string
@@ -14,16 +16,8 @@ interface Order {
   client_price: number
   currency: string
   delivery_date: string
+  tracking_number: string | null
   created_at: string
-}
-
-const statusMap: Record<string, { label: string; style: string }> = {
-  pending: { label: '待处理', style: 'bg-gray-100 text-gray-600' },
-  confirmed: { label: '已确认', style: 'bg-blue-100 text-blue-700' },
-  in_transit: { label: '运输中', style: 'bg-amber-100 text-amber-700' },
-  delivered: { label: '已送达', style: 'bg-green-100 text-green-700' },
-  completed: { label: '已完成', style: 'bg-green-100 text-green-700' },
-  cancelled: { label: '已取消', style: 'bg-red-100 text-red-700' },
 }
 
 export default function MyOrders() {
@@ -98,16 +92,17 @@ export default function MyOrders() {
       {/* 表格 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[700px]">
+          <table className="w-full table-fixed min-w-[780px]">
             <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[20%]" />
+              <col className="w-[13%]" />
+              <col className="w-[16%]" />
+              <col className="w-[9%]" />
+              <col className="w-[9%]" />
+              <col className="w-[13%]" />
+              <col className="w-[9%]" />
+              <col className="w-[11%]" />
               <col className="w-[10%]" />
               <col className="w-[10%]" />
-              <col className="w-[10%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
@@ -115,6 +110,7 @@ export default function MyOrders() {
                 <th className="text-left px-3 py-2.5 font-medium">路线</th>
                 <th className="text-center px-3 py-2.5 font-medium">状态</th>
                 <th className="text-center px-3 py-2.5 font-medium">类型</th>
+                <th className="text-left px-3 py-2.5 font-medium">跟踪号</th>
                 <th className="text-right px-3 py-2.5 font-medium">重量(kg)</th>
                 <th className="text-right px-3 py-2.5 font-medium">报价</th>
                 <th className="text-center px-3 py-2.5 font-medium">预计到达</th>
@@ -125,7 +121,7 @@ export default function MyOrders() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-3 py-3">
                         <div className="h-3 bg-gray-100 rounded animate-pulse" />
                       </td>
@@ -134,14 +130,13 @@ export default function MyOrders() {
                 ))
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-sm text-slate-400">
+                  <td colSpan={9} className="text-center py-8 text-sm text-slate-400">
                     暂无订单数据
                   </td>
                 </tr>
               ) : (
                 orders.map((order) => {
-                  const statusKey = (order.status || '').toLowerCase()
-                  const st = statusMap[statusKey] || { label: order.status, style: 'bg-gray-100 text-gray-600' }
+                  const isLocal = order.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
                   return (
                     <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="text-left px-3 py-2.5 text-xs font-medium text-primary-600">
@@ -151,12 +146,15 @@ export default function MyOrders() {
                         {order.pickup_city || '-'} → {order.delivery_city || '-'}
                       </td>
                       <td className="text-center px-3 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>
-                          {st.label}
+                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${getStatusStyle(order.status)}`}>
+                          {getStatusLabel(order.business_type, order.status)}
                         </span>
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-600">
-                        {order.transport_type || '-'}
+                        {isLocal ? '本地派送' : order.transport_type || '-'}
+                      </td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600 font-mono truncate" title={order.tracking_number || undefined}>
+                        {order.tracking_number || '-'}
                       </td>
                       <td className="text-right px-3 py-2.5 text-xs text-slate-600">
                         {order.cargo_weight_kg ? Number(order.cargo_weight_kg).toLocaleString() : '-'}

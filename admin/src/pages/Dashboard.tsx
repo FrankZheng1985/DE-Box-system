@@ -15,6 +15,7 @@ import {
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
 import api from '../utils/api'
+import { BUSINESS_TYPE_LABELS, getStatusLabel } from '../constants/businessTypes'
 
 // Dashboard API 返回的数据结构
 interface DashboardData {
@@ -65,13 +66,8 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
-// 业务类型映射
-const BUSINESS_TYPE_MAP: Record<string, string> = {
-  FTL: '整车',
-  LTL: '零担',
-  FCL: '整柜',
-  LCL: '拼箱',
-}
+// 业务类型中文名统一用共享常量（旧版这里放的是 FTL/LTL 运输类型值，
+// 拿去匹配 business_type 永远对不上，列表一直显示原始英文）
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -332,10 +328,10 @@ export default function Dashboard() {
                     {order.from_city} → {order.to_city}
                   </td>
                   <td className="px-3 py-2.5 text-center border-b border-gray-50">
-                    <StatusBadge status={order.status} />
+                    <StatusBadge status={order.status} label={getStatusLabel(order.business_type, order.status)} />
                   </td>
                   <td className="px-3 py-2.5 text-xs text-center text-slate-600 border-b border-gray-50">
-                    {BUSINESS_TYPE_MAP[order.business_type] || order.business_type}
+                    {(BUSINESS_TYPE_LABELS as Record<string, string>)[order.business_type] || order.business_type}
                   </td>
                   <td className="px-3 py-2.5 text-sm text-right font-medium text-slate-900 border-b border-gray-50">
                     {formatCurrency(order.client_price, order.currency)}

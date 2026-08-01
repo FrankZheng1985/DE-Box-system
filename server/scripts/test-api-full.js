@@ -142,7 +142,7 @@ async function testCarriers() {
 async function testOrders() {
   section('5. Orders 订单')
   const r1 = await req('POST', '/orders', {
-    clientId: created.clientId, businessType: 'CURTAIN_SIDE', transportType: 'FTL',
+    clientId: created.clientId, businessType: 'TRUCK_LTL', transportType: 'FTL',
     cargoDescription: '测试货物', cargoWeightKg: 15000, clientPrice: 2500, currency: 'EUR',
     pickupAddress: { country: 'DE', city: 'Hamburg', address: 'Hafenstr 1' },
     deliveryAddress: { country: 'PL', city: 'Warsaw', address: 'Marszalkowska 1' },
@@ -187,7 +187,7 @@ async function testOrders() {
 async function testQuotations() {
   section('6. Quotations 报价')
   const r1 = await req('POST', '/quotations', {
-    clientId: created.clientId, businessType: 'CURTAIN_SIDE', transportType: 'FTL',
+    clientId: created.clientId, businessType: 'TRUCK_LTL', transportType: 'FTL',
     routeFrom: { country: 'DE', city: 'Hamburg' }, routeTo: { country: 'PL', city: 'Warsaw' },
     baseFreight: 2000, surcharge: 200, insuranceFee: 50, totalPrice: 2250, currency: 'EUR',
     validUntil: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -208,7 +208,7 @@ async function testQuotations() {
   } else { t('发送报价 → 跳过', false); t('报价详情 → 跳过', false) }
 
   const r6 = await req('POST', '/quotations/calculate-price', {
-    procedureCode: 'CURTAIN_SIDE', inputData: { routeFrom: 'Hamburg', routeTo: 'Warsaw', weight: 15000 },
+    procedureCode: 'TRUCK_LTL', inputData: { routeFrom: 'Hamburg', routeTo: 'Warsaw', weight: 15000 },
   })
   t('定价计算 → 接口可达', r6.status !== 404 && r6.code !== undefined)
 }

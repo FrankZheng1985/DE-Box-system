@@ -14,7 +14,7 @@ export class PricingEngine {
   /**
    * 执行定价计算
    * @param {object} client - 数据库客户端
-   * @param {string} procedureCode - 定价过程代码 (CURTAIN_SIDE/CONTAINER)
+   * @param {string} procedureCode - 定价过程代码 (TRUCK_LTL/TRUCK_FTL/LOCAL_DELIVERY)
    * @param {object} inputData - 输入数据（用于匹配条件记录）
    *   例如: { client_id, credit_level, route_from, route_to, container_type, country }
    * @returns {Promise<{items: Array, subtotal: number, total: number}>}

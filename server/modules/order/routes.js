@@ -8,6 +8,7 @@ import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType } from '../../middleware/auth.js'
 import { getPool } from '../../core/db.js'
 import orderController from './controller.js'
+import { BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
 
 const router = Router()
 
@@ -67,14 +68,9 @@ router.get('/export', async (req, res) => {
     workbook.created = new Date()
     const sheet = workbook.addWorksheet('订单列表')
 
-    // 状态映射
-    const statusMap = {
-      PENDING_REVIEW: '待审核', CONFIRMED: '已确认', IN_TRANSIT: '运输中',
-      COMPLETED: '已完成', CANCELLED: '已取消', EXCEPTION: '异常'
-    }
-    const bizTypeMap = {
-      FTL: '整车', LTL: '零担', CONTAINER: '集装箱', EXPRESS: '快递'
-    }
+    // 中文名统一从 service.js 取，避免前后端/各处各抄一份
+    // ⚠️ 原来的 bizTypeMap 放的是 FTL/LTL/CONTAINER 这些"运输类型"值，
+    //    却拿去匹配 business_type，导出的业务类型列一直显示原始英文
 
     sheet.columns = [
       { header: '订单号', key: 'orderNumber', width: 18 },
@@ -98,8 +94,8 @@ router.get('/export', async (req, res) => {
       sheet.addRow({
         orderNumber: row.order_number,
         clientName: row.client_name || '-',
-        businessType: bizTypeMap[row.business_type] || row.business_type,
-        status: statusMap[row.status] || row.status,
+        businessType: BUSINESS_TYPE_LABELS[row.business_type] || row.business_type,
+        status: getStatusLabel(row.business_type, row.status),
         transportType: row.transport_type || '-',
         weight: row.cargo_weight_kg ? Number(row.cargo_weight_kg) : 0,
         route: `${row.pickup_city || '?'} → ${row.delivery_city || '?'}`,
@@ -132,6 +128,9 @@ router.put('/:id', orderController.update)
 // 状态操作
 router.put('/:id/status', orderController.updateStatus)
 router.put('/:id/delivery-status', orderController.updateDeliveryStatus)
+
+// 跟踪号（本地派送，仅运营可写）
+router.put('/:id/tracking-number', requireUserType('OPERATOR'), orderController.updateTrackingNumber)
 
 // 派单/接单/拒单/取消
 router.post('/:id/assign', orderController.assign)

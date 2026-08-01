@@ -22,6 +22,7 @@ import {
   Calculator,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
+import { BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
@@ -49,10 +50,11 @@ interface QuotationFormData {
 
 // ==================== 常量 ====================
 
-const BUSINESS_TYPES = [
-  { value: 'CURTAIN_SIDE', label: '篷布车运输' },
-  { value: 'CONTAINER', label: '集装箱物流' },
-]
+// 业务类型下拉选项（三分类，来自共享常量）
+const BUSINESS_TYPE_OPTIONS = (Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((value) => ({
+  value,
+  label: BUSINESS_TYPE_LABELS[value],
+}))
 
 const TRANSPORT_TYPES = [
   { value: 'FTL', label: '整车运输 (FTL)' },
@@ -186,7 +188,7 @@ export default function QuotationCreate() {
 
   // 获取业务类型标签
   const businessTypeLabel = useMemo(() => {
-    return BUSINESS_TYPES.find((t) => t.value === form.businessType)?.label || ''
+    return BUSINESS_TYPE_OPTIONS.find((t) => t.value === form.businessType)?.label || ''
   }, [form.businessType])
 
   // 更新表单字段
@@ -211,7 +213,8 @@ export default function QuotationCreate() {
     setCalculatingPrice(true)
     setGlobalError('')
     try {
-      const procedureCode = form.businessType === 'CONTAINER' ? 'CONTAINER' : 'CURTAIN_SIDE'
+      // 迁移 105 后 pricing_procedures.procedure_code 与业务类型同名，直接用
+      const procedureCode = form.businessType
       const res = await api.post<ApiResponse<{ items: any[]; subtotal: number; total: number }>>(
         '/quotations/calculate-price',
         {
@@ -400,7 +403,7 @@ export default function QuotationCreate() {
                   className={errors.businessType ? inputErrorClass : inputClass}
                 >
                   <option value="">请选择业务类型</option>
-                  {BUSINESS_TYPES.map((t) => (
+                  {BUSINESS_TYPE_OPTIONS.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
                     </option>

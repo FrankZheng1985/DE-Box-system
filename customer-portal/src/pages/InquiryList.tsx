@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, RefreshCw, Send, X } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
 
 interface Inquiry {
   id: string
@@ -30,6 +31,7 @@ export default function InquiryList() {
   const [showCreate, setShowCreate] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
+    businessType: BUSINESS_TYPES.TRUCK_LTL as BusinessType,
     origin: '',
     destination: '',
     cargoType: '',
@@ -63,8 +65,8 @@ export default function InquiryList() {
     try {
       const res = await api.post<ApiResponse<any>>('/inquiries', {
         clientId: user?.linkedEntityId,
-        businessType: 'CURTAIN_SIDE',
-        transportType: 'FTL',
+        businessType: form.businessType,
+        transportType: form.businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? null : 'FTL',
         routeFrom: { city: form.origin },
         routeTo: { city: form.destination },
         cargoDescription: form.cargoType || form.description,
@@ -73,7 +75,7 @@ export default function InquiryList() {
       })
       if (res.code === 200 || res.code === 201) {
         setShowCreate(false)
-        setForm({ origin: '', destination: '', cargoType: '', totalWeight: '', description: '' })
+        setForm({ businessType: BUSINESS_TYPES.TRUCK_LTL, origin: '', destination: '', cargoType: '', totalWeight: '', description: '' })
         loadInquiries()
       }
     } catch (err) {
@@ -110,6 +112,18 @@ export default function InquiryList() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">服务类型 *</label>
+                <select
+                  value={form.businessType}
+                  onChange={(e) => setForm(f => ({ ...f, businessType: e.target.value as BusinessType }))}
+                  className="w-full h-8 px-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                >
+                  {(Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((t) => (
+                    <option key={t} value={t}>{BUSINESS_TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">起运地 *</label>

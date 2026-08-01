@@ -1,7 +1,8 @@
 /**
  * 新建订单页面
- * 支持两种业务类型：篷布车运输 / 集装箱物流
+ * 支持三种业务类型：卡车派送 LTL / 卡车运输 FTL / 本地派送
  * 左侧表单 (70%) + 右侧订单摘要 (30%)
+ * 本地派送复用卡车表单（隐藏运输类型子字段），FTL 用集装箱表单
  */
 
 import { useState, useEffect, useMemo } from 'react'
@@ -26,10 +27,15 @@ import {
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
+import {
+  BUSINESS_TYPES,
+  type BusinessType,
+  BUSINESS_TYPE_LABELS,
+  BUSINESS_TYPE_DESCRIPTIONS,
+} from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
-type BusinessType = 'CURTAIN_SIDE' | 'CONTAINER'
 type TransportType = 'FTL' | 'LTL'
 type ReleaseMethod = 'TELEX' | 'ORIGINAL'
 
@@ -48,8 +54,8 @@ interface Address {
   address: string
 }
 
-// 篷布车运输表单
-interface CurtainSideForm {
+// 卡车运输表单（LTL 和本地派送共用；本地派送不用 transportType）
+interface TruckForm {
   clientId: string
   transportType: TransportType
   cargoDescription: string
@@ -102,9 +108,9 @@ interface ContainerForm {
 
 // ==================== 初始值 ====================
 
-const initialCurtainSideForm: CurtainSideForm = {
+const initialTruckForm: TruckForm = {
   clientId: '',
-  transportType: 'FTL',
+  transportType: 'LTL',
   cargoDescription: '',
   cargoWeightKg: '',
   cargoVolumeM3: '',
@@ -270,10 +276,10 @@ export default function OrderCreate() {
   const { options: currencyOptions } = useMasterDataOptions('currencies')
 
   // 业务类型
-  const [businessType, setBusinessType] = useState<BusinessType>('CURTAIN_SIDE')
+  const [businessType, setBusinessType] = useState<BusinessType>(BUSINESS_TYPES.TRUCK_LTL)
 
   // 表单状态
-  const [curtainForm, setCurtainForm] = useState<CurtainSideForm>(initialCurtainSideForm)
+  const [truckForm, setTruckForm] = useState<TruckForm>(initialTruckForm)
   const [containerForm, setContainerForm] = useState<ContainerForm>(initialContainerForm)
 
   // 客户列表
@@ -287,18 +293,20 @@ export default function OrderCreate() {
 
   // 生成预估订单号（前端展示用）
   const estimatedOrderNo = useMemo(() => {
-    const prefix = businessType === 'CURTAIN_SIDE' ? 'CS' : 'CT'
+    const prefixMap: Record<BusinessType, string> = {
+      TRUCK_LTL: 'CS', TRUCK_FTL: 'CT', LOCAL_DELIVERY: 'LD',
+    }
     const date = new Date()
     const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
-    return `${prefix}-${dateStr}-XXXX`
+    return `${prefixMap[businessType]}-${dateStr}-XXXX`
   }, [businessType])
 
   // 当前选中的客户名称
   const selectedClientName = useMemo(() => {
-    const clientId = businessType === 'CURTAIN_SIDE' ? curtainForm.clientId : containerForm.clientId
+    const clientId = businessType === BUSINESS_TYPES.TRUCK_FTL ? containerForm.clientId : truckForm.clientId
     const found = clients.find((c) => c.id === clientId)
     return found ? found.company_name : ''
-  }, [businessType, curtainForm.clientId, containerForm.clientId, clients])
+  }, [businessType, truckForm.clientId, containerForm.clientId, clients])
 
   // ==================== 数据加载 ====================
 
@@ -322,8 +330,8 @@ export default function OrderCreate() {
 
   // ==================== 表单更新辅助 ====================
 
-  function updateCurtain<K extends keyof CurtainSideForm>(key: K, value: CurtainSideForm[K]) {
-    setCurtainForm((prev) => ({ ...prev, [key]: value }))
+  function updateTruck<K extends keyof TruckForm>(key: K, value: TruckForm[K]) {
+    setTruckForm((prev) => ({ ...prev, [key]: value }))
   }
 
   function updateContainer<K extends keyof ContainerForm>(key: K, value: ContainerForm[K]) {
@@ -332,22 +340,22 @@ export default function OrderCreate() {
 
   // ==================== 表单验证 ====================
 
-  function validateCurtainSide(): string[] {
+  function validateTruck(): string[] {
     const errs: string[] = []
-    if (!curtainForm.clientId) errs.push('请选择客户')
-    if (!curtainForm.cargoDescription.trim()) errs.push('请填写货物描述')
-    if (!curtainForm.cargoWeightKg || Number(curtainForm.cargoWeightKg) <= 0) errs.push('请填写有效的货物重量')
-    if (!curtainForm.cargoQuantity || Number(curtainForm.cargoQuantity) <= 0) errs.push('请填写有效的货物数量')
-    if (!curtainForm.pickupCountry) errs.push('请选择装货国家')
-    if (!curtainForm.pickupCity.trim()) errs.push('请填写装货城市')
-    if (!curtainForm.pickupZipCode.trim()) errs.push('请填写装货邮编')
-    if (!curtainForm.pickupAddress.trim()) errs.push('请填写装货详细地址')
-    if (!curtainForm.pickupDate) errs.push('请选择装货日期')
-    if (!curtainForm.deliveryCountry) errs.push('请选择卸货国家')
-    if (!curtainForm.deliveryCity.trim()) errs.push('请填写卸货城市')
-    if (!curtainForm.deliveryZipCode.trim()) errs.push('请填写卸货邮编')
-    if (!curtainForm.deliveryAddress.trim()) errs.push('请填写卸货详细地址')
-    if (!curtainForm.deliveryDate) errs.push('请选择到达日期')
+    if (!truckForm.clientId) errs.push('请选择客户')
+    if (!truckForm.cargoDescription.trim()) errs.push('请填写货物描述')
+    if (!truckForm.cargoWeightKg || Number(truckForm.cargoWeightKg) <= 0) errs.push('请填写有效的货物重量')
+    if (!truckForm.cargoQuantity || Number(truckForm.cargoQuantity) <= 0) errs.push('请填写有效的货物数量')
+    if (!truckForm.pickupCountry) errs.push('请选择装货国家')
+    if (!truckForm.pickupCity.trim()) errs.push('请填写装货城市')
+    if (!truckForm.pickupZipCode.trim()) errs.push('请填写装货邮编')
+    if (!truckForm.pickupAddress.trim()) errs.push('请填写装货详细地址')
+    if (!truckForm.pickupDate) errs.push('请选择装货日期')
+    if (!truckForm.deliveryCountry) errs.push('请选择卸货国家')
+    if (!truckForm.deliveryCity.trim()) errs.push('请填写卸货城市')
+    if (!truckForm.deliveryZipCode.trim()) errs.push('请填写卸货邮编')
+    if (!truckForm.deliveryAddress.trim()) errs.push('请填写卸货详细地址')
+    if (!truckForm.deliveryDate) errs.push('请选择到达日期')
     return errs
   }
 
@@ -371,7 +379,7 @@ export default function OrderCreate() {
 
   async function handleSubmit() {
     setErrors([])
-    const validationErrors = businessType === 'CURTAIN_SIDE' ? validateCurtainSide() : validateContainer()
+    const validationErrors = businessType === BUSINESS_TYPES.TRUCK_FTL ? validateContainer() : validateTruck()
     if (validationErrors.length > 0) {
       setErrors(validationErrors)
       // 滚动到错误区域
@@ -383,12 +391,13 @@ export default function OrderCreate() {
     try {
       let payload: Record<string, unknown>
 
-      if (businessType === 'CURTAIN_SIDE') {
-        const f = curtainForm
+      if (businessType !== BUSINESS_TYPES.TRUCK_FTL) {
+        // 卡车派送 LTL 和本地派送共用一套表单；本地派送没有运输类型子字段
+        const f = truckForm
         payload = {
           clientId: f.clientId,
-          businessType: 'CURTAIN_SIDE',
-          transportType: f.transportType,
+          businessType,
+          transportType: businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? null : f.transportType,
           cargoDescription: f.cargoDescription,
           cargoWeightKg: Number(f.cargoWeightKg),
           cargoVolumeM3: f.cargoVolumeM3 ? Number(f.cargoVolumeM3) : null,
@@ -420,7 +429,7 @@ export default function OrderCreate() {
         const f = containerForm
         payload = {
           clientId: f.clientId,
-          businessType: 'CONTAINER',
+          businessType: BUSINESS_TYPES.TRUCK_FTL,
           transportType: f.transportType,
           shippingLine: f.shippingLine,
           blNumber: f.blNumber,
@@ -481,44 +490,35 @@ export default function OrderCreate() {
       </div>
 
       {/* 业务类型选择 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <button
-          onClick={() => setBusinessType('CURTAIN_SIDE')}
-          className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200
-            ${businessType === 'CURTAIN_SIDE'
-              ? 'border-blue-500 bg-blue-50/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
-              : 'border-slate-200 bg-white/80 hover:border-slate-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
-            }`}
-        >
-          <div className={`p-3 rounded-xl ${businessType === 'CURTAIN_SIDE' ? 'bg-blue-100' : 'bg-slate-100'}`}>
-            <Truck className={`w-6 h-6 ${businessType === 'CURTAIN_SIDE' ? 'text-blue-600' : 'text-slate-500'}`} />
-          </div>
-          <div className="text-left">
-            <div className={`font-semibold ${businessType === 'CURTAIN_SIDE' ? 'text-blue-700' : 'text-slate-800'}`}>
-              篷布车运输
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">Curtain Side Transport</div>
-          </div>
-        </button>
-
-        <button
-          onClick={() => setBusinessType('CONTAINER')}
-          className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200
-            ${businessType === 'CONTAINER'
-              ? 'border-blue-500 bg-blue-50/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
-              : 'border-slate-200 bg-white/80 hover:border-slate-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
-            }`}
-        >
-          <div className={`p-3 rounded-xl ${businessType === 'CONTAINER' ? 'bg-blue-100' : 'bg-slate-100'}`}>
-            <Container className={`w-6 h-6 ${businessType === 'CONTAINER' ? 'text-blue-600' : 'text-slate-500'}`} />
-          </div>
-          <div className="text-left">
-            <div className={`font-semibold ${businessType === 'CONTAINER' ? 'text-blue-700' : 'text-slate-800'}`}>
-              集装箱物流
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">Container Logistics</div>
-          </div>
-        </button>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {([
+          { key: BUSINESS_TYPES.TRUCK_LTL, icon: Truck },
+          { key: BUSINESS_TYPES.TRUCK_FTL, icon: Container },
+          { key: BUSINESS_TYPES.LOCAL_DELIVERY, icon: MapPin },
+        ] as { key: BusinessType; icon: React.ElementType }[]).map(({ key, icon: Icon }) => {
+          const isActive = businessType === key
+          return (
+            <button
+              key={key}
+              onClick={() => setBusinessType(key)}
+              className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200
+                ${isActive
+                  ? 'border-blue-500 bg-blue-50/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+                  : 'border-slate-200 bg-white/80 hover:border-slate-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+                }`}
+            >
+              <div className={`p-3 rounded-xl ${isActive ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                <Icon className={`w-6 h-6 ${isActive ? 'text-blue-600' : 'text-slate-500'}`} />
+              </div>
+              <div className="text-left">
+                <div className={`font-semibold ${isActive ? 'text-blue-700' : 'text-slate-800'}`}>
+                  {BUSINESS_TYPE_LABELS[key]}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">{BUSINESS_TYPE_DESCRIPTIONS[key]}</div>
+              </div>
+            </button>
+          )
+        })}
       </div>
 
       {/* 成功提示 */}
@@ -552,19 +552,20 @@ export default function OrderCreate() {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* 左侧表单 */}
         <div className="flex-1 lg:w-[70%] space-y-6">
-          {businessType === 'CURTAIN_SIDE' ? (
-            <CurtainSideFormSection
-              form={curtainForm}
-              onUpdate={updateCurtain}
-              clientOptions={clientOptions}
-              clientsLoading={clientsLoading}
-            />
-          ) : (
+          {businessType === BUSINESS_TYPES.TRUCK_FTL ? (
             <ContainerFormSection
               form={containerForm}
               onUpdate={updateContainer}
               clientOptions={clientOptions}
               clientsLoading={clientsLoading}
+            />
+          ) : (
+            <TruckFormSection
+              form={truckForm}
+              onUpdate={updateTruck}
+              clientOptions={clientOptions}
+              clientsLoading={clientsLoading}
+              isLocalDelivery={businessType === BUSINESS_TYPES.LOCAL_DELIVERY}
             />
           )}
         </div>
@@ -576,7 +577,7 @@ export default function OrderCreate() {
               businessType={businessType}
               estimatedOrderNo={estimatedOrderNo}
               clientName={selectedClientName}
-              curtainForm={curtainForm}
+              truckForm={truckForm}
               containerForm={containerForm}
             />
           </div>
@@ -617,18 +618,20 @@ export default function OrderCreate() {
   )
 }
 
-// ==================== 篷布车运输表单 ====================
+// ==================== 卡车运输表单（LTL 和本地派送共用） ====================
 
-function CurtainSideFormSection({
+function TruckFormSection({
   form,
   onUpdate,
   clientOptions,
   clientsLoading,
+  isLocalDelivery,
 }: {
-  form: CurtainSideForm
-  onUpdate: <K extends keyof CurtainSideForm>(key: K, value: CurtainSideForm[K]) => void
+  form: TruckForm
+  onUpdate: <K extends keyof TruckForm>(key: K, value: TruckForm[K]) => void
   clientOptions: { value: string; label: string }[]
   clientsLoading: boolean
+  isLocalDelivery?: boolean
 }) {
   const { options: countryOpts } = useMasterDataOptions('countries')
   const { options: specialReqOpts } = useMasterDataOptions('special-requirements')
@@ -650,17 +653,20 @@ function CurtainSideFormSection({
               placeholder={clientsLoading ? '加载中...' : '请选择客户'}
             />
           </div>
-          <div>
-            <Label required>运输类型</Label>
-            <SelectInput
-              value={form.transportType}
-              onChange={(v) => onUpdate('transportType', v as TransportType)}
-              options={[
-                { value: 'FTL', label: 'FTL 整车' },
-                { value: 'LTL', label: 'LTL 拼车' },
-              ]}
-            />
-          </div>
+          {/* 本地派送没有 FTL/LTL 之分 */}
+          {!isLocalDelivery && (
+            <div>
+              <Label required>运输类型</Label>
+              <SelectInput
+                value={form.transportType}
+                onChange={(v) => onUpdate('transportType', v as TransportType)}
+                options={[
+                  { value: 'FTL', label: 'FTL 整车' },
+                  { value: 'LTL', label: 'LTL 拼车' },
+                ]}
+              />
+            </div>
+          )}
           <div className="sm:col-span-2">
             <Label required>货物描述</Label>
             <TextInput
@@ -1120,32 +1126,33 @@ function OrderSummary({
   businessType,
   estimatedOrderNo,
   clientName,
-  curtainForm,
+  truckForm,
   containerForm,
 }: {
   businessType: BusinessType
   estimatedOrderNo: string
   clientName: string
-  curtainForm: CurtainSideForm
+  truckForm: TruckForm
   containerForm: ContainerForm
 }) {
-  // 根据业务类型展示不同摘要
-  const isCurtain = businessType === 'CURTAIN_SIDE'
+  // 根据业务类型展示不同摘要（FTL 走集装箱表单，其余走卡车表单）
+  const isContainer = businessType === BUSINESS_TYPES.TRUCK_FTL
+  const isLocal = businessType === BUSINESS_TYPES.LOCAL_DELIVERY
 
   // 路线信息
   let routeFrom = ''
   let routeTo = ''
-  if (isCurtain) {
-    routeFrom = [curtainForm.pickupCity, curtainForm.pickupCountry].filter(Boolean).join(', ')
-    routeTo = [curtainForm.deliveryCity, curtainForm.deliveryCountry].filter(Boolean).join(', ')
-  } else {
+  if (isContainer) {
     routeFrom = containerForm.pod || ''
     routeTo = containerForm.finalDestination || ''
+  } else {
+    routeFrom = [truckForm.pickupCity, truckForm.pickupCountry].filter(Boolean).join(', ')
+    routeTo = [truckForm.deliveryCity, truckForm.deliveryCountry].filter(Boolean).join(', ')
   }
 
   // 价格
-  const price = isCurtain ? curtainForm.clientPrice : containerForm.clientPrice
-  const currency = isCurtain ? curtainForm.currency : containerForm.currency
+  const price = isContainer ? containerForm.clientPrice : truckForm.clientPrice
+  const currency = isContainer ? containerForm.currency : truckForm.currency
 
   return (
     <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
@@ -1160,12 +1167,14 @@ function OrderSummary({
           label="业务类型"
           value={
             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-medium
-              ${isCurtain ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}
+              ${isContainer ? 'bg-purple-100 text-purple-700' : isLocal ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
             >
-              {isCurtain ? (
-                <><Truck className="w-3 h-3" /> 篷布车运输</>
+              {isContainer ? (
+                <><Container className="w-3 h-3" /> {BUSINESS_TYPE_LABELS.TRUCK_FTL}</>
+              ) : isLocal ? (
+                <><MapPin className="w-3 h-3" /> {BUSINESS_TYPE_LABELS.LOCAL_DELIVERY}</>
               ) : (
-                <><Container className="w-3 h-3" /> 集装箱物流</>
+                <><Truck className="w-3 h-3" /> {BUSINESS_TYPE_LABELS.TRUCK_LTL}</>
               )}
             </span>
           }
@@ -1177,15 +1186,17 @@ function OrderSummary({
           value={clientName || <span className="text-slate-400 italic">未选择</span>}
         />
 
-        {/* 运输类型 */}
-        <SummaryItem
-          label="运输类型"
-          value={
-            (isCurtain ? curtainForm.transportType : containerForm.transportType) === 'FTL'
-              ? 'FTL 整车'
-              : 'LTL 拼车'
-          }
-        />
+        {/* 运输类型（本地派送没有此项） */}
+        {!isLocal && (
+          <SummaryItem
+            label="运输类型"
+            value={
+              (isContainer ? containerForm.transportType : truckForm.transportType) === 'FTL'
+                ? 'FTL 整车'
+                : 'LTL 拼车'
+            }
+          />
+        )}
 
         {/* 分隔线 */}
         <div className="border-t border-slate-100" />
@@ -1200,22 +1211,22 @@ function OrderSummary({
           </div>
         </div>
 
-        {/* 篷布车特有信息 */}
-        {isCurtain && (
+        {/* 卡车/本地派送特有信息 */}
+        {!isContainer && (
           <>
             <SummaryItem
               label="重量"
-              value={curtainForm.cargoWeightKg ? `${curtainForm.cargoWeightKg} kg` : '—'}
+              value={truckForm.cargoWeightKg ? `${truckForm.cargoWeightKg} kg` : '—'}
             />
             <SummaryItem
               label="体积"
-              value={curtainForm.cargoVolumeM3 ? `${curtainForm.cargoVolumeM3} m³` : '—'}
+              value={truckForm.cargoVolumeM3 ? `${truckForm.cargoVolumeM3} m³` : '—'}
             />
           </>
         )}
 
         {/* 集装箱特有信息 */}
-        {!isCurtain && (
+        {isContainer && (
           <>
             <SummaryItem label="船司" value={containerForm.shippingLine || '—'} />
             <SummaryItem label="柜型" value={containerForm.containerType || '—'} />

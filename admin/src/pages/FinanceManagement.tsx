@@ -194,7 +194,8 @@ function ReportTab() {
           const from = d.toISOString().slice(0, 10)
           const to = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10)
           try {
-            const res = await api.get<any>(`/orders?businessType=CURTAIN_SIDE&status=COMPLETED&dateFrom=${from}&dateTo=${to}&pageSize=100`)
+            // 月度营收统计全部业务类型（旧版硬编码 CURTAIN_SIDE，迁移 105 之后查不到任何单）
+            const res = await api.get<any>(`/orders?status=COMPLETED&dateFrom=${from}&dateTo=${to}&pageSize=100`)
             const orders = Array.isArray(res.data) ? res.data : []
             const total = orders.reduce((sum: number, o: any) => sum + (parseFloat(o.client_price) || 0), 0)
             months.push({ month: monthLabel, revenue: total })

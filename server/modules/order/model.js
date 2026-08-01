@@ -21,7 +21,8 @@ export const ORDER_TRACKED_FIELDS = [
   { name: 'bl_number', label: '提单号' },
   { name: 'eta', label: 'ETA' },
   { name: 'release_status', label: '放单状态' },
-  { name: 'clearance_status', label: '清关状态' }
+  { name: 'clearance_status', label: '清关状态' },
+  { name: 'tracking_number', label: '跟踪号' }
 ]
 
 export const orderModel = {
@@ -47,7 +48,8 @@ export const orderModel = {
       [
         data.documentId, data.orderNumber, data.clientId, data.companyCode, data.businessArea,
         data.businessType, data.status || 'PENDING_REVIEW',
-        data.businessType === 'CONTAINER' ? 'WAITING_ARRANGE' : null,
+        // 只有 TRUCK_FTL（原集装箱）走派送子状态机
+        data.businessType === 'TRUCK_FTL' ? 'WAITING_ARRANGE' : null,
         data.transportType,
         data.cargoDescription, data.cargoWeightKg, data.cargoVolumeM3, data.cargoQuantity,
         JSON.stringify(data.pickupAddress), JSON.stringify(data.deliveryAddress),
@@ -92,7 +94,7 @@ export const orderModel = {
              o.transport_type, o.cargo_weight_kg, o.container_no, o.bl_number,
              o.shipping_line, o.eta, o.client_price, o.carrier_cost, o.currency,
              o.pickup_date, o.delivery_date, o.release_status, o.clearance_status,
-             o.created_at,
+             o.tracking_number, o.created_at,
              c.company_name as client_name,
              cr.company_name as carrier_name,
              o.pickup_address->>'city' as pickup_city,
@@ -126,7 +128,7 @@ export const orderModel = {
     }
     if (search) {
       params.push(`%${search}%`)
-      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx})`
+      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx})`
     }
     if (dateFrom) {
       params.push(dateFrom)

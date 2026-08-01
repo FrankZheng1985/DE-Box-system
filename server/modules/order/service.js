@@ -9,7 +9,19 @@
 import { documentEngine, creditManager, changeTracker, documentFlow, accountDetermination, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import orderModel, { ORDER_TRACKED_FIELDS } from './model.js'
 
-// 篷布车订单状态机：定义允许的状态流转
+/**
+ * 服务类型（需求 1 三分类，2026-08-01 由 CURTAIN_SIDE/CONTAINER 改造而来）
+ *   TRUCK_LTL      卡车派送 LTL —— 原篷布车运输
+ *   TRUCK_FTL      卡车运输 FTL —— 原集装箱物流（带集装箱派送子状态）
+ *   LOCAL_DELIVERY 本地派送     —— 全新业务，走简化流程
+ */
+export const BUSINESS_TYPES = {
+  TRUCK_LTL: 'TRUCK_LTL',
+  TRUCK_FTL: 'TRUCK_FTL',
+  LOCAL_DELIVERY: 'LOCAL_DELIVERY'
+}
+
+// 卡车运输主状态机（LTL 和 FTL 共用）
 const TRUCK_STATUS_FLOW = {
   'PENDING_REVIEW': ['CONFIRMED', 'CANCELLED'],
   'CONFIRMED': ['PENDING_ASSIGN'],
@@ -22,7 +34,25 @@ const TRUCK_STATUS_FLOW = {
   'CANCELLED': []
 }
 
-// 集装箱派送状态机
+/**
+ * 本地派送状态机（简化流：待报价 → 待派送 → 派送中 → 已签收）
+ *
+ * 两个刻意的复用，不要改成新枚举值：
+ *   - 派送中直接用 IN_TRANSIT，和卡车运输同义，列表筛选/统计不用加分支
+ *   - 已签收直接用 COMPLETED，这样"订单完成自动开票"照常触发；
+ *     如果另起一个 SIGNED 状态，本地派送的单子永远不会开票
+ *   前端按业务类型显示不同文案（IN_TRANSIT → "派送中"，COMPLETED → "已签收"）
+ */
+const LOCAL_DELIVERY_STATUS_FLOW = {
+  'PENDING_QUOTE': ['PENDING_DISPATCH', 'CANCELLED'],
+  'PENDING_DISPATCH': ['IN_TRANSIT', 'CANCELLED'],
+  'IN_TRANSIT': ['COMPLETED', 'EXCEPTION'],
+  'EXCEPTION': ['IN_TRANSIT', 'CANCELLED'],
+  'COMPLETED': [],
+  'CANCELLED': []
+}
+
+// 集装箱派送子状态机（仅 TRUCK_FTL 使用，走 orders.delivery_status）
 const CONTAINER_STATUS_FLOW = {
   'WAITING_ARRANGE': ['FLEET_CONFIRMED', 'EXCEPTION'],
   'FLEET_CONFIRMED': ['IN_TRANSIT', 'EXCEPTION'],
@@ -31,12 +61,70 @@ const CONTAINER_STATUS_FLOW = {
   'EXCEPTION': ['WAITING_ARRANGE', 'FLEET_CONFIRMED', 'IN_TRANSIT']
 }
 
+// 按业务类型选主状态机
+function getStatusFlow(businessType) {
+  return businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+    ? LOCAL_DELIVERY_STATUS_FLOW
+    : TRUCK_STATUS_FLOW
+}
+
+// 按业务类型定新建订单的初始状态
+function getInitialStatus(businessType) {
+  return businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? 'PENDING_QUOTE' : 'PENDING_REVIEW'
+}
+
+// 业务范围（business_areas 表的外键，迁移 105 已补 LD）
+const BUSINESS_AREA_MAP = {
+  TRUCK_LTL: 'CS',
+  TRUCK_FTL: 'CT',
+  LOCAL_DELIVERY: 'LD'
+}
+
+/** 服务类型中文名（Excel 导出、通知文案统一从这里取） */
+export const BUSINESS_TYPE_LABELS = {
+  TRUCK_LTL: '卡车派送 LTL',
+  TRUCK_FTL: '卡车运输 FTL',
+  LOCAL_DELIVERY: '本地派送'
+}
+
+// 卡车运输的状态中文名
+const TRUCK_STATUS_LABELS = {
+  PENDING_REVIEW: '待审核', CONFIRMED: '已确认', PENDING_ASSIGN: '待派单',
+  ASSIGNED: '已派单', IN_TRANSIT: '运输中', DELIVERED: '已送达',
+  COMPLETED: '已完成', CANCELLED: '已取消', EXCEPTION: '异常'
+}
+
+// 本地派送复用了 IN_TRANSIT / COMPLETED，但叫法不同，要单独一套文案
+const LOCAL_DELIVERY_STATUS_LABELS = {
+  PENDING_QUOTE: '待报价', PENDING_DISPATCH: '待派送',
+  IN_TRANSIT: '派送中', COMPLETED: '已签收',
+  CANCELLED: '已取消', EXCEPTION: '异常'
+}
+
+/**
+ * 取状态中文名
+ * @param {string} businessType - 业务类型
+ * @param {string} status - 状态值
+ * @returns {string} 中文名，取不到时原样返回状态值
+ */
+export function getStatusLabel(businessType, status) {
+  const labels = businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+    ? LOCAL_DELIVERY_STATUS_LABELS
+    : TRUCK_STATUS_LABELS
+  return labels[status] || status
+}
+
 export const orderService = {
 
   /**
    * 创建订单（核心流程，演示 ERP 内核的完整调用）
    */
   async createOrder(client, orderData, userId) {
+    // 步骤 0：业务类型校验，防止旧值（CURTAIN_SIDE/CONTAINER）或非法值再进库
+    if (!Object.values(BUSINESS_TYPES).includes(orderData.businessType)) {
+      throw new Error(`无效的业务类型: ${orderData.businessType}，允许值: ${Object.values(BUSINESS_TYPES).join(' / ')}`)
+    }
+
     // 步骤 1：信用检查
     if (orderData.clientPrice > 0) {
       const creditResult = await creditManager.checkCredit(
@@ -61,13 +149,14 @@ export const orderService = {
     })
 
     // 步骤 3：写入订单业务数据
+    const initialStatus = getInitialStatus(orderData.businessType)
     const order = await orderModel.create(client, {
       ...orderData,
       documentId: doc.id,
       orderNumber: doc.docNumber,
       companyCode,
-      businessArea: orderData.businessType === 'CONTAINER' ? 'CT' : 'CS',
-      status: 'PENDING_REVIEW'
+      businessArea: BUSINESS_AREA_MAP[orderData.businessType] || 'CS',
+      status: initialStatus
     })
 
     // 步骤 4：如果来源于报价，更新单据流
@@ -96,15 +185,16 @@ export const orderService = {
     })
 
     // 步骤 6：记录状态日志
-    await orderModel.logStatusChange(client, order.id, null, 'PENDING_REVIEW', userId, '创建订单')
+    await orderModel.logStatusChange(client, order.id, null, initialStatus, userId, '创建订单')
 
     // 步骤 7：更新客户信用敞口
     if (orderData.clientPrice > 0) {
       await creditManager.updateExposure(client, orderData.clientId)
     }
 
-    // 步骤 8：集装箱订单自动创建清关记录和船司放单记录
-    if (orderData.businessType === 'CONTAINER') {
+    // 步骤 8：FTL（原集装箱）订单自动创建清关记录和船司放单记录
+    //         LTL 和本地派送不涉及清关/放单
+    if (orderData.businessType === BUSINESS_TYPES.TRUCK_FTL) {
       try {
         // 需要清关 → 自动创建清关记录
         if (orderData.needsClearance) {
@@ -150,14 +240,16 @@ export const orderService = {
   },
 
   /**
-   * 更新订单状态（篷布车）
+   * 更新订单主状态
+   * 卡车运输（LTL/FTL）走 TRUCK_STATUS_FLOW，本地派送走简化流
    */
   async updateStatus(client, orderId, newStatus, userId, remarks) {
     const order = await orderModel.getById(client, orderId)
     if (!order) throw new Error('订单不存在')
 
-    // 状态机校验
-    const allowedNext = TRUCK_STATUS_FLOW[order.status]
+    // 状态机校验：按业务类型选对应的流转规则
+    const statusFlow = getStatusFlow(order.business_type)
+    const allowedNext = statusFlow[order.status]
     if (!allowedNext || !allowedNext.includes(newStatus)) {
       throw new Error(`状态流转不允许: ${order.status} → ${newStatus}`)
     }
@@ -343,12 +435,48 @@ export const orderService = {
   },
 
   /**
-   * 更新集装箱派送状态
+   * 填写/修改跟踪号（本地派送用，运营手工填，客户门户可见）
+   * 不走 editOrder：那里限 PENDING_REVIEW/CONFIRMED，本地派送流程根本没有这两个状态
+   */
+  async updateTrackingNumber(client, orderId, trackingNumber, userId) {
+    const order = await orderModel.getById(client, orderId)
+    if (!order) throw new Error('订单不存在')
+    if (order.business_type !== BUSINESS_TYPES.LOCAL_DELIVERY) {
+      throw new Error('仅本地派送订单支持填写跟踪号')
+    }
+    if (order.status === 'CANCELLED') {
+      throw new Error('已取消的订单不能填写跟踪号')
+    }
+
+    const value = (trackingNumber || '').trim()
+    if (value.length > 100) throw new Error('跟踪号不能超过 100 个字符')
+
+    await orderModel.update(client, orderId, { tracking_number: value || null })
+
+    await changeTracker.trackChanges(client, {
+      objectType: 'ORDER',
+      objectId: orderId,
+      changeType: 'UPDATE',
+      transactionType: 'ORDER_TRACKING_NUMBER',
+      tableName: 'orders',
+      oldData: { tracking_number: order.tracking_number },
+      newData: { tracking_number: value || null },
+      trackedFields: [{ name: 'tracking_number', label: '跟踪号' }],
+      changedBy: userId
+    })
+
+    return { orderId, trackingNumber: value || null }
+  },
+
+  /**
+   * 更新集装箱派送子状态（仅 TRUCK_FTL）
    */
   async updateDeliveryStatus(client, orderId, newStatus, userId, remarks) {
     const order = await orderModel.getById(client, orderId)
     if (!order) throw new Error('订单不存在')
-    if (order.business_type !== 'CONTAINER') throw new Error('仅集装箱订单支持此操作')
+    if (order.business_type !== BUSINESS_TYPES.TRUCK_FTL) {
+      throw new Error('仅卡车运输 FTL 订单支持派送状态操作')
+    }
 
     const currentStatus = order.delivery_status || 'WAITING_ARRANGE'
     const allowedNext = CONTAINER_STATUS_FLOW[currentStatus]
@@ -472,7 +600,10 @@ export const orderService = {
     const order = await orderModel.getById(client, orderId)
     if (!order) throw new Error('订单不存在')
 
-    const editableStatuses = ['PENDING_REVIEW', 'CONFIRMED']
+    // 本地派送没有待审核/已确认，改为报价/派送前可编辑
+    const editableStatuses = order.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
+      ? ['PENDING_QUOTE', 'PENDING_DISPATCH']
+      : ['PENDING_REVIEW', 'CONFIRMED']
     if (!editableStatuses.includes(order.status)) {
       throw new Error(`当前状态 ${order.status} 不允许编辑`)
     }

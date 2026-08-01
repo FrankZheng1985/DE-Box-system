@@ -35,6 +35,7 @@ import {
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getStatusLabel } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
@@ -101,6 +102,8 @@ interface Order {
   final_destination: string
   release_status: string
   clearance_status: string
+  // 本地派送字段
+  tracking_number: string | null
   created_at: string
   updated_at: string
 }
@@ -268,6 +271,35 @@ function getTruckStatusActions(status: string): StatusAction[] {
     case 'EXCEPTION':
       return [
         { label: '恢复运输', targetStatus: 'IN_TRANSIT', variant: 'warning' },
+        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+      ]
+    default:
+      return []
+  }
+}
+
+// 获取本地派送订单状态对应的可用操作（简化流：待报价 → 待派送 → 派送中 → 已签收）
+function getLocalDeliveryStatusActions(status: string): StatusAction[] {
+  const s = status?.toUpperCase()
+  switch (s) {
+    case 'PENDING_QUOTE':
+      return [
+        { label: '完成报价', targetStatus: 'PENDING_DISPATCH', variant: 'primary' },
+        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+      ]
+    case 'PENDING_DISPATCH':
+      return [
+        { label: '开始派送', targetStatus: 'IN_TRANSIT', variant: 'primary' },
+        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+      ]
+    case 'IN_TRANSIT':
+      return [
+        { label: '确认签收', targetStatus: 'COMPLETED', variant: 'primary' },
+        { label: '标记异常', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true },
+      ]
+    case 'EXCEPTION':
+      return [
+        { label: '恢复派送', targetStatus: 'IN_TRANSIT', variant: 'warning' },
         { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
       ]
     default:
@@ -554,8 +586,9 @@ export default function OrderDetail() {
   const pickupAddr = parseAddress(order.pickup_address)
   const deliveryAddr = parseAddress(order.delivery_address)
 
-  // 是否为集装箱订单
-  const isContainer = order.business_type === 'container'
+  // 业务类型（旧版这里用小写 'container' 比对，从来匹配不上，航运信息区一直不显示）
+  const isContainer = order.business_type === BUSINESS_TYPES.TRUCK_FTL
+  const isLocalDelivery = order.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
 
   // 财务数据计算
   const clientPrice = order.client_price || 0
@@ -568,8 +601,10 @@ export default function OrderDetail() {
   const allDocs = [...(documentFlow.preceding || []), ...(documentFlow.subsequent || [])]
   const hasDocFlow = allDocs.length > 0
 
-  // 计算当前可用的状态操作
-  const truckActions = getTruckStatusActions(order.status)
+  // 计算当前可用的状态操作（本地派送走简化流）
+  const truckActions = isLocalDelivery
+    ? getLocalDeliveryStatusActions(order.status)
+    : getTruckStatusActions(order.status)
   const containerActions = isContainer ? getContainerDeliveryActions(order.delivery_status) : []
   const isTerminalStatus = ['COMPLETED', 'CANCELLED'].includes(order.status?.toUpperCase())
 
@@ -592,7 +627,7 @@ export default function OrderDetail() {
               <h1 className="text-xl font-semibold text-slate-900">
                 {order.order_number || `订单 #${order.id}`}
               </h1>
-              <StatusBadge status={order.status} type="order" />
+              <StatusBadge status={order.status} type="order" label={getStatusLabel(order.business_type, order.status)} />
             </div>
             <p className="text-sm text-slate-400 mt-1">
               创建于 {formatDateTime(order.created_at)}
@@ -601,7 +636,7 @@ export default function OrderDetail() {
         </div>
 
         <div className="flex items-center gap-3">
-          {canAssign(order.status) && (
+          {!isLocalDelivery && canAssign(order.status) && (
             <button
               onClick={() => navigate(`/orders/${id}/assign`)}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 transition-all duration-200"
@@ -698,7 +733,16 @@ export default function OrderDetail() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoItem label="客户" value={order.client_name || '-'} />
-              <InfoItem label="运输类型" value={getTransportTypeLabel(order.transport_type)} />
+              <InfoItem
+                label="业务类型"
+                value={BUSINESS_TYPE_LABELS[order.business_type as keyof typeof BUSINESS_TYPE_LABELS] || order.business_type}
+              />
+              {!isLocalDelivery && (
+                <InfoItem label="运输类型" value={getTransportTypeLabel(order.transport_type)} />
+              )}
+              {isLocalDelivery && (
+                <InfoItem label="跟踪号" value={order.tracking_number || '未填写（在订单列表页填写）'} />
+              )}
               <InfoItem label="货物描述" value={order.cargo_description || '-'} fullWidth />
               <InfoItem
                 label="重量"

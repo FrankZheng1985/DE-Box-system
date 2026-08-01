@@ -3,6 +3,8 @@ import clsx from 'clsx'
 interface StatusBadgeProps {
   status: string
   type?: 'order' | 'delivery' | 'release' | 'payment' | 'cmr' | 'clearance' | 'quotation'
+  /** 覆盖默认文案（同一状态值在不同业务类型下叫法不同，如本地派送 IN_TRANSIT → 派送中） */
+  label?: string
 }
 
 // 状态 -> 颜色分组
@@ -16,6 +18,7 @@ const statusColorMap: Record<string, ColorGroup> = {
   CLEARED: 'green',
   ACCEPTED: 'green',
   TRANSPORT_DONE: 'green',
+  DELIVERED: 'green',
   completed: 'green',
   delivered: 'green',
   arrived: 'green',
@@ -41,8 +44,9 @@ const statusColorMap: Record<string, ColorGroup> = {
   pending_review: 'yellow',
   pending_mail: 'yellow',
   waiting: 'yellow',
-  // 橙色：待分配/原件已寄/逾期
+  // 橙色：待分配/待派送/原件已寄/逾期
   PENDING_ASSIGN: 'orange',
+  PENDING_DISPATCH: 'orange',
   ORIGINAL_SENT: 'orange',
   OVERDUE: 'orange',
   pending_assign: 'orange',
@@ -91,6 +95,8 @@ const statusLabelMap: Record<string, string> = {
   TRANSPORT_DONE: '运输完成',
   CONFIRMED: '已确认',
   IN_TRANSIT: '在途中',
+  DELIVERED: '已送达',
+  PENDING_DISPATCH: '待派送',
   FLEET_CONFIRMED: '车队确认',
   SENT: '已发送',
   IN_PROGRESS: '进行中',
@@ -137,9 +143,9 @@ const statusLabelMap: Record<string, string> = {
   mailed: '正本已邮寄',
 }
 
-export default function StatusBadge({ status, type: _type }: StatusBadgeProps) {
+export default function StatusBadge({ status, type: _type, label: labelOverride }: StatusBadgeProps) {
   const colorGroup = statusColorMap[status] || 'gray'
-  const label = statusLabelMap[status] || status
+  const label = labelOverride || statusLabelMap[status] || status
 
   return (
     <span
