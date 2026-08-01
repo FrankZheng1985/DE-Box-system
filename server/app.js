@@ -49,10 +49,32 @@ import './utils/cron-jobs.js'
 const app = express()
 const httpServer = createServer(app)
 
+/**
+ * 允许的前端来源
+ *
+ * CORS_ORIGIN 支持逗号分隔多个值：域名迁移期间正式域名和 IP 直访要同时可用，
+ * 只写一个的话另一个的前端调 API 会被浏览器拦掉。
+ * 留空则退回 '*'（仅本地开发用，生产必须显式配置）。
+ */
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean)
+
+/** cors 和 socket.io 共用的来源判定 */
+function corsOriginCheck(origin, callback) {
+  // 没有 Origin 头的请求（同源、curl、服务端调用）直接放行
+  if (!origin) return callback(null, true)
+  if (ALLOWED_ORIGINS.length === 0) return callback(null, true)
+  if (ALLOWED_ORIGINS.includes(origin.replace(/\/+$/, ''))) return callback(null, true)
+  console.warn(`[CORS] 拒绝来源: ${origin}（允许: ${ALLOWED_ORIGINS.join(' , ')}）`)
+  return callback(null, false)
+}
+
 // Socket.IO
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: corsOriginCheck,
     methods: ['GET', 'POST']
   }
 })
@@ -63,7 +85,7 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(requestLogger)
 }
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOriginCheck,
   credentials: true
 }))
 app.use(express.json({ limit: '50mb' }))

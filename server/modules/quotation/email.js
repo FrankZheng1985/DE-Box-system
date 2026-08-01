@@ -52,7 +52,10 @@ function formatMoney(amount, currency = 'EUR') {
  */
 export function getBaseUrl() {
   const raw = process.env.APP_BASE_URL || process.env.CORS_ORIGIN || ''
-  return raw.replace(/\/+$/, '')
+  // ⚠️ CORS_ORIGIN 现在支持逗号分隔多个来源（域名 + IP 回退），
+  //    直接拿来拼链接会得到 "https://a,https://b/api/..." 这种废地址，
+  //    所以只取第一个。APP_BASE_URL 本身只允许单值。
+  return raw.split(',')[0].trim().replace(/\/+$/, '')
 }
 
 /**
