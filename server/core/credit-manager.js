@@ -9,6 +9,8 @@
  * - 信用检查日志记录
  */
 
+import { query } from './db.js'
+
 export class CreditManager {
 
   /**
@@ -159,14 +161,21 @@ export class CreditManager {
 
   // 记录日志并返回结果
   async _logAndReturn(client, clientId, checkPoint, orderId, limit, exposure, amount, result, message) {
-    await client.query(
-      `INSERT INTO credit_check_logs
+    const sql = `INSERT INTO credit_check_logs
        (client_id, check_point, order_id, credit_limit, credit_exposure, order_amount, check_result)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [clientId, checkPoint, orderId, limit, exposure, amount, result]
-    )
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id`
+    const params = [clientId, checkPoint, orderId, limit, exposure, amount, result]
 
-    return { status: result, exposure, limit, message }
+    // ⚠️ WARNING / BLOCKED 的日志必须写在事务之外（P7）：
+    //    BLOCKED 会让 createOrder 抛错 → 整个事务回滚 → 日志跟着一起没了，
+    //    可偏偏这两种结果最需要留痕（事后要人工释放、要查客户为什么下不了单）。
+    //    PASSED 是正常路径，跟着事务走就行，回滚了也没有查证价值。
+    const logResult = result === 'PASSED'
+      ? await client.query(sql, params)
+      : await query(sql, params)
+
+    return { status: result, exposure, limit, message, logId: logResult.rows[0].id }
   }
 }
 

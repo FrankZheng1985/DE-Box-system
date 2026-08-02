@@ -29,6 +29,9 @@ interface CarrierFormData {
   contactEmail: string
   contactPhone: string
   address: string
+  carrierCategory: string
+  carrierType: string
+  remarks: string
 }
 
 const INITIAL_FORM: CarrierFormData = {
@@ -43,6 +46,9 @@ const INITIAL_FORM: CarrierFormData = {
   contactEmail: '',
   contactPhone: '',
   address: '',
+  carrierCategory: 'EXTERNAL',
+  carrierType: '',
+  remarks: '',
 }
 
 // ==================== 骨架屏 ====================
@@ -99,6 +105,10 @@ export default function CarrierEdit() {
             contactEmail: d.contact_email || d.contactEmail || '',
             contactPhone: d.contact_phone || d.contactPhone || '',
             address: d.address || '',
+            carrierCategory: d.carrier_category || d.carrierCategory || 'EXTERNAL',
+            // 类型允许为空（未分类），下拉里对应"暂不确定"
+            carrierType: d.carrier_type || d.carrierType || '',
+            remarks: d.remarks || '',
           })
         } else {
           setError(res.message || '获取承运商信息失败')
@@ -205,6 +215,39 @@ export default function CarrierEdit() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">地址</label>
               <input type="text" value={form.address} onChange={(e) => updateField('address', e.target.value)} className={inputClass} />
+            </div>
+          </div>
+        </div>
+
+        {/* 分类与备注（P7 需求 7） */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">分类与备注</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">分类</label>
+              <select value={form.carrierCategory} onChange={(e) => updateField('carrierCategory', e.target.value)} className={inputClass}>
+                <option value="EXTERNAL">外部服务商</option>
+                <option value="OWN_FLEET">自营车辆</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">类型</label>
+              <select value={form.carrierType} onChange={(e) => updateField('carrierType', e.target.value)} className={inputClass}>
+                <option value="">暂不确定</option>
+                <option value="PLATFORM">平台型（自己不养车）</option>
+                <option value="FLEET">自营车队型</option>
+                <option value="INDIVIDUAL">个体车辆</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">备注（特点 / 优势 / 短板）</label>
+              <textarea
+                value={form.remarks}
+                onChange={(e) => updateField('remarks', e.target.value)}
+                rows={3}
+                placeholder="例如：德国南部线路价格有优势，但旺季车源紧张；老板配合度高，可以垫付清关费"
+                className={`${inputClass} resize-none`}
+              />
             </div>
           </div>
         </div>

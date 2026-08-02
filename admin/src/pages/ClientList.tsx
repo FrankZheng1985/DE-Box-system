@@ -16,6 +16,9 @@ interface Client {
   // ⚠️ 字段名必须和后端返回一致：后端返的是 credit_level / outstanding_amount，
   //    历史上写成 credit_rating / receivable_balance，导致信用等级永远显示 "-"、应收永远 0（踩坑 003）
   credit_level: string
+  // 商务等级 VIP / NORMAL，和上面的信用等级 A-D 是两套口径（P7）
+  client_level: string
+  credit_blocked: boolean
   // outstanding_amount 来自 SUM(NUMERIC)，pg 驱动返回的是字符串（踩坑 002）
   outstanding_amount: string | number
   contact_person: string
@@ -39,6 +42,7 @@ interface ClientForm {
   contactEmail: string
   contactPhone: string
   invoiceEmail: string
+  clientLevel: string
   creditLimit: string
   paymentTerms: string
 }
@@ -53,6 +57,7 @@ const INITIAL_FORM: ClientForm = {
   contactEmail: '',
   contactPhone: '',
   invoiceEmail: '',
+  clientLevel: 'NORMAL',
   creditLimit: '',
   paymentTerms: '',
 }
@@ -73,6 +78,16 @@ const CREDIT_LEVEL_STYLES: Record<string, string> = {
   D: 'bg-red-100 text-red-700',
 }
 
+// 商务等级（P7）：VIP 用琥珀色突出，普通客户保持低调
+const CLIENT_LEVEL_STYLES: Record<string, string> = {
+  VIP: 'bg-amber-100 text-amber-700',
+  NORMAL: 'bg-gray-100 text-gray-600',
+}
+const CLIENT_LEVEL_LABELS: Record<string, string> = {
+  VIP: 'VIP',
+  NORMAL: '普通',
+}
+
 // ==================== 组件 ====================
 
 export default function ClientList() {
@@ -81,6 +96,7 @@ export default function ClientList() {
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('all')
+  const [levelFilter, setLevelFilter] = useState<'all' | 'VIP' | 'NORMAL'>('all')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const pageSize = 20
@@ -101,6 +117,7 @@ export default function ClientList() {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
       if (search) params.set('search', search)
       if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (levelFilter !== 'all') params.set('clientLevel', levelFilter)
       const res = await api.get<ApiResponse<Client[]>>(`/clients?${params.toString()}`)
       if (res.code === 200) {
         setClients(res.data || [])
@@ -115,7 +132,7 @@ export default function ClientList() {
 
   useEffect(() => {
     fetchClients()
-  }, [page, statusFilter])
+  }, [page, statusFilter, levelFilter])
 
   // 搜索（回车或点击按钮）
   const handleSearch = () => {
@@ -155,6 +172,7 @@ export default function ClientList() {
         contactEmail: form.contactEmail.trim(),
         contactPhone: form.contactPhone.trim() || undefined,
         invoiceEmail: form.invoiceEmail.trim() || undefined,
+        clientLevel: form.clientLevel,
         creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
         paymentTerms: form.paymentTerms ? Number(form.paymentTerms) : undefined,
       }
@@ -231,6 +249,15 @@ export default function ClientList() {
             <option value="ACTIVE">有效</option>
             <option value="INACTIVE">已作废</option>
           </select>
+          <select
+            value={levelFilter}
+            onChange={e => { setLevelFilter(e.target.value as any); setPage(1) }}
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          >
+            <option value="all">全部等级</option>
+            <option value="VIP">VIP 客户</option>
+            <option value="NORMAL">普通客户</option>
+          </select>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -256,12 +283,13 @@ export default function ClientList() {
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-[20%]" />
-              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
               <col className="w-[10%]" />
               <col className="w-[10%]" />
-              <col className="w-[10%]" />
-              <col className="w-[16%]" />
-              <col className="w-[20%]" />
+              <col className="w-[15%]" />
+              <col className="w-[17%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
@@ -269,6 +297,7 @@ export default function ClientList() {
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">VAT税号</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">国家</th>
                 <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">订单数</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">客户等级</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">信用等级</th>
                 <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">应收余额</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
@@ -279,7 +308,7 @@ export default function ClientList() {
                 // 加载骨架屏
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-slate-100 rounded animate-pulse" />
                       </td>
@@ -288,7 +317,7 @@ export default function ClientList() {
                 ))
               ) : clients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center">
+                  <td colSpan={8} className="px-4 py-16 text-center">
                     <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm text-slate-500">暂无客户数据</p>
                   </td>
@@ -316,6 +345,21 @@ export default function ClientList() {
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{client.vat_number || '-'}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-center">{client.country || '-'}</td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{client.order_count ?? 0}</td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${
+                          CLIENT_LEVEL_STYLES[client.client_level] || 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {CLIENT_LEVEL_LABELS[client.client_level] || '普通'}
+                        </span>
+                        {/* 信用被冻结的客户下不了单，列表里要一眼看得见 */}
+                        {client.credit_blocked && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-600 border border-red-100">
+                            冻结
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${
                         CREDIT_LEVEL_STYLES[client.credit_level] || 'bg-gray-100 text-gray-600'
@@ -525,6 +569,19 @@ export default function ClientList() {
               placeholder="invoice@company.com"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
+          </div>
+
+          {/* 客户等级（商务分级，和信用等级 A-D 无关） */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">客户等级</label>
+            <select
+              value={form.clientLevel}
+              onChange={e => updateField('clientLevel', e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            >
+              <option value="NORMAL">普通客户</option>
+              <option value="VIP">VIP 客户</option>
+            </select>
           </div>
 
           {/* 信用额度 */}

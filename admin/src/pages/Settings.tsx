@@ -71,6 +71,7 @@ const NOTIFICATION_EVENTS: Omit<NotificationPreference, 'email' | 'system'>[] = 
   { key: 'RELEASE_STATUS_CHANGED', label: '船司放单状态变更', icon: Ship, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
   { key: 'QUALIFICATION_EXPIRING', label: '承运商资质到期', icon: ShieldAlert, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
   { key: 'INVOICE_DUE', label: '账单到期 / 逾期', icon: DollarSign, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+  { key: 'CREDIT_ALERT', label: '客户信用超额预警', icon: ShieldAlert, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
 ]
 
 /** 提醒配置，key 必须与 system_settings 的 setting_key 完全一致 */

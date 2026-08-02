@@ -7,7 +7,7 @@ import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { getPool } from '../../core/db.js'
-import { changeTracker, numberRange } from '../../core/index.js'
+import { changeTracker, numberRange, creditManager } from '../../core/index.js'
 import { roleHasAnyPermission } from '../../core/permission-service.js'
 
 const router = Router()
@@ -41,9 +41,11 @@ function parsePaymentTerms(value) {
 // 客户变更追踪字段
 const CLIENT_FIELDS = [
   { name: 'company_name', label: '公司名称' },
+  { name: 'client_level', label: '客户等级' },
   { name: 'credit_limit', label: '信用额度' },
   { name: 'credit_level', label: '信用等级' },
   { name: 'risk_category', label: '风险类别' },
+  { name: 'credit_blocked', label: '信用冻结' },
   { name: 'payment_terms', label: '账期' },
   { name: 'status', label: '状态' },
   { name: 'invoice_email', label: '发票邮箱' }
@@ -55,7 +57,7 @@ const CLIENT_FIELDS = [
  */
 router.get('/', requirePermission('client:view'), async (req, res) => {
   try {
-    const { search, status, page = 1, pageSize = 20 } = req.query
+    const { search, status, clientLevel, creditLevel, page = 1, pageSize = 20 } = req.query
     let sql = `
       SELECT c.*,
         (SELECT COUNT(*) FROM orders o WHERE o.client_id = c.id) as order_count,
@@ -73,6 +75,15 @@ router.get('/', requirePermission('client:view'), async (req, res) => {
     if (status) {
       params.push(status)
       sql += ` AND c.status = $${++idx}`
+    }
+    // 商务等级（VIP / NORMAL）和信用等级（A-D）是两套口径，各筛各的
+    if (clientLevel) {
+      params.push(clientLevel)
+      sql += ` AND c.client_level = $${++idx}`
+    }
+    if (creditLevel) {
+      params.push(creditLevel)
+      sql += ` AND c.credit_level = $${++idx}`
     }
 
     const countResult = await query(`SELECT COUNT(*) as total FROM (${sql}) t`, params)
@@ -107,7 +118,7 @@ router.get('/export', requirePermission('client:export'), async (req, res) => {
     const result = await pool.query(
       `SELECT client_code, company_name, vat_number, country, city,
               contact_name, contact_email, contact_phone,
-              credit_limit, credit_level, payment_terms
+              client_level, credit_limit, credit_level, payment_terms
        FROM clients WHERE status = 'ACTIVE'
        ORDER BY client_code ASC LIMIT 5000`
     )
@@ -130,6 +141,7 @@ router.get('/export', requirePermission('client:export'), async (req, res) => {
       { header: '联系人', key: 'contactName', width: 14 },
       { header: '邮箱', key: 'email', width: 24 },
       { header: '电话', key: 'phone', width: 16 },
+      { header: '客户等级', key: 'clientLevel', width: 12 },
       { header: '信用额度', key: 'creditLimit', width: 14 },
       { header: '信用等级', key: 'creditLevel', width: 12 },
       { header: '账期(天)', key: 'paymentTerms', width: 10 },
@@ -148,6 +160,7 @@ router.get('/export', requirePermission('client:export'), async (req, res) => {
         contactName: row.contact_name || '-',
         email: row.contact_email || '-',
         phone: row.contact_phone || '-',
+        clientLevel: row.client_level === 'VIP' ? 'VIP' : '普通',
         creditLimit: row.credit_limit ? Number(row.credit_limit) : 0,
         creditLevel: creditLevelMap[row.credit_level] || row.credit_level || '-',
         paymentTerms: row.payment_terms ? Number(row.payment_terms) : 30,
@@ -199,12 +212,14 @@ router.post('/', requirePermission('client:create'), async (req, res) => {
         `INSERT INTO clients
          (client_code, company_name, vat_number, country, city, address,
           contact_name, contact_email, contact_phone, invoice_email,
-          credit_limit, credit_level, risk_category, payment_terms, status, company_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          client_level, credit_limit, credit_level, risk_category, payment_terms,
+          status, company_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          RETURNING *`,
         [docNumber, req.body.companyName, req.body.vatNumber, req.body.country,
          req.body.city, req.body.address, req.body.contactName, req.body.contactEmail,
          req.body.contactPhone, req.body.invoiceEmail,
+         req.body.clientLevel === 'VIP' ? 'VIP' : 'NORMAL',
          req.body.creditLimit || 0, req.body.creditLevel || 'C',
          req.body.riskCategory || 'MEDIUM', paymentTerms ?? 30,
          'ACTIVE', 'DE01']
@@ -276,7 +291,8 @@ router.put('/:id', requirePermission('client:edit', 'client:credit'), async (req
 
       const fields = ['company_name', 'vat_number', 'country', 'city', 'address',
         'contact_name', 'contact_email', 'contact_phone', 'invoice_email',
-        'credit_limit', 'credit_level', 'risk_category', 'payment_terms', 'status']
+        'client_level', 'credit_limit', 'credit_level', 'risk_category',
+        'payment_terms', 'status']
       const setClauses = []
       const params = []
       let idx = 0
@@ -286,6 +302,7 @@ router.put('/:id', requirePermission('client:edit', 'client:credit'), async (req
         companyName: 'company_name', vatNumber: 'vat_number',
         contactName: 'contact_name', contactEmail: 'contact_email',
         contactPhone: 'contact_phone', invoiceEmail: 'invoice_email',
+        clientLevel: 'client_level',
         creditLimit: 'credit_limit', creditLevel: 'credit_level',
         riskCategory: 'risk_category', paymentTerms: 'payment_terms'
       }
@@ -375,6 +392,172 @@ router.get('/:id/finance', requirePermission('client:view'), async (req, res) =>
     res.json({ code: 200, message: 'success', data: { stats: stats.rows[0], records: records.rows } })
   } catch (error) {
     res.status(500).json({ code: 500, message: '获取财务概览失败', data: null })
+  }
+})
+
+/**
+ * 客户信用检查日志（P7 需求 6）
+ * GET /api/v1/clients/:id/credit-logs
+ *
+ * 只给有 client:credit 的人看：日志里带着额度、敞口和被拦截的订单金额。
+ */
+router.get('/:id/credit-logs', requirePermission('client:credit'), async (req, res) => {
+  try {
+    const { result: resultFilter, page = 1, pageSize = 20 } = req.query
+
+    let sql = `
+      SELECT l.id, l.check_point, l.order_id, l.credit_limit, l.credit_exposure,
+             l.order_amount, l.check_result, l.override_reason, l.checked_at,
+             COALESCE(u.display_name, u.username) AS override_by_name,
+             o.order_number
+      FROM credit_check_logs l
+      LEFT JOIN users u ON u.id = l.override_by
+      LEFT JOIN orders o ON o.id = l.order_id
+      WHERE l.client_id = $1`
+    const params = [req.params.id]
+    let idx = 1
+
+    if (resultFilter) {
+      params.push(resultFilter)
+      sql += ` AND l.check_result = $${++idx}`
+    }
+
+    const countResult = await query(`SELECT COUNT(*) as total FROM (${sql}) t`, params)
+
+    sql += ` ORDER BY l.checked_at DESC`
+    params.push(parseInt(pageSize))
+    sql += ` LIMIT $${++idx}`
+    params.push((parseInt(page) - 1) * parseInt(pageSize))
+    sql += ` OFFSET $${++idx}`
+
+    const logs = await query(sql, params)
+
+    res.json({
+      code: 200, message: 'success', data: logs.rows,
+      pagination: {
+        total: parseInt(countResult.rows[0].total),
+        page: parseInt(page),
+        pageSize: parseInt(pageSize)
+      }
+    })
+  } catch (error) {
+    console.error('[Client] 获取信用检查日志失败:', error)
+    res.status(500).json({ code: 500, message: '获取信用检查日志失败', data: null })
+  }
+})
+
+/**
+ * 人工信用释放（P7 需求 6）
+ * POST /api/v1/clients/:id/credit-release
+ * body: { logId, reason }
+ *
+ * 做两件事：把那条被拦的检查日志标成 PASSED、解除客户的信用冻结标记。
+ * ⚠️ 注意：如果这次拦截是「敞口超额」造成的，光释放只解决当下这一次——
+ *    敞口没降下去，下一单照样会被拦。真要长期放行得同时调高信用额度，
+ *    前端在释放弹窗里有对应提示。
+ */
+router.post('/:id/credit-release', requirePermission('client:credit'), async (req, res) => {
+  try {
+    const { logId, reason } = req.body || {}
+    if (!logId) {
+      return res.status(400).json({ code: 400, message: '参数错误：缺少信用检查日志 ID', data: null })
+    }
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ code: 400, message: '参数错误：请填写释放原因', data: null })
+    }
+
+    const log = await query(
+      `SELECT id, client_id, check_result FROM credit_check_logs WHERE id = $1`, [logId]
+    )
+    if (log.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '信用检查记录不存在', data: null })
+    }
+    // 防止拿 A 客户的 logId 去释放 B 客户
+    if (log.rows[0].client_id !== req.params.id) {
+      return res.status(400).json({ code: 400, message: '参数错误：该检查记录不属于此客户', data: null })
+    }
+    if (log.rows[0].check_result === 'PASSED') {
+      return res.status(400).json({ code: 400, message: '这条记录本来就是通过的，无需释放', data: null })
+    }
+
+    await withTransaction(async (tx) => {
+      const old = await tx.query(`SELECT credit_blocked FROM clients WHERE id = $1`, [req.params.id])
+      if (old.rows.length === 0) throw new Error('客户不存在')
+
+      await creditManager.overrideBlock(tx, req.params.id, logId, req.user.id, reason.trim())
+
+      await changeTracker.trackChanges(tx, {
+        objectType: 'CLIENT',
+        objectId: req.params.id,
+        changeType: 'UPDATE',
+        transactionType: 'CREDIT_RELEASE',
+        tableName: 'clients',
+        oldData: { credit_blocked: old.rows[0].credit_blocked },
+        newData: { credit_blocked: false },
+        trackedFields: CLIENT_FIELDS,
+        changedBy: req.user.id
+      })
+    })
+
+    res.json({ code: 200, message: '信用已释放', data: null })
+  } catch (error) {
+    console.error('[Client] 信用释放失败:', error)
+    res.status(500).json({ code: 500, message: error.message || '信用释放失败', data: null })
+  }
+})
+
+/**
+ * 手动冻结 / 解冻客户信用（P7 需求 6）
+ * PUT /api/v1/clients/:id/credit-block
+ * body: { blocked: true|false, reason }
+ */
+router.put('/:id/credit-block', requirePermission('client:credit'), async (req, res) => {
+  try {
+    const { blocked, reason } = req.body || {}
+    if (typeof blocked !== 'boolean') {
+      return res.status(400).json({ code: 400, message: '参数错误：blocked 必须是 true 或 false', data: null })
+    }
+    if (blocked && (!reason || !reason.trim())) {
+      return res.status(400).json({ code: 400, message: '参数错误：冻结必须填写原因', data: null })
+    }
+
+    await withTransaction(async (tx) => {
+      const old = await tx.query(
+        `SELECT credit_blocked, company_name FROM clients WHERE id = $1`, [req.params.id]
+      )
+      if (old.rows.length === 0) throw new Error('客户不存在')
+
+      await tx.query(
+        `UPDATE clients SET credit_blocked = $1, updated_at = NOW() WHERE id = $2`,
+        [blocked, req.params.id]
+      )
+
+      // 手动冻结/解冻也记一条检查日志，和自动拦截的记录混排在同一条时间线上
+      await tx.query(
+        `INSERT INTO credit_check_logs
+           (client_id, check_point, check_result, override_by, override_reason)
+         VALUES ($1, 'MANUAL', $2, $3, $4)`,
+        [req.params.id, blocked ? 'BLOCKED' : 'PASSED', req.user.id,
+         blocked ? `人工冻结：${reason.trim()}` : `人工解冻：${(reason || '').trim() || '无'}`]
+      )
+
+      await changeTracker.trackChanges(tx, {
+        objectType: 'CLIENT',
+        objectId: req.params.id,
+        changeType: 'UPDATE',
+        transactionType: blocked ? 'CREDIT_BLOCK' : 'CREDIT_UNBLOCK',
+        tableName: 'clients',
+        oldData: { credit_blocked: old.rows[0].credit_blocked },
+        newData: { credit_blocked: blocked },
+        trackedFields: CLIENT_FIELDS,
+        changedBy: req.user.id
+      })
+    })
+
+    res.json({ code: 200, message: blocked ? '客户信用已冻结' : '客户信用已解冻', data: null })
+  } catch (error) {
+    console.error('[Client] 冻结/解冻信用失败:', error)
+    res.status(500).json({ code: 500, message: error.message || '操作失败', data: null })
   }
 })
 

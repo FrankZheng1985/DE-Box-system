@@ -19,18 +19,25 @@ router.use(requireUserType('OPERATOR'))
 
 const CARRIER_FIELDS = [
   { name: 'company_name', label: '公司名称' },
+  { name: 'carrier_category', label: '分类' },
+  { name: 'carrier_type', label: '类型' },
+  { name: 'remarks', label: '备注' },
   { name: 'performance_score', label: '绩效评分' },
   { name: 'status', label: '状态' },
   { name: 'transport_license', label: '运输许可证' },
   { name: 'insurance_number', label: '保险编号' }
 ]
 
+/** 承运商分类 / 类型的合法值（和迁移 111 的 CHECK 约束保持一致） */
+const CARRIER_CATEGORIES = ['EXTERNAL', 'OWN_FLEET']
+const CARRIER_TYPES = ['PLATFORM', 'FLEET', 'INDIVIDUAL']
+
 /**
  * 承运商列表
  */
 router.get('/', requirePermission('carrier:view'), async (req, res) => {
   try {
-    const { search, status, page = 1, pageSize = 20 } = req.query
+    const { search, status, carrierCategory, carrierType, page = 1, pageSize = 20 } = req.query
     let sql = `
       SELECT cr.*,
         (SELECT COUNT(*) FROM carrier_vehicles cv WHERE cv.carrier_id = cr.id) as vehicle_count,
@@ -46,6 +53,14 @@ router.get('/', requirePermission('carrier:view'), async (req, res) => {
     if (status) {
       params.push(status)
       sql += ` AND cr.status = $${++idx}`
+    }
+    if (carrierCategory) {
+      params.push(carrierCategory)
+      sql += ` AND cr.carrier_category = $${++idx}`
+    }
+    if (carrierType) {
+      params.push(carrierType)
+      sql += ` AND cr.carrier_type = $${++idx}`
     }
 
     const countResult = await query(`SELECT COUNT(*) as total FROM (${sql}) t`, params)
@@ -96,6 +111,7 @@ router.get('/export', requirePermission('carrier:export'), async (req, res) => {
     const pool = getPool()
     const result = await pool.query(
       `SELECT carrier_code, company_name, vat_number, country,
+              carrier_category, carrier_type, remarks,
               transport_license, license_expiry, insurance_number, insurance_expiry,
               performance_score, status
        FROM carriers WHERE status = 'ACTIVE'
@@ -108,18 +124,23 @@ router.get('/export', requirePermission('carrier:export'), async (req, res) => {
     const sheet = workbook.addWorksheet('承运商列表')
 
     const statusMap = { ACTIVE: '活跃', INACTIVE: '停用', SUSPENDED: '暂停' }
+    const categoryMap = { EXTERNAL: '外部服务商', OWN_FLEET: '自营车辆' }
+    const typeMap = { PLATFORM: '平台型', FLEET: '自营车队型', INDIVIDUAL: '个体车辆' }
 
     sheet.columns = [
       { header: '承运商编码', key: 'carrierCode', width: 16 },
       { header: '公司名称', key: 'companyName', width: 28 },
       { header: 'VAT税号', key: 'vatNumber', width: 22 },
       { header: '国家', key: 'country', width: 12 },
+      { header: '分类', key: 'category', width: 14 },
+      { header: '类型', key: 'type', width: 14 },
       { header: '许可证号', key: 'license', width: 20 },
       { header: '许可证到期', key: 'licenseExpiry', width: 14 },
       { header: '保险号', key: 'insurance', width: 20 },
       { header: '保险到期', key: 'insuranceExpiry', width: 14 },
       { header: '评分', key: 'score', width: 8 },
       { header: '状态', key: 'status', width: 10 },
+      { header: '备注', key: 'remarks', width: 40 },
     ]
 
     sheet.getRow(1).font = { bold: true }
@@ -131,12 +152,15 @@ router.get('/export', requirePermission('carrier:export'), async (req, res) => {
         companyName: row.company_name || '-',
         vatNumber: row.vat_number || '-',
         country: row.country || '-',
+        category: categoryMap[row.carrier_category] || row.carrier_category || '-',
+        type: typeMap[row.carrier_type] || '-',
         license: row.transport_license || '-',
         licenseExpiry: row.license_expiry ? new Date(row.license_expiry).toISOString().slice(0, 10) : '-',
         insurance: row.insurance_number || '-',
         insuranceExpiry: row.insurance_expiry ? new Date(row.insurance_expiry).toISOString().slice(0, 10) : '-',
         score: row.performance_score ? Number(row.performance_score) : 0,
         status: statusMap[row.status] || row.status || '-',
+        remarks: row.remarks || '-',
       })
     }
 
@@ -179,8 +203,9 @@ router.post('/', requirePermission('carrier:create'), async (req, res) => {
          (carrier_code, company_name, vat_number, country, transport_license,
           license_expiry, insurance_number, insurance_expiry,
           service_countries, vehicle_types, contact_name, contact_email,
-          contact_phone, address, status, company_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          contact_phone, address, carrier_category, carrier_type, remarks,
+          status, company_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
          RETURNING *`,
         [docNumber, req.body.companyName, req.body.vatNumber, req.body.country,
          req.body.transportLicense, req.body.licenseExpiry,
@@ -188,7 +213,12 @@ router.post('/', requirePermission('carrier:create'), async (req, res) => {
          JSON.stringify(req.body.serviceCountries || []),
          JSON.stringify(req.body.vehicleTypes || []),
          req.body.contactName, req.body.contactEmail, req.body.contactPhone,
-         req.body.address, 'ACTIVE', 'DE01']
+         req.body.address,
+         CARRIER_CATEGORIES.includes(req.body.carrierCategory) ? req.body.carrierCategory : 'EXTERNAL',
+         // 类型可以先不填，别硬塞默认值制造假数据
+         CARRIER_TYPES.includes(req.body.carrierType) ? req.body.carrierType : null,
+         req.body.remarks || null,
+         'ACTIVE', 'DE01']
       )
 
       await changeTracker.trackChanges(tx, {
@@ -216,12 +246,26 @@ router.put('/:id', requirePermission('carrier:edit'), async (req, res) => {
       const old = await tx.query(`SELECT * FROM carriers WHERE id = $1`, [req.params.id])
       if (old.rows.length === 0) throw new Error('承运商不存在')
 
+      // 分类/类型有 CHECK 约束，非法值先挡掉，别让数据库抛原始错误给前端
+      if (req.body.carrierCategory !== undefined &&
+          !CARRIER_CATEGORIES.includes(req.body.carrierCategory)) {
+        throw new Error(`参数错误：承运商分类只能是 ${CARRIER_CATEGORIES.join(' / ')}`)
+      }
+      if (req.body.carrierType !== undefined && req.body.carrierType !== null &&
+          req.body.carrierType !== '' && !CARRIER_TYPES.includes(req.body.carrierType)) {
+        throw new Error(`参数错误：承运商类型只能是 ${CARRIER_TYPES.join(' / ')}`)
+      }
+      // 类型允许清空回"未分类"
+      if (req.body.carrierType === '') req.body.carrierType = null
+
       const map = {
         companyName: 'company_name', vatNumber: 'vat_number',
         transportLicense: 'transport_license', licenseExpiry: 'license_expiry',
         insuranceNumber: 'insurance_number', insuranceExpiry: 'insurance_expiry',
         contactName: 'contact_name', contactEmail: 'contact_email',
-        contactPhone: 'contact_phone', performanceScore: 'performance_score'
+        contactPhone: 'contact_phone', performanceScore: 'performance_score',
+        carrierCategory: 'carrier_category', carrierType: 'carrier_type',
+        remarks: 'remarks'
       }
       const setClauses = []
       const params = []

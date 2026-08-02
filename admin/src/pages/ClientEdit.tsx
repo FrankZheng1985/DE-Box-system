@@ -27,8 +27,10 @@ interface ClientFormData {
   contactEmail: string
   contactPhone: string
   invoiceEmail: string
+  clientLevel: string
   creditLimit: number
   creditLevel: string
+  riskCategory: string
   paymentTerms: string
 }
 
@@ -42,8 +44,10 @@ const INITIAL_FORM: ClientFormData = {
   contactEmail: '',
   contactPhone: '',
   invoiceEmail: '',
+  clientLevel: 'NORMAL',
   creditLimit: 0,
   creditLevel: '',
+  riskCategory: 'MEDIUM',
   paymentTerms: '',
 }
 
@@ -99,8 +103,10 @@ export default function ClientEdit() {
             contactEmail: d.contact_email || d.contactEmail || '',
             contactPhone: d.contact_phone || d.contactPhone || '',
             invoiceEmail: d.invoice_email || d.invoiceEmail || '',
+            clientLevel: d.client_level || d.clientLevel || 'NORMAL',
             creditLimit: d.credit_limit || d.creditLimit || 0,
             creditLevel: d.credit_level || d.creditLevel || '',
+            riskCategory: d.risk_category || d.riskCategory || 'MEDIUM',
             // payment_terms 是 INTEGER（天数），0 表示预付，不能用 || 兜底会把 0 吞掉
             paymentTerms: String(d.payment_terms ?? d.paymentTerms ?? ''),
           })
@@ -245,6 +251,21 @@ export default function ClientEdit() {
           </div>
         </div>
 
+        {/* 商务等级（P7：和下面的财务风险评级刻意分开两块，避免口径混淆） */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">商务等级</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">客户等级</label>
+              <select value={form.clientLevel} onChange={(e) => updateField('clientLevel', e.target.value)} className={inputClass}>
+                <option value="NORMAL">普通客户</option>
+                <option value="VIP">VIP 客户</option>
+              </select>
+              <p className="mt-1.5 text-xs text-slate-500">按销售关系和货量定，和下面的信用评级无关</p>
+            </div>
+          </div>
+        </div>
+
         {/* 信用信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">信用与付款</h2>
@@ -261,6 +282,16 @@ export default function ClientEdit() {
                 <option value="B">B - 良好</option>
                 <option value="C">C - 一般</option>
                 <option value="D">D - 较差</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">风险类别</label>
+              {/* 风险类别决定信用敞口怎么算（core/credit-manager.js）：
+                  LOW 只算未清应收；MEDIUM 加上在途订单；HIGH 再加未确认订单 */}
+              <select value={form.riskCategory} onChange={(e) => updateField('riskCategory', e.target.value)} className={inputClass}>
+                <option value="LOW">低风险 - 只算未清应收</option>
+                <option value="MEDIUM">中风险 - 含在途订单</option>
+                <option value="HIGH">高风险 - 含未确认订单</option>
               </select>
             </div>
             <div>

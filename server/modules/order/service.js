@@ -7,7 +7,52 @@
  */
 
 import { documentEngine, creditManager, changeTracker, documentFlow, accountDetermination, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
+import { getPool } from '../../core/db.js'
 import orderModel, { ORDER_TRACKED_FIELDS } from './model.js'
+
+/** 信用预警通知发给这些内部角色（P7：刻意不发客户） */
+const CREDIT_ALERT_ROLES = ['finance', 'op_manager', 'sys_admin']
+
+/**
+ * 客户信用超额预警通知（P7 需求 6）
+ *
+ * ⚠️ 必须用独立连接（getPool），不能用 createOrder 的事务 client：
+ *    BLOCKED 的时候 createOrder 会抛错让整个事务回滚，
+ *    通知要是写在事务里就跟着一起没了 —— 而这正是最该报出来的一种。
+ *
+ * 通知发送失败不影响下单主流程，出错只记日志。
+ *
+ * @param {string} clientId - 客户 ID
+ * @param {object} creditResult - creditManager.checkCredit 的返回值
+ */
+async function notifyCreditAlert(clientId, creditResult) {
+  try {
+    const pool = getPool()
+    const clientRow = await pool.query(
+      `SELECT company_name FROM clients WHERE id = $1`, [clientId]
+    )
+    const companyName = clientRow.rows[0]?.company_name || '未知客户'
+
+    const userIds = await notificationEngine.getUserIdsByRoles(pool, CREDIT_ALERT_ROLES)
+    if (userIds.length === 0) {
+      console.warn('[信用预警] 没有找到财务/经理/管理员账号，预警未发出')
+      return
+    }
+
+    const isBlocked = creditResult.status === 'BLOCKED'
+    await notificationEngine.notify(pool, {
+      userIds,
+      type: NOTIFICATION_TYPES.CREDIT_ALERT,
+      title: isBlocked
+        ? `信用超额拦截：${companyName}`
+        : `信用预警：${companyName}`,
+      message: `${creditResult.message}\n\n处理入口：客户管理 → ${companyName} → 信用风控`,
+      channel: 'AUTO'
+    })
+  } catch (error) {
+    console.error('[信用预警] 通知发送失败:', error)
+  }
+}
 
 /**
  * 服务类型（需求 1 三分类，2026-08-01 由 CURTAIN_SIDE/CONTAINER 改造而来）
@@ -130,6 +175,10 @@ export const orderService = {
       const creditResult = await creditManager.checkCredit(
         client, orderData.clientId, orderData.clientPrice, 'ORDER_CREATE'
       )
+      // WARNING / BLOCKED 都推一条内部预警（不发客户），发送走独立连接不受回滚影响
+      if (creditResult.status !== 'PASSED') {
+        await notifyCreditAlert(orderData.clientId, creditResult)
+      }
       if (creditResult.status === 'BLOCKED') {
         throw new Error(`信用检查未通过: ${creditResult.message}`)
       }

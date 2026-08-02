@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Edit, Building2, Mail, Phone, Globe, MapPin,
   Calendar, CreditCard, FileText, DollarSign, ShieldCheck,
-  Package, TrendingUp, Clock, AlertTriangle
+  Package, TrendingUp, Clock, AlertTriangle, Star
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
+import ClientCreditPanel from '../components/ClientCreditPanel'
+import { useAuth } from '../contexts/AuthContext'
 
 // ==================== 类型定义 ====================
 
@@ -23,9 +25,12 @@ interface ClientInfo {
   contact_email: string
   contact_phone: string
   invoice_email: string
+  client_level: string
   credit_limit: number
+  credit_exposure: number
   credit_level: string
   risk_category: string
+  credit_blocked: boolean
   payment_terms: string
   status: string
   created_at: string
@@ -91,10 +96,24 @@ function getCreditBadge(level: string) {
   )
 }
 
+// 商务等级徽章（P7：VIP / 普通，和上面的信用等级 A-D 是两套口径）
+function getClientLevelBadge(level: string) {
+  const isVip = level === 'VIP'
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
+      isVip ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+    }`}>
+      {isVip ? 'VIP 客户' : '普通客户'}
+    </span>
+  )
+}
+
 // ==================== Tab 定义 ====================
 
+// credit Tab 需要 client:credit 权限，在组件里按权限过滤
 const tabs = [
   { key: 'info', label: '基本信息' },
+  { key: 'credit', label: '信用风控', permission: 'client:credit' },
   { key: 'contracts', label: '合同管理' },
   { key: 'pricing', label: '价格体系' },
   { key: 'orders', label: '订单历史' },
@@ -145,10 +164,13 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
 export default function ClientDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { hasPermission } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [client, setClient] = useState<ClientInfo | null>(null)
   const [activeTab, setActiveTab] = useState('info')
+
+  const visibleTabs = tabs.filter(tab => !tab.permission || hasPermission(tab.permission))
 
   // 订单历史数据
   const [orders, setOrders] = useState<ClientOrder[]>([])
@@ -158,24 +180,23 @@ export default function ClientDetail() {
   const [finance, setFinance] = useState<FinanceData | null>(null)
   const [financeLoading, setFinanceLoading] = useState(false)
 
-  // 获取客户详情
-  useEffect(() => {
+  // 获取客户详情（信用面板释放/冻结后也要重新拉一次，所以抽成 useCallback）
+  const fetchClient = useCallback(async () => {
     if (!id) return
-    const fetchClient = async () => {
-      setLoading(true)
-      try {
-        const res = await api.get<ApiResponse<ClientInfo>>(`/clients/${id}`)
-        if (res.code === 200 && res.data) {
-          setClient(res.data)
-        }
-      } catch (err) {
-        console.error('获取客户详情失败:', err)
-      } finally {
-        setLoading(false)
+    setLoading(true)
+    try {
+      const res = await api.get<ApiResponse<ClientInfo>>(`/clients/${id}`)
+      if (res.code === 200 && res.data) {
+        setClient(res.data)
       }
+    } catch (err) {
+      console.error('获取客户详情失败:', err)
+    } finally {
+      setLoading(false)
     }
-    fetchClient()
   }, [id])
+
+  useEffect(() => { fetchClient() }, [fetchClient])
 
   // 切换到订单历史 Tab 时加载
   useEffect(() => {
@@ -240,9 +261,26 @@ export default function ClientDetail() {
           <InfoRow icon={Phone} label="联系电话" value={client.contact_phone} />
           <InfoRow icon={Mail} label="发票邮箱" value={client.invoice_email} />
           <InfoRow icon={Clock} label="账期" value={client.payment_terms || '-'} />
+          <InfoRow icon={Star} label="客户等级" value={getClientLevelBadge(client.client_level)} />
           <InfoRow icon={ShieldCheck} label="信用等级" value={getCreditBadge(client.credit_level)} />
         </div>
       </div>
+    )
+  }
+
+  // Tab: 信用风控（P7，只有 client:credit 能看到）
+  const renderCredit = () => {
+    if (!client) return null
+    return (
+      <ClientCreditPanel
+        clientId={client.id}
+        companyName={client.company_name}
+        creditLimit={client.credit_limit}
+        creditExposure={client.credit_exposure}
+        riskCategory={client.risk_category}
+        creditBlocked={client.credit_blocked}
+        onChanged={fetchClient}
+      />
     )
   }
 
@@ -529,6 +567,7 @@ export default function ClientDetail() {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'info': return renderInfo()
+      case 'credit': return renderCredit()
       case 'contracts': return renderContracts()
       case 'pricing': return renderPricing()
       case 'orders': return renderOrders()
@@ -580,7 +619,13 @@ export default function ClientDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-slate-900">{client.company_name}</h1>
+              {getClientLevelBadge(client.client_level)}
               {getCreditBadge(client.credit_level)}
+              {client.credit_blocked && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700">
+                  信用冻结
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-xs text-slate-400">VAT: {client.vat_number || '-'}</span>
@@ -597,7 +642,7 @@ export default function ClientDetail() {
 
       {/* Tab 导航 */}
       <div className="flex gap-1 bg-white/80 backdrop-blur-md rounded-xl p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}

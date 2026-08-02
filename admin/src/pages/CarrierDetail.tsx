@@ -4,11 +4,26 @@ import {
   ArrowLeft, Edit, Truck, Phone, Mail, MapPin, Globe,
   FileText, Shield, Calendar, CreditCard, Star,
   DollarSign, TrendingUp, Clock, CheckCircle,
-  AlertTriangle, Plus, Gauge, Package
+  AlertTriangle, Plus, Gauge, Package, Layers
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
+
+// 承运商分类 / 类型展示映射（P7，值域见迁移 111）
+const CARRIER_CATEGORY_LABELS: Record<string, string> = {
+  EXTERNAL: '外部服务商',
+  OWN_FLEET: '自营车辆',
+}
+const CARRIER_CATEGORY_STYLES: Record<string, string> = {
+  EXTERNAL: 'bg-blue-100 text-blue-700',
+  OWN_FLEET: 'bg-green-100 text-green-700',
+}
+const CARRIER_TYPE_LABELS: Record<string, string> = {
+  PLATFORM: '平台型',
+  FLEET: '自营车队型',
+  INDIVIDUAL: '个体车辆',
+}
 
 // ==================== 类型定义 ====================
 
@@ -28,6 +43,10 @@ interface CarrierInfo {
   vehicle_count: number
   rating: number
   status: string
+  // P7 新增：分类 / 类型 / 备注
+  carrier_category: string
+  carrier_type: string | null
+  remarks: string | null
 }
 
 interface Vehicle {
@@ -247,6 +266,22 @@ export default function CarrierDetail() {
           <h3 className="text-sm font-semibold text-slate-900 mb-4">公司信息</h3>
           <InfoRow icon={Truck} label="公司全称" value={carrier.company_name} />
           <InfoRow icon={Globe} label="国家" value={carrier.country} />
+          <InfoRow
+            icon={Layers}
+            label="分类 / 类型"
+            value={
+              <span className="flex items-center gap-2">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${
+                  CARRIER_CATEGORY_STYLES[carrier.carrier_category] || 'bg-gray-100 text-gray-600'
+                }`}>
+                  {CARRIER_CATEGORY_LABELS[carrier.carrier_category] || '外部服务商'}
+                </span>
+                <span className="text-xs text-slate-500">
+                  {carrier.carrier_type ? CARRIER_TYPE_LABELS[carrier.carrier_type] || carrier.carrier_type : '类型未分类'}
+                </span>
+              </span>
+            }
+          />
           <InfoRow icon={FileText} label="注册号" value="-" />
           <InfoRow icon={Shield} label="运输许可证号" value={carrier.transport_license || '-'} />
           <InfoRow icon={Calendar} label="许可证有效期" value={formatDate(carrier.license_expiry)} />
@@ -261,6 +296,14 @@ export default function CarrierDetail() {
           <InfoRow icon={Phone} label="联系电话" value={carrier.phone} />
           <InfoRow icon={Mail} label="联系邮箱" value={carrier.email} />
           <InfoRow icon={MapPin} label="地址" value={carrier.address || '-'} />
+        </div>
+
+        {/* 备注单独占一行，内容可能很长 */}
+        <div className="lg:col-span-2 bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+          <h3 className="text-sm font-semibold text-slate-900 mb-3">备注（特点 / 优势 / 短板）</h3>
+          <p className="text-sm text-slate-600 whitespace-pre-wrap">
+            {carrier.remarks || '暂无备注'}
+          </p>
         </div>
       </div>
     )

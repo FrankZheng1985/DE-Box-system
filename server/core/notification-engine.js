@@ -183,7 +183,8 @@ export const NOTIFICATION_TYPES = {
   CLEARANCE_RELEASED: 'CLEARANCE_RELEASED',
   RELEASE_STATUS_CHANGED: 'RELEASE_STATUS_CHANGED',
   QUALIFICATION_EXPIRING: 'QUALIFICATION_EXPIRING',
-  INVOICE_DUE: 'INVOICE_DUE'
+  INVOICE_DUE: 'INVOICE_DUE',
+  CREDIT_ALERT: 'CREDIT_ALERT'
 }
 
 /**
@@ -201,7 +202,10 @@ export const NOTIFICATION_TYPE_LABELS = {
   CLEARANCE_RELEASED: '清关放行',
   RELEASE_STATUS_CHANGED: '船司放单状态变更',
   QUALIFICATION_EXPIRING: '承运商资质到期',
-  INVOICE_DUE: '账单到期 / 逾期'
+  INVOICE_DUE: '账单到期 / 逾期',
+  // ⚠️ 只发给内部（财务岗/经理/管理员），不推给客户 —— 2026-08-02 Frank 定：
+  //    「你的信用被冻结了」这种话直接推给客户，商务上容易出事，让业务员自己去谈
+  CREDIT_ALERT: '客户信用超额预警'
 }
 
 export default new NotificationEngine()

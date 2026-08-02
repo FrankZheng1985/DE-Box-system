@@ -18,6 +18,10 @@ interface Carrier {
   status: string
   contact_person: string
   phone: string
+  // P7 新增：分类 EXTERNAL/OWN_FLEET，类型 PLATFORM/FLEET/INDIVIDUAL（可空）
+  carrier_category: string
+  carrier_type: string | null
+  remarks: string | null
 }
 
 interface CarrierListResponse {
@@ -39,6 +43,9 @@ interface CarrierForm {
   address: string
   serviceCountries: string
   vehicleTypes: string[]
+  carrierCategory: string
+  carrierType: string
+  remarks: string
 }
 
 const INITIAL_FORM: CarrierForm = {
@@ -55,9 +62,27 @@ const INITIAL_FORM: CarrierForm = {
   address: '',
   serviceCountries: '',
   vehicleTypes: [],
+  carrierCategory: 'EXTERNAL',
+  carrierType: '',
+  remarks: '',
 }
 
 const VEHICLE_TYPE_OPTIONS = ['Curtain Side', 'Container Chassis', 'Flatbed', 'Refrigerated']
+
+// 承运商分类 / 类型（P7，值域与迁移 111 的 CHECK 约束一致）
+const CATEGORY_LABELS: Record<string, string> = {
+  EXTERNAL: '外部服务商',
+  OWN_FLEET: '自营车辆',
+}
+const CATEGORY_STYLES: Record<string, string> = {
+  EXTERNAL: 'bg-blue-100 text-blue-700',
+  OWN_FLEET: 'bg-green-100 text-green-700',
+}
+const TYPE_LABELS: Record<string, string> = {
+  PLATFORM: '平台型',
+  FLEET: '自营车队型',
+  INDIVIDUAL: '个体车辆',
+}
 
 // ==================== 组件 ====================
 
@@ -82,6 +107,8 @@ export default function CarrierList() {
   const [carriers, setCarriers] = useState<Carrier[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'INACTIVE'>('all')
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'EXTERNAL' | 'OWN_FLEET'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'PLATFORM' | 'FLEET' | 'INDIVIDUAL'>('all')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [confirmTarget, setConfirmTarget] = useState<Carrier | null>(null)
@@ -100,6 +127,8 @@ export default function CarrierList() {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
       if (search) params.set('search', search)
       if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (categoryFilter !== 'all') params.set('carrierCategory', categoryFilter)
+      if (typeFilter !== 'all') params.set('carrierType', typeFilter)
       const res = await api.get<ApiResponse<Carrier[]>>(`/carriers?${params.toString()}`)
       if (res.code === 200) {
         const list = Array.isArray(res.data) ? res.data : ((res.data as any)?.items || [])
@@ -131,7 +160,7 @@ export default function CarrierList() {
 
   useEffect(() => {
     fetchCarriers()
-  }, [page, statusFilter])
+  }, [page, statusFilter, categoryFilter, typeFilter])
 
   const handleSearch = () => {
     setPage(1)
@@ -191,6 +220,10 @@ export default function CarrierList() {
         address: form.address.trim() || undefined,
         serviceCountries: serviceCountriesArr.length > 0 ? serviceCountriesArr : undefined,
         vehicleTypes: form.vehicleTypes.length > 0 ? form.vehicleTypes : undefined,
+        carrierCategory: form.carrierCategory,
+        // 类型没选就不传，库里留 NULL（"未分类"），别硬塞默认值
+        carrierType: form.carrierType || undefined,
+        remarks: form.remarks.trim() || undefined,
       }
       await api.post<ApiResponse<unknown>>('/carriers', payload)
       setToast({ type: 'success', message: '运输公司添加成功' })
@@ -228,7 +261,7 @@ export default function CarrierList() {
 
       {/* 搜索栏 + 新建按钮 */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -248,6 +281,25 @@ export default function CarrierList() {
             <option value="all">全部状态</option>
             <option value="ACTIVE">有效</option>
             <option value="INACTIVE">已作废</option>
+          </select>
+          <select
+            value={categoryFilter}
+            onChange={e => { setCategoryFilter(e.target.value as any); setPage(1) }}
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          >
+            <option value="all">全部分类</option>
+            <option value="EXTERNAL">外部服务商</option>
+            <option value="OWN_FLEET">自营车辆</option>
+          </select>
+          <select
+            value={typeFilter}
+            onChange={e => { setTypeFilter(e.target.value as any); setPage(1) }}
+            className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          >
+            <option value="all">全部类型</option>
+            <option value="PLATFORM">平台型</option>
+            <option value="FLEET">自营车队型</option>
+            <option value="INDIVIDUAL">个体车辆</option>
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -274,16 +326,18 @@ export default function CarrierList() {
           <table className="w-full table-fixed">
             <colgroup>
               <col className="w-[18%]" />
-              <col className="w-[10%]" />
               <col className="w-[14%]" />
+              <col className="w-[8%]" />
+              <col className="w-[13%]" />
+              <col className="w-[7%]" />
+              <col className="w-[17%]" />
               <col className="w-[10%]" />
-              <col className="w-[20%]" />
-              <col className="w-[12%]" />
-              <col className="w-[16%]" />
+              <col className="w-[13%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">公司名称</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">分类 / 类型</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">国家</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">评分</th>
                 <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">车辆数</th>
@@ -296,7 +350,7 @@ export default function CarrierList() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-slate-100 rounded animate-pulse" />
                       </td>
@@ -305,7 +359,7 @@ export default function CarrierList() {
                 ))
               ) : carriers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-16 text-center">
+                  <td colSpan={8} className="px-4 py-16 text-center">
                     <Truck className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm text-slate-500">暂无承运商数据</p>
                   </td>
@@ -328,6 +382,18 @@ export default function CarrierList() {
                             已作废
                           </span>
                         )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${
+                          CATEGORY_STYLES[carrier.carrier_category] || 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {CATEGORY_LABELS[carrier.carrier_category] || '外部服务商'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {carrier.carrier_type ? TYPE_LABELS[carrier.carrier_type] || carrier.carrier_type : '未分类'}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-center">{carrier.country || '-'}</td>
@@ -573,6 +639,34 @@ export default function CarrierList() {
             />
           </div>
 
+          {/* 分类（P7）：是自己人还是外部服务商 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">分类</label>
+            <select
+              value={form.carrierCategory}
+              onChange={e => updateField('carrierCategory', e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            >
+              <option value="EXTERNAL">外部服务商</option>
+              <option value="OWN_FLEET">自营车辆</option>
+            </select>
+          </div>
+
+          {/* 类型（P7）：组织形态，可以先不填 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">类型</label>
+            <select
+              value={form.carrierType}
+              onChange={e => updateField('carrierType', e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            >
+              <option value="">暂不确定</option>
+              <option value="PLATFORM">平台型（自己不养车）</option>
+              <option value="FLEET">自营车队型</option>
+              <option value="INDIVIDUAL">个体车辆</option>
+            </select>
+          </div>
+
           {/* 服务国家 */}
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1">服务国家</label>
@@ -601,6 +695,18 @@ export default function CarrierList() {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* 备注（P7）：特点/优势/短板，调度选车时看 */}
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1">备注（特点 / 优势 / 短板）</label>
+            <textarea
+              value={form.remarks}
+              onChange={e => updateField('remarks', e.target.value)}
+              rows={3}
+              placeholder="例如：德国南部线路价格有优势，但旺季车源紧张；老板配合度高，可以垫付清关费"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
+            />
           </div>
         </div>
       </Modal>
