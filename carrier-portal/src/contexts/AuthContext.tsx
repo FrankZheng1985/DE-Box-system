@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { applyLanguage, LANG_STORAGE_KEY } from '../i18n'
 
 interface User {
   id: string
@@ -8,6 +9,8 @@ interface User {
   userType: string
   linkedEntityId?: string
   company?: string
+  /** 账号上保存的界面语言（P9），登录接口返回 */
+  language?: string
 }
 
 interface AuthContextType {
@@ -27,6 +30,16 @@ const AUTH_STORAGE_KEY = 'eu_tms_carrier_auth'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/**
+ * 把账号上存的语言应用到界面（P9）
+ * 只在这台机器上没手动选过语言时才生效——手动选的优先级更高
+ */
+function applyAccountLanguage(language?: string) {
+  if (!language) return
+  if (localStorage.getItem(LANG_STORAGE_KEY)) return
+  applyLanguage(language, false)
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
@@ -43,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setToken(data.token)
           setUser(data.user)
           setPermissions(data.permissions || [])
+          applyAccountLanguage(data.user.language)
         }
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY)
@@ -71,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(authData.token)
         setPermissions(authData.permissions)
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData))
+        applyAccountLanguage(authData.user.language)
         return true
       }
       return false

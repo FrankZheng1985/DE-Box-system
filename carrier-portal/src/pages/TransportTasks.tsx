@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Truck, Check, X, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,23 +15,26 @@ interface Order {
   createdAt: string
 }
 
+// tab 文案走语言包，key 仍是后端认的大写状态值（踩坑 004）
 const tabs = [
-  { key: 'all', label: '全部' },
-  { key: 'ASSIGNED', label: '待接单' },
-  { key: 'IN_TRANSIT', label: '执行中' },
-  { key: 'DELIVERED', label: '已完成' },
+  { key: 'all', labelKey: 'tasks.tabAll' },
+  { key: 'ASSIGNED', labelKey: 'tasks.tabAssigned' },
+  { key: 'IN_TRANSIT', labelKey: 'tasks.tabInTransit' },
+  { key: 'DELIVERED', labelKey: 'tasks.tabDelivered' },
 ]
 
-const statusMap: Record<string, { label: string; className: string }> = {
-  ASSIGNED: { label: '待接单', className: 'bg-amber-100 text-amber-700' },
-  ACCEPTED: { label: '已接单', className: 'bg-blue-100 text-blue-700' },
-  IN_TRANSIT: { label: '运输中', className: 'bg-blue-100 text-blue-700' },
-  DELIVERED: { label: '已送达', className: 'bg-green-100 text-green-700' },
-  COMPLETED: { label: '已完成', className: 'bg-green-100 text-green-700' },
-  REJECTED: { label: '已拒单', className: 'bg-red-100 text-red-700' },
+// 状态徽章只保留样式，文案统一到 orderStatus.* 语言包
+const statusClassMap: Record<string, string> = {
+  ASSIGNED: 'bg-amber-100 text-amber-700',
+  ACCEPTED: 'bg-blue-100 text-blue-700',
+  IN_TRANSIT: 'bg-blue-100 text-blue-700',
+  DELIVERED: 'bg-green-100 text-green-700',
+  COMPLETED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
 }
 
 export default function TransportTasks() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('all')
   const [orders, setOrders] = useState<Order[]>([])
@@ -89,13 +93,17 @@ export default function TransportTasks() {
     }
   }
 
-  const getStatus = (status: string) => statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-600' }
+  // 语言包里没有的状态就原样显示后端值，别把信息吞掉
+  const getStatus = (status: string) => ({
+    label: t(`orderStatus.${status}`, { defaultValue: status }),
+    className: statusClassMap[status] || 'bg-gray-100 text-gray-600',
+  })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">运输任务</h1>
-        <button onClick={fetchOrders} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+        <h1 className="text-xl font-semibold text-slate-900">{t('tasks.title')}</h1>
+        <button onClick={fetchOrders} aria-label={t('common.refresh')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -112,7 +120,7 @@ export default function TransportTasks() {
                 : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -130,19 +138,19 @@ export default function TransportTasks() {
           </colgroup>
           <thead>
             <tr className="border-b border-slate-100">
-              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">订单号</th>
-              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">路线</th>
-              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">类型</th>
-              <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">重量</th>
-              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
-              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.orderNo')}</th>
+              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
+              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.type')}</th>
+              <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('common.weight')}</th>
+              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
+              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">加载中...</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">{t('common.loading')}</td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">暂无数据</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">{t('common.noData')}</td></tr>
             ) : (
               orders.map((order) => {
                 const s = getStatus(order.status)
@@ -150,8 +158,8 @@ export default function TransportTasks() {
                   <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                     <td className="text-left text-xs text-slate-900 px-4 py-3 font-medium">{order.orderNo}</td>
                     <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">{order.originCity} → {order.destinationCity}</td>
-                    <td className="text-center text-xs text-slate-600 px-4 py-3">{order.containerType || '-'}</td>
-                    <td className="text-right text-xs text-slate-600 px-4 py-3">{order.weight ? `${order.weight}t` : '-'}</td>
+                    <td className="text-center text-xs text-slate-600 px-4 py-3">{order.containerType || t('common.empty')}</td>
+                    <td className="text-right text-xs text-slate-600 px-4 py-3">{order.weight ? `${order.weight} t` : t('common.empty')}</td>
                     <td className="text-center px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-lg ${s.className}`}>{s.label}</span>
                     </td>
@@ -160,10 +168,10 @@ export default function TransportTasks() {
                         {order.status === 'ASSIGNED' && (
                           <>
                             <button onClick={() => handleAccept(order.id)} className="text-xs bg-green-50 text-green-600 hover:bg-green-100 px-3 py-1 rounded-lg transition-colors flex items-center gap-1">
-                              <Check className="w-3 h-3" /> 接单
+                              <Check className="w-3 h-3" /> {t('tasks.accept')}
                             </button>
                             <button onClick={() => setRejectId(order.id)} className="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1 rounded-lg transition-colors flex items-center gap-1">
-                              <X className="w-3 h-3" /> 拒单
+                              <X className="w-3 h-3" /> {t('tasks.reject')}
                             </button>
                           </>
                         )}
@@ -173,7 +181,7 @@ export default function TransportTasks() {
                             className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
                           >
                             <Truck className="w-3 h-3" />
-                            {order.status === 'ACCEPTED' ? '开始运输' : '确认送达'}
+                            {order.status === 'ACCEPTED' ? t('tasks.startTransport') : t('tasks.confirmDelivery')}
                           </button>
                         )}
                       </div>
@@ -190,16 +198,16 @@ export default function TransportTasks() {
       {rejectId && (
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">拒单原因</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">{t('tasks.rejectTitle')}</h3>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="请输入拒单原因..."
+              placeholder={t('tasks.rejectPlaceholder')}
               className="w-full border border-slate-200 rounded-xl p-3 text-sm h-24 resize-none focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
             />
             <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => { setRejectId(null); setRejectReason('') }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
-              <button onClick={handleReject} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50">确认拒单</button>
+              <button onClick={() => { setRejectId(null); setRejectReason('') }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">{t('common.cancel')}</button>
+              <button onClick={handleReject} disabled={!rejectReason.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50">{t('tasks.rejectConfirm')}</button>
             </div>
           </div>
         </div>

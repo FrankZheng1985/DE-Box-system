@@ -1,17 +1,13 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MapPin, Send } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 
-const statusOptions = [
-  { value: 'LOADING', label: '装货中' },
-  { value: 'IN_TRANSIT', label: '运输中' },
-  { value: 'BORDER_CROSSING', label: '过境中' },
-  { value: 'CUSTOMS', label: '清关中' },
-  { value: 'UNLOADING', label: '卸货中' },
-  { value: 'DELIVERED', label: '已送达' },
-]
+// 值是后端认的大写枚举，文案走 gpsStatus.* 语言包
+const STATUS_VALUES = ['LOADING', 'IN_TRANSIT', 'BORDER_CROSSING', 'CUSTOMS', 'UNLOADING', 'DELIVERED']
 
 export default function GPSReport() {
+  const { t } = useTranslation()
   const [orderId, setOrderId] = useState('')
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
@@ -20,17 +16,18 @@ export default function GPSReport() {
   const [status, setStatus] = useState('IN_TRANSIT')
   const [remark, setRemark] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
+  // 成败单独存布尔值，别再靠文案里有没有"成功"两个字判断（P9）
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!orderId || !city.trim() || !country.trim()) {
-      setMessage('请填写必要信息（运输任务、城市、国家）')
+      setMessage({ text: t('gps.errorRequired'), ok: false })
       return
     }
 
     setSubmitting(true)
-    setMessage('')
+    setMessage(null)
     try {
       const res = await api.post<ApiResponse>('/gps/report', {
         orderId,
@@ -42,7 +39,7 @@ export default function GPSReport() {
         remark: remark.trim(),
       })
       if (res.code === 200) {
-        setMessage('GPS 位置上报成功')
+        setMessage({ text: t('gps.success'), ok: true })
         setOrderId('')
         setCity('')
         setCountry('')
@@ -53,7 +50,7 @@ export default function GPSReport() {
       }
     } catch (error) {
       console.error('GPS上报失败:', error)
-      setMessage('上报失败，请重试')
+      setMessage({ text: t('gps.errorFailed'), ok: false })
     } finally {
       setSubmitting(false)
     }
@@ -61,51 +58,51 @@ export default function GPSReport() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">GPS 上报</h1>
+      <h1 className="text-xl font-semibold text-slate-900">{t('gps.title')}</h1>
 
       <div className="max-w-xl">
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
           <div className="flex items-center gap-2 mb-5">
             <MapPin className="w-5 h-5 text-green-600" />
-            <h2 className="text-sm font-semibold text-slate-900">手动上报位置</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t('gps.formTitle')}</h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {message && (
-              <div className={`text-sm px-4 py-3 rounded-xl ${message.includes('成功') ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                {message}
+              <div className={`text-sm px-4 py-3 rounded-xl ${message.ok ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                {message.text}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">运输任务ID *</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('gps.orderIdLabel')} {t('common.required')}</label>
               <input
                 type="text"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
-                placeholder="输入关联的订单ID"
+                placeholder={t('gps.orderIdPlaceholder')}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">城市 *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('gps.cityLabel')} {t('common.required')}</label>
                 <input
                   type="text"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  placeholder="例: Hamburg"
+                  placeholder={t('gps.cityPlaceholder')}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">国家 *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('gps.countryLabel')} {t('common.required')}</label>
                 <input
                   type="text"
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
-                  placeholder="例: Germany"
+                  placeholder={t('gps.countryPlaceholder')}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
                 />
               </div>
@@ -113,48 +110,48 @@ export default function GPSReport() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">纬度</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('gps.latitudeLabel')}</label>
                 <input
                   type="number"
                   step="any"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
-                  placeholder="例: 53.5511"
+                  placeholder={t('gps.latitudePlaceholder')}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">经度</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('gps.longitudeLabel')}</label>
                 <input
                   type="number"
                   step="any"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
-                  placeholder="例: 9.9937"
+                  placeholder={t('gps.longitudePlaceholder')}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">状态</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.status')}</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
               >
-                {statusOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {STATUS_VALUES.map((value) => (
+                  <option key={value} value={value}>{t(`gpsStatus.${value}`)}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">备注</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.remark')}</label>
               <textarea
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
-                placeholder="可选备注信息"
+                placeholder={t('gps.remarkPlaceholder')}
                 rows={3}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all duration-200"
               />
@@ -166,7 +163,7 @@ export default function GPSReport() {
               className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <Send className="w-4 h-4" />
-              {submitting ? '提交中...' : '上报位置'}
+              {submitting ? t('gps.submitting') : t('gps.submit')}
             </button>
           </form>
         </div>

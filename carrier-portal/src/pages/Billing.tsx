@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Receipt, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { formatMoney, formatDate } from '../utils/format'
 import { useAuth } from '../contexts/AuthContext'
 
 interface Payable {
@@ -14,14 +16,16 @@ interface Payable {
   paidDate: string | null
 }
 
-const statusMap: Record<string, { label: string; className: string }> = {
-  PENDING: { label: '待结算', className: 'bg-amber-100 text-amber-700' },
-  APPROVED: { label: '已审批', className: 'bg-blue-100 text-blue-700' },
-  PAID: { label: '已付款', className: 'bg-green-100 text-green-700' },
-  OVERDUE: { label: '逾期', className: 'bg-red-100 text-red-700' },
+// 只留样式，文案走 payableStatus.* 语言包
+const statusClassMap: Record<string, string> = {
+  PENDING: 'bg-amber-100 text-amber-700',
+  APPROVED: 'bg-blue-100 text-blue-700',
+  PAID: 'bg-green-100 text-green-700',
+  OVERDUE: 'bg-red-100 text-red-700',
 }
 
 export default function Billing() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [payables, setPayables] = useState<Payable[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,16 +49,21 @@ export default function Billing() {
     }
   }
 
-  const getStatus = (status: string) => statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-600' }
+  const getStatus = (status: string) => ({
+    label: t(`payableStatus.${status}`, { defaultValue: status }),
+    className: statusClassMap[status] || 'bg-gray-100 text-gray-600',
+  })
 
-  const totalPending = payables.filter((p) => p.status === 'PENDING' || p.status === 'APPROVED').reduce((sum, p) => sum + p.amount, 0)
-  const totalPaid = payables.filter((p) => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0)
+  // 后端 NUMERIC 返回的是字符串（踩坑 002），直接 sum + p.amount 会变成字符串拼接
+  const sumAmount = (list: Payable[]) => list.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+  const totalPending = sumAmount(payables.filter((p) => p.status === 'PENDING' || p.status === 'APPROVED'))
+  const totalPaid = sumAmount(payables.filter((p) => p.status === 'PAID'))
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">费用结算</h1>
-        <button onClick={fetchPayables} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+        <h1 className="text-xl font-semibold text-slate-900">{t('billing.title')}</h1>
+        <button onClick={fetchPayables} aria-label={t('common.refresh')} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -67,8 +76,8 @@ export default function Billing() {
               <Receipt className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm text-slate-500">待结算金额</p>
-              <p className="text-xl font-bold text-slate-900">{'\u20AC'}{totalPending.toLocaleString()}</p>
+              <p className="text-sm text-slate-500">{t('billing.totalPending')}</p>
+              <p className="text-xl font-bold text-slate-900">{formatMoney(totalPending)}</p>
             </div>
           </div>
         </div>
@@ -78,8 +87,8 @@ export default function Billing() {
               <Receipt className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-slate-500">已结算金额</p>
-              <p className="text-xl font-bold text-slate-900">{'\u20AC'}{totalPaid.toLocaleString()}</p>
+              <p className="text-sm text-slate-500">{t('billing.totalPaid')}</p>
+              <p className="text-xl font-bold text-slate-900">{formatMoney(totalPaid)}</p>
             </div>
           </div>
         </div>
@@ -98,32 +107,32 @@ export default function Billing() {
           </colgroup>
           <thead>
             <tr className="border-b border-slate-100">
-              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">订单号</th>
-              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">描述</th>
-              <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">金额</th>
-              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
-              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">到期日</th>
-              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">付款日</th>
+              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.orderNo')}</th>
+              <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.description')}</th>
+              <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('common.amount')}</th>
+              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
+              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('billing.dueDate')}</th>
+              <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('billing.paidDate')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">加载中...</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">{t('common.loading')}</td></tr>
             ) : payables.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">暂无结算数据</td></tr>
+              <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">{t('billing.empty')}</td></tr>
             ) : (
               payables.map((item) => {
                 const s = getStatus(item.status)
                 return (
                   <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                     <td className="text-left text-xs text-slate-900 px-4 py-3 font-medium">{item.orderNo}</td>
-                    <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">{item.description || '-'}</td>
-                    <td className="text-right text-xs text-slate-900 px-4 py-3 font-medium">{'\u20AC'}{item.amount.toLocaleString()}</td>
+                    <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">{item.description || t('common.empty')}</td>
+                    <td className="text-right text-xs text-slate-900 px-4 py-3 font-medium">{formatMoney(item.amount)}</td>
                     <td className="text-center px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-lg ${s.className}`}>{s.label}</span>
                     </td>
-                    <td className="text-center text-xs text-slate-600 px-4 py-3">{item.dueDate || '-'}</td>
-                    <td className="text-center text-xs text-slate-600 px-4 py-3">{item.paidDate || '-'}</td>
+                    <td className="text-center text-xs text-slate-600 px-4 py-3">{formatDate(item.dueDate)}</td>
+                    <td className="text-center text-xs text-slate-600 px-4 py-3">{formatDate(item.paidDate)}</td>
                   </tr>
                 )
               })

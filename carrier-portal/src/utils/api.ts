@@ -3,6 +3,8 @@
  * EU-TMS 承运商门户 API 接口
  */
 
+import i18n from '../i18n'
+
 export interface ApiResponse<T = any> {
   code: number
   message: string
@@ -126,7 +128,7 @@ async function request<T>(
 
       if (response.status === 401) {
         localStorage.removeItem(AUTH_STORAGE_KEY)
-        throw new ApiError('登录已过期，请重新登录', 401, 'UNAUTHORIZED')
+        throw new ApiError(i18n.t('apiError.sessionExpired'), 401, 'UNAUTHORIZED')
       }
       throw new ApiError(errorMsg, response.status, `HTTP_${response.status}`)
     }
@@ -136,12 +138,12 @@ async function request<T>(
     clearTimeout(timeoutId)
 
     if (error.name === 'AbortError') {
-      throw new ApiError('请求超时，请检查网络连接', 0, 'TIMEOUT', true)
+      throw new ApiError(i18n.t('apiError.timeout'), 0, 'TIMEOUT', true)
     }
 
     if (error instanceof ApiError) throw error
 
-    throw new ApiError(error.message || '请求失败', 0, 'UNKNOWN_ERROR')
+    throw new ApiError(error.message || i18n.t('apiError.requestFailed'), 0, 'UNKNOWN_ERROR')
   }
 }
 

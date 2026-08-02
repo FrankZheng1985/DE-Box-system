@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   Truck,
@@ -13,17 +14,20 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import BrandMark from './BrandMark'
+import LanguageSwitcher from './LanguageSwitcher'
 
+// labelKey 是语言包里的 key，真正的文案在渲染时才翻译（P9）
 const menuItems = [
-  { path: '/', label: '概览', icon: LayoutDashboard, permission: '' },
-  { path: '/tasks', label: '运输任务', icon: Truck, permission: 'carrier_portal:task_view' },
-  { path: '/cmr', label: '上传CMR', icon: FileText, permission: 'carrier_portal:cmr_upload' },
-  { path: '/gps', label: 'GPS上报', icon: MapPin, permission: 'carrier_portal:gps_report' },
-  { path: '/billing', label: '费用结算', icon: Receipt, permission: 'carrier_portal:billing_view' },
-  { path: '/settings', label: '公司设置', icon: Settings, permission: 'carrier_portal:company_settings' },
+  { path: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, permission: '' },
+  { path: '/tasks', labelKey: 'nav.tasks', icon: Truck, permission: 'carrier_portal:task_view' },
+  { path: '/cmr', labelKey: 'nav.cmr', icon: FileText, permission: 'carrier_portal:cmr_upload' },
+  { path: '/gps', labelKey: 'nav.gps', icon: MapPin, permission: 'carrier_portal:gps_report' },
+  { path: '/billing', labelKey: 'nav.billing', icon: Receipt, permission: 'carrier_portal:billing_view' },
+  { path: '/settings', labelKey: 'nav.settings', icon: Settings, permission: 'carrier_portal:company_settings' },
 ]
 
 export default function Layout() {
+  const { t } = useTranslation()
   const { user, logout, hasPermission } = useAuth()
 
   // 只显示当前账号有权限的菜单（P5）——例如司机看不到"费用结算"
@@ -60,10 +64,11 @@ export default function Layout() {
             <div className="w-8 h-8 bg-[#1C1C1E] rounded-xl flex items-center justify-center">
               <BrandMark className="w-5 h-5" />
             </div>
-            <span className="text-lg font-semibold text-slate-900">承运商门户</span>
+            <span className="text-lg font-semibold text-slate-900">{t('app.portalName')}</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
+            aria-label={t('nav.closeMenu')}
             className="lg:hidden p-1 text-slate-400 hover:text-slate-600"
           >
             <X className="w-5 h-5" />
@@ -87,13 +92,14 @@ export default function Layout() {
               }
             >
               <item.icon className="w-5 h-5" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
 
-        {/* 用户信息 */}
+        {/* 语言切换 + 用户信息 */}
         <div className="p-4 border-t border-slate-200">
+          <LanguageSwitcher className="mb-3" />
           <div className="flex items-center gap-3 px-4 py-2">
             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-green-700">
@@ -101,13 +107,14 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{user?.name || '承运商'}</p>
+              <p className="text-sm font-medium text-slate-900 truncate">{user?.name || t('nav.defaultUserName')}</p>
               <p className="text-xs text-slate-500 truncate">{user?.company || user?.email || ''}</p>
             </div>
             <button
               onClick={handleLogout}
               className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
-              title="退出登录"
+              title={t('nav.logout')}
+              aria-label={t('nav.logout')}
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -121,11 +128,12 @@ export default function Layout() {
         <header className="lg:hidden flex items-center h-16 px-4 bg-white border-b border-slate-200">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label={t('nav.openMenu')}
             className="p-2 text-slate-600 hover:text-slate-900"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="ml-3 text-lg font-semibold text-slate-900">承运商门户</span>
+          <span className="ml-3 text-lg font-semibold text-slate-900">{t('app.portalName')}</span>
         </header>
 
         {/* 页面内容 */}

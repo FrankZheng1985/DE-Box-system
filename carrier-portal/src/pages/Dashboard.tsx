@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ClipboardList, Truck, CheckCircle, Euro, ArrowRight } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { formatMoney } from '../utils/format'
 
 interface DashboardStats {
   pendingCount: number
@@ -19,6 +21,7 @@ interface TaskItem {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats>({
     pendingCount: 0,
@@ -62,10 +65,10 @@ export default function Dashboard() {
   }
 
   const statCards = [
-    { label: '待接单', value: stats.pendingCount, icon: ClipboardList, color: 'amber' },
-    { label: '运输中', value: stats.inTransitCount, icon: Truck, color: 'blue' },
-    { label: '本月完成', value: stats.monthlyCompleted, icon: CheckCircle, color: 'green' },
-    { label: '本月收入', value: `€${stats.monthlyRevenue.toLocaleString()}`, icon: Euro, color: 'purple' },
+    { key: 'pending', label: t('dashboard.statPending'), value: stats.pendingCount, icon: ClipboardList, color: 'amber' },
+    { key: 'inTransit', label: t('dashboard.statInTransit'), value: stats.inTransitCount, icon: Truck, color: 'blue' },
+    { key: 'monthCompleted', label: t('dashboard.statMonthCompleted'), value: stats.monthlyCompleted, icon: CheckCircle, color: 'green' },
+    { key: 'monthRevenue', label: t('dashboard.statMonthRevenue'), value: formatMoney(stats.monthlyRevenue), icon: Euro, color: 'purple' },
   ]
 
   const colorMap: Record<string, string> = {
@@ -89,12 +92,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">概览</h1>
+      <h1 className="text-xl font-semibold text-slate-900">{t('dashboard.title')}</h1>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card) => (
-          <div key={card.label} className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div key={card.key} className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-500">{card.label}</p>
@@ -113,17 +116,17 @@ export default function Dashboard() {
         {/* 待接单 */}
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="flex items-center justify-between p-5 border-b border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-900">待接单</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t('dashboard.pendingTitle')}</h2>
             <button
               onClick={() => navigate('/tasks')}
               className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1"
             >
-              查看全部 <ArrowRight className="w-3 h-3" />
+              {t('common.viewAll')} <ArrowRight className="w-3 h-3" />
             </button>
           </div>
           <div className="p-5 space-y-3">
             {pendingTasks.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-4">暂无待接单任务</p>
+              <p className="text-sm text-slate-400 text-center py-4">{t('dashboard.pendingEmpty')}</p>
             ) : (
               pendingTasks.slice(0, 5).map((task) => (
                 <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
@@ -131,7 +134,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-900">{task.orderNo}</p>
                     <p className="text-xs text-slate-500">{task.route}</p>
                   </div>
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">待接单</span>
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">{t('orderStatus.ASSIGNED')}</span>
                 </div>
               ))
             )}
@@ -141,17 +144,17 @@ export default function Dashboard() {
         {/* 运输中 */}
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="flex items-center justify-between p-5 border-b border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-900">运输中</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t('dashboard.activeTitle')}</h2>
             <button
               onClick={() => navigate('/tasks')}
               className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1"
             >
-              查看全部 <ArrowRight className="w-3 h-3" />
+              {t('common.viewAll')} <ArrowRight className="w-3 h-3" />
             </button>
           </div>
           <div className="p-5 space-y-3">
             {activeTasks.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-4">暂无运输中任务</p>
+              <p className="text-sm text-slate-400 text-center py-4">{t('dashboard.activeEmpty')}</p>
             ) : (
               activeTasks.slice(0, 5).map((task) => (
                 <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
@@ -159,7 +162,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-900">{task.orderNo}</p>
                     <p className="text-xs text-slate-500">{task.route}</p>
                   </div>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">运输中</span>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">{t('orderStatus.IN_TRANSIT')}</span>
                 </div>
               ))
             )}

@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
     // 查询用户（关联角色和组织）
     const result = await query(
       `SELECT u.id, u.username, u.password_hash, u.email, u.phone,
-              u.display_name, u.user_type, u.linked_entity_id, u.is_active,
+              u.display_name, u.user_type, u.linked_entity_id, u.is_active, u.language,
               r.role_code, r.role_name, r.role_type
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id
@@ -105,7 +105,9 @@ router.post('/login', async (req, res) => {
           userType: user.user_type,
           roleCode: user.role_code,
           roleName: user.role_name,
-          linkedEntityId: user.linked_entity_id
+          linkedEntityId: user.linked_entity_id,
+          // P9 三语国际化：登录后前端直接按这个值切界面语言，不用再多请求一次 profile
+          language: user.language || 'zh'
         },
         organization: defaultOrg,
         authObjects: authResult.rows,
