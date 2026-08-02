@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Truck, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
+import BrandMark from '../components/BrandMark'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Login() {
@@ -41,11 +42,11 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-600 rounded-2xl mb-4 shadow-lg">
-            <Truck className="w-9 h-9 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#1C1C1E] rounded-2xl mb-4 shadow-lg">
+            <BrandMark className="w-9 h-9" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">EU-TMS 承运商门户</h1>
-          <p className="text-sm text-slate-500 mt-1">Carrier Portal</p>
+          <h1 className="text-2xl font-bold text-slate-900">KALUNA SPED</h1>
+          <p className="text-sm text-slate-500 mt-1">承运商门户 / Carrier Portal</p>
         </div>
 
         {/* 登录表单 */}

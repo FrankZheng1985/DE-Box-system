@@ -14,10 +14,10 @@ import {
   LogOut,
   User,
   Menu,
-  Truck,
   Users,
 } from 'lucide-react'
 import { useState } from 'react'
+import BrandMark from './BrandMark'
 
 /**
  * 导航项
@@ -75,10 +75,10 @@ export default function Layout() {
       >
         {/* Logo */}
         <div className="h-14 flex items-center gap-2 px-4 border-b border-gray-100">
-          <div className="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center">
-            <Truck className="w-4 h-4 text-white" />
+          <div className="w-7 h-7 bg-[#1C1C1E] rounded-lg flex items-center justify-center">
+            <BrandMark className="w-4 h-4" />
           </div>
-          <span className="text-sm font-bold text-slate-900">EU-TMS</span>
+          <span className="text-sm font-bold text-slate-900">KALUNA SPED</span>
           <span className="text-[10px] text-slate-400 ml-auto">客户端</span>
         </div>
 

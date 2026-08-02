@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Loader2, Truck, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
+import BrandMark from '../components/BrandMark'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -61,8 +62,8 @@ export default function Login() {
         {/* 标题区域 */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2.5 mb-2.5">
-            <Truck className="w-8 h-8" style={{ color: '#1F4E79' }} />
-            <span className="text-2xl font-bold" style={{ color: '#1F4E79' }}>EU-TMS</span>
+            <BrandMark className="w-8 h-8" barColor="#1C1C1E" />
+            <span className="text-2xl font-bold" style={{ color: '#1C1C1E' }}>KALUNA SPED</span>
           </div>
           <div className="text-sm text-slate-500">
             欧洲运输管理系统

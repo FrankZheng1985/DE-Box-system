@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import BrandMark from './BrandMark'
 
 const menuItems = [
   { path: '/', label: '概览', icon: LayoutDashboard, permission: '' },
@@ -56,8 +57,8 @@ export default function Layout() {
         {/* Logo 区域 */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-600 rounded-xl flex items-center justify-center">
-              <Truck className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-[#1C1C1E] rounded-xl flex items-center justify-center">
+              <BrandMark className="w-5 h-5" />
             </div>
             <span className="text-lg font-semibold text-slate-900">承运商门户</span>
           </div>

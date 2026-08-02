@@ -15,13 +15,13 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Truck,
   UserCog,
   ShieldCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../contexts/AuthContext'
 import { MENU_PERMISSIONS } from '../constants/permissions'
+import BrandMark from './BrandMark'
 
 interface SidebarProps {
   collapsed: boolean
@@ -89,12 +89,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo 区域 */}
       <div className="h-16 flex items-center px-4 border-b border-slate-200/60">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center flex-shrink-0 shadow-[0_2px_8px_rgb(37,99,235,0.3)]">
-            <Truck className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 bg-[#1C1C1E] rounded-xl flex items-center justify-center flex-shrink-0 shadow-[0_2px_8px_rgb(28,28,30,0.3)]">
+            <BrandMark className="w-5 h-5" />
           </div>
           {!collapsed && (
             <div className="whitespace-nowrap">
-              <h1 className="text-sm font-bold text-slate-900">EU-TMS</h1>
+              <h1 className="text-sm font-bold text-slate-900">KALUNA SPED</h1>
               <p className="text-xs text-slate-400">运输管理系统 V2</p>
             </div>
           )}

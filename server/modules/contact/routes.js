@@ -34,11 +34,11 @@ router.post('/', async (req, res) => {
     try {
       await sendEmail({
         to: process.env.ADMIN_EMAIL || 'info@kalunasped.com',
-        subject: `[Box Cargo] 新客户咨询 - ${name}`,
+        subject: `[KALUNA SPED] 新客户咨询 - ${name}`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-            <div style="background:#1A365D;padding:20px 30px;border-radius:12px 12px 0 0">
-              <h2 style="color:#F6AD55;margin:0;font-size:18px">BOX · CARGO</h2>
+            <div style="background:#1C1C1E;padding:20px 30px;border-radius:12px 12px 0 0">
+              <h2 style="color:#FFFFFF;margin:0;font-size:18px">KALUNA <span style="color:#FF6A55">SPED</span></h2>
               <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:12px">新客户咨询通知</p>
             </div>
             <div style="background:#fff;padding:30px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px">

@@ -78,7 +78,9 @@
       box-shadow: 0 2px 20px rgba(0,0,0,0.06);
     }
     /* Hero 区透明导航时 Logo 和链接颜色 */
-    .navbar:not(.scrolled) .logo-cargo { color: #FFFFFF !important; }
+    /* KALUNA 与图标竖条在深色 Hero 上转白，SPED 的朱砂红深浅底都够醒目故不变 */
+    .navbar:not(.scrolled) .logo-name { color: #FFFFFF !important; }
+    .navbar:not(.scrolled) .logo-bar { fill: #FFFFFF !important; }
     .navbar:not(.scrolled) .nav-links a { color: rgba(255,255,255,0.85); }
     .navbar:not(.scrolled) .nav-links a:hover { color: #FFFFFF; }
 
@@ -1255,13 +1257,13 @@
 
   <!-- ===== 导航栏 ===== -->
   <nav class="navbar" id="navbar">
-    <a href="#" class="nav-logo" style="gap:4px">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F6AD55" stroke-width="1.5" style="flex-shrink:0">
-        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
-        <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+    <a href="#" class="nav-logo" style="gap:6px">
+      <svg width="28" height="28" viewBox="0 0 48 48" style="flex-shrink:0">
+        <rect class="logo-bar" x="7" y="9" width="7" height="30" fill="#1C1C1E" style="transition:fill 0.3s"/>
+        <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
       </svg>
-      <span style="font-size:20px;font-weight:800;letter-spacing:1px;color:#F6AD55">BOX</span>
-      <span class="logo-cargo" style="font-size:20px;font-weight:800;letter-spacing:1px;color:#1A365D;transition:color 0.3s">CARGO</span>
+      <span class="logo-name" style="font-size:20px;font-weight:800;letter-spacing:1px;color:#1C1C1E;transition:color 0.3s">KALUNA</span>
+      <span style="font-size:20px;font-weight:800;letter-spacing:1px;color:#E5432E">SPED</span>
     </a>
 
     <ul class="nav-links">
