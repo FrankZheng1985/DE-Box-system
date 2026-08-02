@@ -12,7 +12,9 @@ interface Carrier {
   id: string
   company_name: string
   country: string
-  rating: number
+  // ⚠️ 后端返回的是 performance_score（carriers 表里就叫这个，默认 5.0）。
+  //    原来这里写的是 rating，后端根本没这字段，评分列长期恒显示 0.0（踩坑 033）
+  performance_score: number | string | null
   vehicle_count: number
   service_countries: string[]
   status: string
@@ -24,10 +26,9 @@ interface Carrier {
   remarks: string | null
 }
 
-interface CarrierListResponse {
-  items: Carrier[]
-  pagination: { total: number; page: number; pageSize: number }
-}
+// 注：/carriers 列表接口返回的是 { code, message, data: Carrier[], pagination }，
+// 不是 { items }。原来这里声明了一个 CarrierListResponse { items, pagination }，
+// 全文件零引用且和实际契约不符，留着只会误导人，已删除。
 
 interface CarrierForm {
   companyName: string
@@ -398,7 +399,7 @@ export default function CarrierList() {
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-center">{carrier.country || '-'}</td>
                     <td className="px-4 py-3 text-center">
-                      <RatingStars rating={carrier.rating || 0} />
+                      <RatingStars rating={Number(carrier.performance_score) || 0} />
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{carrier.vehicle_count ?? 0}</td>
                     <td className="px-4 py-3">

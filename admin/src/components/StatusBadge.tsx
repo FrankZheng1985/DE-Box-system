@@ -74,6 +74,15 @@ const statusColorMap: Record<string, ColorGroup> = {
   draft: 'gray',
   cancelled: 'gray',
   not_required: 'gray',
+  // 主数据启停用（carriers.status / clients.status）
+  ACTIVE: 'green',
+  INACTIVE: 'gray',
+  // CMR 签署进度（cmr_documents.sign_status）
+  UNSIGNED: 'gray',
+  SENDER_SIGNED: 'yellow',
+  RECEIVER_SIGNED: 'blue',
+  // 清关起始状态
+  PENDING: 'yellow',
 }
 
 // 颜色分组对应的 Tailwind 样式
@@ -125,6 +134,16 @@ const statusLabelMap: Record<string, string> = {
   PENDING_DECISION: '客户待定',
   CONVERTED: '已下单',
   QUOTED: '已报价',
+  // 主数据启停用（carriers.status / clients.status）——
+  // 长期漏收录，承运商和客户列表的状态列一直在显示原始英文 ACTIVE/INACTIVE
+  ACTIVE: '启用',
+  INACTIVE: '已停用',
+  // CMR 签署状态（cmr_documents.sign_status）——同样长期漏收录
+  UNSIGNED: '未签署',
+  SENDER_SIGNED: '发货方已签',
+  RECEIVER_SIGNED: '收货方已签',
+  // 清关待处理（customs 的 clearance_status 起始值）
+  PENDING: '待处理',
   // 小写兼容值（保留原有映射）
   pending_review: '待审核',
   confirmed: '已确认',
@@ -149,9 +168,27 @@ const statusLabelMap: Record<string, string> = {
   mailed: '正本已邮寄',
 }
 
-export default function StatusBadge({ status, type: _type, label: labelOverride }: StatusBadgeProps) {
+/**
+ * 同一个状态码在不同业务里叫法不同，按 type 覆盖文案。
+ * 以前 type 这个 prop 是收下但完全不用的，所以 CMR 的 COMPLETED
+ * 会显示成"已完成"而不是"签署完成"。
+ */
+const typeLabelOverrides: Record<string, Record<string, string>> = {
+  cmr: {
+    COMPLETED: '签署完成',
+  },
+  payment: {
+    PARTIAL: '部分付款',
+  },
+}
+
+export default function StatusBadge({ status, type, label: labelOverride }: StatusBadgeProps) {
   const colorGroup = statusColorMap[status] || 'gray'
-  const label = labelOverride || statusLabelMap[status] || status
+  const label =
+    labelOverride ||
+    (type ? typeLabelOverrides[type]?.[status] : undefined) ||
+    statusLabelMap[status] ||
+    status
 
   return (
     <span
