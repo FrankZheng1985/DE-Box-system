@@ -25,6 +25,19 @@ router.get('/', requirePermission('invoice_template:view'), async (req, res) => 
   }
 })
 
+// ⚠️ 固定路径 /rules 必须写在 /:id 之前（踩坑 001）。
+//    原来它在文件末尾，请求 /rules 会被 /:id 接走，
+//    而 invoice_templates.id 是 UUID，`WHERE id = 'rules'` 直接抛类型错误 → 500。
+router.get('/rules', requirePermission('invoice_template:view'), async (req, res) => {
+  try {
+    const result = await query(`SELECT * FROM auto_invoice_rules WHERE is_active = true`)
+    res.json({ code: 200, message: 'success', data: result.rows })
+  } catch (error) {
+    console.error('获取自动开票规则失败:', error)
+    res.status(500).json({ code: 500, message: '获取规则失败', data: null })
+  }
+})
+
 router.get('/:id', requirePermission('invoice_template:view'), async (req, res) => {
   try {
     const result = await query(`SELECT * FROM invoice_templates WHERE id = $1`, [req.params.id])
@@ -46,15 +59,6 @@ router.post('/', requirePermission('invoice_template:manage'), async (req, res) 
     res.json({ code: 200, message: '模板创建成功', data: result.rows[0] })
   } catch (error) {
     res.status(500).json({ code: 500, message: error.message, data: null })
-  }
-})
-
-router.get('/rules', requirePermission('invoice_template:view'), async (req, res) => {
-  try {
-    const result = await query(`SELECT * FROM auto_invoice_rules WHERE is_active = true`)
-    res.json({ code: 200, message: 'success', data: result.rows })
-  } catch (error) {
-    res.status(500).json({ code: 500, message: '获取规则失败', data: null })
   }
 })
 

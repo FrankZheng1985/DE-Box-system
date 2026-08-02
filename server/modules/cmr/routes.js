@@ -20,7 +20,12 @@ router.use(requireTenantBinding)
 
 // 确保上传目录存在
 const CMR_UPLOAD_DIR = '/var/www/germany-box-system/uploads/cmr'
-fs.mkdirSync(CMR_UPLOAD_DIR, { recursive: true })
+try {
+  fs.mkdirSync(CMR_UPLOAD_DIR, { recursive: true })
+} catch {
+  // 本地开发机没有 /var/www 写权限；这句在模块顶层裸跑会让整个后端起不来。
+  // OSS 正常时用不到这个目录，起不来的代价远大于目录没建（与 order 模块同一处理）
+}
 
 // 文件上传配置
 const upload = multer({

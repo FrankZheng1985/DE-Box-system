@@ -11,8 +11,8 @@
  *   cd server && DATABASE_URL="postgresql://<用户>@localhost:5432/eutms_p5_test" \
  *     JWT_SECRET="test" node scripts/test-permissions.js
  *
- * 只挂用得到的路由，不引 cmr/customs——它们在模块顶层 mkdirSync('/var/www/...')，
- * 本机没写权限会直接崩（这是现存问题，不是本测试引入的）。
+ * cmr / customs 的模块顶层 mkdirSync('/var/www/...') 原来没有 try/catch，
+ * 本机无写权限时 import 就崩；已修好，所以这里能一并挂上。
  */
 const log = (m = '') => process.stdout.write(m + '\n')
 import express from 'express'
@@ -29,6 +29,9 @@ const carrierRoutes = (await import('../modules/carrier/routes.js')).default
 const orderRoutes = (await import('../modules/order/routes.js')).default
 const financeRoutes = (await import('../modules/finance/routes.js')).default
 const gpsRoutes = (await import('../modules/gps/routes.js')).default
+const cmrRoutes = (await import('../modules/cmr/routes.js')).default
+const customsRoutes = (await import('../modules/customs/routes.js')).default
+const invoiceTemplateRoutes = (await import('../modules/invoice-template/routes.js')).default
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/system', systemRoutes)
@@ -37,6 +40,9 @@ app.use('/api/v1/carriers', carrierRoutes)
 app.use('/api/v1/orders', orderRoutes)
 app.use('/api/v1/finance', financeRoutes)
 app.use('/api/v1/gps', gpsRoutes)
+app.use('/api/v1/cmr', cmrRoutes)
+app.use('/api/v1/customs', customsRoutes)
+app.use('/api/v1/invoice-templates', invoiceTemplateRoutes)
 
 const server = app.listen(3099)
 const BASE = 'http://127.0.0.1:3099/api/v1'
@@ -154,6 +160,15 @@ check('未绑定公司的客户查订单 → 403', (await call('/orders', unboun
 check('未绑定公司的客户查应收 → 403', (await call('/finance/receivables', unboundClient)).status === 403)
 check('未绑定公司的承运商查订单 → 403', (await call('/orders', unboundCarrier)).status === 403)
 check('绑定正常的客户仍可查订单 → 200', (await call('/orders', clientAdmin)).status === 200)
+
+log('\n【5c】既有问题修复：cmr/customs 能被引入，/rules 不再被 /:id 吞掉')
+check('cmr 列表（模块能 import = mkdirSync 已加 try/catch）→ 200', (await call('/cmr', staff)).status === 200)
+check('customs 列表 → 200', (await call('/customs', staff)).status === 200)
+// /rules 原来排在 /:id 之后被当成 id，而 id 是 UUID → 类型错误 500
+const rulesRes = await call('/invoice-templates/rules', finance)
+check('发票模板 /rules → 200（原来是 500）', rulesRes.status === 200, JSON.stringify(rulesRes.json))
+check('发票模板 /:id 传真 UUID 仍能走到详情逻辑 → 404',
+  (await call('/invoice-templates/11111111-1111-1111-1111-111111111111', finance)).status === 404)
 
 log('\n【6】角色权限保存 + 缓存失效')
 const saveRes = await call(`/system/roles/${roleId.op_staff}/permissions`, admin, 'PUT',

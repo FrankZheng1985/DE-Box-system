@@ -22,12 +22,27 @@ router.get('/export', async (req, res) => { ... })   // 先匹配
 router.get('/:id', async (req, res) => { ... })      // 最后匹配
 ```
 
-## 受影响的模块（共 5 个）
+## 受影响的模块（共 6 个）
 - quotation/routes.js — `/stats`
 - cmr/routes.js — `/stats`
 - customs/routes.js — `/stats`
 - shipping-release/routes.js — `/stats`
 - carrier/routes.js — `/match`
+- **invoice-template/routes.js — `/rules`（2026-08-02 P5 期间发现，第 6 次）**
+
+## 第 6 次：invoice-template 的 /rules（2026-08-02）
+
+`GET /rules` 写在文件最末尾、`/:id` 之后，被 `/:id` 接走。
+`invoice_templates.id` 是 UUID，`WHERE id = 'rules'` 直接抛
+`invalid input syntax for type uuid` → 接口恒 500。
+
+**比前 5 次更隐蔽的地方**：这个端点前端从没调过，所以两个多月没人报错；
+是 P5 给全部路由挂权限码、逐条过路由表时才顺带发现的。
 
 ## 防护规则
-**所有 Express 路由文件中，固定路径（/stats、/match、/export 等）必须写在参数路径（/:id、/:orderId）之前。**
+1. **所有 Express 路由文件中，固定路径（/stats、/match、/export、/rules 等）
+   必须写在参数路径（/:id、/:orderId）之前。**
+2. **新增固定路径时，先看这个文件里有没有 `/:xxx`**——有的话一律往它前面插，
+   不要图省事追加到文件末尾（这次就是追加到末尾造成的）。
+3. **主键是 UUID 时这个坑会变成 500 而不是 404**，错误信息还是数据库类型错，
+   跟"路由写错了"看不出关系，排查会绕远路。

@@ -42,7 +42,12 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 
 // 确保上传目录存在
 const CUSTOMS_UPLOAD_DIR = '/var/www/germany-box-system/uploads/customs'
-fs.mkdirSync(CUSTOMS_UPLOAD_DIR, { recursive: true })
+try {
+  fs.mkdirSync(CUSTOMS_UPLOAD_DIR, { recursive: true })
+} catch {
+  // 本地开发机没有 /var/www 写权限；这句在模块顶层裸跑会让整个后端起不来。
+  // OSS 正常时用不到这个目录，起不来的代价远大于目录没建（与 order 模块同一处理）
+}
 
 /**
  * 清关记录列表
