@@ -1,7 +1,8 @@
 # 旧域名 box-cargo.de 退役 与 KALUNA SPED 品牌迁移
 
 > 日期：2026-08-02　模块：运维 / 品牌
-> 状态：**阶段一已完成并上线；阶段二等待工商信息，未开工**
+> 状态：**阶段一（旧域名断开）已完成并上线；阶段二 Logo 视觉层已上线，
+> 法人名称改名等待工商信息**
 
 ---
 
@@ -119,15 +120,52 @@ Logo 文件中凡涉及法人后缀处已留 `TODO` 注释，等信息到位后�
 已开给客户的 `Box Cargo Service GmbH` 发票是**已生效的税务凭证**，
 只能保持原样。发票模板需按**开票日期**区分主体，禁止批量刷历史数据。
 
-### 待办：代码层改名范围（尚未开工）
+### 已完成：Logo 视觉层接入（提交 aa0fc06 + 38308f5，已上线）
+
+**只换视觉，法人名称一律未动**，因为法人信息受法律约束（见上）。
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Box-Cargo-Homepage原型图.html` | 修改 | 导航栏与页脚 Logo。CSS 类 `logo-cargo` → `logo-name`，新增 `logo-bar`（原类只管文字色，现在图标竖条也要跟着 Hero 透明态变白） |
+| `admin/public/favicon.svg` | 修改 | 原为蓝底 "EU" 字样，与品牌无关 |
+| `customer-portal/public/favicon.svg` | **新建** | 两端 index.html 一直引用 `/favicon.svg` 但文件不存在，标签页图标始终空白 |
+| `carrier-portal/public/favicon.svg` | **新建** | 同上 |
+| `{admin,customer-portal,carrier-portal}/src/components/BrandMark.tsx` | 新建 | 品牌图标组件，三个项目独立故各一份 |
+| `admin/src/components/Sidebar.tsx` | 修改 | Logo 区 + 移除已无引用的 `Truck` import |
+| `admin/src/pages/Login.tsx` | 修改 | 同上 |
+| `customer-portal/src/components/Layout.tsx` | 修改 | 同上 |
+| `customer-portal/src/pages/Login.tsx` | 修改 | 同上 |
+| `carrier-portal/src/components/Layout.tsx` | 修改 | Logo 区。`Truck` 仍用于菜单项，**保留 import** |
+| `carrier-portal/src/pages/Login.tsx` | 修改 | Logo 区 + 标题拆两行（原 "EU-TMS 承运商门户" 一行，换成长品牌名后窄屏会挤） |
+| `{三端}/index.html` | 修改 | 标签页标题：德国Box → KALUNA SPED |
+| `server/modules/contact/routes.js` | 修改 | 咨询通知邮件抬头与主题前缀 |
+
+**连带修正**：官网页脚原写 "Service GmbH"，是承接旧 logo "BOX CARGO" 的后半截；
+换成 KALUNA SPED 后会拼成 "KALUNA SPED Service GmbH" 这个不存在的公司名，已补全为完整法人名。
+
+> 页脚现在法人名出现两次（品牌行 + 版权行），略冗余但法律信息完整，
+> 待品牌完整迁移时再统一精简。
+
+**验证**：三端 `tsc --noEmit` 与 `npm run build` 全过；官网导航透明态/滚动态、
+三端登录页、承运商门户 420px 窄屏均实际渲染确认；公网核实旧 logo 零残留。
+
+**并行撞车**：rebase 时与另一对话的 P5 权限体系（`2f5afb2`/`ba89c05`/`f6af49b`/`14ec990`）
+在 `admin/Sidebar.tsx`、`customer-portal/Layout.tsx` 的 import 区冲突。
+两处均为"两边都要"：保留主线的 `useAuth`/`MENU_PERMISSIONS`/`Users`，
+叠加自己的 `BrandMark`，只删确实无引用的 `Truck`。已逐块 diff 复核未拼回主线旧版。
+
+### 待办：代码层改名范围（等工商信息）
 
 | 位置 | 内容 |
 |------|------|
-| `Box-Cargo-Homepage原型图.html` | title / meta / og / 关于我们 / 地址块 / 页脚版权 / 三语 i18n 文案 |
+| `Box-Cargo-Homepage原型图.html` | title / meta / og / 关于我们 / 地址块 / 页脚版权 / 三语 i18n 文案（14 处法人名） |
 | `admin/src/pages/InvoiceTemplates.tsx` | 发票模板品牌信息 |
-| `server/modules/contact/routes.js` | 邮件主题 `[Box Cargo]`、邮件模板抬头 `BOX · CARGO` |
 | `docs/generate-prd-docx.js` | PRD 封面与页眉法人名 |
-| 三端 favicon / Logo 引用 | admin / customer-portal / carrier-portal |
+
+### 既有问题（非本次引入，未修）
+
+`carrier-portal/src/utils/api.ts` 缺 `ImportMeta.env` 类型声明，
+`tsc --noEmit` 报 2 处 TS2339，不阻塞 `npm run build`。
 
 ---
 
