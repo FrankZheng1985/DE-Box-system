@@ -96,13 +96,24 @@ function FullScreenLoading() {
 // ==================== 保护路由 ====================
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, userType, logout } = useAuth()
+
+  // 旧 localStorage 里可能存着门户账号的登录态，这里再挡一次
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && userType !== 'OPERATOR') {
+      logout()
+    }
+  }, [isLoading, isAuthenticated, userType, logout])
 
   if (isLoading) {
     return <FullScreenLoading />
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  return userType === 'OPERATOR' ? <>{children}</> : <FullScreenLoading />
 }
 
 // ==================== 应用路由 ====================

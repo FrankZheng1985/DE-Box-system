@@ -6,6 +6,12 @@ import { SUPER_ROLE_CODE } from '../constants/permissions'
 // 认证存储键（与 api.ts 保持一致）
 const AUTH_STORAGE_KEY = 'eu_tms_auth'
 
+// 非运营账号登录管理端时的引导文案（nginx 路由：/customer/、/carrier/）
+const PORTAL_LOGIN_HINT: Partial<Record<UserType, string>> = {
+  CLIENT: '这是运营管理端，客户账号请前往客户门户 /customer/ 登录',
+  CARRIER: '这是运营管理端，承运商账号请前往承运商门户 /carrier/ 登录',
+}
+
 // ==================== 类型定义 ====================
 
 interface AuthState {
@@ -94,6 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // V2 格式：检查 code === 200
       if (data.code === 200 && data.data) {
         const { token, user, organization, authObjects, permissions } = data.data
+
+        // 管理端只允许运营账号登录，客户/承运商各走自己的门户
+        if (user?.userType !== 'OPERATOR') {
+          return { success: false, message: PORTAL_LOGIN_HINT[user?.userType as UserType] || '该账号无权访问运营管理端' }
+        }
 
         // 保存到 localStorage
         const loginData = { token, user, organization, authObjects, permissions }

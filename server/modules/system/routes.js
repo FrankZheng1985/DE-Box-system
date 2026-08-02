@@ -79,7 +79,8 @@ router.put('/settings/account', async (req, res) => {
 
 // ==================== 角色列表 ====================
 
-router.get('/roles', async (req, res) => {
+// 角色权限页和用户管理页都要用这个列表，放行两者中任一权限即可
+router.get('/roles', requireUserType('OPERATOR'), requirePermission('system:role', 'system:user'), async (req, res) => {
   try {
     const result = await query(`SELECT id, role_code, role_name, role_type FROM roles WHERE is_active = true ORDER BY role_type, role_name`)
     res.json({ code: 200, message: 'success', data: result.rows })
