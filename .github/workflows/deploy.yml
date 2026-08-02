@@ -63,6 +63,14 @@ jobs:
         run: cd customer-portal && npm run build
 
       # ========== 第五步：构建承运商门户 ==========
+      # ⚠️ carrier-portal 不在根 package.json 的 workspaces 里（只有 admin /
+      #    customer-portal / server），所以上面那次根 npm install 装不到它的依赖，
+      #    必须单独 npm ci。以前没暴露是因为它的依赖恰好和 admin 重合、
+      #    被提升到根 node_modules 借到了；2026-08-03 加了 i18next 这个
+      #    独有依赖后 CI 直接构建失败（踩坑 034）。
+      - name: Install Carrier Portal Dependencies
+        run: cd carrier-portal && npm ci
+
       - name: Build Carrier Portal
         run: cd carrier-portal && npm run build
 

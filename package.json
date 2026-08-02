@@ -17,7 +17,7 @@
     "build:admin": "cd admin && npm run build",
     "build:customer": "cd customer-portal && npm run build",
     "server:init": "cd server && npm run init-db",
-    "install:all": "npm install && cd admin && npm install && cd ../customer-portal && npm install && cd ../server && npm install"
+    "install:all": "npm install && cd admin && npm install && cd ../customer-portal && npm install && cd ../carrier-portal && npm install && cd ../server && npm install"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
