@@ -40,6 +40,7 @@ import notificationRoutes from './modules/notification/routes.js'
 import systemRoutes from './modules/system/routes.js'
 import userRoutes from './modules/user/routes.js'
 import portalUserRoutes from './modules/portal-user/routes.js'
+import openApiRoutes from './modules/open-api/routes.js'
 
 // 中间件
 import { errorHandler } from './middleware/errorHandler.js'
@@ -121,6 +122,11 @@ app.use('/api/v1/system', systemRoutes)
 app.use('/api/v1/users', userRoutes)
 // 客户门户自助管理本公司账号（子系统专属端点，和运营端 /users 分开）
 app.use('/api/v1/portal/users', portalUserRoutes)
+
+// ==================== 开放 API（P8） ====================
+// 外部系统（易抵达/傲翼/翼能）直推询价单和订单。
+// 独立前缀、X-API-Key 认证，和 /api/v1 的 JWT 体系互不相通。
+app.use('/api/open/v1', openApiRoutes)
 
 // ==================== 系统端点 ====================
 app.get('/api/health', (req, res) => {
