@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KALUNA SPED · 公司信息收集表</title>
+<style>
+  :root{
+    --ink:#1C1C1E; --accent:#E5432E; --accent-soft:#FFF1EE;
+    --muted:#6E6E73; --hint:#A1A1A6; --line:#E5E5EA; --bg:#F7F8FA; --card:#FFFFFF;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6; font-size:15px;
+  }
+  .wrap{max-width:840px; margin:0 auto; padding:32px 20px 80px}
+
+  /* 页头 */
+  .head{display:flex; align-items:center; gap:12px; margin-bottom:8px}
+  .head svg{flex-shrink:0}
+  .brand{font-size:22px; font-weight:800; letter-spacing:1px}
+  .brand .sped{color:var(--accent)}
+  h1{font-size:26px; margin:18px 0 8px; letter-spacing:-.3px}
+  .lede{color:var(--muted); margin:0 0 22px}
+
+  .notice{
+    background:var(--accent-soft); border:1px solid #F5C6BC; border-left:4px solid var(--accent);
+    border-radius:12px; padding:16px 18px; margin-bottom:28px; font-size:14px;
+  }
+  .notice b{color:var(--accent)}
+  .notice ol{margin:8px 0 0; padding-left:20px}
+  .notice li{margin:4px 0}
+
+  /* 分区 */
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:24px; margin-bottom:22px; box-shadow:0 4px 16px rgba(0,0,0,.03);
+  }
+  .sec-head{display:flex; align-items:baseline; gap:10px; margin:0 0 6px}
+  .sec-num{
+    background:var(--ink); color:#fff; font-size:12px; font-weight:700;
+    padding:3px 9px; border-radius:6px; letter-spacing:.5px;
+  }
+  .sec-title{font-size:18px; font-weight:700}
+  .sec-desc{color:var(--muted); font-size:14px; margin:0 0 20px}
+
+  /* 已确认信息（只读） */
+  .known{border-collapse:collapse; width:100%; font-size:14px}
+  .known td{padding:9px 0; border-bottom:1px solid var(--line); vertical-align:top}
+  .known td:first-child{color:var(--muted); width:180px; padding-right:14px}
+  .known tr:last-child td{border-bottom:none}
+  .known b{font-weight:600}
+
+  /* 表单项 */
+  .field{margin-bottom:20px}
+  .field:last-child{margin-bottom:0}
+  label{display:block; font-weight:600; margin-bottom:5px; font-size:14.5px}
+  .req{color:var(--accent); font-weight:700; margin-left:2px}
+  .opt{color:var(--hint); font-weight:400; font-size:12.5px; margin-left:6px}
+  .why{color:var(--hint); font-size:12.5px; margin:0 0 8px; line-height:1.5}
+  input[type=text], textarea{
+    width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:10px;
+    font:inherit; font-size:14.5px; color:var(--ink); background:#fff;
+    transition:border-color .18s, box-shadow .18s;
+  }
+  input[type=text]:focus, textarea:focus{
+    outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(229,67,46,.10);
+  }
+  input::placeholder, textarea::placeholder{color:#C7C7CC}
+  textarea{resize:vertical; min-height:88px; line-height:1.65}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media(max-width:600px){.two{grid-template-columns:1fr}}
+
+  .radio-row{display:flex; gap:18px; flex-wrap:wrap; margin-top:4px}
+  .radio-row label{display:flex; align-items:center; gap:6px; font-weight:400; margin:0; cursor:pointer}
+  input[type=radio]{accent-color:var(--accent); width:16px; height:16px; cursor:pointer}
+
+  /* 底部操作条 */
+  .actions{
+    position:sticky; bottom:0; background:rgba(255,255,255,.94); backdrop-filter:blur(10px);
+    border:1px solid var(--line); border-radius:16px; padding:16px 20px; margin-top:28px;
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    box-shadow:0 -2px 20px rgba(0,0,0,.06);
+  }
+  button{
+    font:inherit; font-weight:600; font-size:14.5px; padding:11px 20px; border-radius:10px;
+    border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer;
+    transition:all .18s ease-in-out;
+  }
+  button:hover{border-color:var(--ink)}
+  button.primary{background:var(--ink); color:#fff; border-color:var(--ink)}
+  button.primary:hover{background:#000}
+  .saved{color:var(--hint); font-size:13px; margin-left:auto}
+
+  .toast{
+    position:fixed; left:50%; bottom:34px; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:12px 22px; border-radius:10px; font-size:14px;
+    opacity:0; pointer-events:none; transition:all .25s ease-in-out; z-index:99;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  @media print{
+    body{background:#fff}
+    .actions,.notice,.toast{display:none}
+    section{box-shadow:none; break-inside:avoid; page-break-inside:avoid}
+    textarea{min-height:70px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <svg width="34" height="34" viewBox="0 0 48 48" aria-label="KALUNA SPED">
+      <rect x="7" y="9" width="7" height="30" fill="#1C1C1E"/>
+      <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
+    </svg>
+    <span class="brand">KALUNA <span class="sped">SPED</span></span>
+  </div>
+
+  <h1>公司信息收集表</h1>
+  <p class="lede">用于完善公司官网 kalunasped.com 的法律合规页面与品牌内容。</p>
+
+  <div class="notice">
+    <b>填写说明</b>
+    <ol>
+      <li><b>第一部分</b>是已经确认的信息，请<b>核对</b>有没有错，有错直接在备注里写。</li>
+      <li><b>第二部分</b>是法律强制要求的信息，<span style="color:#E5432E;font-weight:700">必须填</span>。缺了网站的 Impressum（版本说明）不合规，发票也开不成正规票。</li>
+      <li><b>第三部分</b>是品牌内容问答，用来写官网文案。<b>不用一次填完</b>，知道多少填多少，内容越具体官网越有说服力。</li>
+      <li>填写的内容会<b>自动暂存在本机浏览器</b>，中途关掉再打开还在。</li>
+      <li>填完点最下面的 <b>「复制全部内容」</b>，粘贴到邮件或微信发回即可。</li>
+    </ol>
+  </div>
+
+  <!-- ============ 第一部分 ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">第一部分</span><span class="sec-title">已确认信息 · 请核对</span></div>
+    <p class="sec-desc">以下信息取自德国商业登记（Handelsregister）公开记录，请确认无误。</p>
+    <table class="known">
+      <tr><td>公司法定名称</td><td><b>Kaluna UG (haftungsbeschränkt)</b></td></tr>
+      <tr><td>商业登记号</td><td><b>HRB 108503</b></td></tr>
+      <tr><td>登记法院</td><td><b>Amtsgericht Düsseldorf</b></td></tr>
+      <tr><td>注册／办公地址</td><td><b>Niederbeckstraße 35, 40472 Düsseldorf, Deutschland</b></td></tr>
+      <tr><td>法定代表人</td><td><b>Shunyi Wang</b>（Geschäftsführer）</td></tr>
+      <tr><td>注册资本</td><td><b>3.000,00 EUR</b></td></tr>
+      <tr><td>公司邮箱</td><td><b>info@kalunasped.com</b></td></tr>
+      <tr><td>官网</td><td><b>kalunasped.com</b></td></tr>
+    </table>
+    <div class="field" style="margin-top:20px">
+      <label>以上信息有错误或需要补充的地方</label>
+      <p class="why">没有就留空。公司法定名称必须带 (haftungsbeschränkt) 后缀，这是德国法律强制的，不能简写成 UG。</p>
+      <textarea data-q="第一部分·信息更正" placeholder="例：办公地址与注册地址不同，实际办公在……"></textarea>
+    </div>
+  </section>
+
+  <!-- ============ 第二部分 ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">第二部分</span><span class="sec-title">法律合规信息 · 必填</span></div>
+    <p class="sec-desc">这些是德国法律强制要求公开或用于开票的信息，缺一项就会影响客户付款和抵扣税款。</p>
+
+    <div class="field">
+      <label>增值税识别号 USt-IdNr<span class="req">*</span></label>
+      <p class="why">德国网站 Impressum 强制公开（§5 TMG），发票上也必须有（§14 UStG）。客户凭这个号抵扣进项税，缺了客户不认这张发票。</p>
+      <input type="text" data-q="USt-IdNr 增值税识别号" placeholder="DE 开头 + 9 位数字，例：DE123456789">
+    </div>
+
+    <div class="field">
+      <label>税号 Steuernummer<span class="req">*</span></label>
+      <p class="why">税务局给的税号，和上面的 USt-IdNr 是两个不同的号。开票用。</p>
+      <input type="text" data-q="Steuernummer 税号" placeholder="例：133/5700/0815">
+    </div>
+
+    <div class="field">
+      <label>公司联系电话<span class="req">*</span></label>
+      <p class="why">官网上原来的号码属于旧公司，已经撤下。Impressum 要求提供能快速联系到公司的方式。</p>
+      <input type="text" data-q="公司联系电话" placeholder="例：+49 211 12345678">
+    </div>
+
+    <div class="field">
+      <label>收款银行信息<span class="req">*</span></label>
+      <p class="why">印在发票上，客户照着付款。<b>务必核对准确</b>，写错一位钱就到不了账。</p>
+      <div class="two">
+        <input type="text" data-q="开户银行名称" placeholder="银行名称，例：Commerzbank AG">
+        <input type="text" data-q="BIC / SWIFT" placeholder="BIC / SWIFT，例：COBADEFFXXX">
+      </div>
+      <div style="margin-top:14px">
+        <input type="text" data-q="IBAN 账号" placeholder="IBAN，例：DE89 3704 0044 0532 0130 00">
+      </div>
+      <div style="margin-top:14px">
+        <input type="text" data-q="账户名 Kontoinhaber" placeholder="账户名 Kontoinhaber（若与公司名不同请注明）">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>运输经营许可 <span class="opt">如果有</span></label>
+      <p class="why">自己有车跑运输（3.5 吨以上）需要 §3 GüKG 许可或欧盟共同体许可证；只做货代安排、不自己开车则不需要。有的话写编号，客户和保险公司会看。</p>
+      <div class="radio-row" style="margin-bottom:10px">
+        <label><input type="radio" name="lizenz" value="有" data-q="是否有运输经营许可">有，编号如下</label>
+        <label><input type="radio" name="lizenz" value="没有，只做货代安排" data-q="是否有运输经营许可">没有，只做货代安排</label>
+        <label><input type="radio" name="lizenz" value="正在申请" data-q="是否有运输经营许可">正在申请</label>
+      </div>
+      <input type="text" data-q="运输经营许可编号与有效期" placeholder="许可证编号 + 有效期（没有请留空）">
+    </div>
+
+    <div class="field">
+      <label>货运责任保险 <span class="opt">强烈建议提供</span></label>
+      <p class="why">Verkehrshaftungsversicherung。货代行业客户询价时经常会问，官网写明保额能显著提升信任度，也是招标常见的资格要求。</p>
+      <div class="two">
+        <input type="text" data-q="保险公司名称" placeholder="保险公司名称">
+        <input type="text" data-q="保单号" placeholder="保单号">
+      </div>
+      <div style="margin-top:14px">
+        <input type="text" data-q="保险责任限额" placeholder="责任限额，例：每次事故 EUR 500.000">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>行业资质与会员资格 <span class="opt">如果有</span></label>
+      <p class="why">例如 AEO（经认证经营者）、ISO 9001、FIATA/DSLV 会员、危险品运输资质 ADR 等。这些是官网上最能建立专业形象的内容。</p>
+      <textarea data-q="行业资质与会员资格" placeholder="一行一个，写明名称和编号。没有的话写「暂无」"></textarea>
+    </div>
+
+    <div class="field">
+      <label>营业时间</label>
+      <p class="why">官网现在写的是「周一至周五 08:00 - 18:00」，如有不同请更正。</p>
+      <input type="text" data-q="营业时间" placeholder="不同请填写，相同可留空">
+    </div>
+
+    <div class="field">
+      <label>数据保护联系人 <span class="opt">选填</span></label>
+      <p class="why">隐私政策页面（Datenschutzerklärung）需要写明处理个人数据的责任人。一般小公司就是法定代表人本人，有专门的数据保护官（DSB）则填其信息。</p>
+      <input type="text" data-q="数据保护联系人" placeholder="姓名 + 邮箱，默认为法定代表人可留空">
+    </div>
+  </section>
+
+  <!-- ============ 第三部分 ============ -->
+  <section>
+    <div class="sec-head"><span class="sec-num">第三部分</span><span class="sec-title">品牌内容问答 · 用于写官网文案</span></div>
+    <p class="sec-desc">
+      官网现在的介绍文字比较空泛，跟同行放在一起看不出区别。下面这些问题的答案会直接变成官网内容 ——
+      <b>写得越具体越有说服力</b>。不用一次填完，知道多少填多少。
+    </p>
+
+    <div class="field">
+      <label>1. 公司是怎么起步的？为什么做这一行？</label>
+      <p class="why">客户想知道你们的来历。真实的创业故事比「我们是专业的物流公司」有效得多。</p>
+      <textarea data-q="Q1 公司起步与创业背景" placeholder="例：创始人在德国做了 X 年货代，发现中国客户在欧洲总是找不到能用中文沟通、又懂德国清关的服务商，所以……"></textarea>
+    </div>
+
+    <div class="field">
+      <label>2. 跟其他货代公司比，你们最强的三点是什么？</label>
+      <p class="why">这是官网最核心的内容。请尽量具体：「24 小时内回复报价」比「服务好」有力得多。</p>
+      <textarea data-q="Q2 三个核心优势" placeholder="1. &#10;2. &#10;3. "></textarea>
+    </div>
+
+    <div class="field">
+      <label>3. 哪些路线／国家是你们的强项？</label>
+      <p class="why">官网现在笼统写「覆盖 15+ 欧洲国家」。说清主打线路更能吸引对的客户。</p>
+      <textarea data-q="Q3 主打路线与强项国家" placeholder="例：德国 ↔ 波兰 整车最有优势，每周固定 X 班；西班牙、意大利线可做拼车……"></textarea>
+    </div>
+
+    <div class="field">
+      <label>4. 车辆和合作网络的规模？</label>
+      <p class="why">自有车多少台、长期合作的承运商多少家。数字能建立规模感和可靠感。</p>
+      <textarea data-q="Q4 车辆与合作网络规模" placeholder="例：自有 X 台牵引车，长期合作承运商 X 家，覆盖……"></textarea>
+    </div>
+
+    <div class="field">
+      <label>5. 服务过哪些行业或客户？</label>
+      <p class="why">可以匿名（写「某德国汽车零部件厂商」），也可以写行业。客户看到同行在用会更放心。</p>
+      <textarea data-q="Q5 服务过的行业与客户" placeholder="例：汽车零部件、家具、光伏组件、跨境电商仓配……"></textarea>
+    </div>
+
+    <div class="field">
+      <label>6. 有哪些别人做不了、或者不愿意做的特色服务？</label>
+      <p class="why">差异化就藏在这里。例如超限运输、危险品、温控、含清关的一站式、周末提货等。</p>
+      <textarea data-q="Q6 特色与差异化服务" placeholder=""></textarea>
+    </div>
+
+    <div class="field">
+      <label>7. 团队多少人？能用哪些语言服务客户？</label>
+      <p class="why">官网提到「多语言服务 DE / EN / ZH」，请确认，并说明团队规模。</p>
+      <textarea data-q="Q7 团队规模与语言能力" placeholder="例：X 人团队，德语／英语／中文均可对接，中国客户有专人跟进"></textarea>
+    </div>
+
+    <div class="field">
+      <label>8. 有没有自己的仓库或场站？</label>
+      <p class="why">有仓储资源是很大的加分项，尤其对做电商和分销的客户。</p>
+      <textarea data-q="Q8 仓储与场站资源" placeholder="例：杜塞尔多夫附近 X 平米仓库，可做暂存与分拣；没有请写「无」"></textarea>
+    </div>
+
+    <div class="field">
+      <label>9. 客户最常问的问题是哪几个？</label>
+      <p class="why">列 3-5 个。这些会做成官网的常见问题栏目，能减少大量重复咨询。</p>
+      <textarea data-q="Q9 客户最常问的问题" placeholder="例：多久能报价？能开德国正规发票吗？货物丢损怎么赔？能代办清关吗？"></textarea>
+    </div>
+
+    <div class="field">
+      <label>10. 你希望客户看完官网，记住哪三个词？</label>
+      <p class="why">决定整个网站的语气和视觉方向。例如「可靠、快、懂中国客户」和「高端、专业、大规模」写出来的文案完全不同。</p>
+      <textarea data-q="Q10 希望客户记住的三个关键词" placeholder=""></textarea>
+    </div>
+
+    <div class="field">
+      <label>11. 有没有同行的网站是你觉得做得好的？</label>
+      <p class="why">给个参考方向，网址或公司名都行。也可以说「不喜欢哪种风格」。</p>
+      <textarea data-q="Q11 对标或欣赏的同行" placeholder=""></textarea>
+    </div>
+
+    <div class="field">
+      <label>12. 最想接什么样的客户？</label>
+      <p class="why">官网文案会朝这类客户写。例如「中国出口到欧洲的电商卖家」和「德国本地制造业工厂」的诉求完全不同。</p>
+      <textarea data-q="Q12 目标客户画像" placeholder=""></textarea>
+    </div>
+
+    <div class="field">
+      <label>13. 手上有哪些现成的素材可以用？</label>
+      <p class="why">官网现在用的是通用图库照片。<b>真实的车队、仓库、团队照片能极大提升可信度</b>，哪怕是手机拍的。</p>
+      <textarea data-q="Q13 可提供的素材" placeholder="例：有车队照片 X 张、仓库视频、团队合影、营业执照扫描件……"></textarea>
+    </div>
+
+    <div class="field">
+      <label>14. 还有什么想让客户知道的？</label>
+      <p class="why">上面没问到的都可以写在这里。</p>
+      <textarea data-q="Q14 其他补充" placeholder=""></textarea>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button class="primary" onclick="copyAll()">复制全部内容</button>
+    <button onclick="downloadTxt()">下载为文本文件</button>
+    <button onclick="window.print()">打印 / 存 PDF</button>
+    <button onclick="clearAll()">清空重填</button>
+    <span class="saved" id="saved">内容自动暂存在本机</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  var KEY = 'kaluna_form_v1';
+
+  function fields(){
+    return Array.prototype.slice.call(document.querySelectorAll('[data-q]'));
+  }
+
+  // ===== 自动暂存 =====
+  function save(){
+    var data = {};
+    fields().forEach(function(el, i){
+      if (el.type === 'radio') { if (el.checked) data['r_' + el.name] = el.value; }
+      else data['f_' + i] = el.value;
+    });
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){}
+    var s = document.getElementById('saved');
+    s.textContent = '已暂存 · ' + new Date().toLocaleTimeString('zh-CN');
+  }
+
+  function restore(){
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch(e){}
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    fields().forEach(function(el, i){
+      if (el.type === 'radio') { if (data['r_' + el.name] === el.value) el.checked = true; }
+      else if (data['f_' + i]) el.value = data['f_' + i];
+    });
+  }
+
+  document.addEventListener('input', save);
+  document.addEventListener('change', save);
+  restore();
+
+  // ===== 导出 =====
+  function buildText(){
+    var lines = [];
+    lines.push('KALUNA SPED · 公司信息收集表');
+    lines.push('填写时间：' + new Date().toLocaleString('zh-CN'));
+    lines.push('='.repeat(46));
+    lines.push('');
+
+    var doneRadio = {};
+    fields().forEach(function(el){
+      var q = el.getAttribute('data-q');
+      var v = '';
+      if (el.type === 'radio') {
+        if (doneRadio[el.name]) return;
+        var picked = document.querySelector('input[name="' + el.name + '"]:checked');
+        v = picked ? picked.value : '';
+        doneRadio[el.name] = true;
+      } else {
+        v = el.value.trim();
+      }
+      if (!v) return;               // 空的不导出，回传内容更干净
+      lines.push('【' + q + '】');
+      lines.push(v);
+      lines.push('');
+    });
+
+    if (lines.length <= 4) return null;
+    return lines.join('\n');
+  }
+
+  function toast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  function copyAll(){
+    var txt = buildText();
+    if (!txt) { toast('还没有填写任何内容'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function(){ toast('已复制，粘贴到邮件或微信发回即可'); },
+        function(){ fallbackCopy(txt); }
+      );
+    } else fallbackCopy(txt);
+  }
+
+  function fallbackCopy(txt){
+    var ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('已复制，粘贴发回即可'); }
+    catch(e){ toast('复制失败，请用「下载为文本文件」'); }
+    document.body.removeChild(ta);
+  }
+
+  function downloadTxt(){
+    var txt = buildText();
+    if (!txt) { toast('还没有填写任何内容'); return; }
+    var blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'KALUNA_SPED_公司信息_' + new Date().toISOString().slice(0,10) + '.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('已下载，把这个文件发回即可');
+  }
+
+  function clearAll(){
+    if (!confirm('确定要清空所有已填内容吗？此操作无法撤销。')) return;
+    fields().forEach(function(el){
+      if (el.type === 'radio') el.checked = false; else el.value = '';
+    });
+    try { localStorage.removeItem(KEY); } catch(e){}
+    document.getElementById('saved').textContent = '已清空';
+    toast('已清空');
+  }
+</script>
+</body>
+</html>
