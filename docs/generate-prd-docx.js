@@ -115,7 +115,7 @@ const doc = new Document({
             border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: ACCENT, space: 1 } },
             spacing: { after: 200 },
             children: [
-              new TextRun({ text: 'Box Cargo Service GmbH', font: 'Arial', size: 18, color: '999999' }),
+              new TextRun({ text: 'Kaluna UG (haftungsbeschränkt)', font: 'Arial', size: 18, color: '999999' }),
               new TextRun({ text: '  |  ', font: 'Arial', size: 18, color: 'CCCCCC' }),
               new TextRun({ text: '公司官网 PRD V1.0', font: 'Arial', size: 18, color: '999999' })
             ]
@@ -140,7 +140,7 @@ const doc = new Document({
         new Paragraph({ spacing: { before: 2400 } }),
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: 'Box Cargo Service GmbH', font: 'Arial', size: 48, bold: true, color: PRIMARY })]
+          children: [new TextRun({ text: 'Kaluna UG (haftungsbeschränkt)', font: 'Arial', size: 48, bold: true, color: PRIMARY })]
         }),
         new Paragraph({ spacing: { after: 200 }, alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: '公司官网产品需求文档 (PRD)', font: 'Arial', size: 32, color: ACCENT })]
@@ -158,7 +158,7 @@ const doc = new Document({
         heading('1. 项目概述', HeadingLevel.HEADING_1),
 
         heading('1.1 目标', HeadingLevel.HEADING_2),
-        para('为 Box Cargo Service GmbH 建设一个专业的公司官方网站，作为品牌形象展示和系统入口。网站同时承载两个功能：'),
+        para('为 Kaluna UG (haftungsbeschränkt) 建设一个专业的公司官方网站，作为品牌形象展示和系统入口。网站同时承载两个功能：'),
         new Paragraph({ numbering: { reference: 'numbers', level: 0 }, spacing: { after: 80 },
           children: [new TextRun({ text: '品牌官网', bold: true, font: 'Arial', size: 22 }), new TextRun({ text: ' — 展示公司介绍、服务范围、覆盖网络、联系方式', font: 'Arial', size: 22 })] }),
         new Paragraph({ numbering: { reference: 'numbers', level: 0 }, spacing: { after: 120 },
@@ -198,7 +198,7 @@ const doc = new Document({
 
         heading('2.1 导航栏', HeadingLevel.HEADING_2),
         new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '固定顶部，滚动时背景变为半透明毛玻璃', font: 'Arial', size: 22 })] }),
-        new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '左侧：公司 Logo + "Box Cargo Service"', font: 'Arial', size: 22 })] }),
+        new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '左侧：公司 Logo + "KALUNA SPED"', font: 'Arial', size: 22 })] }),
         new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '中间：导航锚点链接（Über uns / Leistungen / Netzwerk / Kontakt）', font: 'Arial', size: 22 })] }),
         new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '右侧：语言切换按钮（DE / EN / 中文）+ "Kundenportal" 登录按钮', font: 'Arial', size: 22 })] }),
         new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '移动端：汉堡菜单', font: 'Arial', size: 22 })] }),
@@ -247,7 +247,7 @@ const doc = new Document({
 
         heading('2.7 联系方式', HeadingLevel.HEADING_2),
         boldPara('左侧 — 联系表单：', 'Name / E-Mail / Telefon / Nachricht / Absenden 按钮'),
-        boldPara('右侧 — 公司信息：', 'Box Cargo Service GmbH / 地址 / 电话 / info@box-cargo.de / Mo-Fr 08:00-18:00'),
+        boldPara('右侧 — 公司信息：', 'Kaluna UG (haftungsbeschränkt) / Niederbeckstraße 35, 40472 Düsseldorf / info@kalunasped.com / Mo-Fr 08:00-18:00'),
 
         heading('2.8 页脚', HeadingLevel.HEADING_2),
         new Paragraph({ numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: '公司名称 + 版权声明 © 2026', font: 'Arial', size: 22 })] }),
@@ -317,7 +317,7 @@ const doc = new Document({
 
         heading('5.2 SEO', HeadingLevel.HEADING_2),
         makeTable(['项目', '内容'], [
-          ['Title', 'Box Cargo Service GmbH - Europäische Transportlösungen'],
+          ['Title', 'KALUNA SPED - Europäische Transportlösungen'],
           ['Meta Description', '德/英两个版本'],
           ['Open Graph', '标题、描述、图片'],
           ['Structured Data', 'Organization 类型'],

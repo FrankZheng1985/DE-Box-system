@@ -88,7 +88,7 @@ export default function InvoiceTemplates() {
       taxRate: tpl.taxRate.replace('%', ''),
       triggerRule: tpl.triggerRule === '订单完成后自动生成' ? 'order_complete'
         : tpl.triggerRule === 'CMR 上传后自动生成' ? 'cmr_uploaded' : 'manual',
-      headerInfo: 'BOX CARGO SERVICE GmbH\nMusterstraße 1, 10115 Berlin',
+      headerInfo: 'Kaluna UG (haftungsbeschränkt)\nNiederbeckstraße 35, 40472 Düsseldorf',
       footerInfo: '付款条件：发票日期后 30 天内付款\n银行：Deutsche Bank / IBAN: DE89 3704 0044 0532 0130 00',
     })
     setEditOpen(true)
@@ -236,8 +236,8 @@ export default function InvoiceTemplates() {
           <div className="space-y-5 text-sm">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">BOX CARGO SERVICE GmbH</h3>
-                <p className="text-xs text-slate-500 mt-1">Musterstraße 1, 10115 Berlin, Germany</p>
+                <h3 className="text-lg font-bold text-slate-900">Kaluna UG (haftungsbeschränkt)</h3>
+                <p className="text-xs text-slate-500 mt-1">Niederbeckstraße 35, 40472 Düsseldorf, Germany</p>
                 <p className="text-xs text-slate-500">Tel: +49 30 12345678</p>
               </div>
               <div className="text-right">

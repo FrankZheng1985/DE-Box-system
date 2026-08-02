@@ -16,7 +16,13 @@
 ## 项目信息
 
 - **项目名称**: EU-TMS 欧洲运输管理系统
-- **公司**: Box Cargo Service GmbH
+- **公司**: Kaluna UG (haftungsbeschränkt) — HRB 108503，Amtsgericht Düsseldorf
+  - 注册／办公／开票地址：Niederbeckstraße 35, 40472 Düsseldorf
+  - Geschäftsführer: Shunyi Wang
+  - 品牌名 **KALUNA SPED**（营销文案用），法人名 **Kaluna UG (haftungsbeschränkt)**（发票／Impressum／CMR 等法律位置必须用全称，
+    `(haftungsbeschränkt)` 是 §5a GmbHG 强制的，省略可能导致个人无限责任）
+  - 旧主体 Box Cargo Service GmbH（Mintarder Weg 53, 45219 Essen）已停用，
+    但**历史发票不可追溯改名**——已开出的是已生效税务凭证，发票模板须按开票日期区分主体
 - **访问地址**: https://kalunasped.com （IP 直访 https://47.83.241.117 保留作应急回退，详见下方"域名"章节）
 - **架构**: SAP S/4HANA ERP 标准
 - **三端**: 运营管理端 + 客户门户 + 承运商门户
