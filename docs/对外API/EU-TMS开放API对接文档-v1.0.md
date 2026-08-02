@@ -22,10 +22,10 @@ EU-TMS 提供两类推送端点，**按用途区分，不要混用**：
 ### 接入地址
 
 ```
-https://47.83.241.117/api/open/v1
+https://kalunasped.com/api/open/v1
 ```
 
-> ⚠️ 过渡期说明：当前按 IP 访问，服务器使用自签名证书，贵方 HTTP 客户端需临时关闭证书校验（仅限对接测试期）。正式域名启用后会另行通知，届时请切回严格校验。
+> 域名使用正式 TLS 证书，请保持 HTTP 客户端的证书校验开启（无需任何特殊配置）。
 
 ---
 
@@ -120,7 +120,7 @@ GET /api/open/v1/ping
 ### 示例
 
 ```bash
-curl -X POST https://47.83.241.117/api/open/v1/inquiries \
+curl -X POST https://kalunasped.com/api/open/v1/inquiries \
   -H "Content-Type: application/json" \
   -H "X-API-Key: eutms_你的密钥" \
   -d '{
@@ -231,3 +231,4 @@ curl -X POST https://47.83.241.117/api/open/v1/inquiries \
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v1.0 草案 | 2026-08-02 | 首版，待合作方确认字段清单 |
+| v1.0 草案修订 | 2026-08-02 | 接入地址由过渡期 IP 改为正式域名 kalunasped.com（正式 TLS 证书，证书校验保持开启） |
