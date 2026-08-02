@@ -186,6 +186,54 @@ log('\n【6】日志接口')
   assert('op_staff 看日志 → 403', staffTry.status === 403)
 }
 
+// ==================== 7. Webhook 配置（P8 第四阶段） ====================
+log('\n【7】Webhook 配置')
+{
+  const bad = await call(`/api/v1/open-api/keys/${keyId}`, {
+    token: admin, method: 'PUT', body: { webhookUrl: '不是URL' },
+  })
+  assert('非法 Webhook 地址 → 400', bad.status === 400)
+
+  const ok = await call(`/api/v1/open-api/keys/${keyId}`, {
+    token: admin, method: 'PUT', body: { webhookUrl: 'https://partner.example.com/hook' },
+  })
+  assert('配置 Webhook 地址 → 200', ok.status === 200)
+
+  const list = await call('/api/v1/open-api/keys', { token: admin })
+  const row = list.json.data.find((k) => k.id === keyId)
+  assert('列表回传 webhook_url + 自动生成的签名密钥（48 位 hex）',
+    row.webhook_url === 'https://partner.example.com/hook'
+    && /^[0-9a-f]{48}$/.test(row.webhook_secret || ''))
+  assert('列表仍不含 key_hash', !JSON.stringify(list.json).includes('key_hash'))
+
+  const firstSecret = row.webhook_secret
+  await call(`/api/v1/open-api/keys/${keyId}`, {
+    token: admin, method: 'PUT', body: { webhookUrl: 'https://partner.example.com/hook2' },
+  })
+  const list2 = await call('/api/v1/open-api/keys', { token: admin })
+  const row2 = list2.json.data.find((k) => k.id === keyId)
+  assert('改地址不会刷掉已交付合作方的签名密钥', row2.webhook_secret === firstSecret)
+
+  const rot = await call(`/api/v1/open-api/keys/${keyId}/webhook-secret/rotate`, { token: admin, method: 'POST' })
+  assert('换签名密钥 → 200 + 新密钥', rot.status === 200
+    && /^[0-9a-f]{48}$/.test(rot.json.data?.webhookSecret || '')
+    && rot.json.data.webhookSecret !== firstSecret)
+
+  const clear = await call(`/api/v1/open-api/keys/${keyId}`, {
+    token: admin, method: 'PUT', body: { webhookUrl: '' },
+  })
+  const list3 = await call('/api/v1/open-api/keys', { token: admin })
+  assert('清空地址 → webhook_url 存 NULL（停止推送）', clear.status === 200
+    && list3.json.data.find((k) => k.id === keyId).webhook_url === null)
+
+  const deliveries = await call('/api/v1/open-api/webhook-deliveries', { token: admin })
+  assert('投递记录接口 → 200 + 分页结构', deliveries.status === 200
+    && Array.isArray(deliveries.json.data) && typeof deliveries.json.pagination?.total === 'number')
+
+  const staffDeliveries = await call('/api/v1/open-api/webhook-deliveries', { token: staff })
+  assert('op_staff 看投递记录 → 403', staffDeliveries.status === 403)
+}
+
 log(`\n═══════════ 结果：${passed} 通过 / ${failed} 失败 ═══════════`)
 server.close()
 process.exit(failed > 0 ? 1 : 0)

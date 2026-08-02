@@ -18,6 +18,9 @@ EU-TMS 提供两类推送端点，**按用途区分，不要混用**：
 | `GET /inquiries/{单号}` | **回查询价进展** | 按贵方单号 | 已报价时附报价金额与有效期，已转订单时附订单号 |
 | `GET /orders/{单号}` | **回查订单状态** | 按贵方单号 | 含状态、跟踪号、柜号、计划日期 |
 
+此外可选启用 **Webhook 主动推送**（第 8 节）：订单状态变更、报价发出、报价决策时我方主动通知贵方，
+省去轮询。回查与推送可任选或并用。
+
 - 所有接口仅支持 **HTTPS + JSON**（`Content-Type: application/json`）
 - 请求和响应编码均为 UTF-8
 
@@ -250,17 +253,83 @@ IN_TRANSIT 运输中 → COMPLETED 已完成）、`deliveryStatus`（FTL 派送�
 - 查不到（含单号不属于贵方）一律 `404 NOT_FOUND`
 - 状态枚举以本节与第 5/6 节为准；建议贵方按 `status` 编程、`statusLabel` 仅用于展示
 
-## 8. 限制与约定
+## 8. 状态变更推送（Webhook，可选）
+
+除了主动回查（第 7 节），我方也可以在状态变化时**主动 POST 通知**贵方。
+启用只需提供一个接收端点，我方配置后即刻生效——**不需要贵方改动推送侧任何代码**。
+
+### 事件类型
+
+| event | 触发时机 |
+|-------|----------|
+| `ORDER_STATUS_CHANGED` | 贵方推送的订单状态发生变更（含 API 直推单和询价转来的订单） |
+| `INQUIRY_QUOTED` | 贵方推送的询价单已报价并发送给客户 |
+| `QUOTATION_DECISION` | 该报价被接受（已转订单）或被拒绝 |
+
+### 请求格式
+
+```
+POST <贵方接收地址>
+Content-Type: application/json
+X-EUTMS-Event: ORDER_STATUS_CHANGED
+X-EUTMS-Delivery-Id: 12345
+X-EUTMS-Signature: t=1754130000,v1=3a7f…（见下方验签）
+```
+
+```json
+{
+  "event": "ORDER_STATUS_CHANGED",
+  "deliveryId": "12345",
+  "partnerCode": "YIDIDA",
+  "occurredAt": "2026-08-03T09:15:00.000Z",
+  "data": {
+    "externalOrderNo": "AOYI-C-8801",
+    "orderNumber": "EU-20260803-0031",
+    "fromStatus": "PENDING_REVIEW", "toStatus": "CONFIRMED",
+    "statusLabel": "已确认",
+    "trackingNumber": null,
+    "occurredAt": "2026-08-03T09:15:00.000Z"
+  }
+}
+```
+
+报价类事件的 `data` 字段同第 7 节询价回查里的 `quotation` 结构
+（`inquiryNumber` / `quotationNumber` / `status` / `totalPrice` / `currency` / `validUntil` / `orderNumber`）。
+
+### 验签（务必实现）
+
+我方在配置时生成一个签名密钥交给贵方。签名头格式 `t=<unix秒>,v1=<hex>`，
+其中 `v1 = HMAC-SHA256(密钥, "<t>.<原始请求体>")`。**必须用原始请求体字节计算**，
+不要先反序列化再重新序列化。Node.js 示例：
+
+```js
+const crypto = require('crypto')
+function verify(rawBody, header, secret) {
+  const { t, v1 } = Object.fromEntries(header.split(',').map(kv => kv.split('=')))
+  const expected = crypto.createHmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex')
+  // 建议再校验 t 与当前时间相差不超过 5 分钟，防重放
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1))
+}
+```
+
+### 应答与重试
+
+- 贵方返回 **任意 2xx** 即视为成功；其他状态码或超时（10 秒）视为失败
+- 失败按 **1 分钟 / 5 分钟 / 30 分钟 / 2 小时 / 6 小时** 重试，共 5 次；仍失败则停止并在我方后台标记
+- **请做幂等处理**：网络抖动可能导致同一 `deliveryId` 送达多次，按它去重即可
+- 建议接收端先落库再返回 2xx，不要在请求里做耗时处理
+
+## 9. 限制与约定
 
 - 限速默认 **60 次/分钟**（按密钥计），可按贵方业务量调整
 - 请求体上限 50 MB，但建议单次一单，不支持批量数组（如需批量请逐单调用）
 - 我方对每次请求（含被拒绝的）留有完整日志，对账时可按 `externalOrderNo` 互查
-- 后续版本计划：状态变更 Webhook 主动推送（v1.1 讨论范围；状态回查已随本版提供，见第 7 节）
+- 状态同步两种方式任选或并用：主动回查（第 7 节，随时可用）、Webhook 推送（第 8 节，提供接收地址即可启用）
 
-## 9. 需要贵方确认的事项
+## 10. 需要贵方确认的事项
 
 1. 上述字段清单是否覆盖贵方推送数据？需增删哪些字段？
-2. 轮询回查接口已提供（第 7 节），贵方是否还需要**状态变更 Webhook 主动推送**？需要的话请提供接收端点规范
+2. 是否启用 Webhook 推送（第 8 节）？如启用请提供**接收端点 URL**，我方配置后会把签名密钥交给贵方
 3. 贵方出口 IP 清单（可选，用于 IP 白名单加固）
 4. 联调时间窗口与双方技术对接人
 
@@ -273,3 +342,4 @@ IN_TRANSIT 运输中 → COMPLETED 已完成）、`deliveryStatus`（FTL 派送�
 | v1.0 草案 | 2026-08-02 | 首版，待合作方确认字段清单 |
 | v1.0 草案修订 | 2026-08-02 | 接入地址由过渡期 IP 改为正式域名 kalunasped.com（正式 TLS 证书，证书校验保持开启） |
 | v1.0 草案修订2 | 2026-08-02 | 新增状态回查接口（第 7 节）：GET /inquiries/{单号}、GET /orders/{单号}；错误码表补 404 NOT_FOUND |
+| v1.0 草案修订3 | 2026-08-03 | 新增状态变更 Webhook 推送（第 8 节）：三类事件、HMAC-SHA256 验签、重试策略；原 8/9 节顺延为 9/10 |

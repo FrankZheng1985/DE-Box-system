@@ -8,6 +8,7 @@ import { query, withTransaction } from '../core/db.js'
 import { notificationEngine, NOTIFICATION_TYPES } from '../core/index.js'
 import { processPendingEmails } from './email-queue.js'
 import { getBoolSetting, getNumberSetting } from './settings.js'
+import { runWebhookCycle } from '../modules/open-api/webhook-service.js'
 
 // 资质到期提醒 - 每天 8:00
 cron.schedule('0 8 * * *', async () => {
@@ -196,4 +197,14 @@ cron.schedule('*/2 * * * *', async () => {
   }
 })
 
-console.warn('[定时任务] 已注册: 邮件队列(每2分钟), 资质到期提醒(8:00), 账单提醒+逾期标记(9:00), 过账期间管理(每月1号)')
+// 开放 API Webhook 推送 - 每分钟（扫描外部单据状态变化 → 入队 → 签名投递）
+// 双实例安全：入队靠唯一约束去重，投递靠 SKIP LOCKED 领取（见 webhook-service.js）
+cron.schedule('* * * * *', async () => {
+  try {
+    await runWebhookCycle()
+  } catch (err) {
+    console.error('[定时任务] Webhook 推送周期失败:', err.message)
+  }
+})
+
+console.warn('[定时任务] 已注册: 邮件队列(每2分钟), Webhook推送(每分钟), 资质到期提醒(8:00), 账单提醒+逾期标记(9:00), 过账期间管理(每月1号)')

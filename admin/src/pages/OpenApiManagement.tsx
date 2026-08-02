@@ -31,6 +31,22 @@ interface ApiKeyRow {
   created_at: string
   client_code: string
   client_name: string
+  webhook_url: string | null
+  webhook_secret: string | null
+}
+
+interface WebhookDeliveryRow {
+  id: number
+  partner_code: string
+  event_type: string
+  external_ref: string | null
+  status: 'PENDING' | 'SENDING' | 'SENT' | 'FAILED'
+  attempts: number
+  next_attempt_at: string
+  last_status_code: number | null
+  last_error: string | null
+  created_at: string
+  sent_at: string | null
 }
 
 interface ApiLogRow {
@@ -60,10 +76,27 @@ interface KeyFormData {
   rateLimitPerMin: string
   ipWhitelist: string
   remarks: string
+  webhookUrl: string
 }
 
 const EMPTY_FORM: KeyFormData = {
-  partnerCode: '', partnerName: '', clientId: '', rateLimitPerMin: '60', ipWhitelist: '', remarks: '',
+  partnerCode: '', partnerName: '', clientId: '', rateLimitPerMin: '60',
+  ipWhitelist: '', remarks: '', webhookUrl: '',
+}
+
+/** Webhook 投递状态徽章 */
+const DELIVERY_BADGES: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: '待投递', cls: 'bg-blue-100 text-blue-700' },
+  SENDING: { label: '投递中', cls: 'bg-blue-100 text-blue-700' },
+  SENT: { label: '成功', cls: 'bg-green-100 text-green-700' },
+  FAILED: { label: '重试耗尽', cls: 'bg-red-100 text-red-700' },
+}
+
+/** Webhook 事件中文名 */
+const EVENT_LABELS: Record<string, string> = {
+  ORDER_STATUS_CHANGED: '订单状态变更',
+  INQUIRY_QUOTED: '询价已报价',
+  QUOTATION_DECISION: '报价决策结果',
 }
 
 /** 日志结果 → 徽章样式与中文名 */
@@ -85,7 +118,7 @@ const formatTime = (v: string | null) => (v ? new Date(v).toLocaleString('zh-CN'
 
 export default function OpenApiManagement() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'keys' | 'logs'>('keys')
+  const [activeTab, setActiveTab] = useState<'keys' | 'logs' | 'webhooks'>('keys')
   const [toast, setToast] = useState<string | null>(null)
   const showToast = (msg: string) => {
     setToast(msg)
@@ -141,6 +174,7 @@ export default function OpenApiManagement() {
       rateLimitPerMin: String(row.rate_limit_per_min),
       ipWhitelist: (row.ip_whitelist || []).join('\n'),
       remarks: row.remarks || '',
+      webhookUrl: row.webhook_url || '',
     })
     setFormOpen(true)
   }
@@ -156,6 +190,7 @@ export default function OpenApiManagement() {
           rateLimitPerMin: Number(form.rateLimitPerMin) || 60,
           ipWhitelist: ips,
           remarks: form.remarks,
+          webhookUrl: form.webhookUrl.trim(),
         })
         if (res.code !== 200) throw new Error(res.message)
         showToast('已保存')
@@ -198,6 +233,21 @@ export default function OpenApiManagement() {
       showToast(err.message || '操作失败')
     } finally {
       setConfirmAction(null)
+    }
+  }
+
+  const rotateWebhookSecret = async (row: ApiKeyRow) => {
+    try {
+      const res = await api.post<ApiResponse<{ webhookSecret: string }>>(
+        `/open-api/keys/${row.id}/webhook-secret/rotate`
+      )
+      if (res.code !== 200) throw new Error(res.message)
+      // 弹窗里展示的是 editingKey 上的旧值，就地更新一下免得看着像没换
+      setEditingKey({ ...row, webhook_secret: res.data.webhookSecret })
+      showToast('签名密钥已更换，请同步告知合作方')
+      fetchKeys()
+    } catch (err: any) {
+      showToast(err.message || '换签名密钥失败')
     }
   }
 
@@ -245,6 +295,29 @@ export default function OpenApiManagement() {
     if (activeTab === 'logs') fetchLogs()
   }, [activeTab, fetchLogs])
 
+  // ---------- Webhook 投递记录 ----------
+  const [deliveries, setDeliveries] = useState<WebhookDeliveryRow[]>([])
+  const [deliveriesLoading, setDeliveriesLoading] = useState(false)
+  const [deliveryStatus, setDeliveryStatus] = useState('')
+
+  const fetchDeliveries = useCallback(async () => {
+    setDeliveriesLoading(true)
+    try {
+      const params = new URLSearchParams({ pageSize: '30' })
+      if (deliveryStatus) params.set('status', deliveryStatus)
+      const res = await api.get<ApiResponse<WebhookDeliveryRow[]>>(`/open-api/webhook-deliveries?${params}`)
+      if (res.code === 200) setDeliveries(res.data || [])
+    } catch (err) {
+      console.error('[OpenApi] 获取投递记录失败:', err)
+    } finally {
+      setDeliveriesLoading(false)
+    }
+  }, [deliveryStatus])
+
+  useEffect(() => {
+    if (activeTab === 'webhooks') fetchDeliveries()
+  }, [activeTab, fetchDeliveries])
+
   const totalPages = Math.max(1, Math.ceil(logTotal / LOG_PAGE_SIZE))
 
   // ---------- 渲染 ----------
@@ -282,7 +355,7 @@ export default function OpenApiManagement() {
 
       {/* Tab 切换 */}
       <div className="flex items-center gap-2 mb-4">
-        {([['keys', '密钥管理'], ['logs', '请求日志']] as const).map(([key, label]) => (
+        {([['keys', '密钥管理'], ['logs', '请求日志'], ['webhooks', 'Webhook 投递']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -523,6 +596,96 @@ export default function OpenApiManagement() {
         </div>
       )}
 
+      {/* ==================== Webhook 投递记录 ==================== */}
+      {activeTab === 'webhooks' && (
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="flex flex-wrap items-center gap-2 p-4 border-b border-slate-100">
+            <select
+              value={deliveryStatus}
+              onChange={(e) => setDeliveryStatus(e.target.value)}
+              className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              <option value="">全部状态</option>
+              {Object.entries(DELIVERY_BADGES).map(([code, { label }]) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
+            </select>
+            <button
+              onClick={fetchDeliveries}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all duration-200"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              刷新
+            </button>
+            <span className="ml-auto text-xs text-slate-400">推送任务每分钟自动扫描一次</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full table-fixed min-w-[960px]">
+              <colgroup>
+                <col className="w-[14%]" />
+                <col className="w-[12%]" />
+                <col className="w-[15%]" />
+                <col className="w-[14%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[27%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">时间</th>
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">合作方</th>
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">事件</th>
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">对方单号</th>
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">状态</th>
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">尝试</th>
+                  <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">结果 / 错误</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deliveriesLoading && (
+                  <tr><td colSpan={7} className="px-4 py-8"><div className="h-24 bg-slate-100 rounded-xl animate-pulse" /></td></tr>
+                )}
+                {!deliveriesLoading && deliveries.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-400">
+                      还没有投递记录。给合作方配上「Webhook 接收地址」后，订单和报价的状态变化会自动推送
+                    </td>
+                  </tr>
+                )}
+                {!deliveriesLoading && deliveries.map((d) => {
+                  const badge = DELIVERY_BADGES[d.status] || { label: d.status, cls: 'bg-gray-100 text-gray-600' }
+                  return (
+                    <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
+                      <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatTime(d.created_at)}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-slate-600">{d.partner_code}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{EVENT_LABELS[d.event_type] || d.event_type}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-slate-600 truncate" title={d.external_ref || ''}>
+                        {d.external_ref || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${badge.cls}`}>{badge.label}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500 text-right">{d.attempts}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500 truncate" title={d.last_error || ''}>
+                        {d.status === 'SENT'
+                          ? `HTTP ${d.last_status_code} · ${formatTime(d.sent_at)}`
+                          : d.status === 'PENDING' && d.attempts > 0
+                            ? `${d.last_error || '失败'} · 将于 ${formatTime(d.next_attempt_at)} 重试`
+                            : d.last_error || '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-3 border-t border-slate-100">
+            <span className="text-xs text-slate-500">显示最近 {deliveries.length} 条</span>
+          </div>
+        </div>
+      )}
+
       {/* ==================== 签发/编辑弹窗 ==================== */}
       <Modal
         isOpen={formOpen}
@@ -614,6 +777,44 @@ export default function OpenApiManagement() {
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             />
           </div>
+
+          {/* Webhook 配置：签发时先不填，等对方给了接收地址再回来编辑 */}
+          {editingKey && (
+            <div className="pt-4 border-t border-slate-100">
+              <label className="block text-sm text-slate-700 mb-1">Webhook 接收地址（留空 = 不推送）</label>
+              <input
+                value={form.webhookUrl}
+                onChange={(e) => setForm((f) => ({ ...f, webhookUrl: e.target.value }))}
+                placeholder="https://合作方域名/eutms/webhook"
+                className="w-full px-3 py-2 text-sm font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                订单状态变更、询价已报价、报价决策会主动 POST 到这个地址，失败按 1 分钟 / 5 分钟 / 30 分钟 / 2 小时 / 6 小时重试
+              </p>
+
+              {editingKey.webhook_secret && (
+                <div className="mt-3">
+                  <label className="block text-sm text-slate-700 mb-1">签名密钥（交给合作方验签用）</label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 text-xs font-mono bg-slate-50 text-slate-700 rounded-xl break-all select-all">
+                      {editingKey.webhook_secret}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => rotateWebhookSecret(editingKey)}
+                      title="换签名密钥"
+                      className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all duration-200"
+                    >
+                      <RefreshCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    与 API Key 不同，签名密钥可以随时查看；换密钥后合作方必须同步更新，否则验签会全部失败
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 

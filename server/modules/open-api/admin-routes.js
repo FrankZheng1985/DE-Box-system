@@ -14,6 +14,7 @@
 import { Router } from 'express'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { query } from '../../core/db.js'
+import crypto from 'node:crypto'
 import { generateKey, hashKey } from './service.js'
 
 const router = Router()
@@ -21,10 +22,14 @@ router.use(authenticateToken)
 router.use(requireUserType('OPERATOR'))
 router.use(requirePermission('open_api:manage'))
 
-/** 列表/详情统一的选择列 —— 不含 key_hash，永远不含 */
+/**
+ * 列表/详情统一的选择列 —— 不含 key_hash，永远不含。
+ * webhook_secret 例外地可见：运营要把它交给合作方做验签，且它签不了 API 请求。
+ */
 const KEY_COLUMNS = `
   k.id, k.partner_code, k.partner_name, k.client_id, k.key_prefix, k.status,
   k.rate_limit_per_min, k.ip_whitelist, k.last_used_at, k.remarks, k.created_at,
+  k.webhook_url, k.webhook_secret,
   c.client_code, c.company_name AS client_name`
 
 /** ip_whitelist 入库前的规整：去空格、去空项，非数组一律当空数组 */
@@ -146,7 +151,45 @@ router.get('/logs', async (req, res) => {
 })
 
 /**
- * 编辑密钥档案（名称/限速/IP 白名单/备注）
+ * Webhook 投递记录（分页 + 筛选）
+ * GET /api/v1/open-api/webhook-deliveries?partnerCode=&status=&page=&pageSize=
+ */
+router.get('/webhook-deliveries', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10) || 20))
+
+    const where = []
+    const params = []
+    let idx = 0
+    if (req.query.partnerCode) { params.push(req.query.partnerCode); where.push(`d.partner_code = $${++idx}`) }
+    if (req.query.status) { params.push(req.query.status); where.push(`d.status = $${++idx}`) }
+    const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
+
+    const total = await query(`SELECT COUNT(*)::int AS n FROM api_webhook_deliveries d ${whereSql}`, params)
+    const rows = await query(
+      `SELECT d.id, d.partner_code, d.event_type, d.external_ref, d.status,
+              d.attempts, d.next_attempt_at, d.last_status_code, d.last_error,
+              d.created_at, d.sent_at
+       FROM api_webhook_deliveries d
+       ${whereSql}
+       ORDER BY d.id DESC
+       LIMIT $${++idx} OFFSET $${++idx}`,
+      [...params, pageSize, (page - 1) * pageSize]
+    )
+
+    res.json({
+      code: 200, message: 'success', data: rows.rows,
+      pagination: { total: total.rows[0].n, page, pageSize },
+    })
+  } catch (error) {
+    console.error('获取 Webhook 投递记录失败:', error)
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
+  }
+})
+
+/**
+ * 编辑密钥档案（名称/限速/IP 白名单/备注/Webhook 接收地址）
  * PUT /api/v1/open-api/keys/:id
  *
  * 刻意不支持：改 partner_code（幂等键的一半，历史单据会对不上）、
@@ -175,8 +218,28 @@ router.put('/keys/:id', async (req, res) => {
       params.push(String(req.body.remarks).trim() || null)
       sets.push(`remarks = $${++idx}`)
     }
+    let needSecret = false
+    if (req.body.webhookUrl !== undefined) {
+      const url = String(req.body.webhookUrl).trim()
+      if (url) {
+        if (!/^https?:\/\/.+/.test(url) || url.length > 500) {
+          return res.status(400).json({ code: 400, message: 'Webhook 地址必须是 http(s) URL 且不超过 500 字符', data: null })
+        }
+        // 生产合作方务必用 https，本地联调允许 http
+        params.push(url)
+        needSecret = true
+      } else {
+        params.push(null)
+      }
+      sets.push(`webhook_url = $${++idx}`)
+    }
     if (sets.length === 0) {
       return res.status(400).json({ code: 400, message: '没有可更新的字段', data: null })
+    }
+    // 首次配置 URL 时自动生成签名密钥（已有就不动，避免把已交付合作方的密钥刷掉）
+    if (needSecret) {
+      params.push(crypto.randomBytes(24).toString('hex'))
+      sets.push(`webhook_secret = COALESCE(webhook_secret, $${++idx})`)
     }
 
     params.push(req.params.id)
@@ -251,6 +314,33 @@ router.post('/keys/:id/rotate', async (req, res) => {
     })
   } catch (error) {
     console.error('换钥匙失败:', error)
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
+  }
+})
+
+/**
+ * 换 Webhook 签名密钥（合作方侧密钥疑似泄露时用；换后对方必须同步更新验签密钥）
+ * POST /api/v1/open-api/keys/:id/webhook-secret/rotate
+ */
+router.post('/keys/:id/webhook-secret/rotate', async (req, res) => {
+  try {
+    const secret = crypto.randomBytes(24).toString('hex')
+    const result = await query(
+      `UPDATE api_keys SET webhook_secret = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING partner_code, partner_name`,
+      [secret, req.params.id]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '密钥不存在', data: null })
+    }
+    const r = result.rows[0]
+    res.json({
+      code: 200,
+      message: `${r.partner_code}（${r.partner_name}）的 Webhook 签名密钥已更换，请同步告知合作方`,
+      data: { webhookSecret: secret },
+    })
+  } catch (error) {
+    console.error('换 Webhook 签名密钥失败:', error)
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
   }
 })
