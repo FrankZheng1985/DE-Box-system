@@ -41,6 +41,7 @@ import systemRoutes from './modules/system/routes.js'
 import userRoutes from './modules/user/routes.js'
 import portalUserRoutes from './modules/portal-user/routes.js'
 import openApiRoutes from './modules/open-api/routes.js'
+import openApiAdminRoutes from './modules/open-api/admin-routes.js'
 
 // 中间件
 import { errorHandler } from './middleware/errorHandler.js'
@@ -122,6 +123,8 @@ app.use('/api/v1/system', systemRoutes)
 app.use('/api/v1/users', userRoutes)
 // 客户门户自助管理本公司账号（子系统专属端点，和运营端 /users 分开）
 app.use('/api/v1/portal/users', portalUserRoutes)
+// 开放 API 的运营管理端点（密钥/日志，JWT + open_api:manage 权限）
+app.use('/api/v1/open-api', openApiAdminRoutes)
 
 // ==================== 开放 API（P8） ====================
 // 外部系统（易抵达/傲翼/翼能）直推询价单和订单。

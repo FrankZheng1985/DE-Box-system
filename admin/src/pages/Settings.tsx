@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Ship,
   Stamp,
+  Plug,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 
@@ -137,6 +138,14 @@ const ERP_ADMIN_LINKS = [
     title: '基础数据维护',
     description: '管理船司、箱型、币种、国家、港口、车型等基础配置数据',
     path: '/settings/master-data',
+  },
+  {
+    icon: Plug,
+    iconBg: 'bg-cyan-50',
+    iconColor: 'text-cyan-600',
+    title: '开放 API 对接',
+    description: '合作方密钥签发/停用与推送请求日志（易抵达/傲翼/翼能）',
+    path: '/settings/open-api',
   },
 ]
 

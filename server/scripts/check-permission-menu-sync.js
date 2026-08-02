@@ -27,7 +27,9 @@ const YELLOW = (t) => `\x1b[33m${t}\x1b[0m`
 const GREEN = (t) => `\x1b[32m${t}\x1b[0m`
 const DIM = (t) => `\x1b[2m${t}\x1b[0m`
 
-const MIGRATION = path.join(ROOT, 'server/database/migrations/109_permission_system.sql')
+// 权限码可能分散在多个迁移里（109 是主字典，后续阶段如 113 会增补），
+// 所以扫全部含 INSERT INTO permissions 的迁移文件，不只认 109。
+const MIGRATIONS_DIR = path.join(ROOT, 'server/database/migrations')
 const MENU_CONFIG = path.join(ROOT, 'admin/src/constants/permissions.ts')
 
 /**
@@ -51,18 +53,24 @@ function walk(dir, exts) {
 // ---------------------------------------------------------------------------
 // 1. 迁移里定义了哪些权限码
 // ---------------------------------------------------------------------------
-if (!fs.existsSync(MIGRATION)) {
-  log(RED(`找不到迁移文件：${MIGRATION}`))
+if (!fs.existsSync(MIGRATIONS_DIR)) {
+  log(RED(`找不到迁移目录：${MIGRATIONS_DIR}`))
   process.exit(2)
 }
-const migrationSql = fs.readFileSync(MIGRATION, 'utf8')
 const defined = new Set()
-// 匹配 INSERT INTO permissions 里每行开头的 ('perm:code', ...
-for (const m of migrationSql.matchAll(/^\s*\('([a-z_]+:[a-z_]+)'/gm)) {
-  defined.add(m[1])
+const permMigrations = []
+for (const name of fs.readdirSync(MIGRATIONS_DIR).sort()) {
+  if (!name.endsWith('.sql')) continue
+  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, name), 'utf8')
+  if (!/INSERT INTO permissions/i.test(sql)) continue
+  permMigrations.push(name)
+  // 匹配 INSERT INTO permissions 里每行开头的 ('perm:code', ...
+  for (const m of sql.matchAll(/^\s*\('([a-z_]+:[a-z_]+)'/gm)) {
+    defined.add(m[1])
+  }
 }
 
-log(`\n权限码字典：${GREEN(String(defined.size))} 个（来自 109_permission_system.sql）`)
+log(`\n权限码字典：${GREEN(String(defined.size))} 个（来自 ${permMigrations.join(' + ')}）`)
 
 // ---------------------------------------------------------------------------
 // 2. 代码里引用了哪些权限码
@@ -115,7 +123,7 @@ if (undefinedCodes.length > 0) {
     log(`   ${RED(code)}`)
     for (const f of used.get(code)) log(DIM(`      ← ${f}`))
   }
-  log(DIM('\n   处理办法：要么在 109_permission_system.sql 里补上这个码，要么改代码用已有的码。'))
+  log(DIM('\n   处理办法：在权限迁移（109 或后续新迁移）里补上这个码，或改代码用已有的码。'))
 } else {
   log(GREEN('\n✅ 代码里用到的权限码，字典里都有定义'))
 }

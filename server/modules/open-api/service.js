@@ -28,6 +28,11 @@ export function hashKey(plainKey) {
   return crypto.createHash('sha256').update(plainKey, 'utf8').digest('hex')
 }
 
+/** 生成新密钥明文：eutms_ + 48 位十六进制（24 字节随机数）。签发脚本和 admin 接口共用。 */
+export function generateKey() {
+  return 'eutms_' + crypto.randomBytes(24).toString('hex')
+}
+
 /**
  * 按请求头里的明文密钥找档案。
  * 点名列查询：key_hash 不进结果，也就永远不会跟着日志/响应漏出去。
@@ -401,6 +406,7 @@ export async function createOrderFromApi(apiKey, body) {
 export default {
   VALID_BUSINESS_TYPES,
   hashKey,
+  generateKey,
   findKeyByPresented,
   touchLastUsed,
   consumeRateLimit,

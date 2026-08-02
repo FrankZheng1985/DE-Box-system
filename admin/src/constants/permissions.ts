@@ -40,6 +40,7 @@ export const MENU_PERMISSIONS: Record<string, string[]> = {
   '/settings/chart-of-accounts': ['system:account'],
   '/settings/number-ranges': ['system:number_range'],
   '/settings/master-data': ['system:master_data'],
+  '/settings/open-api': ['open_api:manage'],
   '/system/users': ['system:user'],
   '/system/roles': ['system:role'],
 }

@@ -70,6 +70,7 @@ const NumberRanges = lazy(() => import('./pages/NumberRanges'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
 const RoleManagement = lazy(() => import('./pages/RoleManagement'))
 const MasterData = lazy(() => import('./pages/MasterData'))
+const OpenApiManagement = lazy(() => import('./pages/OpenApiManagement'))
 
 // ==================== 加载组件 ====================
 
@@ -185,6 +186,7 @@ function AppRoutes() {
             <Route path="/settings/chart-of-accounts" element={<ChartOfAccounts />} />
             <Route path="/settings/number-ranges" element={<NumberRanges />} />
             <Route path="/settings/master-data" element={<MasterData />} />
+            <Route path="/settings/open-api" element={<OpenApiManagement />} />
             <Route path="/system/users" element={<UserManagement />} />
             <Route path="/system/roles" element={<RoleManagement />} />
           </Routes>

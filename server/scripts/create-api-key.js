@@ -13,19 +13,10 @@
  *   node scripts/create-api-key.js rotate  YIDIDA     # 换新钥匙，旧的立即失效
  */
 
-import crypto from 'node:crypto'
 import { query, closePool } from '../core/db.js'
+import { generateKey, hashKey } from '../modules/open-api/service.js'
 
 const log = (m = '') => process.stdout.write(m + '\n')
-
-function generateKey() {
-  // eutms_ + 48 位十六进制（24 字节随机数）
-  return 'eutms_' + crypto.randomBytes(24).toString('hex')
-}
-
-function hashKey(plainKey) {
-  return crypto.createHash('sha256').update(plainKey, 'utf8').digest('hex')
-}
 
 /** 解析 --key value 形式的参数 */
 function parseArgs(argv) {

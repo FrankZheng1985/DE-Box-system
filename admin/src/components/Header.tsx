@@ -19,6 +19,7 @@ const routeTitleMap: Record<string, string> = {
   '/carriers': '运输公司',
   '/notifications': '通知中心',
   '/settings': '系统设置',
+  '/settings/open-api': '开放 API 对接管理',
   '/system/users': '用户管理',
   '/system/roles': '角色权限',
 }
