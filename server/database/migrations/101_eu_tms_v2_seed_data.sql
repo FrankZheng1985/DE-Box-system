@@ -163,7 +163,9 @@ INSERT INTO auth_objects (object_code, object_name, description, fields) VALUES
   ('WORKFLOW_ADMIN', '工作流管理', '审批工作流配置', '["activity"]');
 
 -- ============================================================================
--- 9. admin 用户（密码: admin123，bcrypt 哈希）
+-- 9. admin 用户
+--    下面这个 bcrypt 哈希是仓库里的公开值，仅供首次初始化占位。
+--    初始化后必须用 SEED_ADMIN_PASSWORD 覆盖（见 scripts/init-db.js），否则等于没有密码。
 -- ============================================================================
 
 -- 先获取 sys_admin 角色的 ID

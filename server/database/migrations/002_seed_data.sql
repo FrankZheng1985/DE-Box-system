@@ -102,7 +102,7 @@ INSERT INTO role_permissions (role_code, permission_code) VALUES
     ('sales', 'product:view')
 ON CONFLICT (role_code, permission_code) DO NOTHING;
 
--- 创建默认管理员账号 (密码: admin123)
+-- 创建默认管理员账号（V1 遗留脚本，已不使用；密码不在此记录）
 INSERT INTO users (id, username, password, name, email, role, status)
 VALUES (
     'user-admin-001',

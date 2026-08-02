@@ -49,7 +49,13 @@ function section(s) { console.log(`\n━━━ ${s} ━━━`) }
 
 async function testAuth() {
   section('1. Auth 认证')
-  const r1 = await req('POST', '/auth/login', { username: 'admin', password: 'admin123' })
+  const adminPassword = process.env.TEST_ADMIN_PASSWORD
+  if (!adminPassword) {
+    console.error('❌ 未设置 TEST_ADMIN_PASSWORD，无法跑认证用例')
+    console.error('   用法: TEST_ADMIN_PASSWORD=\'密码\' node scripts/test-api-full.js')
+    process.exit(1)
+  }
+  const r1 = await req('POST', '/auth/login', { username: 'admin', password: adminPassword })
   t('登录成功 → code 200', r1.code === 200 && !!r1.data?.token)
   if (r1.data?.token) token = r1.data.token
 

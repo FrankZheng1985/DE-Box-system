@@ -5,6 +5,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import bcrypt from 'bcryptjs'
 import { query, testConnection } from '../config/database.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -50,11 +51,20 @@ async function initDatabase() {
     
     console.log('✅ 数据库初始化完成!')
     console.log('')
-    console.log('默认管理员账号:')
-    console.log('  用户名: admin')
-    console.log('  密码: admin123')
+
+    // 种子 SQL 里 admin 的哈希是公开值，必须用 SEED_ADMIN_PASSWORD 覆盖掉
+    const seedPassword = process.env.SEED_ADMIN_PASSWORD
+    if (seedPassword) {
+      const hash = await bcrypt.hash(seedPassword, 10)
+      await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE username = $2', [hash, 'admin'])
+      console.warn('默认管理员账号: admin（密码已按 SEED_ADMIN_PASSWORD 设置）')
+    } else {
+      console.warn('⚠️  未设置 SEED_ADMIN_PASSWORD，admin 仍是种子文件里的公开默认密码。')
+      console.warn('⚠️  这个哈希在仓库里人人可见，请立刻登录后台修改，或重跑：')
+      console.warn('⚠️    SEED_ADMIN_PASSWORD=\'你的强密码\' npm run server:init')
+    }
     console.log('')
-    
+
     process.exit(0)
   } catch (error) {
     console.error('❌ 数据库初始化失败:', error)

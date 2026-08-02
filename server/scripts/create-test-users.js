@@ -4,6 +4,7 @@
  */
 
 import pg from 'pg'
+import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
 dotenv.config()
@@ -12,6 +13,16 @@ const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 })
+
+// 密码不写死在脚本里：优先取环境变量，没给就临时随机生成一个（结尾打印一次）
+function resolveSeedPassword(envKey) {
+  return process.env[envKey] || crypto.randomBytes(12).toString('base64url')
+}
+
+const seedPasswords = {
+  client: resolveSeedPassword('SEED_CLIENT_PASSWORD'),
+  carrier: resolveSeedPassword('SEED_CARRIER_PASSWORD')
+}
 
 async function main() {
   const client = await pool.connect()
@@ -62,7 +73,7 @@ async function main() {
     const carrierRole = await client.query("SELECT id FROM roles WHERE role_code = 'carrier_admin'")
 
     // 4. 创建客户用户
-    const clientPwHash = await bcrypt.hash('client123', 10)
+    const clientPwHash = await bcrypt.hash(seedPasswords.client, 10)
     const clientUser = await client.query(`
       INSERT INTO users (username, password_hash, email, display_name, role_id,
         user_type, linked_entity_id, is_active)
@@ -74,7 +85,7 @@ async function main() {
     console.log('客户用户 siemens:', clientUser.rows[0]?.id ? '创建成功' : '已存在')
 
     // 5. 创建承运商用户
-    const carrierPwHash = await bcrypt.hash('carrier123', 10)
+    const carrierPwHash = await bcrypt.hash(seedPasswords.carrier, 10)
     const carrierUser = await client.query(`
       INSERT INTO users (username, password_hash, email, display_name, role_id,
         user_type, linked_entity_id, is_active)
@@ -104,10 +115,9 @@ async function main() {
     const users = await pool.query('SELECT username, display_name, user_type FROM users ORDER BY username')
     users.rows.forEach(u => console.log(`  ${u.user_type.padEnd(10)} ${u.username.padEnd(15)} ${u.display_name}`))
     console.log('')
-    console.log('登录信息:')
-    console.log('  运营管理端: admin / admin123      → http://47.83.241.117/')
-    console.log('  客户门户:   siemens / client123    → http://47.83.241.117/customer/')
-    console.log('  承运商门户: speedtrans / carrier123 → http://47.83.241.117/carrier/')
+    console.warn('登录信息（密码只在此刻打印一次，请自行存进密码管理器）:')
+    console.warn(`  客户门户:   siemens / ${seedPasswords.client}`)
+    console.warn(`  承运商门户: speedtrans / ${seedPasswords.carrier}`)
   } catch (err) {
     await client.query('ROLLBACK')
     console.error('错误:', err.message)
