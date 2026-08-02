@@ -265,6 +265,12 @@ IN_TRANSIT 运输中 → COMPLETED 已完成）、`deliveryStatus`（FTL 派送�
 | `ORDER_STATUS_CHANGED` | 贵方推送的订单状态发生变更（含 API 直推单和询价转来的订单） |
 | `INQUIRY_QUOTED` | 贵方推送的询价单已报价并发送给客户 |
 | `QUOTATION_DECISION` | 该报价被接受（已转订单）或被拒绝 |
+| `WEBHOOK_TEST` | **联调测试事件**，由我方运营手动触发，不对应任何真实业务 |
+
+> 💡 **联调建议**：贵方接收端上线后告诉我们，我方运营点一下就能发一条 `WEBHOOK_TEST` 过去，
+> 立刻知道地址通不通、验签对不对，不用等真实业务事件发生。
+> 请让接收端**对未知事件类型返回 2xx 而不是报错**（至少要能处理 `WEBHOOK_TEST`），
+> 否则测试会显示失败。该事件的 `deliveryId` 固定为 `"test"`，贵方可据此跳过业务处理。
 
 ### 请求格式
 
@@ -343,3 +349,4 @@ function verify(rawBody, header, secret) {
 | v1.0 草案修订 | 2026-08-02 | 接入地址由过渡期 IP 改为正式域名 kalunasped.com（正式 TLS 证书，证书校验保持开启） |
 | v1.0 草案修订2 | 2026-08-02 | 新增状态回查接口（第 7 节）：GET /inquiries/{单号}、GET /orders/{单号}；错误码表补 404 NOT_FOUND |
 | v1.0 草案修订3 | 2026-08-03 | 新增状态变更 Webhook 推送（第 8 节）：三类事件、HMAC-SHA256 验签、重试策略；原 8/9 节顺延为 9/10 |
+| v1.0 草案修订4 | 2026-08-03 | Webhook 增加 `WEBHOOK_TEST` 联调测试事件（我方可手动触发验证贵方接收端） |

@@ -181,6 +181,67 @@ export function buildSignatureHeader(secret, rawBody, timestampSec = Math.floor(
   return `t=${timestampSec},v1=${mac}`
 }
 
+/**
+ * 联调自测：立刻给合作方的接收端发一条 WEBHOOK_TEST 事件，把对方的应答原样带回。
+ *
+ * 与真实投递的区别（有意为之）：
+ *   - 同步执行，运营点一下马上看到结果，不用等 cron
+ *   - **不进 outbox**：测试不该混进投递记录，也不该触发退避重试
+ *   - 载荷用固定的假数据，且事件类型独立，合作方可以据此跳过业务处理
+ *
+ * @returns {Promise<{ok: boolean, statusCode: number|null, durationMs: number,
+ *                     responseSnippet: string|null, error: string|null}>}
+ */
+export async function sendTestEvent(apiKey) {
+  const body = JSON.stringify({
+    event: 'WEBHOOK_TEST',
+    deliveryId: 'test',
+    partnerCode: apiKey.partner_code,
+    occurredAt: new Date().toISOString(),
+    data: {
+      message: '这是一条来自 EU-TMS 的联调测试事件，收到即说明接收端与验签配置正确',
+      externalOrderNo: 'TEST-0000',
+    },
+  })
+
+  const startedAt = Date.now()
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), DELIVER_TIMEOUT_MS)
+    const res = await fetch(apiKey.webhook_url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-EUTMS-Event': 'WEBHOOK_TEST',
+        'X-EUTMS-Delivery-Id': 'test',
+        'X-EUTMS-Signature': buildSignatureHeader(apiKey.webhook_secret, body),
+      },
+      body,
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+    // 只留一小段应答，够运营判断对方是不是自己的服务即可
+    const text = await res.text().catch(() => '')
+    return {
+      ok: res.ok,
+      statusCode: res.status,
+      durationMs: Date.now() - startedAt,
+      responseSnippet: text ? text.slice(0, 200) : null,
+      error: res.ok ? null : `对方返回 HTTP ${res.status}`,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      statusCode: null,
+      durationMs: Date.now() - startedAt,
+      responseSnippet: null,
+      error: err.name === 'AbortError'
+        ? `连接超时（${DELIVER_TIMEOUT_MS / 1000} 秒无响应）`
+        : err.message,
+    }
+  }
+}
+
 /** 投递一条：2xx 记 SENT；其余按退避排下一次或判 FAILED */
 async function deliverOne(row) {
   const body = JSON.stringify({
@@ -311,4 +372,4 @@ export async function runWebhookCycle() {
   return { enqueued: enqueuedOrders + enqueuedQuotes, claimed, sent }
 }
 
-export default { runWebhookCycle, buildSignatureHeader }
+export default { runWebhookCycle, buildSignatureHeader, sendTestEvent }

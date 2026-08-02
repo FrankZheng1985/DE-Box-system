@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Plug, Plus, KeyRound, Pencil, Power, RefreshCcw,
   Copy, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight,
+  Send, XCircle, Loader2,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from '../components/Modal'
@@ -162,6 +163,7 @@ export default function OpenApiManagement() {
   const openCreate = () => {
     setEditingKey(null)
     setForm(EMPTY_FORM)
+    setTestResult(null)
     setFormOpen(true)
   }
 
@@ -176,6 +178,7 @@ export default function OpenApiManagement() {
       remarks: row.remarks || '',
       webhookUrl: row.webhook_url || '',
     })
+    setTestResult(null)
     setFormOpen(true)
   }
 
@@ -233,6 +236,24 @@ export default function OpenApiManagement() {
       showToast(err.message || '操作失败')
     } finally {
       setConfirmAction(null)
+    }
+  }
+
+  // 联调自测：给对方接收端发一条测试事件
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  const sendWebhookTest = async (row: ApiKeyRow) => {
+    if (testing) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await api.post<ApiResponse<{ ok: boolean }>>(`/open-api/keys/${row.id}/webhook-test`)
+      setTestResult({ ok: res.data?.ok === true, message: res.message })
+    } catch (err: any) {
+      setTestResult({ ok: false, message: err.message || '测试请求失败' })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -791,6 +812,49 @@ export default function OpenApiManagement() {
               <p className="text-xs text-slate-400 mt-1">
                 订单状态变更、询价已报价、报价决策会主动 POST 到这个地址，失败按 1 分钟 / 5 分钟 / 30 分钟 / 2 小时 / 6 小时重试
               </p>
+
+              {/* 联调自测：测的是库里已保存的地址，所以改了地址要先保存再测 */}
+              {editingKey.webhook_url && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sendWebhookTest(editingKey)}
+                      disabled={testing}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                    >
+                      {testing
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Send className="w-4 h-4" />}
+                      {testing ? '发送中…' : '发送测试事件'}
+                    </button>
+                    <span className="text-xs text-slate-400">
+                      {form.webhookUrl.trim() !== (editingKey.webhook_url || '')
+                        ? '地址已改动，先「保存」再测试'
+                        : '向对方接收端发一条 WEBHOOK_TEST，验证连通与验签'}
+                    </span>
+                  </div>
+
+                  {testResult && (
+                    <div className={`flex items-start gap-2 mt-2 p-3 rounded-xl ${
+                      testResult.ok ? 'bg-green-50' : 'bg-red-50'
+                    }`}>
+                      {testResult.ok
+                        ? <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                        : <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />}
+                      <div className={`text-xs ${testResult.ok ? 'text-green-800' : 'text-red-800'}`}>
+                        <p>{testResult.message}</p>
+                        {!testResult.ok && (
+                          <p className="mt-1 text-red-700/80">
+                            排查方向：接收地址是否可从公网访问、是否要求了额外鉴权、
+                            是否对未知事件类型直接报错（测试事件的 event 是 WEBHOOK_TEST）
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {editingKey.webhook_secret && (
                 <div className="mt-3">

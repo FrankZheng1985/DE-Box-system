@@ -16,6 +16,7 @@ import { authenticateToken, requireUserType, requirePermission } from '../../mid
 import { query } from '../../core/db.js'
 import crypto from 'node:crypto'
 import { generateKey, hashKey } from './service.js'
+import { sendTestEvent } from './webhook-service.js'
 
 const router = Router()
 router.use(authenticateToken)
@@ -314,6 +315,42 @@ router.post('/keys/:id/rotate', async (req, res) => {
     })
   } catch (error) {
     console.error('换钥匙失败:', error)
+    res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
+  }
+})
+
+/**
+ * 联调自测：给合作方的接收端发一条测试事件，把对方应答带回来
+ * POST /api/v1/open-api/keys/:id/webhook-test
+ *
+ * 用于对接联调：对方给了接收地址后，运营点一下就知道地址通不通、验签对不对，
+ * 不用干等真实业务事件发生。测试不写投递记录（见 sendTestEvent 注释）。
+ */
+router.post('/keys/:id/webhook-test', async (req, res) => {
+  try {
+    const r = await query(
+      `SELECT partner_code, partner_name, webhook_url, webhook_secret
+       FROM api_keys WHERE id = $1`,
+      [req.params.id]
+    )
+    if (r.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '密钥不存在', data: null })
+    }
+    const key = r.rows[0]
+    if (!key.webhook_url || !key.webhook_secret) {
+      return res.status(400).json({ code: 400, message: '该合作方还没有配置 Webhook 接收地址', data: null })
+    }
+
+    const result = await sendTestEvent(key)
+    res.json({
+      code: 200,
+      message: result.ok
+        ? `测试事件已送达，对方返回 HTTP ${result.statusCode}（${result.durationMs} ms）`
+        : `测试事件投递失败：${result.error}`,
+      data: result,
+    })
+  } catch (error) {
+    console.error('发送 Webhook 测试事件失败:', error)
     res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
   }
 })

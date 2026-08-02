@@ -19,7 +19,7 @@ import express from 'express'
 import crypto from 'node:crypto'
 import { query } from '../core/db.js'
 import { hashKey } from '../modules/open-api/service.js'
-import { runWebhookCycle, buildSignatureHeader } from '../modules/open-api/webhook-service.js'
+import { runWebhookCycle, sendTestEvent } from '../modules/open-api/webhook-service.js'
 
 let passed = 0
 let failed = 0
@@ -205,6 +205,43 @@ log('\n【4】钥匙停用')
   assert('停用钥匙的事件不入队、不投递',
     (r.skipped === true || (r.enqueued === 0 && r.sent === 0)) && received.length === before,
     JSON.stringify(r))
+}
+
+// ==================== 5. 联调自测（测试事件） ====================
+log('\n【5】联调自测：发送测试事件')
+{
+  await query(`UPDATE api_keys SET status = 'ACTIVE' WHERE id = $1`, [hookKeyId])
+  const keyRow = (await query(
+    `SELECT partner_code, webhook_url, webhook_secret FROM api_keys WHERE id = $1`, [hookKeyId])).rows[0]
+
+  respondWith = 200
+  const before = received.length
+  const ok = await sendTestEvent(keyRow)
+  assert('测试事件送达 → ok + 状态码 200 + 有耗时',
+    ok.ok === true && ok.statusCode === 200 && typeof ok.durationMs === 'number',
+    JSON.stringify(ok))
+  assert('接收端收到且事件类型是 WEBHOOK_TEST',
+    received.length === before + 1 && received[received.length - 1].event === 'WEBHOOK_TEST')
+
+  const got = received[received.length - 1]
+  assert('测试事件同样带可验证的签名', verifySignature(SECRET, got.rawBody, got.signature))
+  assert('deliveryId 标记为 test，便于对方识别',
+    JSON.parse(got.rawBody).deliveryId === 'test')
+
+  const dbCount = await query(
+    `SELECT COUNT(*)::int AS n FROM api_webhook_deliveries WHERE event_type = 'WEBHOOK_TEST'`)
+  assert('测试事件不写投递记录（不污染 outbox）', dbCount.rows[0].n === 0)
+
+  respondWith = 500
+  const bad = await sendTestEvent(keyRow)
+  assert('对方返回 500 → ok=false 且带错误说明',
+    bad.ok === false && bad.statusCode === 500 && /HTTP 500/.test(bad.error || ''))
+
+  const unreachable = await sendTestEvent({
+    ...keyRow, webhook_url: 'http://127.0.0.1:3094/nowhere',
+  })
+  assert('地址不可达 → ok=false 且不抛异常', unreachable.ok === false && unreachable.statusCode === null)
+  respondWith = 200
 }
 
 log(`\n═══════════ 结果：${passed} 通过 / ${failed} 失败 ═══════════`)

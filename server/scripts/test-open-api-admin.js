@@ -232,6 +232,24 @@ log('\n【7】Webhook 配置')
 
   const staffDeliveries = await call('/api/v1/open-api/webhook-deliveries', { token: staff })
   assert('op_staff 看投递记录 → 403', staffDeliveries.status === 403)
+
+  // 联调自测端点（此时 webhookUrl 已被上面清空）
+  const noUrl = await call(`/api/v1/open-api/keys/${keyId}/webhook-test`, { token: admin, method: 'POST' })
+  assert('未配置地址就点测试 → 400', noUrl.status === 400 && /还没有配置/.test(noUrl.json.message))
+
+  await call(`/api/v1/open-api/keys/${keyId}`, {
+    token: admin, method: 'PUT', body: { webhookUrl: 'http://127.0.0.1:3094/nowhere' },
+  })
+  const unreachable = await call(`/api/v1/open-api/keys/${keyId}/webhook-test`, { token: admin, method: 'POST' })
+  assert('地址不可达 → 200 但 data.ok=false（把失败原因交给运营看）',
+    unreachable.status === 200 && unreachable.json.data?.ok === false)
+
+  const staffTest = await call(`/api/v1/open-api/keys/${keyId}/webhook-test`, { token: staff, method: 'POST' })
+  assert('op_staff 发测试事件 → 403', staffTest.status === 403)
+
+  const notFound = await call('/api/v1/open-api/keys/00000000-0000-0000-0000-000000000000/webhook-test',
+    { token: admin, method: 'POST' })
+  assert('不存在的密钥 → 404', notFound.status === 404)
 }
 
 log(`\n═══════════ 结果：${passed} 通过 / ${failed} 失败 ═══════════`)
