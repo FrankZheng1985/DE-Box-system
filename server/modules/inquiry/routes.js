@@ -9,7 +9,7 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
-import { authenticateToken, requireUserType } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine } from '../../core/index.js'
 import inquiryService from './service.js'
@@ -93,7 +93,7 @@ async function loadInquiryWithAccessCheck(inquiryId, req, res) {
  * 询价列表
  * GET /api/v1/inquiries
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('inquiry:view', 'portal:inquiry_manage'), async (req, res) => {
   try {
     const { status, businessType, search, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -139,7 +139,7 @@ router.get('/', async (req, res) => {
  * 询价统计
  * GET /api/v1/inquiries/stats
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireUserType('OPERATOR'), requirePermission('inquiry:view'), async (req, res) => {
   try {
     let sql = `SELECT
         COUNT(*) FILTER (WHERE i.created_at >= date_trunc('month', CURRENT_DATE))::int AS month_total,
@@ -164,7 +164,7 @@ router.get('/stats', async (req, res) => {
  *
  * 用 POST 而不是 GET，因为勾选的 id 可能很多，塞进 query string 会超长。
  */
-router.post('/summary', async (req, res) => {
+router.post('/summary', requireUserType('OPERATOR'), requirePermission('inquiry:export'), async (req, res) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : []
     if (ids.length === 0) {
@@ -197,7 +197,7 @@ router.post('/summary', async (req, res) => {
  *
  * 一行一件货，表头字段在每行重复，方便服务商直接筛选排序。
  */
-router.get('/export', async (req, res) => {
+router.get('/export', requireUserType('OPERATOR'), requirePermission('inquiry:export'), async (req, res) => {
   try {
     const ids = req.query.ids ? String(req.query.ids).split(',').filter(Boolean) : null
     const rows = await loadInquiriesForExport(req, ids)
@@ -286,7 +286,7 @@ router.get('/export', async (req, res) => {
  * 询价详情（含按件明细 + 已开出的报价）
  * GET /api/v1/inquiries/:id
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requirePermission('inquiry:view', 'portal:inquiry_manage'), async (req, res) => {
   try {
     const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
     if (!inquiry) return
@@ -314,7 +314,7 @@ router.get('/:id', async (req, res) => {
  * 单张询价的复制摘要
  * GET /api/v1/inquiries/:id/summary
  */
-router.get('/:id/summary', async (req, res) => {
+router.get('/:id/summary', requireUserType('OPERATOR'), requirePermission('inquiry:export'), async (req, res) => {
   try {
     const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
     if (!inquiry) return
@@ -338,7 +338,7 @@ router.get('/:id/summary', async (req, res) => {
  *   客户门户 —— clientId 一律取 JWT 里的 linkedEntityId，不信任前端传参
  *   运营代建 —— 必须显式传 clientId
  */
-router.post('/', requireUserType('OPERATOR', 'CLIENT'), async (req, res) => {
+router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('inquiry:create', 'portal:inquiry_manage'), async (req, res) => {
   try {
     const userType = req.user.userType || req.user.roleCode
     const clientId = userType === 'CLIENT' ? req.user.linkedEntityId : req.body.clientId
@@ -403,7 +403,7 @@ router.post('/', requireUserType('OPERATOR', 'CLIENT'), async (req, res) => {
  * 编辑询价（仅待报价状态）
  * PUT /api/v1/inquiries/:id
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), async (req, res) => {
   try {
     const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
     if (!inquiry) return
@@ -463,7 +463,7 @@ router.put('/:id', async (req, res) => {
  * 删除询价（仅待报价状态）
  * DELETE /api/v1/inquiries/:id
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireUserType('OPERATOR'), requirePermission('inquiry:delete'), async (req, res) => {
   try {
     const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
     if (!inquiry) return

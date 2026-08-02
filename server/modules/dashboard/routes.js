@@ -3,7 +3,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { query } from '../../core/db.js'
 
 const router = Router()
@@ -13,7 +13,7 @@ router.use(authenticateToken)
  * 运营仪表板
  * GET /api/v1/dashboard/operator
  */
-router.get('/operator', async (req, res) => {
+router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboard:view'), async (req, res) => {
   try {
     // 订单统计
     const orderStats = await query(`
@@ -85,7 +85,7 @@ router.get('/operator', async (req, res) => {
  * 客户仪表板
  * GET /api/v1/dashboard/client
  */
-router.get('/client', async (req, res) => {
+router.get('/client', requirePermission('dashboard:view', 'portal:order_view'), async (req, res) => {
   try {
     const clientId = req.user.linkedEntityId
     if (!clientId) {
@@ -119,7 +119,7 @@ router.get('/client', async (req, res) => {
  * 承运商仪表板
  * GET /api/v1/dashboard/carrier
  */
-router.get('/carrier', async (req, res) => {
+router.get('/carrier', requirePermission('dashboard:view', 'carrier_portal:task_view'), async (req, res) => {
   try {
     const carrierId = req.user.linkedEntityId
     if (!carrierId) {

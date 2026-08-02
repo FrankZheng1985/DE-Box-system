@@ -14,16 +14,19 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 
 const menuItems = [
-  { path: '/', label: '概览', icon: LayoutDashboard },
-  { path: '/tasks', label: '运输任务', icon: Truck },
-  { path: '/cmr', label: '上传CMR', icon: FileText },
-  { path: '/gps', label: 'GPS上报', icon: MapPin },
-  { path: '/billing', label: '费用结算', icon: Receipt },
-  { path: '/settings', label: '公司设置', icon: Settings },
+  { path: '/', label: '概览', icon: LayoutDashboard, permission: '' },
+  { path: '/tasks', label: '运输任务', icon: Truck, permission: 'carrier_portal:task_view' },
+  { path: '/cmr', label: '上传CMR', icon: FileText, permission: 'carrier_portal:cmr_upload' },
+  { path: '/gps', label: 'GPS上报', icon: MapPin, permission: 'carrier_portal:gps_report' },
+  { path: '/billing', label: '费用结算', icon: Receipt, permission: 'carrier_portal:billing_view' },
+  { path: '/settings', label: '公司设置', icon: Settings, permission: 'carrier_portal:company_settings' },
 ]
 
 export default function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
+
+  // 只显示当前账号有权限的菜单（P5）——例如司机看不到"费用结算"
+  const visibleMenuItems = menuItems.filter(item => !item.permission || hasPermission(item.permission))
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -68,7 +71,7 @@ export default function Layout() {
 
         {/* 导航菜单 */}
         <nav className="flex-1 p-4 space-y-1">
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

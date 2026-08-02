@@ -17,8 +17,11 @@ import {
   ChevronRight,
   Truck,
   UserCog,
+  ShieldCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAuth } from '../contexts/AuthContext'
+import { MENU_PERMISSIONS } from '../constants/permissions'
 
 interface SidebarProps {
   collapsed: boolean
@@ -47,11 +50,20 @@ const menuItems: MenuItem[] = [
   { path: '/notifications', label: '通知中心', icon: Bell },
   { path: '/settings', label: '系统设置', icon: Settings },
   { path: '/system/users', label: '用户管理', icon: UserCog },
+  { path: '/system/roles', label: '角色权限', icon: ShieldCheck },
 ]
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { hasAnyPermission } = useAuth()
+
+  // 只显示当前角色有权限的菜单（P5）
+  // MENU_PERMISSIONS 里没配的路径视为不需要权限，照常显示
+  const visibleMenuItems = menuItems.filter(item => {
+    const required = MENU_PERMISSIONS[item.path]
+    return !required || hasAnyPermission(required)
+  })
 
   // 判断当前路由是否激活（支持子路由匹配）
   const isActive = (path: string) => {
@@ -91,7 +103,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* 菜单列表 */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const active = isActive(item.path)
           return (
             <button

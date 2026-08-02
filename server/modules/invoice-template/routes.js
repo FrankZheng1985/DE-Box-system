@@ -3,13 +3,17 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { query } from '../../core/db.js'
 
 const router = Router()
 router.use(authenticateToken)
 
-router.get('/', async (req, res) => {
+// ⚠️ 安全收紧（P5）：发票模板是纯运营内部配置，两个门户都不调用，
+//    以前只挂 authenticateToken，客户/承运商账号也能访问。
+router.use(requireUserType('OPERATOR'))
+
+router.get('/', requirePermission('invoice_template:view'), async (req, res) => {
   try {
     const result = await query(
       `SELECT * FROM invoice_templates WHERE is_active = true ORDER BY created_at DESC`
@@ -21,7 +25,7 @@ router.get('/', async (req, res) => {
   }
 })
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requirePermission('invoice_template:view'), async (req, res) => {
   try {
     const result = await query(`SELECT * FROM invoice_templates WHERE id = $1`, [req.params.id])
     if (result.rows.length === 0) return res.status(404).json({ code: 404, message: '模板不存在', data: null })
@@ -31,7 +35,7 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-router.post('/', async (req, res) => {
+router.post('/', requirePermission('invoice_template:manage'), async (req, res) => {
   try {
     const { templateName, clientId, currency, taxRate, autoTrigger, headerInfo, footerInfo } = req.body
     const result = await query(
@@ -45,7 +49,7 @@ router.post('/', async (req, res) => {
   }
 })
 
-router.get('/rules', async (req, res) => {
+router.get('/rules', requirePermission('invoice_template:view'), async (req, res) => {
   try {
     const result = await query(`SELECT * FROM auto_invoice_rules WHERE is_active = true`)
     res.json({ code: 200, message: 'success', data: result.rows })

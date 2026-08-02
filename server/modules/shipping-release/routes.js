@@ -4,17 +4,21 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 
 const router = Router()
 router.use(authenticateToken)
 
+// ⚠️ 安全收紧（P5）：船司放单是纯运营内部流程，两个门户都不调用，
+//    以前只挂 authenticateToken，客户/承运商账号也能访问。
+router.use(requireUserType('OPERATOR'))
+
 /**
  * 放单记录列表
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('shipping_release:view'), async (req, res) => {
   try {
     const { releaseStatus, search, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -50,7 +54,7 @@ router.get('/', async (req, res) => {
 /**
  * 放单统计
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', requirePermission('shipping_release:view'), async (req, res) => {
   try {
     const result = await query(`
       SELECT
@@ -70,7 +74,7 @@ router.get('/stats', async (req, res) => {
 /**
  * 获取订单放单详情
  */
-router.get('/:orderId', async (req, res) => {
+router.get('/:orderId', requirePermission('shipping_release:view'), async (req, res) => {
   try {
     const result = await query(
       `SELECT sr.*, o.order_number, o.shipping_line, o.bl_number,
@@ -90,7 +94,7 @@ router.get('/:orderId', async (req, res) => {
  * 更新放单状态
  * PUT /api/v1/shipping-releases/:orderId/status
  */
-router.put('/:orderId/status', async (req, res) => {
+router.put('/:orderId/status', requirePermission('shipping_release:manage'), async (req, res) => {
   try {
     const { releaseStatus, courierService, courierAddress, releaseValidUntil } = req.body
     const validStatuses = ['NOT_REQUIRED', 'ORIGINAL_PENDING', 'ORIGINAL_SENT', 'PENDING_RELEASE', 'RELEASED']
@@ -127,7 +131,7 @@ router.put('/:orderId/status', async (req, res) => {
  * 客户授权放行
  * POST /api/v1/shipping-releases/:orderId/authorize
  */
-router.post('/:orderId/authorize', async (req, res) => {
+router.post('/:orderId/authorize', requirePermission('shipping_release:manage'), async (req, res) => {
   try {
     await withTransaction(async (client) => {
       await client.query(`

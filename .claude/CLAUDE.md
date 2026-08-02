@@ -130,6 +130,29 @@ DMARC 现为 **`p=quarantine`**（2026-08-02 从 `p=none` 收紧一档，实测�
 - 前端筛选/查询参数必须传**大写**
 - StatusBadge 组件同时支持大小写
 
+### 6. 主键一律是 UUID
+- V2 所有业务表主键都是 `UUID`（`users.id`、`roles.id`、`clients.id`、`carriers.id`…）
+- 前端一律按 **string** 处理，**禁止 `Number(id)`** —— `Number(uuid)` 得 `NaN`，
+  `JSON.stringify(NaN)` 变成 `null`，接口照样回 200，是典型静默失败（踩坑 023）
+
+### 7. 权限体系（P5 起）
+- 权限码格式 `模块:动作`，字典在 `server/database/migrations/109_permission_system.sql`
+- 后端：`requirePermission('order:view', ...)` 多个码是**任意一个满足即放行**；
+  纯运营内部模块还要在模块顶部加 `router.use(requireUserType('OPERATOR'))`
+- 前端：`admin/src/constants/permissions.ts` 的 `MENU_PERMISSIONS` 控制菜单和路由守卫；
+  页面内用 `hasPermission()` / `hasAnyPermission()`（**不要再用旧的 `hasAuth` 系列**，
+  它查的是空表 `auth_values`）
+- **新增菜单/页面必做四件套**：迁移加权限码 → `MENU_PERMISSIONS` 加映射 →
+  页面用 `hasPermission()` 拦 → 后端挂 `requirePermission()`。
+  提交前跑 `cd server && node scripts/check-permission-menu-sync.js`
+
+### 8. 门户可访问接口必须后端强制租户隔离
+- 凡是客户门户/承运商门户会调的列表接口，`clientId` / `carrierId`
+  **一律取 JWT 里的 `linkedEntityId`，忽略前端传参**
+- 详情接口要校验这条记录属不属于当前登录方；不属于就按"不存在"返回 404
+  （回 403 等于告诉对方这个 UUID 是有效记录）
+- 历史上订单、清关、GPS、应收应付都栽在"直接用 query 参数筛选"上（踩坑 016、023）
+
 ---
 
 ## 目录结构
@@ -147,9 +170,10 @@ server/
 │   ├── pricing-engine.js     定价引擎
 │   ├── notification-engine.js 通知引擎
 │   ├── workflow-engine.js    工作流
+│   ├── permission-service.js 权限码查询 + 缓存（P5）
 │   ├── db.js                 数据库连接池
 │   └── index.js              统一入口
-├── modules/           ← 业务模块（15 个）
+├── modules/           ← 业务模块（19 个）
 │   ├── auth/         认证
 │   ├── order/        订单（model + service + controller + routes）
 │   ├── client/       客户
@@ -165,9 +189,12 @@ server/
 │   ├── contact/      客户咨询
 │   ├── notification/ 通知
 │   ├── dashboard/    仪表板
-│   └── system/       系统设置
+│   ├── quotation-response/ 报价邮件确认链接（免登录）
+│   ├── user/         员工账号管理（运营端）
+│   ├── portal-user/  客户门户本公司账号管理（子系统专属端点）
+│   └── system/       系统设置 + 角色权限管理
 ├── middleware/
-│   ├── auth.js       认证 + requireUserType 中间件
+│   ├── auth.js       认证 + requireUserType + requirePermission 中间件
 │   └── ...
 ├── utils/
 │   ├── oss-service.js    阿里云 OSS

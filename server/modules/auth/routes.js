@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { query } from '../../core/db.js'
 import { authenticateToken } from '../../middleware/auth.js'
+import { getPermissionsByRoleCode } from '../../core/permission-service.js'
 
 const router = Router()
 
@@ -66,6 +67,10 @@ router.post('/login', async (req, res) => {
       [user.id]
     )
 
+    // 当前角色拥有的权限码（P5）
+    // token 里只放 roleCode，权限码由后端按角色查表——改权限后无需重新登录
+    const permissions = [...(await getPermissionsByRoleCode(user.role_code))]
+
     // 生成 JWT
     const tokenPayload = {
       id: user.id,
@@ -103,7 +108,8 @@ router.post('/login', async (req, res) => {
           linkedEntityId: user.linked_entity_id
         },
         organization: defaultOrg,
-        authObjects: authResult.rows
+        authObjects: authResult.rows,
+        permissions
       }
     })
   } catch (error) {
@@ -149,6 +155,30 @@ router.get('/profile', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('获取用户信息失败:', error)
     res.status(500).json({ code: 500, message: '获取用户信息失败', data: null })
+  }
+})
+
+/**
+ * 获取当前用户的权限码（P5）
+ * GET /api/v1/auth/permissions
+ *
+ * 前端刷新页面或管理员刚改完角色权限时拉一次，
+ * 不用退出重登。
+ */
+router.get('/permissions', authenticateToken, async (req, res) => {
+  try {
+    const permissions = [...(await getPermissionsByRoleCode(req.user.roleCode))]
+    res.json({
+      code: 200,
+      message: 'success',
+      data: {
+        roleCode: req.user.roleCode,
+        permissions
+      }
+    })
+  } catch (error) {
+    console.error('获取权限失败:', error)
+    res.status(500).json({ code: 500, message: '获取权限失败', data: null })
   }
 })
 

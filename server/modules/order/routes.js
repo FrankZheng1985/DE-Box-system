@@ -8,7 +8,7 @@ import ExcelJS from 'exceljs'
 import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
-import { authenticateToken, requireUserType } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { getPool } from '../../core/db.js'
 import { uploadToOSS, deleteFromOSS } from '../../utils/oss-service.js'
 import orderController from './controller.js'
@@ -18,6 +18,12 @@ const router = Router()
 
 // 所有订单路由需要认证
 router.use(authenticateToken)
+
+// 订单是三端共用的资源，同一个接口三种身份都会调，
+// 所以权限码写成"任意一个满足即可"：
+//   运营 order:*  /  客户门户 portal:*  /  承运商门户 carrier_portal:*
+// 至于"能看到哪些订单"，由 controller 按登录身份强制收窄（见 controller.js 的租户隔离）
+const CAN_VIEW_ORDER = ['order:view', 'portal:order_view', 'carrier_portal:task_view']
 
 // ==================== 订单文件中心（需求 3） ====================
 
@@ -79,7 +85,7 @@ async function loadOrderWithAccessCheck(orderId, user, res) {
  * 订单文件列表（order_files + cmr_documents 统一视图）
  * GET /api/v1/orders/:id/files
  */
-router.get('/:id/files', async (req, res) => {
+router.get('/:id/files', requirePermission(...CAN_VIEW_ORDER, 'portal:file_download'), async (req, res) => {
   try {
     const order = await loadOrderWithAccessCheck(req.params.id, req.user, res)
     if (!order) return
@@ -139,7 +145,7 @@ router.get('/:id/files', async (req, res) => {
  * 上传订单文件（装车图/签收凭证/其他；CMR 请走 /cmr/upload 以保留签署状态跟踪）
  * POST /api/v1/orders/:id/files
  */
-router.post('/:id/files', orderFileUpload.single('file'), async (req, res) => {
+router.post('/:id/files', requirePermission('order:file_upload', 'carrier_portal:cmr_upload'), orderFileUpload.single('file'), async (req, res) => {
   try {
     const order = await loadOrderWithAccessCheck(req.params.id, req.user, res)
     if (!order) return
@@ -200,7 +206,7 @@ router.post('/:id/files', orderFileUpload.single('file'), async (req, res) => {
  * 删除订单文件（仅运营；CMR 单据不在此删除）
  * DELETE /api/v1/orders/files/:fileId
  */
-router.delete('/files/:fileId', requireUserType('OPERATOR'), async (req, res) => {
+router.delete('/files/:fileId', requireUserType('OPERATOR'), requirePermission('order:file_delete'), async (req, res) => {
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -231,10 +237,12 @@ router.delete('/files/:fileId', requireUserType('OPERATOR'), async (req, res) =>
 })
 
 // 统计（放在 /:id 前面，避免被匹配为 id）
-router.get('/stats', orderController.getStats)
+// ⚠️ 统计是全公司口径（不按客户/承运商收窄），只能给运营看，
+//    两个门户各自走 /dashboard/client 和 /dashboard/carrier
+router.get('/stats', requireUserType('OPERATOR'), requirePermission('order:view'), orderController.getStats)
 
 // Excel 导出（放在 /:id 前面，避免被匹配为 id）
-router.get('/export', async (req, res) => {
+router.get('/export', requirePermission('order:export'), async (req, res) => {
   try {
     const { businessType, status, dateFrom, dateTo, search } = req.query
     const pool = getPool()
@@ -335,26 +343,26 @@ router.get('/export', async (req, res) => {
 })
 
 // CRUD
-router.get('/', orderController.list)
-router.post('/', requireUserType('OPERATOR', 'CLIENT'), orderController.create)
-router.get('/:id', orderController.getById)
-router.put('/:id', orderController.update)
+router.get('/', requirePermission(...CAN_VIEW_ORDER), orderController.list)
+router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('order:create', 'portal:order_create'), orderController.create)
+router.get('/:id', requirePermission(...CAN_VIEW_ORDER), orderController.getById)
+router.put('/:id', requireUserType('OPERATOR'), requirePermission('order:edit'), orderController.update)
 
 // 状态操作
-router.put('/:id/status', orderController.updateStatus)
-router.put('/:id/delivery-status', orderController.updateDeliveryStatus)
+router.put('/:id/status', requirePermission('order:status'), orderController.updateStatus)
+router.put('/:id/delivery-status', requirePermission('order:status', 'carrier_portal:task_respond'), orderController.updateDeliveryStatus)
 
 // 跟踪号（本地派送，仅运营可写）
-router.put('/:id/tracking-number', requireUserType('OPERATOR'), orderController.updateTrackingNumber)
+router.put('/:id/tracking-number', requireUserType('OPERATOR'), requirePermission('order:status'), orderController.updateTrackingNumber)
 
 // 派单/接单/拒单/取消
-router.post('/:id/assign', orderController.assign)
-router.post('/:id/accept', orderController.accept)
-router.post('/:id/reject', orderController.reject)
-router.post('/:id/cancel', orderController.cancel)
+router.post('/:id/assign', requireUserType('OPERATOR'), requirePermission('order:assign'), orderController.assign)
+router.post('/:id/accept', requirePermission('order:assign', 'carrier_portal:task_respond'), orderController.accept)
+router.post('/:id/reject', requirePermission('order:assign', 'carrier_portal:task_respond'), orderController.reject)
+router.post('/:id/cancel', requireUserType('OPERATOR'), requirePermission('order:cancel'), orderController.cancel)
 
 // 时间线和变更历史
-router.get('/:id/timeline', orderController.getTimeline)
-router.get('/:id/changes', orderController.getChanges)
+router.get('/:id/timeline', requirePermission(...CAN_VIEW_ORDER), orderController.getTimeline)
+router.get('/:id/changes', requireUserType('OPERATOR'), requirePermission('order:view'), orderController.getChanges)
 
 export default router

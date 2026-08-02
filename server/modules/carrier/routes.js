@@ -4,13 +4,18 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
 
 const router = Router()
 router.use(authenticateToken)
+
+// ⚠️ 安全收紧（P5）：本模块是承运商主数据，含资质、保险、结算与绩效。
+//    以前整个模块只挂 authenticateToken——客户门户和承运商门户的账号
+//    拿自己的 token 就能读写全部承运商资料（包括同行的）。只放行运营端。
+router.use(requireUserType('OPERATOR'))
 
 const CARRIER_FIELDS = [
   { name: 'company_name', label: '公司名称' },
@@ -23,7 +28,7 @@ const CARRIER_FIELDS = [
 /**
  * 承运商列表
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('carrier:view'), async (req, res) => {
   try {
     const { search, status, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -64,7 +69,7 @@ router.get('/', async (req, res) => {
 /**
  * 匹配承运商（派单用）- 必须在 /:id 前面
  */
-router.get('/match', async (req, res) => {
+router.get('/match', requirePermission('carrier:view'), async (req, res) => {
   try {
     const { routeFrom, routeTo, vehicleType } = req.query
     const result = await query(
@@ -86,7 +91,7 @@ router.get('/match', async (req, res) => {
  * 承运商导出 Excel（放在 /:id 前面，避免被匹配为 id）
  * GET /api/v1/carriers/export
  */
-router.get('/export', async (req, res) => {
+router.get('/export', requirePermission('carrier:export'), async (req, res) => {
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -150,7 +155,7 @@ router.get('/export', async (req, res) => {
 /**
  * 承运商详情
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requirePermission('carrier:view'), async (req, res) => {
   try {
     const result = await query(`SELECT * FROM carriers WHERE id = $1`, [req.params.id])
     if (result.rows.length === 0) {
@@ -165,7 +170,7 @@ router.get('/:id', async (req, res) => {
 /**
  * 创建承运商
  */
-router.post('/', async (req, res) => {
+router.post('/', requirePermission('carrier:create'), async (req, res) => {
   try {
     const carrier = await withTransaction(async (tx) => {
       const { docNumber } = await numberRange.getNextNumber(tx, 'CAR', 'DE01')
@@ -205,7 +210,7 @@ router.post('/', async (req, res) => {
 /**
  * 编辑承运商
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', requirePermission('carrier:edit'), async (req, res) => {
   try {
     await withTransaction(async (tx) => {
       const old = await tx.query(`SELECT * FROM carriers WHERE id = $1`, [req.params.id])
@@ -266,7 +271,7 @@ router.put('/:id', async (req, res) => {
 /**
  * 车队管理
  */
-router.get('/:id/vehicles', async (req, res) => {
+router.get('/:id/vehicles', requirePermission('carrier:view'), async (req, res) => {
   try {
     const result = await query(
       `SELECT * FROM carrier_vehicles WHERE carrier_id = $1 ORDER BY created_at DESC`,
@@ -278,7 +283,7 @@ router.get('/:id/vehicles', async (req, res) => {
   }
 })
 
-router.post('/:id/vehicles', async (req, res) => {
+router.post('/:id/vehicles', requirePermission('carrier:edit'), async (req, res) => {
   try {
     const result = await query(
       `INSERT INTO carrier_vehicles (carrier_id, plate_number, vehicle_type, driver_name, driver_phone, has_gps)
@@ -295,7 +300,7 @@ router.post('/:id/vehicles', async (req, res) => {
 /**
  * 承运商财务概览
  */
-router.get('/:id/finance', async (req, res) => {
+router.get('/:id/finance', requirePermission('carrier:view'), async (req, res) => {
   try {
     const stats = await query(
       `SELECT
@@ -313,7 +318,7 @@ router.get('/:id/finance', async (req, res) => {
 })
 
 // 承运商作废/恢复：切换 status (ACTIVE <-> INACTIVE)
-router.put('/:id/toggle-status', async (req, res) => {
+router.put('/:id/toggle-status', requirePermission('carrier:edit'), async (req, res) => {
   try {
     const { id } = req.params
     const { reason } = req.body || {}

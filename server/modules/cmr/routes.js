@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, documentFlow, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import multer from 'multer'
@@ -32,7 +32,7 @@ const upload = multer({
 /**
  * CMR 列表
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('cmr:view', 'portal:file_download', 'carrier_portal:task_view'), async (req, res) => {
   try {
     const { signStatus, orderId, search, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
 /**
  * CMR 统计
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireUserType('OPERATOR'), requirePermission('cmr:view'), async (req, res) => {
   try {
     const result = await query(`
       SELECT
@@ -95,7 +95,7 @@ router.get('/stats', async (req, res) => {
 /**
  * CMR 详情
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requirePermission('cmr:view', 'portal:file_download', 'carrier_portal:task_view'), async (req, res) => {
   try {
     const result = await query(
       `SELECT cmr.*, o.order_number, c.company_name as client_name
@@ -114,7 +114,7 @@ router.get('/:id', async (req, res) => {
  * 上传 CMR（承运商操作）
  * POST /api/v1/cmr/upload
  */
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', requirePermission('cmr:upload', 'carrier_portal:cmr_upload'), upload.single('file'), async (req, res) => {
   try {
     const cmr = await withTransaction(async (client) => {
       // 创建凭证
@@ -210,7 +210,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
  * 更新签署状态
  * PUT /api/v1/cmr/:id/sign-status
  */
-router.put('/:id/sign-status', async (req, res) => {
+router.put('/:id/sign-status', requireUserType('OPERATOR'), requirePermission('cmr:edit'), async (req, res) => {
   try {
     const { signStatus } = req.body
     const validStatuses = ['UNSIGNED', 'SENDER_SIGNED', 'RECEIVER_SIGNED', 'COMPLETED']
@@ -227,7 +227,7 @@ router.put('/:id/sign-status', async (req, res) => {
 /**
  * 标记货损
  */
-router.put('/:id/damage', async (req, res) => {
+router.put('/:id/damage', requireUserType('OPERATOR'), requirePermission('cmr:edit'), async (req, res) => {
   try {
     await query(
       `UPDATE cmr_documents SET has_damage_note = true, damage_note = $1 WHERE id = $2`,

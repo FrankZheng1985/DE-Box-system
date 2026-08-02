@@ -3,13 +3,18 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken, requireUserType } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { query, withTransaction } from '../../core/db.js'
+import {
+  listPermissionCatalog,
+  invalidatePermissionCache,
+  SUPER_ROLE_CODE,
+} from '../../core/permission-service.js'
 
 const router = Router()
 router.use(authenticateToken)
 
-router.get('/settings', async (req, res) => {
+router.get('/settings', requireUserType('OPERATOR'), requirePermission('system:settings'), async (req, res) => {
   try {
     const result = await query(`SELECT setting_key, setting_value, setting_type, description FROM system_settings ORDER BY setting_key`)
     const settings = {}
@@ -27,7 +32,7 @@ router.get('/settings', async (req, res) => {
 // ⚠️ 系统配置是全局开关（信用检查、自动开票、提醒天数等），
 //    以前只挂 authenticateToken，任何登录账号——包括客户门户和承运商门户的账号——
 //    都能改。收紧为仅运营可写（踩坑 016 的同类问题）。
-router.put('/settings', requireUserType('OPERATOR'), async (req, res) => {
+router.put('/settings', requireUserType('OPERATOR'), requirePermission('system:settings'), async (req, res) => {
   try {
     let updated = 0
     const unknown = []
@@ -83,9 +88,126 @@ router.get('/roles', async (req, res) => {
   }
 })
 
+// ==================== 角色权限管理（P5） ====================
+
+/**
+ * 权限码字典
+ * GET /api/v1/system/permissions?scope=OPERATOR
+ *
+ * ⚠️ 固定路径必须写在 /roles/:roleId/permissions 之前（踩坑 001）
+ */
+router.get('/permissions', requirePermission('system:role'), async (req, res) => {
+  try {
+    const { scope } = req.query
+    const rows = await listPermissionCatalog(scope || undefined)
+    res.json({ code: 200, message: 'success', data: rows })
+  } catch (error) {
+    console.error('[角色权限] 获取权限字典失败:', error)
+    res.status(500).json({ code: 500, message: '获取权限字典失败', data: null })
+  }
+})
+
+/**
+ * 某个角色已勾选的权限码
+ * GET /api/v1/system/roles/:roleId/permissions
+ */
+router.get('/roles/:roleId/permissions', requirePermission('system:role'), async (req, res) => {
+  try {
+    const { roleId } = req.params
+    const roleResult = await query(
+      `SELECT id, role_code, role_name, role_type, is_system FROM roles WHERE id = $1`,
+      [roleId]
+    )
+    if (roleResult.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '角色不存在', data: null })
+    }
+
+    const permResult = await query(
+      `SELECT perm_code FROM role_permissions WHERE role_id = $1`,
+      [roleId]
+    )
+
+    res.json({
+      code: 200,
+      message: 'success',
+      data: {
+        role: roleResult.rows[0],
+        permissions: permResult.rows.map(r => r.perm_code)
+      }
+    })
+  } catch (error) {
+    console.error('[角色权限] 获取角色权限失败:', error)
+    res.status(500).json({ code: 500, message: '获取角色权限失败', data: null })
+  }
+})
+
+/**
+ * 保存某个角色的权限勾选（整包覆盖）
+ * PUT /api/v1/system/roles/:roleId/permissions   body: { permissions: ['order:view', ...] }
+ */
+router.put('/roles/:roleId/permissions', requirePermission('system:role'), async (req, res) => {
+  try {
+    const { roleId } = req.params
+    const { permissions } = req.body
+
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ code: 400, message: '参数错误：permissions 必须是数组', data: null })
+    }
+
+    const roleResult = await query(`SELECT id, role_code FROM roles WHERE id = $1`, [roleId])
+    if (roleResult.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '角色不存在', data: null })
+    }
+    const role = roleResult.rows[0]
+
+    // sys_admin 是最后的兜底账号，允许被改就可能把自己锁在系统外面
+    if (role.role_code === SUPER_ROLE_CODE) {
+      return res.status(400).json({
+        code: 400,
+        message: '系统管理员角色拥有全部权限，不可修改',
+        data: null
+      })
+    }
+
+    // 校验权限码都是字典里有的，防止前端传错把脏数据写进库
+    const validResult = await query(`SELECT perm_code FROM permissions`)
+    const validCodes = new Set(validResult.rows.map(r => r.perm_code))
+    const invalid = permissions.filter(code => !validCodes.has(code))
+    if (invalid.length > 0) {
+      return res.status(400).json({
+        code: 400,
+        message: `参数错误：以下权限码不存在 ${invalid.join(', ')}`,
+        data: null
+      })
+    }
+
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM role_permissions WHERE role_id = $1`, [roleId])
+      for (const code of permissions) {
+        await client.query(
+          `INSERT INTO role_permissions (role_id, perm_code, granted_by) VALUES ($1, $2, $3)`,
+          [roleId, code, req.user.id]
+        )
+      }
+    })
+
+    // 立刻让本进程的缓存失效；其他 PM2 进程最迟 60 秒后到期重查
+    invalidatePermissionCache(role.role_code)
+
+    res.json({
+      code: 200,
+      message: '权限保存成功',
+      data: { roleId, count: permissions.length }
+    })
+  } catch (error) {
+    console.error('[角色权限] 保存失败:', error)
+    res.status(500).json({ code: 500, message: '保存角色权限失败', data: null })
+  }
+})
+
 // ==================== 过账期间管理 ====================
 
-router.get('/posting-periods', async (req, res) => {
+router.get('/posting-periods', requireUserType('OPERATOR'), requirePermission('system:period'), async (req, res) => {
   try {
     const { companyCode = 'DE01', fiscalYear = new Date().getFullYear() } = req.query
     const result = await query(
@@ -102,7 +224,7 @@ router.get('/posting-periods', async (req, res) => {
   }
 })
 
-router.put('/posting-periods/:id/toggle', async (req, res) => {
+router.put('/posting-periods/:id/toggle', requireUserType('OPERATOR'), requirePermission('system:period'), async (req, res) => {
   try {
     const { id } = req.params
     // 获取当前状态
@@ -133,7 +255,7 @@ router.put('/posting-periods/:id/toggle', async (req, res) => {
 
 // ==================== 编号范围管理 ====================
 
-router.get('/number-ranges', async (req, res) => {
+router.get('/number-ranges', requireUserType('OPERATOR'), requirePermission('system:number_range'), async (req, res) => {
   try {
     const { companyCode = 'DE01' } = req.query
     const result = await query(
@@ -152,7 +274,7 @@ router.get('/number-ranges', async (req, res) => {
 
 // ==================== 会计科目表 ====================
 
-router.get('/chart-of-accounts', async (req, res) => {
+router.get('/chart-of-accounts', requireUserType('OPERATOR'), requirePermission('system:account'), async (req, res) => {
   try {
     const result = await query(
       `SELECT id, account_code, account_name, account_type, parent_code,
@@ -211,7 +333,7 @@ function validateMdType(type) {
 
 // 获取基础数据列表（分页 + 搜索 + 状态筛选）
 // 注意：此路由的固定路径 options 必须在 :id 参数路由之前
-router.get('/master-data/:type/options', async (req, res) => {
+router.get('/master-data/:type/options', requireUserType('OPERATOR'), async (req, res) => {
   try {
     const table = validateMdType(req.params.type)
     if (!table) {
@@ -283,7 +405,7 @@ router.get('/master-data/:type/options', async (req, res) => {
 })
 
 // 获取基础数据列表（管理页面用，带分页）
-router.get('/master-data/:type', async (req, res) => {
+router.get('/master-data/:type', requireUserType('OPERATOR'), requirePermission('system:master_data'), async (req, res) => {
   try {
     const table = validateMdType(req.params.type)
     if (!table) {
@@ -339,7 +461,7 @@ router.get('/master-data/:type', async (req, res) => {
 })
 
 // 新增基础数据
-router.post('/master-data/:type', async (req, res) => {
+router.post('/master-data/:type', requireUserType('OPERATOR'), requirePermission('system:master_data'), async (req, res) => {
   try {
     const table = validateMdType(req.params.type)
     if (!table) {
@@ -392,7 +514,7 @@ router.post('/master-data/:type', async (req, res) => {
 })
 
 // 修改基础数据
-router.put('/master-data/:type/:id', async (req, res) => {
+router.put('/master-data/:type/:id', requireUserType('OPERATOR'), requirePermission('system:master_data'), async (req, res) => {
   try {
     const table = validateMdType(req.params.type)
     if (!table) {
@@ -461,7 +583,7 @@ router.put('/master-data/:type/:id', async (req, res) => {
 })
 
 // 启用/停用基础数据
-router.put('/master-data/:type/:id/toggle', async (req, res) => {
+router.put('/master-data/:type/:id/toggle', requireUserType('OPERATOR'), requirePermission('system:master_data'), async (req, res) => {
   try {
     const table = validateMdType(req.params.type)
     if (!table) {

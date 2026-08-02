@@ -38,6 +38,7 @@ import contactRoutes from './modules/contact/routes.js'
 import notificationRoutes from './modules/notification/routes.js'
 import systemRoutes from './modules/system/routes.js'
 import userRoutes from './modules/user/routes.js'
+import portalUserRoutes from './modules/portal-user/routes.js'
 
 // 中间件
 import { errorHandler } from './middleware/errorHandler.js'
@@ -115,6 +116,8 @@ app.use('/api/v1/contact', contactRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/system', systemRoutes)
 app.use('/api/v1/users', userRoutes)
+// 客户门户自助管理本公司账号（子系统专属端点，和运营端 /users 分开）
+app.use('/api/v1/portal/users', portalUserRoutes)
 
 // ==================== 系统端点 ====================
 app.get('/api/health', (req, res) => {

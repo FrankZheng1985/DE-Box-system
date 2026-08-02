@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken, requireUserType } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, documentFlow, pricingEngine, changeTracker } from '../../core/index.js'
 import quotationService, {
@@ -52,7 +52,7 @@ async function loadQuotationWithAccessCheck(quotationId, req, res) {
 /**
  * 报价列表
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('quotation:view', 'portal:quotation_view'), async (req, res) => {
   try {
     const { status, clientId, businessType, inquiryId, search, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -99,7 +99,7 @@ router.get('/', async (req, res) => {
 /**
  * 报价统计
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireUserType('OPERATOR'), requirePermission('quotation:view'), async (req, res) => {
   try {
     // ::int 让 pg 直接返回数字，省掉前端一层 parseInt（踩坑 002）
     let sql = `
@@ -143,7 +143,7 @@ router.get('/stats', async (req, res) => {
  * POST /api/v1/quotations/calculate-price
  * 使用定价引擎根据业务类型和输入数据计算价格
  */
-router.post('/calculate-price', requireUserType('OPERATOR'), async (req, res) => {
+router.post('/calculate-price', requireUserType('OPERATOR'), requirePermission('quotation:create'), async (req, res) => {
   try {
     const { procedureCode, inputData } = req.body
     if (!procedureCode || !inputData) {
@@ -164,7 +164,7 @@ router.post('/calculate-price', requireUserType('OPERATOR'), async (req, res) =>
 /**
  * 报价详情
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'), async (req, res) => {
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
@@ -200,7 +200,7 @@ router.get('/:id', async (req, res) => {
  * 创建报价（通过定价引擎计算）
  * POST /api/v1/quotations
  */
-router.post('/', requireUserType('OPERATOR'), async (req, res) => {
+router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:create'), async (req, res) => {
   try {
     const quotation = await withTransaction(async (client) => {
       // 凭证引擎创建凭证
@@ -274,7 +274,7 @@ router.post('/', requireUserType('OPERATOR'), async (req, res) => {
 /**
  * 编辑报价
  */
-router.put('/:id', requireUserType('OPERATOR'), async (req, res) => {
+router.put('/:id', requireUserType('OPERATOR'), requirePermission('quotation:edit'), async (req, res) => {
   try {
     await withTransaction(async (client) => {
       const old = await client.query(`SELECT * FROM quotations WHERE id = $1`, [req.params.id])
@@ -309,7 +309,7 @@ router.put('/:id', requireUserType('OPERATOR'), async (req, res) => {
  * 发送后客户门户「我的报价」页才看得到并能做决策。
  * 邮件通知在 P4 接上（这里先只改状态）。
  */
-router.post('/:id/send', requireUserType('OPERATOR'), async (req, res) => {
+router.post('/:id/send', requireUserType('OPERATOR'), requirePermission('quotation:send'), async (req, res) => {
   try {
     const outcome = await withTransaction(async (client) => {
       // 旧版无条件 UPDATE ... WHERE status='DRAFT'，非草稿时影响 0 行却照样回
@@ -369,7 +369,7 @@ router.post('/:id/send', requireUserType('OPERATOR'), async (req, res) => {
  *
  * 手工的 convert-order 端点保留，用于历史上已 ACCEPTED 但没建单的存量报价。
  */
-router.post('/:id/accept', requireUserType('OPERATOR', 'CLIENT'), async (req, res) => {
+router.post('/:id/accept', requireUserType('OPERATOR', 'CLIENT'), requirePermission('quotation:decide', 'portal:quotation_decide'), async (req, res) => {
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
@@ -408,7 +408,7 @@ router.post('/:id/accept', requireUserType('OPERATOR', 'CLIENT'), async (req, re
  * 客户看过报价但还没拿定主意。报价停在 PENDING_DECISION，
  * 运营在列表里能一眼挑出需要跟进的单；客户之后仍可改成接受或拒绝。
  */
-router.post('/:id/pending', requireUserType('OPERATOR', 'CLIENT'), async (req, res) => {
+router.post('/:id/pending', requireUserType('OPERATOR', 'CLIENT'), requirePermission('quotation:decide', 'portal:quotation_decide'), async (req, res) => {
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
@@ -430,7 +430,7 @@ router.post('/:id/pending', requireUserType('OPERATOR', 'CLIENT'), async (req, r
  * 客户拒绝报价
  * POST /api/v1/quotations/:id/reject
  */
-router.post('/:id/reject', requireUserType('OPERATOR', 'CLIENT'), async (req, res) => {
+router.post('/:id/reject', requireUserType('OPERATOR', 'CLIENT'), requirePermission('quotation:decide', 'portal:quotation_decide'), async (req, res) => {
   try {
     const quotation = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!quotation) return
@@ -451,7 +451,7 @@ router.post('/:id/reject', requireUserType('OPERATOR', 'CLIENT'), async (req, re
 /**
  * 创建新版本
  */
-router.post('/:id/new-version', requireUserType('OPERATOR'), async (req, res) => {
+router.post('/:id/new-version', requireUserType('OPERATOR'), requirePermission('quotation:edit'), async (req, res) => {
   try {
     const newQuo = await withTransaction(async (client) => {
       const old = await client.query(`SELECT * FROM quotations WHERE id = $1`, [req.params.id])
@@ -494,7 +494,7 @@ router.post('/:id/new-version', requireUserType('OPERATOR'), async (req, res) =>
 /**
  * 获取报价所有版本
  */
-router.get('/:id/versions', async (req, res) => {
+router.get('/:id/versions', requirePermission('quotation:view', 'portal:quotation_view'), async (req, res) => {
   try {
     const current = await loadQuotationWithAccessCheck(req.params.id, req, res)
     if (!current) return
@@ -522,7 +522,7 @@ router.get('/:id/versions', async (req, res) => {
  *   2. 自动建单因信用超额失败、运营处理完额度后补建
  * 因此保留，但收紧为仅运营可调。
  */
-router.post('/:id/convert-order', requireUserType('OPERATOR'), async (req, res) => {
+router.post('/:id/convert-order', requireUserType('OPERATOR'), requirePermission('quotation:convert'), async (req, res) => {
   try {
     const order = await withTransaction(async (client) => {
       const locked = await client.query(`SELECT * FROM quotations WHERE id = $1 FOR UPDATE`, [req.params.id])
@@ -547,7 +547,7 @@ router.post('/:id/convert-order', requireUserType('OPERATOR'), async (req, res) 
 })
 
 // 报价作废（软删除）: status -> CANCELLED
-router.post('/:id/void', requireUserType('OPERATOR'), async (req, res) => {
+router.post('/:id/void', requireUserType('OPERATOR'), requirePermission('quotation:void'), async (req, res) => {
   try {
     const { id } = req.params
     const { reason } = req.body || {}

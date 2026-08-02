@@ -12,22 +12,22 @@ import { getAuthHeaders } from '../utils/api'
 // ==================== 类型定义 ====================
 
 interface UserRecord {
-  id: number
+  id: string
   username: string
   display_name: string
   email: string | null
   phone: string | null
   user_type: 'OPERATOR' | 'CLIENT' | 'CARRIER'
-  role_id: number | null
+  role_id: string | null
   role_name: string | null
   role_code: string | null
-  linked_entity_id: number | null
+  linked_entity_id: string | null
   is_active: boolean
   created_at: string
 }
 
 interface EntityOption {
-  id: number
+  id: string
   name: string
 }
 
@@ -175,8 +175,10 @@ export default function UserManagement() {
           email: form.email || null,
           phone: form.phone || null,
           user_type: form.user_type,
-          role_id: form.role_id ? Number(form.role_id) : null,
-          linked_entity_id: form.linked_entity_id ? Number(form.linked_entity_id) : null,
+          // ⚠️ role_id / linked_entity_id 是 UUID，不能 Number()
+          //    （历史 bug：Number('9f8c-…') = NaN → 序列化成 null → 角色一直没存上）
+          role_id: form.role_id || null,
+          linked_entity_id: form.linked_entity_id || null,
         })
       })
       const json = await res.json()
@@ -207,8 +209,10 @@ export default function UserManagement() {
           email: form.email || null,
           phone: form.phone || null,
           user_type: form.user_type,
-          role_id: form.role_id ? Number(form.role_id) : null,
-          linked_entity_id: form.linked_entity_id ? Number(form.linked_entity_id) : null,
+          // ⚠️ role_id / linked_entity_id 是 UUID，不能 Number()
+          //    （历史 bug：Number('9f8c-…') = NaN → 序列化成 null → 角色一直没存上）
+          role_id: form.role_id || null,
+          linked_entity_id: form.linked_entity_id || null,
         })
       })
       const json = await res.json()

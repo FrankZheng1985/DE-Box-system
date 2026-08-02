@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import multer from 'multer'
 import { uploadToOSS } from '../../utils/oss-service.js'
@@ -13,6 +13,28 @@ import path from 'path'
 
 const router = Router()
 router.use(authenticateToken)
+
+/**
+ * 租户隔离（P5）：清关列表以前不区分身份，客户门户账号能看到全部客户的清关记录。
+ * 这里按登录身份追加一段 WHERE，运营端不加。
+ * @param {object} user req.user
+ * @param {string[]} params 已有的 SQL 参数数组（会被 push）
+ * @param {number} idx 当前参数序号
+ * @returns {{sql: string, idx: number}} 追加的 SQL 片段和新的参数序号
+ */
+function tenantFilter(user, params, idx) {
+  const userType = user.userType || user.roleCode
+  if (userType === 'CLIENT' && user.linkedEntityId) {
+    params.push(user.linkedEntityId)
+    return { sql: ` AND o.client_id = $${++idx}`, idx }
+  }
+  if (userType === 'CARRIER' && user.linkedEntityId) {
+    params.push(user.linkedEntityId)
+    return { sql: ` AND o.carrier_id = $${++idx}`, idx }
+  }
+  return { sql: '', idx }
+}
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
 // 确保上传目录存在
@@ -22,7 +44,7 @@ fs.mkdirSync(CUSTOMS_UPLOAD_DIR, { recursive: true })
 /**
  * 清关记录列表
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('customs:view', 'portal:order_view'), async (req, res) => {
   try {
     const { status, search, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -37,6 +59,7 @@ router.get('/', async (req, res) => {
 
     if (status) { params.push(status); sql += ` AND cc.status = $${++idx}` }
     if (search) { params.push(`%${search}%`); sql += ` AND (o.order_number ILIKE $${++idx} OR c.company_name ILIKE $${idx})` }
+    const scoped = tenantFilter(req.user, params, idx); sql += scoped.sql; idx = scoped.idx
 
     const countResult = await query(`SELECT COUNT(*) as total FROM (${sql}) t`, params)
     sql += ` ORDER BY cc.updated_at DESC`
@@ -56,7 +79,7 @@ router.get('/', async (req, res) => {
 /**
  * 清关统计
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', requireUserType('OPERATOR'), requirePermission('customs:view'), async (req, res) => {
   try {
     const result = await query(`
       SELECT
@@ -75,12 +98,14 @@ router.get('/stats', async (req, res) => {
 /**
  * 获取订单清关详情
  */
-router.get('/:orderId', async (req, res) => {
+router.get('/:orderId', requirePermission('customs:view', 'portal:order_view'), async (req, res) => {
   try {
-    const clearance = await query(
-      `SELECT cc.*, o.order_number FROM customs_clearances cc
+    const params = [req.params.orderId]
+    let sql = `SELECT cc.*, o.order_number FROM customs_clearances cc
        LEFT JOIN orders o ON o.id = cc.order_id
-       WHERE cc.order_id = $1`, [req.params.orderId])
+       WHERE cc.order_id = $1`
+    const scoped = tenantFilter(req.user, params, 1); sql += scoped.sql
+    const clearance = await query(sql, params)
     if (clearance.rows.length === 0) return res.status(404).json({ code: 404, message: '清关记录不存在', data: null })
 
     const docs = await query(
@@ -97,7 +122,7 @@ router.get('/:orderId', async (req, res) => {
  * 更新清关状态
  * PUT /api/v1/customs/:orderId/status
  */
-router.put('/:orderId/status', async (req, res) => {
+router.put('/:orderId/status', requireUserType('OPERATOR'), requirePermission('customs:manage'), async (req, res) => {
   try {
     const { status, customsBroker } = req.body
     const validStatuses = ['PENDING', 'IN_PROGRESS', 'CLEARED', 'EXCEPTION']
@@ -132,7 +157,7 @@ router.put('/:orderId/status', async (req, res) => {
 /**
  * 上传清关文件
  */
-router.post('/:orderId/documents', upload.single('file'), async (req, res) => {
+router.post('/:orderId/documents', requireUserType('OPERATOR'), requirePermission('customs:manage'), upload.single('file'), async (req, res) => {
   try {
     // 确保清关记录存在
     let clearance = await query(
@@ -189,7 +214,7 @@ router.post('/:orderId/documents', upload.single('file'), async (req, res) => {
 /**
  * 获取清关文件列表
  */
-router.get('/:orderId/documents', async (req, res) => {
+router.get('/:orderId/documents', requirePermission('customs:view', 'portal:file_download'), async (req, res) => {
   try {
     const clearance = await query(`SELECT id FROM customs_clearances WHERE order_id = $1`, [req.params.orderId])
     if (clearance.rows.length === 0) return res.json({ code: 200, message: 'success', data: [] })
@@ -208,7 +233,7 @@ router.get('/:orderId/documents', async (req, res) => {
 /**
  * 标记清关异常
  */
-router.post('/:orderId/exception', async (req, res) => {
+router.post('/:orderId/exception', requireUserType('OPERATOR'), requirePermission('customs:manage'), async (req, res) => {
   try {
     await withTransaction(async (client) => {
       await client.query(`

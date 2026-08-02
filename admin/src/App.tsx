@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 import Layout from './components/Layout'
+import PermissionRoute from './components/PermissionRoute'
 
 // ==================== 页面组件（懒加载） ====================
 
@@ -67,6 +68,7 @@ const PostingPeriods = lazy(() => import('./pages/PostingPeriods'))
 const ChartOfAccounts = lazy(() => import('./pages/ChartOfAccounts'))
 const NumberRanges = lazy(() => import('./pages/NumberRanges'))
 const UserManagement = lazy(() => import('./pages/UserManagement'))
+const RoleManagement = lazy(() => import('./pages/RoleManagement'))
 const MasterData = lazy(() => import('./pages/MasterData'))
 
 // ==================== 加载组件 ====================
@@ -109,70 +111,73 @@ function AppRoutes() {
   return (
     <Layout>
       <Suspense fallback={<PageLoading />}>
-        <Routes>
-          {/* 首页重定向到仪表盘 */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+        <PermissionRoute>
+          <Routes>
+            {/* 首页重定向到仪表盘 */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* 订单管理 */}
-          <Route path="/orders" element={<OrderManagement />} />
-          <Route path="/orders/create" element={<OrderCreate />} />
-          <Route path="/orders/:id" element={<OrderDetail />} />
-          <Route path="/orders/:id/edit" element={<OrderEdit />} />
-          <Route path="/orders/:id/assign" element={<OrderAssign />} />
+            {/* 订单管理 */}
+            <Route path="/orders" element={<OrderManagement />} />
+            <Route path="/orders/create" element={<OrderCreate />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/orders/:id/edit" element={<OrderEdit />} />
+            <Route path="/orders/:id/assign" element={<OrderAssign />} />
 
-          {/* 询价管理 */}
-          {/* create 必须写在 :id 之前，否则 "create" 会被当成 id（和后端路由顺序同理） */}
-          <Route path="/inquiries" element={<InquiryManagement />} />
-          <Route path="/inquiries/create" element={<InquiryEdit />} />
-          <Route path="/inquiries/:id" element={<InquiryDetail />} />
-          <Route path="/inquiries/:id/edit" element={<InquiryEdit />} />
+            {/* 询价管理 */}
+            {/* create 必须写在 :id 之前，否则 "create" 会被当成 id（和后端路由顺序同理） */}
+            <Route path="/inquiries" element={<InquiryManagement />} />
+            <Route path="/inquiries/create" element={<InquiryEdit />} />
+            <Route path="/inquiries/:id" element={<InquiryDetail />} />
+            <Route path="/inquiries/:id/edit" element={<InquiryEdit />} />
 
-          {/* 报价管理 */}
-          <Route path="/quotes" element={<QuotationManagement />} />
-          <Route path="/quotes/create" element={<QuotationCreate />} />
-          <Route path="/quotes/:id" element={<QuotationDetail />} />
+            {/* 报价管理 */}
+            <Route path="/quotes" element={<QuotationManagement />} />
+            <Route path="/quotes/create" element={<QuotationCreate />} />
+            <Route path="/quotes/:id" element={<QuotationDetail />} />
 
-          {/* CMR 运单 */}
-          <Route path="/cmr" element={<CMRManagement />} />
+            {/* CMR 运单 */}
+            <Route path="/cmr" element={<CMRManagement />} />
 
-          {/* 船司放单 */}
-          <Route path="/shipping-release" element={<ShippingRelease />} />
+            {/* 船司放单 */}
+            <Route path="/shipping-release" element={<ShippingRelease />} />
 
-          {/* 清关管理 */}
-          <Route path="/customs" element={<CustomsManagement />} />
+            {/* 清关管理 */}
+            <Route path="/customs" element={<CustomsManagement />} />
 
-          {/* GPS 追踪 */}
-          <Route path="/gps" element={<GPSTracking />} />
+            {/* GPS 追踪 */}
+            <Route path="/gps" element={<GPSTracking />} />
 
-          {/* 财务管理 */}
-          <Route path="/finance" element={<FinanceManagement />} />
-          <Route path="/finance/:id" element={<FinanceDetail />} />
+            {/* 财务管理 */}
+            <Route path="/finance" element={<FinanceManagement />} />
+            <Route path="/finance/:id" element={<FinanceDetail />} />
 
-          {/* 发票模板 */}
-          <Route path="/invoice-templates" element={<InvoiceTemplates />} />
+            {/* 发票模板 */}
+            <Route path="/invoice-templates" element={<InvoiceTemplates />} />
 
-          {/* 客户管理 */}
-          <Route path="/clients" element={<ClientList />} />
-          <Route path="/clients/:id" element={<ClientDetail />} />
-          <Route path="/clients/:id/edit" element={<ClientEdit />} />
+            {/* 客户管理 */}
+            <Route path="/clients" element={<ClientList />} />
+            <Route path="/clients/:id" element={<ClientDetail />} />
+            <Route path="/clients/:id/edit" element={<ClientEdit />} />
 
-          {/* 承运商管理 */}
-          <Route path="/carriers" element={<CarrierList />} />
-          <Route path="/carriers/:id" element={<CarrierDetail />} />
-          <Route path="/carriers/:id/edit" element={<CarrierEdit />} />
+            {/* 承运商管理 */}
+            <Route path="/carriers" element={<CarrierList />} />
+            <Route path="/carriers/:id" element={<CarrierDetail />} />
+            <Route path="/carriers/:id/edit" element={<CarrierEdit />} />
 
-          {/* 通知中心 */}
-          <Route path="/notifications" element={<Notifications />} />
+            {/* 通知中心 */}
+            <Route path="/notifications" element={<Notifications />} />
 
-          {/* 系统设置 */}
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/posting-periods" element={<PostingPeriods />} />
-          <Route path="/settings/chart-of-accounts" element={<ChartOfAccounts />} />
-          <Route path="/settings/number-ranges" element={<NumberRanges />} />
-          <Route path="/settings/master-data" element={<MasterData />} />
-          <Route path="/system/users" element={<UserManagement />} />
-        </Routes>
+            {/* 系统设置 */}
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/posting-periods" element={<PostingPeriods />} />
+            <Route path="/settings/chart-of-accounts" element={<ChartOfAccounts />} />
+            <Route path="/settings/number-ranges" element={<NumberRanges />} />
+            <Route path="/settings/master-data" element={<MasterData />} />
+            <Route path="/system/users" element={<UserManagement />} />
+            <Route path="/system/roles" element={<RoleManagement />} />
+          </Routes>
+        </PermissionRoute>
       </Suspense>
     </Layout>
   )

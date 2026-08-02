@@ -18,6 +18,14 @@ export { default as creditManager } from './credit-manager.js'
 export { default as pricingEngine } from './pricing-engine.js'
 export { default as notificationEngine, NOTIFICATION_TYPES, NOTIFICATION_TYPE_LABELS } from './notification-engine.js'
 export { default as workflowEngine } from './workflow-engine.js'
+export {
+  default as permissionService,
+  SUPER_ROLE_CODE,
+  getPermissionsByRoleCode,
+  roleHasAnyPermission,
+  invalidatePermissionCache,
+  listPermissionCatalog,
+} from './permission-service.js'
 
 // 导出类（用于需要自定义实例的场景）
 export { DocumentEngine } from './document-engine.js'

@@ -15,24 +15,30 @@ import {
   User,
   Menu,
   Truck,
+  Users,
 } from 'lucide-react'
 import { useState } from 'react'
 
+/**
+ * 导航项
+ * permission 为空表示所有客户账号都能看；配了权限码则按权限码过滤（P5）
+ */
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: '概览' },
-  { path: '/orders', icon: Package, label: '我的订单' },
-  { path: '/orders/create', icon: PlusCircle, label: '新建订单' },
-  { path: '/inquiry', icon: MessageSquare, label: '询价' },
-  { path: '/quotations', icon: Tag, label: '我的报价' },
-  { path: '/tracking', icon: MapPin, label: '运输追踪' },
-  { path: '/customs', icon: ShieldCheck, label: '清关操作' },
-  { path: '/cmr', icon: FileText, label: 'CMR文件' },
-  { path: '/billing', icon: Receipt, label: '我的账单' },
-  { path: '/settings', icon: Settings, label: '账户设置' },
+  { path: '/', icon: LayoutDashboard, label: '概览', permission: '' },
+  { path: '/orders', icon: Package, label: '我的订单', permission: 'portal:order_view' },
+  { path: '/orders/create', icon: PlusCircle, label: '新建订单', permission: 'portal:order_create' },
+  { path: '/inquiry', icon: MessageSquare, label: '询价', permission: 'portal:inquiry_manage' },
+  { path: '/quotations', icon: Tag, label: '我的报价', permission: 'portal:quotation_view' },
+  { path: '/tracking', icon: MapPin, label: '运输追踪', permission: 'portal:order_view' },
+  { path: '/customs', icon: ShieldCheck, label: '清关操作', permission: 'portal:order_view' },
+  { path: '/cmr', icon: FileText, label: 'CMR文件', permission: 'portal:file_download' },
+  { path: '/billing', icon: Receipt, label: '我的账单', permission: 'portal:billing_view' },
+  { path: '/members', icon: Users, label: '账号管理', permission: 'portal:user_manage' },
+  { path: '/settings', icon: Settings, label: '账户设置', permission: '' },
 ]
 
 export default function Layout() {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -41,6 +47,9 @@ export default function Layout() {
     logout()
     navigate('/login')
   }
+
+  // 只显示当前账号有权限的菜单（P5）
+  const visibleNavItems = navItems.filter(item => !item.permission || hasPermission(item.permission))
 
   // 获取当前页面标题
   const currentPage = navItems.find(item =>
@@ -75,7 +84,7 @@ export default function Layout() {
 
         {/* 导航菜单 */}
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

@@ -9,6 +9,37 @@ import { changeTracker, documentEngine } from '../../core/index.js'
 import orderService from './service.js'
 import orderModel from './model.js'
 
+/**
+ * 租户隔离（P5）
+ *
+ * 订单列表以前直接用 req.query.clientId 做筛选，谁传谁算数：
+ * 客户门户的账号只要把 clientId 换成别家公司的，就能看到别人的订单和报价，
+ * 不传参数更是直接看全部。这里改成按登录身份强制收窄，query 参数只对运营生效。
+ *
+ * @param {object} user req.user
+ * @param {object} queryFilters 前端传来的筛选条件
+ * @returns {object} 收窄后的筛选条件
+ */
+function scopeToTenant(user, queryFilters) {
+  if (user?.userType === 'CLIENT') {
+    return { ...queryFilters, clientId: user.linkedEntityId, carrierId: undefined }
+  }
+  if (user?.userType === 'CARRIER') {
+    return { ...queryFilters, carrierId: user.linkedEntityId, clientId: undefined }
+  }
+  return queryFilters
+}
+
+/**
+ * 校验某条订单是否属于当前登录方
+ * @returns {boolean} true 表示可以看
+ */
+function canAccessOrder(user, order) {
+  if (user?.userType === 'CLIENT') return order.client_id === user.linkedEntityId
+  if (user?.userType === 'CARRIER') return order.carrier_id === user.linkedEntityId
+  return true
+}
+
 export const orderController = {
 
   /**
@@ -17,19 +48,21 @@ export const orderController = {
    */
   async list(req, res) {
     try {
+      const filters = scopeToTenant(req.user, {
+        businessType: req.query.businessType,
+        status: req.query.status,
+        deliveryStatus: req.query.deliveryStatus,
+        clientId: req.query.clientId,
+        carrierId: req.query.carrierId,
+        search: req.query.search,
+        dateFrom: req.query.dateFrom,
+        dateTo: req.query.dateTo,
+        page: parseInt(req.query.page) || 1,
+        pageSize: parseInt(req.query.pageSize) || 20
+      })
+
       const result = await withTransaction(async (client) => {
-        return orderModel.list(client, {
-          businessType: req.query.businessType,
-          status: req.query.status,
-          deliveryStatus: req.query.deliveryStatus,
-          clientId: req.query.clientId,
-          carrierId: req.query.carrierId,
-          search: req.query.search,
-          dateFrom: req.query.dateFrom,
-          dateTo: req.query.dateTo,
-          page: parseInt(req.query.page) || 1,
-          pageSize: parseInt(req.query.pageSize) || 20
-        })
+        return orderModel.list(client, filters)
       })
 
       res.json({ code: 200, message: 'success', ...result })
@@ -48,6 +81,10 @@ export const orderController = {
       const result = await withTransaction(async (client) => {
         const order = await orderModel.getById(client, req.params.id)
         if (!order) return null
+
+        // 不是自己家的订单，一律按"不存在"处理——
+        // 回 403 等于告诉对方"这个 UUID 是有效订单"，反而泄露信息
+        if (!canAccessOrder(req.user, order)) return null
 
         // 获取单据流
         let flow = null

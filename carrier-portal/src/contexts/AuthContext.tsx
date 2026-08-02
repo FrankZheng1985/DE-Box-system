@@ -15,6 +15,10 @@ interface AuthContextType {
   token: string | null
   isAuthenticated: boolean
   loading: boolean
+  /** 当前角色的权限码（P5），如 carrier_portal:billing_view */
+  permissions: string[]
+  /** 是否拥有某个权限码 */
+  hasPermission: (code: string) => boolean
   login: (username: string, password: string) => Promise<boolean>
   logout: () => void
 }
@@ -26,6 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
+  const [permissions, setPermissions] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -37,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.token && data.user) {
           setToken(data.token)
           setUser(data.user)
+          setPermissions(data.permissions || [])
         }
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY)
@@ -59,9 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const authData = {
           token: data.data.token,
           user: data.data.user,
+          permissions: data.data.permissions || [],
         }
         setUser(authData.user)
         setToken(authData.token)
+        setPermissions(authData.permissions)
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData))
         return true
       }
@@ -75,8 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     setToken(null)
+    setPermissions([])
     localStorage.removeItem(AUTH_STORAGE_KEY)
   }
+
+  /** 判断当前账号有没有某个权限码 */
+  const hasPermission = (code: string): boolean => permissions.includes(code)
 
   return (
     <AuthContext.Provider
@@ -85,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isAuthenticated: !!token,
         loading,
+        permissions,
+        hasPermission,
         login,
         logout,
       }}

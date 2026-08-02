@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { User, UserType, Organization, AuthObject } from '../types'
+import { SUPER_ROLE_CODE } from '../constants/permissions'
 
 // 认证存储键（与 api.ts 保持一致）
 const AUTH_STORAGE_KEY = 'eu_tms_auth'
@@ -13,6 +14,8 @@ interface AuthState {
   roleCode: string | null
   organization: Organization | null
   authObjects: AuthObject[]
+  /** 当前角色的权限码（P5），如 order:view、finance:post */
+  permissions: string[]
   token: string | null
   isAuthenticated: boolean
   isLoading: boolean
@@ -26,6 +29,12 @@ interface AuthContextType extends AuthState {
   hasAnyAuth: (authCodes: string[]) => boolean
   hasAllAuth: (authCodes: string[]) => boolean
   isAdmin: () => boolean
+  /** 是否拥有某个权限码（P5） */
+  hasPermission: (code: string) => boolean
+  /** 是否拥有其中任意一个权限码（P5） */
+  hasAnyPermission: (codes: string[]) => boolean
+  /** 重新从后端拉权限码——管理员刚改完角色权限时用，不用退出重登 */
+  refreshPermissions: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -39,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     roleCode: null,
     organization: null,
     authObjects: [],
+    permissions: [],
     token: null,
     isAuthenticated: false,
     isLoading: true,
@@ -56,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           roleCode: data.user?.roleCode || null,
           organization: data.organization || null,
           authObjects: data.authObjects || [],
+          permissions: data.permissions || [],
           token: data.token,
           isAuthenticated: true,
           isLoading: false,
@@ -82,10 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // V2 格式：检查 code === 200
       if (data.code === 200 && data.data) {
-        const { token, user, organization, authObjects } = data.data
+        const { token, user, organization, authObjects, permissions } = data.data
 
         // 保存到 localStorage
-        const loginData = { token, user, organization, authObjects }
+        const loginData = { token, user, organization, authObjects, permissions }
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(loginData))
 
         setState({
@@ -94,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           roleCode: user.roleCode || null,
           organization: organization || null,
           authObjects: authObjects || [],
+          permissions: permissions || [],
           token,
           isAuthenticated: true,
           isLoading: false,
@@ -118,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       roleCode: null,
       organization: null,
       authObjects: [],
+      permissions: [],
       token: null,
       isAuthenticated: false,
       isLoading: false,
@@ -168,10 +181,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authCodes.every(code => state.authObjects.some(a => a.code === code))
   }, [state.roleCode, state.authObjects])
 
-  // 是否是管理员
+  // 是否是系统管理员
+  // ⚠️ 角色码是 sys_admin，不是 admin（历史上这里写的是 'admin'，永远返回 false）
   const isAdmin = useCallback((): boolean => {
-    return state.roleCode === 'admin'
+    return state.roleCode === SUPER_ROLE_CODE
   }, [state.roleCode])
+
+  // ==================== 权限码（P5） ====================
+
+  const hasPermission = useCallback((code: string): boolean => {
+    if (state.roleCode === SUPER_ROLE_CODE) return true
+    return state.permissions.includes(code)
+  }, [state.roleCode, state.permissions])
+
+  const hasAnyPermission = useCallback((codes: string[]): boolean => {
+    if (state.roleCode === SUPER_ROLE_CODE) return true
+    if (!Array.isArray(codes) || codes.length === 0) return true
+    return codes.some(code => state.permissions.includes(code))
+  }, [state.roleCode, state.permissions])
+
+  // 管理员刚在角色权限页改完勾选时，本人不用退出重登
+  const refreshPermissions = useCallback(async (): Promise<void> => {
+    const token = await getAccessToken()
+    if (!token) return
+    try {
+      const res = await fetch('/api/v1/auth/permissions', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.code === 200 && Array.isArray(data.data?.permissions)) {
+        const permissions: string[] = data.data.permissions
+        setState(prev => ({ ...prev, permissions }))
+        // localStorage 也同步，免得刷新页面又退回旧权限
+        const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...parsed, permissions }))
+        }
+      }
+    } catch (error) {
+      console.error('刷新权限失败:', error)
+    }
+  }, [getAccessToken])
 
   return (
     <AuthContext.Provider
@@ -184,6 +235,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasAnyAuth,
         hasAllAuth,
         isAdmin,
+        hasPermission,
+        hasAnyPermission,
+        refreshPermissions,
       }}
     >
       {children}

@@ -10,12 +10,14 @@
 
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
-import { authenticateToken, requireUserType } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { query } from '../../core/db.js'
 
 const router = Router()
 router.use(authenticateToken)
 router.use(requireUserType('OPERATOR'))
+// 员工账号管理（新建、改角色、重置密码）统一要 system:user 权限（P5）
+router.use(requirePermission('system:user'))
 
 // ==================== 用户统计（放在 /:id 之前） ====================
 

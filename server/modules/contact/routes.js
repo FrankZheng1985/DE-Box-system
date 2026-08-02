@@ -5,7 +5,7 @@
 
 import { Router } from 'express'
 import { query } from '../../core/db.js'
-import { authenticateToken, requireUserType } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { sendEmail } from '../../utils/email-service.js'
 
 const router = Router()
@@ -75,7 +75,7 @@ router.post('/', async (req, res) => {
  * 获取咨询列表（管理后台）
  * GET /api/v1/contact
  */
-router.get('/', authenticateToken, requireUserType('OPERATOR'), async (req, res) => {
+router.get('/', authenticateToken, requireUserType('OPERATOR'), requirePermission('contact:view'), async (req, res) => {
   try {
     const { status, search, page = 1, pageSize = 20 } = req.query
     let sql = `SELECT * FROM contact_inquiries WHERE 1=1`
@@ -104,7 +104,7 @@ router.get('/', authenticateToken, requireUserType('OPERATOR'), async (req, res)
  * 标记已处理
  * PUT /api/v1/contact/:id/status
  */
-router.put('/:id/status', authenticateToken, requireUserType('OPERATOR'), async (req, res) => {
+router.put('/:id/status', authenticateToken, requireUserType('OPERATOR'), requirePermission('contact:manage'), async (req, res) => {
   try {
     const { status, notes } = req.body
     await query(
@@ -123,7 +123,7 @@ router.put('/:id/status', authenticateToken, requireUserType('OPERATOR'), async 
 /**
  * 咨询统计
  */
-router.get('/stats', authenticateToken, requireUserType('OPERATOR'), async (req, res) => {
+router.get('/stats', authenticateToken, requireUserType('OPERATOR'), requirePermission('contact:view'), async (req, res) => {
   try {
     const result = await query(`
       SELECT

@@ -6,7 +6,7 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { getPool } from '../../core/db.js'
 import { documentEngine, accountDetermination, documentFlow } from '../../core/index.js'
@@ -14,10 +14,37 @@ import { documentEngine, accountDetermination, documentFlow } from '../../core/i
 const router = Router()
 router.use(authenticateToken)
 
+/**
+ * 租户隔离（P5）
+ *
+ * 应收/应付列表以前直接用 query 里的 clientId / carrierId 筛选，
+ * 客户门户账号把参数一换就能看到别家公司的账单金额，不传参数更是看全部。
+ * 这里对客户/承运商强制按 JWT 里的 linkedEntityId 收窄。
+ *
+ * @param {object} user req.user
+ * @param {'CLIENT'|'CARRIER'} ownerType 这个列表属于哪一方
+ * @param {string} queryValue 前端传来的 clientId / carrierId
+ * @returns {{value: string|undefined, forbidden: boolean}}
+ *          forbidden = true 表示这个身份根本不该看这张表
+ */
+function resolveCounterparty(user, ownerType, queryValue) {
+  const userType = user.userType || user.roleCode
+  if (userType === 'CLIENT' || userType === 'CARRIER') {
+    if (userType !== ownerType) return { value: undefined, forbidden: true }
+    return { value: user.linkedEntityId, forbidden: false }
+  }
+  return { value: queryValue, forbidden: false }
+}
+
 // === 应收账款 ===
-router.get('/receivables', async (req, res) => {
+router.get('/receivables', requirePermission('finance:view', 'portal:billing_view'), async (req, res) => {
   try {
-    const { paymentStatus, clientId, page = 1, pageSize = 20 } = req.query
+    const { paymentStatus, page = 1, pageSize = 20 } = req.query
+    const scoped = resolveCounterparty(req.user, 'CLIENT', req.query.clientId)
+    if (scoped.forbidden) {
+      return res.status(403).json({ code: 403, message: '没有权限查看应收账款', data: null })
+    }
+    const clientId = scoped.value
     let sql = `SELECT fr.*, c.company_name as counterparty_name, o.order_number
       FROM financial_records fr LEFT JOIN clients c ON c.id = fr.counterparty_id
       LEFT JOIN orders o ON o.id = fr.order_id WHERE fr.type = 'RECEIVABLE'`
@@ -35,9 +62,14 @@ router.get('/receivables', async (req, res) => {
 })
 
 // === 应付账款 ===
-router.get('/payables', async (req, res) => {
+router.get('/payables', requirePermission('finance:view', 'carrier_portal:billing_view'), async (req, res) => {
   try {
-    const { paymentStatus, carrierId, page = 1, pageSize = 20 } = req.query
+    const { paymentStatus, page = 1, pageSize = 20 } = req.query
+    const scoped = resolveCounterparty(req.user, 'CARRIER', req.query.carrierId)
+    if (scoped.forbidden) {
+      return res.status(403).json({ code: 403, message: '没有权限查看应付账款', data: null })
+    }
+    const carrierId = scoped.value
     let sql = `SELECT fr.*, cr.company_name as counterparty_name, o.order_number
       FROM financial_records fr LEFT JOIN carriers cr ON cr.id = fr.counterparty_id
       LEFT JOIN orders o ON o.id = fr.order_id WHERE fr.type = 'PAYABLE'`
@@ -55,7 +87,7 @@ router.get('/payables', async (req, res) => {
 })
 
 // === 应收导出 Excel ===
-router.get('/export/receivables', async (req, res) => {
+router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission('finance:export'), async (req, res) => {
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -117,7 +149,7 @@ router.get('/export/receivables', async (req, res) => {
 })
 
 // === 应付导出 Excel ===
-router.get('/export/payables', async (req, res) => {
+router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('finance:export'), async (req, res) => {
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -179,7 +211,7 @@ router.get('/export/payables', async (req, res) => {
 })
 
 // === 创建财务记录（应收/应付发票） ===
-router.post('/records', async (req, res) => {
+router.post('/records', requireUserType('OPERATOR'), requirePermission('finance:create'), async (req, res) => {
   try {
     const record = await withTransaction(async (client) => {
       const { type, counterpartyType, counterpartyId, orderId, amount, currency, dueDate, remarks } = req.body
@@ -229,7 +261,7 @@ router.post('/records', async (req, res) => {
 })
 
 // === 记录付款/收款 ===
-router.put('/:id/payment', async (req, res) => {
+router.put('/:id/payment', requireUserType('OPERATOR'), requirePermission('finance:payment'), async (req, res) => {
   try {
     await withTransaction(async (client) => {
       const fr = await client.query(`SELECT * FROM financial_records WHERE id = $1`, [req.params.id])
@@ -275,7 +307,7 @@ router.put('/:id/payment', async (req, res) => {
 })
 
 // === 作废发票（冲销） ===
-router.put('/:id/void', async (req, res) => {
+router.put('/:id/void', requireUserType('OPERATOR'), requirePermission('finance:void'), async (req, res) => {
   try {
     await withTransaction(async (client) => {
       const fr = await client.query(`SELECT * FROM financial_records WHERE id = $1`, [req.params.id])
@@ -293,7 +325,7 @@ router.put('/:id/void', async (req, res) => {
 })
 
 // === 按客户利润分析 ===
-router.get('/profit/by-client', async (req, res) => {
+router.get('/profit/by-client', requireUserType('OPERATOR'), requirePermission('finance:profit'), async (req, res) => {
   try {
     const result = await query(`
       SELECT c.id, c.company_name, c.client_code,
@@ -311,7 +343,7 @@ router.get('/profit/by-client', async (req, res) => {
 })
 
 // === 账龄分析 ===
-router.get('/aging/:type', async (req, res) => {
+router.get('/aging/:type', requireUserType('OPERATOR'), requirePermission('finance:view'), async (req, res) => {
   try {
     const type = req.params.type === 'receivable' ? 'RECEIVABLE' : 'PAYABLE'
     const result = await query(`
@@ -327,7 +359,7 @@ router.get('/aging/:type', async (req, res) => {
 })
 
 // === 财务摘要 ===
-router.get('/summary', async (req, res) => {
+router.get('/summary', requireUserType('OPERATOR'), requirePermission('finance:view'), async (req, res) => {
   try {
     const result = await query(`
       SELECT

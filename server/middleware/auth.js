@@ -4,6 +4,7 @@
 
 import jwt from 'jsonwebtoken'
 import { serverConfig } from '../config/index.js'
+import { roleHasAnyPermission, SUPER_ROLE_CODE } from '../core/permission-service.js'
 
 /**
  * JWT 认证中间件
@@ -82,57 +83,50 @@ export function requireUserType(...allowedTypes) {
 }
 
 /**
- * 权限检查中间件
+ * 权限码检查中间件（P5 权限体系）
+ *
+ * 传入多个权限码时是「任意一个满足即放行」，
+ * 用于同一个接口被不同角色以不同名义调用的场景，
+ * 例如 CMR 上传：运营用 cmr:upload，承运商用 carrier_portal:cmr_upload。
+ *
+ * 用法：router.post('/', authenticateToken, requirePermission('order:create'), handler)
  */
 export function requirePermission(...permissions) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({
-        errCode: 401,
-        msg: '请先登录',
-        data: null,
-      })
+      return res.status(401).json({ code: 401, message: '请先登录', data: null })
     }
 
-    // 管理员拥有所有权限
-    if (req.user.role === 'admin') {
-      return next()
+    try {
+      const allowed = await roleHasAnyPermission(req.user.roleCode, permissions)
+      if (!allowed) {
+        console.warn(
+          '[权限拒绝] username:', req.user?.username,
+          '| roleCode:', req.user?.roleCode,
+          '| 需要:', permissions.join(' 或 '),
+          '| path:', req.method, req.originalUrl
+        )
+        return res.status(403).json({ code: 403, message: '没有权限执行此操作', data: null })
+      }
+      next()
+    } catch (error) {
+      console.error('权限校验失败:', error)
+      res.status(500).json({ code: 500, message: '服务器内部错误', data: null })
     }
-
-    // 检查是否有任意一个所需权限
-    const userPermissions = req.user.permissions || []
-    const hasPermission = permissions.some(p => userPermissions.includes(p))
-
-    if (!hasPermission) {
-      return res.status(403).json({
-        errCode: 403,
-        msg: '没有权限执行此操作',
-        data: null,
-      })
-    }
-
-    next()
   }
 }
 
 /**
- * 管理员权限检查
+ * 系统管理员检查
+ * 只有 sys_admin 角色能过，用于角色权限管理这类"权限的权限"
  */
 export function requireAdmin(req, res, next) {
   if (!req.user) {
-    return res.status(401).json({
-      errCode: 401,
-      msg: '请先登录',
-      data: null,
-    })
+    return res.status(401).json({ code: 401, message: '请先登录', data: null })
   }
 
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({
-      errCode: 403,
-      msg: '需要管理员权限',
-      data: null,
-    })
+  if (req.user.roleCode !== SUPER_ROLE_CODE) {
+    return res.status(403).json({ code: 403, message: '需要系统管理员权限', data: null })
   }
 
   next()
@@ -141,6 +135,7 @@ export function requireAdmin(req, res, next) {
 export default {
   authenticateToken,
   optionalAuth,
+  requireUserType,
   requirePermission,
   requireAdmin,
 }

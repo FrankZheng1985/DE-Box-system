@@ -11,6 +11,7 @@ import Tracking from './pages/Tracking'
 import CustomsOp from './pages/CustomsOp'
 import CMRFiles from './pages/CMRFiles'
 import Billing from './pages/Billing'
+import MemberManagement from './pages/MemberManagement'
 import Settings from './pages/Settings'
 
 // 受保护的路由组件
@@ -62,6 +63,7 @@ function AppRoutes() {
         <Route path="customs" element={<CustomsOp />} />
         <Route path="cmr" element={<CMRFiles />} />
         <Route path="billing" element={<Billing />} />
+        <Route path="members" element={<MemberManagement />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

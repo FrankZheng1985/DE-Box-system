@@ -4,13 +4,23 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
-import { authenticateToken } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
+import { roleHasAnyPermission } from '../../core/permission-service.js'
 
 const router = Router()
 router.use(authenticateToken)
+
+// ⚠️ 安全收紧（P5）：本模块是客户主数据，含信用额度、账期、应收余额。
+//    以前整个模块只挂 authenticateToken——客户门户和承运商门户的账号
+//    拿自己的 token 就能读写全部客户资料。这里统一挡成只有运营端能进。
+router.use(requireUserType('OPERATOR'))
+
+/** 只有 client:credit 权限才能改的敏感字段（信用与账期） */
+const CREDIT_FIELDS = ['creditLimit', 'credit_limit', 'creditLevel', 'credit_level',
+  'riskCategory', 'risk_category', 'paymentTerms', 'payment_terms']
 
 /**
  * 校验账期：clients.payment_terms 是 INTEGER（天数）
@@ -43,7 +53,7 @@ const CLIENT_FIELDS = [
  * 客户列表
  * GET /api/v1/clients
  */
-router.get('/', async (req, res) => {
+router.get('/', requirePermission('client:view'), async (req, res) => {
   try {
     const { search, status, page = 1, pageSize = 20 } = req.query
     let sql = `
@@ -91,7 +101,7 @@ router.get('/', async (req, res) => {
  * 客户导出 Excel（放在 /:id 前面，避免被匹配为 id）
  * GET /api/v1/clients/export
  */
-router.get('/export', async (req, res) => {
+router.get('/export', requirePermission('client:export'), async (req, res) => {
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -160,7 +170,7 @@ router.get('/export', async (req, res) => {
  * 客户详情
  * GET /api/v1/clients/:id
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', requirePermission('client:view'), async (req, res) => {
   try {
     const result = await query(`SELECT * FROM clients WHERE id = $1`, [req.params.id])
     if (result.rows.length === 0) {
@@ -177,7 +187,7 @@ router.get('/:id', async (req, res) => {
  * 创建客户
  * POST /api/v1/clients
  */
-router.post('/', async (req, res) => {
+router.post('/', requirePermission('client:create'), async (req, res) => {
   try {
     const paymentTerms = parsePaymentTerms(req.body.paymentTerms)
 
@@ -224,8 +234,30 @@ router.post('/', async (req, res) => {
  * 编辑客户
  * PUT /api/v1/clients/:id
  */
-router.put('/:id', async (req, res) => {
+// 编辑客户是两种权限的组合：
+//   client:edit   —— 改普通资料（公司名、地址、联系人……）
+//   client:credit —— 改信用额度/等级/风险类别/账期（财务岗有它，但没有 client:edit）
+// 所以路由层放行"任意一个"，具体改哪些字段在处理函数里按字段判。
+router.put('/:id', requirePermission('client:edit', 'client:credit'), async (req, res) => {
   try {
+    const touchedCredit = CREDIT_FIELDS.some(f => req.body[f] !== undefined)
+    const touchedNormal = Object.keys(req.body).some(k => !CREDIT_FIELDS.includes(k))
+
+    if (touchedCredit && !(await roleHasAnyPermission(req.user.roleCode, ['client:credit']))) {
+      return res.status(403).json({
+        code: 403,
+        message: '没有权限修改信用额度、信用等级、风险类别或账期',
+        data: null
+      })
+    }
+    if (touchedNormal && !(await roleHasAnyPermission(req.user.roleCode, ['client:edit']))) {
+      return res.status(403).json({
+        code: 403,
+        message: '没有权限修改客户资料',
+        data: null
+      })
+    }
+
     // 账期先校验再进 SQL（见 parsePaymentTerms 注释）
     const paymentTerms = parsePaymentTerms(
       req.body.paymentTerms !== undefined ? req.body.paymentTerms : req.body.payment_terms
@@ -300,7 +332,7 @@ router.put('/:id', async (req, res) => {
  * 客户订单历史
  * GET /api/v1/clients/:id/orders
  */
-router.get('/:id/orders', async (req, res) => {
+router.get('/:id/orders', requirePermission('client:view'), async (req, res) => {
   try {
     const result = await query(
       `SELECT id, order_number, business_type, status, transport_type,
@@ -321,7 +353,7 @@ router.get('/:id/orders', async (req, res) => {
  * 客户财务概览
  * GET /api/v1/clients/:id/finance
  */
-router.get('/:id/finance', async (req, res) => {
+router.get('/:id/finance', requirePermission('client:view'), async (req, res) => {
   try {
     const stats = await query(
       `SELECT
@@ -347,7 +379,7 @@ router.get('/:id/finance', async (req, res) => {
 })
 
 // 客户作废/恢复：切换 status (ACTIVE <-> INACTIVE)
-router.put('/:id/toggle-status', async (req, res) => {
+router.put('/:id/toggle-status', requirePermission('client:edit'), async (req, res) => {
   try {
     const { id } = req.params
     const { reason } = req.body || {}
