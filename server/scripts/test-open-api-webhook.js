@@ -19,7 +19,7 @@ import express from 'express'
 import crypto from 'node:crypto'
 import { query } from '../core/db.js'
 import { hashKey } from '../modules/open-api/service.js'
-import { runWebhookCycle, sendTestEvent } from '../modules/open-api/webhook-service.js'
+import { runWebhookCycle, sendTestEvent, cleanupOldLogs } from '../modules/open-api/webhook-service.js'
 
 let passed = 0
 let failed = 0
@@ -242,6 +242,55 @@ log('\n【5】联调自测：发送测试事件')
   })
   assert('地址不可达 → ok=false 且不抛异常', unreachable.ok === false && unreachable.statusCode === null)
   respondWith = 200
+}
+
+// ==================== 6. 日志清理 ====================
+log('\n【6】超期日志清理')
+{
+  const keyId = hookKeyId
+  // 造 4 条投递：2 条超期已完结、1 条超期但仍待投递、1 条新的已完结
+  await query(
+    `INSERT INTO api_webhook_deliveries
+       (api_key_id, partner_code, event_type, dedupe_key, payload, status, created_at)
+     VALUES
+       ($1,'P8WHOOK','ORDER_STATUS_CHANGED','old-sent','{}'::jsonb,'SENT',   NOW() - INTERVAL '100 days'),
+       ($1,'P8WHOOK','ORDER_STATUS_CHANGED','old-failed','{}'::jsonb,'FAILED', NOW() - INTERVAL '100 days'),
+       ($1,'P8WHOOK','ORDER_STATUS_CHANGED','old-pending','{}'::jsonb,'PENDING',NOW() - INTERVAL '100 days'),
+       ($1,'P8WHOOK','ORDER_STATUS_CHANGED','new-sent','{}'::jsonb,'SENT',    NOW())`,
+    [keyId]
+  )
+  // 造 2 条请求日志：1 条超期、1 条新的
+  await query(
+    `INSERT INTO api_request_logs (api_key_id, partner_code, method, path, status_code, result, created_at)
+     VALUES ($1,'P8WHOOK','POST','/x',200,'SUCCESS', NOW() - INTERVAL '100 days'),
+            ($1,'P8WHOOK','POST','/x',200,'SUCCESS', NOW())`,
+    [keyId]
+  )
+
+  const r = await cleanupOldLogs()
+  assert('清掉 2 条超期已完结投递 + 1 条超期请求日志',
+    r.deliveriesDeleted === 2 && r.logsDeleted === 1, JSON.stringify(r))
+
+  const pendingKept = await query(
+    `SELECT 1 FROM api_webhook_deliveries WHERE dedupe_key = 'old-pending'`)
+  assert('超期但仍待投递的记录**没被删**（重试计划不能丢）', pendingKept.rows.length === 1)
+
+  const newKept = await query(
+    `SELECT 1 FROM api_webhook_deliveries WHERE dedupe_key = 'new-sent'`)
+  const newLogKept = await query(
+    `SELECT COUNT(*)::int AS n FROM api_request_logs WHERE created_at > NOW() - INTERVAL '1 day'`)
+  assert('保留期内的记录都还在', newKept.rows.length === 1 && newLogKept.rows[0].n >= 1)
+
+  // 保留天数设为 0 = 永不清理
+  await query(
+    `INSERT INTO system_settings (setting_key, setting_value, setting_type)
+     VALUES ('open_api_log_retention_days','0','NUMBER')
+     ON CONFLICT (setting_key) DO UPDATE SET setting_value = '0'`)
+  await query(
+    `INSERT INTO api_request_logs (api_key_id, partner_code, method, path, status_code, result, created_at)
+     VALUES ($1,'P8WHOOK','POST','/x',200,'SUCCESS', NOW() - INTERVAL '200 days')`, [keyId])
+  const r2 = await cleanupOldLogs()
+  assert('保留天数设为 0 时不删请求日志', r2.logsDeleted === 0, JSON.stringify(r2))
 }
 
 log(`\n═══════════ 结果：${passed} 通过 / ${failed} 失败 ═══════════`)

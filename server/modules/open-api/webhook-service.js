@@ -17,6 +17,7 @@
 import crypto from 'node:crypto'
 import { query } from '../../core/db.js'
 import { getStatusLabel } from '../order/service.js'
+import { getNumberSetting } from '../../utils/settings.js'
 
 // 单轮最多入队/投递多少条，防止一次拉太多
 const BATCH_SIZE = 50
@@ -372,4 +373,65 @@ export async function runWebhookCycle() {
   return { enqueued: enqueuedOrders + enqueuedQuotes, claimed, sent }
 }
 
-export default { runWebhookCycle, buildSignatureHeader, sendTestEvent }
+// ==================== 日志清理（每天一次） ====================
+
+/**
+ * 清理超期的开放 API 日志。
+ *
+ * 两张表只写不删，合作方接入后增长很快（推送/回查各 1 条请求日志、
+ * 每次状态变更 1 条投递记录）。保留天数走 system_settings，运营可调，
+ * 设为 0 表示永不清理。
+ *
+ * ⚠️ 投递记录只清 SENT / FAILED 这类**已完结**的：
+ *    PENDING（含排队重试中）和 SENDING 一律不动，
+ *    否则会把还没送达的通知连同重试计划一起删掉。
+ *
+ * 分批删除，避免一次锁太多行影响正在写日志的请求。
+ */
+export async function cleanupOldLogs() {
+  const BATCH = 5000
+  const logDays = await getNumberSetting('open_api_log_retention_days', 90)
+  const deliveryDays = await getNumberSetting('open_api_delivery_retention_days', 90)
+
+  let logsDeleted = 0
+  if (logDays > 0) {
+    for (;;) {
+      const r = await query(
+        `DELETE FROM api_request_logs
+         WHERE id IN (
+           SELECT id FROM api_request_logs
+           WHERE created_at < NOW() - ($1 || ' days')::INTERVAL
+           LIMIT $2
+         )`,
+        [String(logDays), BATCH]
+      )
+      logsDeleted += r.rowCount
+      if (r.rowCount < BATCH) break
+    }
+  }
+
+  let deliveriesDeleted = 0
+  if (deliveryDays > 0) {
+    for (;;) {
+      const r = await query(
+        `DELETE FROM api_webhook_deliveries
+         WHERE id IN (
+           SELECT id FROM api_webhook_deliveries
+           WHERE status IN ('SENT', 'FAILED')
+             AND created_at < NOW() - ($1 || ' days')::INTERVAL
+           LIMIT $2
+         )`,
+        [String(deliveryDays), BATCH]
+      )
+      deliveriesDeleted += r.rowCount
+      if (r.rowCount < BATCH) break
+    }
+  }
+
+  if (logsDeleted + deliveriesDeleted > 0) {
+    console.warn(`[开放API清理] 请求日志 ${logsDeleted} 条、投递记录 ${deliveriesDeleted} 条已超期删除`)
+  }
+  return { logsDeleted, deliveriesDeleted }
+}
+
+export default { runWebhookCycle, buildSignatureHeader, sendTestEvent, cleanupOldLogs }

@@ -8,7 +8,7 @@ import { query, withTransaction } from '../core/db.js'
 import { notificationEngine, NOTIFICATION_TYPES } from '../core/index.js'
 import { processPendingEmails } from './email-queue.js'
 import { getBoolSetting, getNumberSetting } from './settings.js'
-import { runWebhookCycle } from '../modules/open-api/webhook-service.js'
+import { runWebhookCycle, cleanupOldLogs } from '../modules/open-api/webhook-service.js'
 
 // 资质到期提醒 - 每天 8:00
 cron.schedule('0 8 * * *', async () => {
@@ -207,4 +207,14 @@ cron.schedule('* * * * *', async () => {
   }
 })
 
-console.warn('[定时任务] 已注册: 邮件队列(每2分钟), Webhook推送(每分钟), 资质到期提醒(8:00), 账单提醒+逾期标记(9:00), 过账期间管理(每月1号)')
+// 开放 API 日志清理 - 每天 3:30（挑业务低谷，两张日志表只写不删会一直涨）
+// 保留天数在系统设置里可调；PM2 双实例会各跑一次，DELETE 幂等无副作用
+cron.schedule('30 3 * * *', async () => {
+  try {
+    await cleanupOldLogs()
+  } catch (err) {
+    console.error('[定时任务] 开放 API 日志清理失败:', err.message)
+  }
+})
+
+console.warn('[定时任务] 已注册: 邮件队列(每2分钟), Webhook推送(每分钟), 开放API日志清理(3:30), 资质到期提醒(8:00), 账单提醒+逾期标记(9:00), 过账期间管理(每月1号)')
