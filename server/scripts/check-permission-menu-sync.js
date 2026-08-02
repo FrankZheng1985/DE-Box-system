@@ -152,6 +152,38 @@ if (fs.existsSync(MENU_CONFIG)) {
 }
 
 // ---------------------------------------------------------------------------
+// 4b. 页面标题映射检查（导航同步四件套的第 3 件）
+//
+//     漏了这个的表现很隐蔽：页面能正常打开，只是顶栏标题回落成「仪表板」。
+//     2026-08-02 新增「角色权限」菜单时就漏了，顺带发现「用户管理」和
+//     「发票模板」也一直缺（一直显示成仪表板）。
+// ---------------------------------------------------------------------------
+const HEADER = path.join(ROOT, 'admin/src/components/Header.tsx')
+const SIDEBAR = path.join(ROOT, 'admin/src/components/Sidebar.tsx')
+
+if (fs.existsSync(HEADER) && fs.existsSync(SIDEBAR)) {
+  const headerSrc = fs.readFileSync(HEADER, 'utf8')
+  const titleBlock = headerSrc.match(/routeTitleMap[^{]*\{([\s\S]*?)\n\}/)
+  const titled = new Set()
+  if (titleBlock) {
+    for (const m of titleBlock[1].matchAll(/'(\/[^']*)'\s*:/g)) titled.add(m[1])
+  }
+
+  const sidebarSrc = fs.readFileSync(SIDEBAR, 'utf8')
+  const menuPaths = [...sidebarSrc.matchAll(/\{\s*path:\s*'(\/[^']*)'/g)].map(m => m[1])
+  // 前缀命中也算（/settings 能覆盖 /settings/master-data）
+  const noTitle = menuPaths.filter(p => ![...titled].some(t => p === t || p.startsWith(t + '/')))
+
+  if (noTitle.length > 0) {
+    log(YELLOW(`\n⚠️  有 ${noTitle.length} 个菜单没配页面标题（顶栏会显示成「仪表板」）：`))
+    for (const p of noTitle) log(`   ${YELLOW(p)}`)
+    log(DIM('   补到 admin/src/components/Header.tsx 的 routeTitleMap 里。'))
+  } else {
+    log(GREEN('✅ Sidebar 的每个菜单都配了页面标题'))
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 5. 仅供参考：定义了但没人用的码
 // ---------------------------------------------------------------------------
 if (unusedCodes.length > 0) {

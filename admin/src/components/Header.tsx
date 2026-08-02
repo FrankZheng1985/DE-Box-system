@@ -14,10 +14,13 @@ const routeTitleMap: Record<string, string> = {
   '/customs': '清关管理',
   '/gps': 'GPS 追踪',
   '/finance': '财务管理',
+  '/invoice-templates': '发票模板',
   '/clients': '客户管理',
   '/carriers': '运输公司',
   '/notifications': '通知中心',
   '/settings': '系统设置',
+  '/system/users': '用户管理',
+  '/system/roles': '角色权限',
 }
 
 // 根据当前路径获取页面标题
