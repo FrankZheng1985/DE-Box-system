@@ -5,23 +5,30 @@ import api, { ApiResponse } from '../utils/api'
 import { formatMoney, formatDate } from '../utils/format'
 import { useAuth } from '../contexts/AuthContext'
 
+// 字段名对齐后端 /finance/payables 返回的 financial_records 列（snake_case）。
+// 原来写的 orderNo / status / dueDate / description 后端都不叫这名，
+// 除金额外整张表都是空的（踩坑 003、033）
 interface Payable {
   id: string
-  orderNo: string
-  description: string
-  amount: number
+  order_number: string | null
+  remarks: string | null
+  amount: number | string
   currency: string
-  status: string
-  dueDate: string
-  paidDate: string | null
+  payment_status: string
+  due_date: string | null
+  paid_date: string | null
 }
 
-// 只留样式，文案走 payableStatus.* 语言包
+// 只留样式，文案走 payableStatus.* 语言包。
+// ⚠️ 取值必须是 financial_records.payment_status 的真实枚举：
+//    UNPAID / PARTIAL / PAID / OVERDUE / VOID
+//    原来写的 PENDING / APPROVED 数据库里根本不存在，导致汇总永远筛不到东西
 const statusClassMap: Record<string, string> = {
-  PENDING: 'bg-amber-100 text-amber-700',
-  APPROVED: 'bg-blue-100 text-blue-700',
+  UNPAID: 'bg-amber-100 text-amber-700',
+  PARTIAL: 'bg-blue-100 text-blue-700',
   PAID: 'bg-green-100 text-green-700',
   OVERDUE: 'bg-red-100 text-red-700',
+  VOID: 'bg-gray-100 text-gray-600',
 }
 
 export default function Billing() {
@@ -56,8 +63,10 @@ export default function Billing() {
 
   // 后端 NUMERIC 返回的是字符串（踩坑 002），直接 sum + p.amount 会变成字符串拼接
   const sumAmount = (list: Payable[]) => list.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
-  const totalPending = sumAmount(payables.filter((p) => p.status === 'PENDING' || p.status === 'APPROVED'))
-  const totalPaid = sumAmount(payables.filter((p) => p.status === 'PAID'))
+  // 待结算 = 未付 + 部分付 + 逾期（已作废的不算）
+  const PENDING_STATUSES = ['UNPAID', 'PARTIAL', 'OVERDUE']
+  const totalPending = sumAmount(payables.filter((p) => PENDING_STATUSES.includes(p.payment_status)))
+  const totalPaid = sumAmount(payables.filter((p) => p.payment_status === 'PAID'))
 
   return (
     <div className="space-y-6">
@@ -97,13 +106,14 @@ export default function Billing() {
       {/* 结算明细表 */}
       <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto">
         <table className="w-full table-fixed">
+          {/* 列宽按最长的德语文案分配（如 "Teilweise bezahlt"、"Fälligkeitsdatum"） */}
           <colgroup>
-            <col className="w-[15%]" />
-            <col className="w-[25%]" />
-            <col className="w-[15%]" />
-            <col className="w-[12%]" />
-            <col className="w-[15%]" />
-            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[22%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+            <col className="w-[17%]" />
+            <col className="w-[17%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-slate-100">
@@ -122,17 +132,17 @@ export default function Billing() {
               <tr><td colSpan={6} className="text-center py-8 text-sm text-slate-400">{t('billing.empty')}</td></tr>
             ) : (
               payables.map((item) => {
-                const s = getStatus(item.status)
+                const s = getStatus(item.payment_status)
                 return (
                   <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="text-left text-xs text-slate-900 px-4 py-3 font-medium">{item.orderNo}</td>
-                    <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">{item.description || t('common.empty')}</td>
-                    <td className="text-right text-xs text-slate-900 px-4 py-3 font-medium">{formatMoney(item.amount)}</td>
+                    <td className="text-left text-xs text-slate-900 px-4 py-3 font-medium truncate">{item.order_number || t('common.empty')}</td>
+                    <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">{item.remarks || t('common.empty')}</td>
+                    <td className="text-right text-xs text-slate-900 px-4 py-3 font-medium">{formatMoney(item.amount, item.currency || 'EUR')}</td>
                     <td className="text-center px-4 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-lg ${s.className}`}>{s.label}</span>
+                      <span className={`inline-block text-xs px-2 py-1 rounded-lg whitespace-nowrap ${s.className}`}>{s.label}</span>
                     </td>
-                    <td className="text-center text-xs text-slate-600 px-4 py-3">{formatDate(item.dueDate)}</td>
-                    <td className="text-center text-xs text-slate-600 px-4 py-3">{formatDate(item.paidDate)}</td>
+                    <td className="text-center text-xs text-slate-600 px-4 py-3">{formatDate(item.due_date)}</td>
+                    <td className="text-center text-xs text-slate-600 px-4 py-3">{formatDate(item.paid_date)}</td>
                   </tr>
                 )
               })

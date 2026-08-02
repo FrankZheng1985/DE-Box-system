@@ -2,17 +2,21 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Truck, Check, X, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { formatNumber } from '../utils/format'
 import { useAuth } from '../contexts/AuthContext'
 
+// 字段名与后端 /orders 列表返回保持一致（snake_case，项目规范第 4 条）。
+// 原来这里写的是 orderNo / originCity / weight 等 camelCase，后端根本不叫这名，
+// 导致订单号、路线、类型、重量四列长期全空（踩坑 003、033）
 interface Order {
   id: string
-  orderNo: string
-  originCity: string
-  destinationCity: string
-  containerType: string
-  weight: number
+  order_number: string
+  pickup_city: string | null
+  delivery_city: string | null
+  business_type: string
+  cargo_weight_kg: number | string | null
   status: string
-  createdAt: string
+  created_at: string
 }
 
 // tab 文案走语言包，key 仍是后端认的大写状态值（踩坑 004）
@@ -23,13 +27,22 @@ const tabs = [
   { key: 'DELIVERED', labelKey: 'tasks.tabDelivered' },
 ]
 
-// 状态徽章只保留样式，文案统一到 orderStatus.* 语言包
+// 状态徽章只保留样式，文案统一到 orderStatus.* 语言包。
+// 覆盖订单状态机全集（卡车流 9 个 + 本地派送 2 个），
+// 原来只写了 6 个，PENDING_REVIEW / CANCELLED 等会露出原始英文大写
 const statusClassMap: Record<string, string> = {
+  PENDING_REVIEW: 'bg-gray-100 text-gray-600',
+  PENDING_QUOTE: 'bg-gray-100 text-gray-600',
+  CONFIRMED: 'bg-blue-100 text-blue-700',
+  PENDING_ASSIGN: 'bg-amber-100 text-amber-700',
+  PENDING_DISPATCH: 'bg-amber-100 text-amber-700',
   ASSIGNED: 'bg-amber-100 text-amber-700',
   ACCEPTED: 'bg-blue-100 text-blue-700',
   IN_TRANSIT: 'bg-blue-100 text-blue-700',
   DELIVERED: 'bg-green-100 text-green-700',
   COMPLETED: 'bg-green-100 text-green-700',
+  EXCEPTION: 'bg-red-100 text-red-700',
+  CANCELLED: 'bg-gray-100 text-gray-600',
   REJECTED: 'bg-red-100 text-red-700',
 }
 
@@ -128,13 +141,14 @@ export default function TransportTasks() {
       {/* 表格 */}
       <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto">
         <table className="w-full table-fixed">
+          {/* 列宽按最长的德语文案分配：德语状态名普遍是中文的 2-3 倍长 */}
           <colgroup>
             <col className="w-[15%]" />
-            <col className="w-[22%]" />
-            <col className="w-[12%]" />
-            <col className="w-[10%]" />
-            <col className="w-[12%]" />
-            <col className="w-[29%]" />
+            <col className="w-[20%]" />
+            <col className="w-[14%]" />
+            <col className="w-[9%]" />
+            <col className="w-[17%]" />
+            <col className="w-[25%]" />
           </colgroup>
           <thead>
             <tr className="border-b border-slate-100">
@@ -156,12 +170,19 @@ export default function TransportTasks() {
                 const s = getStatus(order.status)
                 return (
                   <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="text-left text-xs text-slate-900 px-4 py-3 font-medium">{order.orderNo}</td>
-                    <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">{order.originCity} → {order.destinationCity}</td>
-                    <td className="text-center text-xs text-slate-600 px-4 py-3">{order.containerType || t('common.empty')}</td>
-                    <td className="text-right text-xs text-slate-600 px-4 py-3">{order.weight ? `${order.weight} t` : t('common.empty')}</td>
+                    <td className="text-left text-xs text-slate-900 px-4 py-3 font-medium truncate">{order.order_number || t('common.empty')}</td>
+                    <td className="text-left text-xs text-slate-600 px-4 py-3 truncate">
+                      {order.pickup_city || t('common.empty')} → {order.delivery_city || t('common.empty')}
+                    </td>
+                    <td className="text-center text-xs text-slate-600 px-4 py-3 truncate">
+                      {order.business_type ? t(`businessType.${order.business_type}`, { defaultValue: order.business_type }) : t('common.empty')}
+                    </td>
+                    {/* 后端存的是 cargo_weight_kg（公斤），原来按 t 显示会把 12000kg 写成 "12000 t" */}
+                    <td className="text-right text-xs text-slate-600 px-4 py-3">
+                      {order.cargo_weight_kg ? `${formatNumber(order.cargo_weight_kg)} kg` : t('common.empty')}
+                    </td>
                     <td className="text-center px-4 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-lg ${s.className}`}>{s.label}</span>
+                      <span className={`inline-block text-xs px-2 py-1 rounded-lg whitespace-nowrap ${s.className}`}>{s.label}</span>
                     </td>
                     <td className="text-center px-4 py-3">
                       <div className="flex items-center justify-center gap-2">

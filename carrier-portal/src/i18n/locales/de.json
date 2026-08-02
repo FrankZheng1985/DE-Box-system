@@ -151,11 +151,18 @@
     "errorFailed": "Speichern fehlgeschlagen, bitte erneut versuchen"
   },
   "orderStatus": {
-    "ASSIGNED": "Annahme ausstehend",
+    "PENDING_REVIEW": "Prüfung ausstehend",
+    "PENDING_QUOTE": "Angebot ausstehend",
+    "CONFIRMED": "Bestätigt",
+    "PENDING_ASSIGN": "Disposition offen",
+    "PENDING_DISPATCH": "Zustellung offen",
+    "ASSIGNED": "Annahme offen",
     "ACCEPTED": "Angenommen",
     "IN_TRANSIT": "Unterwegs",
     "DELIVERED": "Zugestellt",
     "COMPLETED": "Abgeschlossen",
+    "EXCEPTION": "Störung",
+    "CANCELLED": "Storniert",
     "REJECTED": "Abgelehnt"
   },
   "gpsStatus": {
@@ -167,10 +174,11 @@
     "DELIVERED": "Zugestellt"
   },
   "payableStatus": {
-    "PENDING": "Offen",
-    "APPROVED": "Genehmigt",
+    "UNPAID": "Offen",
+    "PARTIAL": "Teilweise bezahlt",
     "PAID": "Bezahlt",
-    "OVERDUE": "Überfällig"
+    "OVERDUE": "Überfällig",
+    "VOID": "Storniert"
   },
   "signStatus": {
     "UNSIGNED": "Nicht unterzeichnet",
@@ -182,5 +190,10 @@
     "sessionExpired": "Ihre Sitzung ist abgelaufen, bitte erneut anmelden",
     "timeout": "Zeitüberschreitung der Anfrage, bitte Netzwerkverbindung prüfen",
     "requestFailed": "Anfrage fehlgeschlagen"
+  },
+  "businessType": {
+    "TRUCK_LTL": "LKW-Teilladung (LTL)",
+    "TRUCK_FTL": "LKW-Komplettladung (FTL)",
+    "LOCAL_DELIVERY": "Nahverkehr"
   }
 }

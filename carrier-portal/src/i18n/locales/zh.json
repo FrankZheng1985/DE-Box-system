@@ -151,11 +151,18 @@
     "errorFailed": "保存失败，请重试"
   },
   "orderStatus": {
+    "PENDING_REVIEW": "待审核",
+    "PENDING_QUOTE": "待报价",
+    "CONFIRMED": "已确认",
+    "PENDING_ASSIGN": "待派单",
+    "PENDING_DISPATCH": "待派送",
     "ASSIGNED": "待接单",
     "ACCEPTED": "已接单",
     "IN_TRANSIT": "运输中",
     "DELIVERED": "已送达",
     "COMPLETED": "已完成",
+    "EXCEPTION": "异常",
+    "CANCELLED": "已取消",
     "REJECTED": "已拒单"
   },
   "gpsStatus": {
@@ -167,10 +174,11 @@
     "DELIVERED": "已送达"
   },
   "payableStatus": {
-    "PENDING": "待结算",
-    "APPROVED": "已审批",
+    "UNPAID": "未付款",
+    "PARTIAL": "部分付款",
     "PAID": "已付款",
-    "OVERDUE": "逾期"
+    "OVERDUE": "逾期",
+    "VOID": "已作废"
   },
   "signStatus": {
     "UNSIGNED": "未签署",
@@ -182,5 +190,10 @@
     "sessionExpired": "登录已过期，请重新登录",
     "timeout": "请求超时，请检查网络连接",
     "requestFailed": "请求失败"
+  },
+  "businessType": {
+    "TRUCK_LTL": "卡车派送 LTL",
+    "TRUCK_FTL": "卡车运输 FTL",
+    "LOCAL_DELIVERY": "本地派送"
   }
 }

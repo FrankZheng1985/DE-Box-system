@@ -134,7 +134,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-900">{task.orderNo}</p>
                     <p className="text-xs text-slate-500">{task.route}</p>
                   </div>
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">{t('orderStatus.ASSIGNED')}</span>
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-lg whitespace-nowrap shrink-0 ml-2">{t('orderStatus.ASSIGNED')}</span>
                 </div>
               ))
             )}
@@ -162,7 +162,7 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-slate-900">{task.orderNo}</p>
                     <p className="text-xs text-slate-500">{task.route}</p>
                   </div>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">{t('orderStatus.IN_TRANSIT')}</span>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg whitespace-nowrap shrink-0 ml-2">{t('orderStatus.IN_TRANSIT')}</span>
                 </div>
               ))
             )}

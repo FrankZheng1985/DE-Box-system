@@ -151,11 +151,18 @@
     "errorFailed": "Save failed, please try again"
   },
   "orderStatus": {
+    "PENDING_REVIEW": "Pending review",
+    "PENDING_QUOTE": "Pending quotation",
+    "CONFIRMED": "Confirmed",
+    "PENDING_ASSIGN": "Pending assignment",
+    "PENDING_DISPATCH": "Pending dispatch",
     "ASSIGNED": "Awaiting acceptance",
     "ACCEPTED": "Accepted",
     "IN_TRANSIT": "In transit",
     "DELIVERED": "Delivered",
     "COMPLETED": "Completed",
+    "EXCEPTION": "Exception",
+    "CANCELLED": "Cancelled",
     "REJECTED": "Rejected"
   },
   "gpsStatus": {
@@ -167,10 +174,11 @@
     "DELIVERED": "Delivered"
   },
   "payableStatus": {
-    "PENDING": "Outstanding",
-    "APPROVED": "Approved",
+    "UNPAID": "Unpaid",
+    "PARTIAL": "Partially paid",
     "PAID": "Paid",
-    "OVERDUE": "Overdue"
+    "OVERDUE": "Overdue",
+    "VOID": "Void"
   },
   "signStatus": {
     "UNSIGNED": "Not signed",
@@ -182,5 +190,10 @@
     "sessionExpired": "Your session has expired, please log in again",
     "timeout": "Request timed out, please check your network connection",
     "requestFailed": "Request failed"
+  },
+  "businessType": {
+    "TRUCK_LTL": "Truck LTL",
+    "TRUCK_FTL": "Truck FTL",
+    "LOCAL_DELIVERY": "Local delivery"
   }
 }
