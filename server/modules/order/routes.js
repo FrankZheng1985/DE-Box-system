@@ -8,7 +8,7 @@ import ExcelJS from 'exceljs'
 import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
-import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { getPool } from '../../core/db.js'
 import { uploadToOSS, deleteFromOSS } from '../../utils/oss-service.js'
 import orderController from './controller.js'
@@ -18,6 +18,9 @@ const router = Router()
 
 // 所有订单路由需要认证
 router.use(authenticateToken)
+// 门户账号必须绑定公司才能进来——绑定为空时各处的租户过滤条件会整个不加，
+// 等于返回全部数据（失效方向必须是拒绝，不是放行）
+router.use(requireTenantBinding)
 
 // 订单是三端共用的资源，同一个接口三种身份都会调，
 // 所以权限码写成"任意一个满足即可"：

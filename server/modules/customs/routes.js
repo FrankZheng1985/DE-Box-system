@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import multer from 'multer'
 import { uploadToOSS } from '../../utils/oss-service.js'
@@ -13,6 +13,9 @@ import path from 'path'
 
 const router = Router()
 router.use(authenticateToken)
+// 门户账号必须绑定公司才能进来——绑定为空时各处的租户过滤条件会整个不加，
+// 等于返回全部数据（失效方向必须是拒绝，不是放行）
+router.use(requireTenantBinding)
 
 /**
  * 租户隔离（P5）：清关列表以前不区分身份，客户门户账号能看到全部客户的清关记录。

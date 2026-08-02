@@ -3,11 +3,14 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { query } from '../../core/db.js'
 
 const router = Router()
 router.use(authenticateToken)
+// 门户账号必须绑定公司才能进来——绑定为空时各处的租户过滤条件会整个不加，
+// 等于返回全部数据（失效方向必须是拒绝，不是放行）
+router.use(requireTenantBinding)
 
 /**
  * 运营仪表板

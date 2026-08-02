@@ -145,6 +145,16 @@ check('客户普通用户看应收(无 portal:billing_view) → 403', (await cal
 check('客户账号看应付 → 403', (await call('/finance/payables', clientAdmin)).status === 403)
 check('司机看应收 → 403', (await call('/finance/receivables', driver)).status === 403)
 
+log('\n【5b】门户账号没绑定公司时必须拒绝，而不是放行看全部')
+// 各模块的租户过滤都写成 `if (userType==='CLIENT' && linkedEntityId)`，
+// 绑定为空时条件整个不加 = 返回全部数据。requireTenantBinding 在入口挡掉这种情况。
+const unboundClient = tokenFor({ id: adminId, username: 'unbound', userType: 'CLIENT', roleCode: 'client_admin' })
+const unboundCarrier = tokenFor({ id: adminId, username: 'unbound2', userType: 'CARRIER', roleCode: 'carrier_admin' })
+check('未绑定公司的客户查订单 → 403', (await call('/orders', unboundClient)).status === 403)
+check('未绑定公司的客户查应收 → 403', (await call('/finance/receivables', unboundClient)).status === 403)
+check('未绑定公司的承运商查订单 → 403', (await call('/orders', unboundCarrier)).status === 403)
+check('绑定正常的客户仍可查订单 → 200', (await call('/orders', clientAdmin)).status === 200)
+
 log('\n【6】角色权限保存 + 缓存失效')
 const saveRes = await call(`/system/roles/${roleId.op_staff}/permissions`, admin, 'PUT',
   { permissions: ['client:view', 'client:export'] })

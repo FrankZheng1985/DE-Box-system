@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express'
-import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, documentFlow, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import multer from 'multer'
@@ -14,6 +14,9 @@ import path from 'path'
 
 const router = Router()
 router.use(authenticateToken)
+// 门户账号必须绑定公司才能进来——绑定为空时各处的租户过滤条件会整个不加，
+// 等于返回全部数据（失效方向必须是拒绝，不是放行）
+router.use(requireTenantBinding)
 
 // 确保上传目录存在
 const CMR_UPLOAD_DIR = '/var/www/germany-box-system/uploads/cmr'

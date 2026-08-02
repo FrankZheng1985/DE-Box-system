@@ -9,13 +9,16 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
-import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
+import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { documentEngine } from '../../core/index.js'
 import inquiryService from './service.js'
 
 const router = Router()
 router.use(authenticateToken)
+// 门户账号必须绑定公司才能进来——绑定为空时各处的租户过滤条件会整个不加，
+// 等于返回全部数据（失效方向必须是拒绝，不是放行）
+router.use(requireTenantBinding)
 
 /** 询价单状态（和库里存的值一致，全大写 —— 踩坑 004） */
 const INQUIRY_STATUS = {

@@ -83,6 +83,38 @@ export function requireUserType(...allowedTypes) {
 }
 
 /**
+ * 租户绑定检查中间件（P5）
+ *
+ * 客户/承运商账号必须绑定了公司（users.linked_entity_id）才能访问共享业务接口。
+ *
+ * 为什么要单独挡一道：各模块的租户过滤普遍写成
+ *   `if (userType === 'CLIENT' && user.linkedEntityId) { sql += ' AND client_id = $n' }`
+ * —— linkedEntityId 为空时条件整个不加，等于**不过滤，返回全部数据**。
+ * 这个"失效方向"是错的：绑定缺失应该拒绝访问，而不是放行看全部。
+ * 与其在七个模块里各修一遍并指望以后没人写错，不如在入口一次挡掉。
+ *
+ * 运营账号不受影响（本来就该看全量）。
+ */
+export function requireTenantBinding(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ code: 401, message: '请先登录', data: null })
+  }
+
+  const userType = req.user.userType || req.user.roleCode
+  if ((userType === 'CLIENT' || userType === 'CARRIER') && !req.user.linkedEntityId) {
+    console.warn('[租户拒绝] 门户账号未绑定公司 | username:', req.user?.username,
+      '| userType:', userType, '| path:', req.method, req.originalUrl)
+    return res.status(403).json({
+      code: 403,
+      message: '账号未关联公司，请联系管理员完成绑定后再使用',
+      data: null
+    })
+  }
+
+  next()
+}
+
+/**
  * 权限码检查中间件（P5 权限体系）
  *
  * 传入多个权限码时是「任意一个满足即放行」，
@@ -136,6 +168,7 @@ export default {
   authenticateToken,
   optionalAuth,
   requireUserType,
+  requireTenantBinding,
   requirePermission,
   requireAdmin,
 }
