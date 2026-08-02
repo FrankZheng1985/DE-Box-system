@@ -6,6 +6,7 @@
 import { Router } from 'express'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { roleHasAnyPermission } from '../../core/permission-service.js'
 import { documentEngine, documentFlow, pricingEngine, changeTracker } from '../../core/index.js'
 import quotationService, {
   QUOTATION_STATUS, CLIENT_DECIDABLE, DECISION_ACTIONS,
@@ -53,6 +54,44 @@ async function loadQuotationWithAccessCheck(quotationId, req, res) {
 }
 
 /**
+ * 报价单上的服务商成本字段（P6）
+ *
+ * ⚠️ 这两个字段是成本敏感信息：客户账号能读自己的报价，运营专员也能读全部报价，
+ *    但他们都不该看到我们付给服务商多少钱。所以查询照常 SELECT q.*，
+ *    出口处按 carrier_inquiry:view 统一剥离 —— 少写一处就等于泄露。
+ */
+const COST_FIELDS = ['carrier_cost', 'carrier_cost_source_id']
+
+/** 当前登录人能不能看服务商成本 */
+async function canSeeCarrierCost(req) {
+  const userType = req.user.userType || req.user.roleCode
+  if (userType !== 'OPERATOR') return false
+  return roleHasAnyPermission(req.user.roleCode, ['carrier_inquiry:view'])
+}
+
+/**
+ * 按权限剥离成本字段
+ * @param {object|object[]} payload 单条或多条报价
+ */
+async function stripCarrierCost(req, payload) {
+  if (await canSeeCarrierCost(req)) return payload
+  const strip = (row) => {
+    if (!row || typeof row !== 'object') return row
+    const copy = { ...row }
+    for (const field of COST_FIELDS) delete copy[field]
+    return copy
+  }
+  return Array.isArray(payload) ? payload.map(strip) : strip(payload)
+}
+
+/** 转数字，空值/非法值返回 null（用显式判空，合法的 0 不能被当成没填 —— 踩坑 011） */
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
  * 报价列表
  */
 router.get('/', requirePermission('quotation:view', 'portal:quotation_view'), async (req, res) => {
@@ -91,7 +130,7 @@ router.get('/', requirePermission('quotation:view', 'portal:quotation_view'), as
 
     const result = await query(sql, params)
     res.json({
-      code: 200, message: 'success', data: result.rows,
+      code: 200, message: 'success', data: await stripCarrierCost(req, result.rows),
       pagination: { total: parseInt(countResult.rows[0].total), page: parseInt(page), pageSize: parseInt(pageSize) }
     })
   } catch (error) {
@@ -186,12 +225,12 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
 
     res.json({
       code: 200, message: 'success',
-      data: {
+      data: await stripCarrierCost(req, {
         ...quotation,
         pricingItems: items.rows,
         inquiry: inquiry.rows[0] || null,
         convertedOrder: order.rows[0] || null,
-      },
+      }),
     })
   } catch (error) {
     console.error('获取报价详情失败:', error)
@@ -205,6 +244,11 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
  */
 router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:create'), async (req, res) => {
   try {
+    // 成本只有服务商管理岗能带进来；没权限的人即使前端改了请求体也写不进去
+    const costAllowed = await canSeeCarrierCost(req)
+    const carrierCost = costAllowed ? toNumberOrNull(req.body.carrierCost) : null
+    const carrierCostSourceId = costAllowed ? (req.body.carrierCostSourceId || null) : null
+
     const quotation = await withTransaction(async (client) => {
       // 凭证引擎创建凭证
       const doc = await documentEngine.createDocument(client, {
@@ -235,15 +279,17 @@ router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:creat
          (document_id, quotation_number, inquiry_id, client_id, version,
           route_from, route_to, business_type, transport_type,
           base_freight, surcharge, insurance_fee, total_price,
-          currency, valid_until, status, remarks, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          currency, valid_until, status, remarks, created_by,
+          carrier_cost, carrier_cost_source_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
          RETURNING *`,
         [doc.id, doc.docNumber, req.body.inquiryId, req.body.clientId, 1,
          JSON.stringify(req.body.routeFrom), JSON.stringify(req.body.routeTo),
          req.body.businessType, req.body.transportType,
          req.body.baseFreight || 0, req.body.surcharge || 0, req.body.insuranceFee || 0,
          totalPrice, req.body.currency || 'EUR',
-         req.body.validUntil, 'DRAFT', req.body.remarks, req.user.id]
+         req.body.validUntil, 'DRAFT', req.body.remarks, req.user.id,
+         carrierCost, carrierCostSourceId]
       )
 
       // 保存定价明细
@@ -267,7 +313,7 @@ router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:creat
 
       return result.rows[0]
     })
-    res.json({ code: 200, message: '报价创建成功', data: quotation })
+    res.json({ code: 200, message: '报价创建成功', data: await stripCarrierCost(req, quotation) })
   } catch (error) {
     console.error('创建报价失败:', error)
     res.status(500).json({ code: 500, message: error.message, data: null })
@@ -291,6 +337,11 @@ router.put('/:id', requireUserType('OPERATOR'), requirePermission('quotation:edi
       const setClauses = []; const params = []; let idx = 0
       for (const [camel, snake] of Object.entries(map)) {
         if (req.body[camel] !== undefined) { params.push(req.body[camel]); setClauses.push(`${snake} = $${++idx}`) }
+      }
+      // 成本字段单独判权限：运营专员改报价时不能顺手改掉成本（P6）
+      if (req.body.carrierCost !== undefined && await canSeeCarrierCost(req)) {
+        params.push(toNumberOrNull(req.body.carrierCost)); setClauses.push(`carrier_cost = $${++idx}`)
+        params.push(req.body.carrierCostSourceId || null); setClauses.push(`carrier_cost_source_id = $${++idx}`)
       }
       if (req.body.routeFrom) { params.push(JSON.stringify(req.body.routeFrom)); setClauses.push(`route_from = $${++idx}`) }
       if (req.body.routeTo) { params.push(JSON.stringify(req.body.routeTo)); setClauses.push(`route_to = $${++idx}`) }
@@ -473,8 +524,9 @@ router.post('/:id/new-version', requireUserType('OPERATOR'), requirePermission('
          (document_id, quotation_number, inquiry_id, client_id, version,
           route_from, route_to, business_type, transport_type,
           base_freight, surcharge, insurance_fee, total_price,
-          currency, valid_until, status, remarks, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+          currency, valid_until, status, remarks, created_by,
+          carrier_cost, carrier_cost_source_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
          RETURNING *`,
         [doc.id, doc.docNumber, prev.inquiry_id, prev.client_id, newVersion,
          prev.route_from, prev.route_to, prev.business_type, prev.transport_type,
@@ -482,13 +534,15 @@ router.post('/:id/new-version', requireUserType('OPERATOR'), requirePermission('
          req.body.insuranceFee ?? prev.insurance_fee,
          req.body.totalPrice ?? prev.total_price,
          prev.currency, req.body.validUntil || prev.valid_until, 'DRAFT',
-         req.body.remarks || prev.remarks, req.user.id]
+         req.body.remarks || prev.remarks, req.user.id,
+         // 新版本沿用上一版的成本来源：换版本是改客户价，服务商成本没变
+         prev.carrier_cost, prev.carrier_cost_source_id]
       )
       // 标记旧版本为已过期
       await client.query(`UPDATE quotations SET status = 'EXPIRED' WHERE id = $1`, [req.params.id])
       return result.rows[0]
     })
-    res.json({ code: 200, message: `新版本 V${newQuo.version} 创建成功`, data: newQuo })
+    res.json({ code: 200, message: `新版本 V${newQuo.version} 创建成功`, data: await stripCarrierCost(req, newQuo) })
   } catch (error) {
     res.status(500).json({ code: 500, message: error.message, data: null })
   }

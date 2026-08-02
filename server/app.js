@@ -28,6 +28,7 @@ import dashboardRoutes from './modules/dashboard/routes.js'
 import inquiryRoutes from './modules/inquiry/routes.js'
 import quotationRoutes from './modules/quotation/routes.js'
 import quotationResponseRoutes from './modules/quotation-response/routes.js'
+import carrierInquiryRoutes from './modules/carrier-inquiry/routes.js'
 import cmrRoutes from './modules/cmr/routes.js'
 import gpsRoutes from './modules/gps/routes.js'
 import shippingReleaseRoutes from './modules/shipping-release/routes.js'
@@ -106,6 +107,8 @@ app.use('/api/v1/inquiries', inquiryRoutes)
 app.use('/api/v1/quotations', quotationRoutes)
 // 报价邮件里的确认链接 —— 免登录，安全边界靠一次性 token（模块内已自带限流）
 app.use('/api/v1/quotation-response', quotationResponseRoutes)
+// 服务商询价 —— 成本敏感，模块内限运营端 + carrier_inquiry 权限码（需求 5.3）
+app.use('/api/v1/carrier-inquiries', carrierInquiryRoutes)
 app.use('/api/v1/cmr', cmrRoutes)
 app.use('/api/v1/gps', gpsRoutes)
 app.use('/api/v1/shipping-releases', shippingReleaseRoutes)

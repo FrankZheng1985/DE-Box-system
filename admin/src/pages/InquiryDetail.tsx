@@ -14,7 +14,10 @@ import {
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
+import CarrierInquiryPanel from '../components/CarrierInquiryPanel'
+import { useAuth } from '../contexts/AuthContext'
 import { BUSINESS_TYPE_LABELS } from '../constants/businessTypes'
+import { CARRIER_INQUIRY_PERMISSIONS } from '../constants/carrierInquiry'
 import {
   INQUIRY_STATUS, INQUIRY_STATUS_LABELS, INQUIRY_STATUS_STYLES,
 } from '../constants/inquiryQuotation'
@@ -149,13 +152,21 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 export default function InquiryDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
+  // 服务商成本对普通运营岗不可见（需求 5.3 的信息隔离），后端同样拦一道
+  const canSeeCarrierInquiry = hasPermission(CARRIER_INQUIRY_PERMISSIONS.VIEW)
   const [data, setData] = useState<InquiryDetailData | null>(null)
   const [loading, setLoading] = useState(true)
   const [summaryText, setSummaryText] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
-  const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type })
+  // useCallback 包一层：这个函数会作为 prop 传给 CarrierInquiryPanel，
+  // 每次渲染都换新引用会让子组件的 useEffect 反复触发（拉列表打成死循环）
+  const showToast = useCallback(
+    (message: string, type: 'success' | 'error') => setToast({ message, type }),
+    []
+  )
 
   const fetchDetail = useCallback(async () => {
     if (!id) return
@@ -432,6 +443,11 @@ export default function InquiryDetail() {
           </div>
         )}
       </Section>
+
+      {/* 服务商询价（需求 5.3，仅服务商管理岗可见） */}
+      {canSeeCarrierInquiry && (
+        <CarrierInquiryPanel inquiryId={data.id} onToast={showToast} />
+      )}
 
       {/* 关联报价 */}
       <Section title={`关联报价（${data.quotations.length} 张）`} icon={Tag}>

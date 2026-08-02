@@ -21,9 +21,14 @@ import {
   Package,
   Calculator,
   MessageSquare,
+  Truck,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
+import { useAuth } from '../contexts/AuthContext'
 import { BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
+import {
+  CARRIER_INQUIRY_PERMISSIONS, CARRIER_INQUIRY_STATUS, type CarrierInquiry,
+} from '../constants/carrierInquiry'
 
 // ==================== 类型定义 ====================
 
@@ -133,6 +138,9 @@ export default function QuotationCreate() {
   // 后端 POST /quotations 一直支持 inquiryId 字段，只是前端此前从没传过
   const [searchParams] = useSearchParams()
   const inquiryId = searchParams.get('inquiryId')
+  const { hasPermission } = useAuth()
+  // 服务商成本只对服务商管理岗可见（需求 5.3），后端接口同样拦一道
+  const canSeeCarrierCost = hasPermission(CARRIER_INQUIRY_PERMISSIONS.VIEW)
 
   // 基础数据选项
   const { options: currencyOpts } = useMasterDataOptions('currencies')
@@ -227,6 +235,38 @@ export default function QuotationCreate() {
 
     return () => { cancelled = true }
   }, [inquiryId])
+
+  // 该询价选用的服务商成本（P6）：选用了哪家就用哪家，没选用就退回最低回价，
+  // 作为报价时的成本参考并随报价存下来（quotations.carrier_cost）
+  const [costRef, setCostRef] = useState<CarrierInquiry | null>(null)
+
+  useEffect(() => {
+    if (!inquiryId || !canSeeCarrierCost) return
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const res = await api.get<ApiResponse<CarrierInquiry[]>>(`/carrier-inquiries?inquiryId=${inquiryId}`)
+        if (cancelled || res.code !== 200 || !Array.isArray(res.data)) return
+
+        const selected = res.data.find((r) => r.status === CARRIER_INQUIRY_STATUS.SELECTED)
+        if (selected) {
+          setCostRef(selected)
+          return
+        }
+        // 没选用就取回价里最低的一条（NUMERIC 回来是字符串，比大小前先转数字 —— 踩坑 002）
+        const quoted = res.data
+          .filter((r) => r.status === CARRIER_INQUIRY_STATUS.QUOTED && r.quoted_cost !== null)
+          .sort((a, b) => Number(a.quoted_cost) - Number(b.quoted_cost))
+        setCostRef(quoted[0] || null)
+      } catch (err) {
+        // 成本参考拿不到不影响报价，静默降级即可
+        console.warn('[QuotationCreate] 获取服务商成本参考失败:', err)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [inquiryId, canSeeCarrierCost])
 
   // 计算总价
   const totalPrice = useMemo(() => {
@@ -348,6 +388,9 @@ export default function QuotationCreate() {
       currency: form.currency,
       validUntil: form.validUntil,
       remarks: form.remarks,
+      // 成本快照：没权限的人不传，后端也会再拦一次（P6）
+      carrierCost: canSeeCarrierCost && costRef?.quoted_cost ? Number(costRef.quoted_cost) : null,
+      carrierCostSourceId: canSeeCarrierCost && costRef ? costRef.id : null,
     }
 
     try {
@@ -448,6 +491,41 @@ export default function QuotationCreate() {
             {sourceInquiry.cargo_quantity !== null && <span>件数：{sourceInquiry.cargo_quantity}</span>}
             {sourceInquiry.cargo_weight_kg !== null && <span>实重：{Number(sourceInquiry.cargo_weight_kg).toFixed(2)} kg</span>}
             {sourceInquiry.ldm !== null && <span>LDM：{Number(sourceInquiry.ldm).toFixed(2)}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== 服务商成本参考（P6，仅服务商管理岗可见） ==================== */}
+      {canSeeCarrierCost && costRef && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Truck className="w-4 h-4 text-slate-500" />
+            <span className="text-sm text-slate-700">
+              服务商成本参考：
+              <b className="mx-1 text-slate-900">{costRef.carrier_name || '-'}</b>
+              {costRef.status === CARRIER_INQUIRY_STATUS.SELECTED ? '（已选用）' : '（最低回价，尚未选用）'}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+            <span>
+              成本：
+              <b className="text-slate-900">
+                {new Intl.NumberFormat('de-DE', {
+                  style: 'currency',
+                  currency: costRef.currency || 'EUR',
+                }).format(Number(costRef.quoted_cost))}
+              </b>
+            </span>
+            {costRef.transit_days !== null && <span>时效：{costRef.transit_days} 天</span>}
+            {/* 币种不同不算毛利：乱换算会给出错误的利润数字 */}
+            {costRef.currency === form.currency && (
+              <span>
+                预估毛利：
+                <b className={totalPrice - Number(costRef.quoted_cost) >= 0 ? 'text-green-700' : 'text-red-600'}>
+                  {currencySymbol} {(totalPrice - Number(costRef.quoted_cost)).toFixed(2)}
+                </b>
+              </span>
+            )}
           </div>
         </div>
       )}
