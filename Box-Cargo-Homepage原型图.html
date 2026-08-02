@@ -77,10 +77,11 @@
       background: rgba(255,255,255,0.92);
       box-shadow: 0 2px 20px rgba(0,0,0,0.06);
     }
-    /* Hero 区透明导航时 Logo 和链接颜色 */
-    /* KALUNA 与图标竖条在深色 Hero 上转白，SPED 的朱砂红深浅底都够醒目故不变 */
-    .navbar:not(.scrolled) .logo-name { color: #FFFFFF !important; }
-    .navbar:not(.scrolled) .logo-bar { fill: #FFFFFF !important; }
+    /* Hero 区透明导航时链接颜色 */
+    /* 注意：Logo 不做变色。navbar 背景任何状态下都是白色半透明
+       （0.75 / 0.92），石墨黑的 KALUNA 与图标竖条两种状态下都清晰；
+       若跟着变白，一旦 .scrolled 没加上（如刷新后恢复滚动位置），
+       图标竖条和 KALUNA 会一起消失，只剩残缺的红色 "<"。 */
     .navbar:not(.scrolled) .nav-links a { color: rgba(255,255,255,0.85); }
     .navbar:not(.scrolled) .nav-links a:hover { color: #FFFFFF; }
 
@@ -1259,10 +1260,10 @@
   <nav class="navbar" id="navbar">
     <a href="#" class="nav-logo" style="gap:6px">
       <svg width="28" height="28" viewBox="0 0 48 48" style="flex-shrink:0">
-        <rect class="logo-bar" x="7" y="9" width="7" height="30" fill="#1C1C1E" style="transition:fill 0.3s"/>
+        <rect x="7" y="9" width="7" height="30" fill="#1C1C1E"/>
         <path d="M18 24 L32 10 L42 10 L28 24 L42 38 L32 38 Z" fill="#E5432E"/>
       </svg>
-      <span class="logo-name" style="font-size:20px;font-weight:800;letter-spacing:1px;color:#1C1C1E;transition:color 0.3s">KALUNA</span>
+      <span style="font-size:20px;font-weight:800;letter-spacing:1px;color:#1C1C1E">KALUNA</span>
       <span style="font-size:20px;font-weight:800;letter-spacing:1px;color:#E5432E">SPED</span>
     </a>
 
@@ -2058,13 +2059,19 @@
 
     // ===== 导航栏滚动效果 =====
     var navbar = document.getElementById('navbar');
-    window.addEventListener('scroll', function() {
+    function syncNavbar() {
       if (window.scrollY > 50) {
         navbar.classList.add('scrolled');
       } else {
         navbar.classList.remove('scrolled');
       }
-    });
+    }
+    window.addEventListener('scroll', syncNavbar);
+    // 必须在加载时同步一次：刷新后浏览器会恢复上次的滚动位置、
+    // URL 带锚点会直接定位，这两种情况都不触发 scroll 事件，
+    // 只靠监听器的话导航栏会停在透明态，白色链接落在白色内容上看不见
+    syncNavbar();
+    window.addEventListener('load', syncNavbar);
 
     // ===== 导航高亮 =====
     var sections = document.querySelectorAll('section[id]');
