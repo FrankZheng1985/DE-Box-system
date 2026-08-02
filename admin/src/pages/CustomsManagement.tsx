@@ -26,7 +26,9 @@ interface CustomsStats {
   pending: number
   in_progress: number
   cleared: number
-  exception: number
+  // 后端 /customs/stats 返回的是 exceptions（复数），
+  // 写成单数导致「异常」卡片一直是空白（踩坑 033）
+  exceptions: number
 }
 
 // ==================== 常量 ====================
@@ -76,7 +78,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 export default function CustomsManagement() {
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<CustomsItem[]>([])
-  const [stats, setStats] = useState<CustomsStats>({ pending: 0, in_progress: 0, cleared: 0, exception: 0 })
+  const [stats, setStats] = useState<CustomsStats>({ pending: 0, in_progress: 0, cleared: 0, exceptions: 0 })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -251,7 +253,7 @@ export default function CustomsManagement() {
         <StatCard title="待清关" value={stats.pending} icon={<Clock className="w-5 h-5" />} color="yellow" />
         <StatCard title="清关中" value={stats.in_progress} icon={<RefreshCw className="w-5 h-5" />} color="blue" />
         <StatCard title="已放行" value={stats.cleared} icon={<CheckCircle className="w-5 h-5" />} color="green" />
-        <StatCard title="异常" value={stats.exception} icon={<AlertTriangle className="w-5 h-5" />} color="red" />
+        <StatCard title="异常" value={stats.exceptions} icon={<AlertTriangle className="w-5 h-5" />} color="red" />
       </div>
 
       {/* 搜索栏 */}

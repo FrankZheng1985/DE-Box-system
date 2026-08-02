@@ -24,8 +24,10 @@ interface ShippingReleaseItem {
 
 interface ReleaseStats {
   not_required: number
-  pending_mail: number
-  mailed: number
+  // 后端 /shipping-release/stats 返回的是 original_pending / original_sent，
+  // 前端原来写 pending_mail / mailed，两张卡片一直是空白（踩坑 033）
+  original_pending: number
+  original_sent: number
   pending_release: number
   released: number
 }
@@ -70,7 +72,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 export default function ShippingRelease() {
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<ShippingReleaseItem[]>([])
-  const [stats, setStats] = useState<ReleaseStats>({ not_required: 0, pending_mail: 0, mailed: 0, pending_release: 0, released: 0 })
+  const [stats, setStats] = useState<ReleaseStats>({ not_required: 0, original_pending: 0, original_sent: 0, pending_release: 0, released: 0 })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -198,8 +200,8 @@ export default function ShippingRelease() {
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard title="无需放单" value={stats.not_required} icon={<Ban className="w-5 h-5" />} color="blue" />
-        <StatCard title="正本待邮寄" value={stats.pending_mail} icon={<Mail className="w-5 h-5" />} color="yellow" />
-        <StatCard title="正本已邮寄" value={stats.mailed} icon={<Send className="w-5 h-5" />} color="blue" />
+        <StatCard title="正本待邮寄" value={stats.original_pending} icon={<Mail className="w-5 h-5" />} color="yellow" />
+        <StatCard title="正本已邮寄" value={stats.original_sent} icon={<Send className="w-5 h-5" />} color="blue" />
         <StatCard title="待放行" value={stats.pending_release} icon={<Clock className="w-5 h-5" />} color="purple" />
         <StatCard title="船司放行" value={stats.released} icon={<CheckCircle className="w-5 h-5" />} color="green" />
       </div>

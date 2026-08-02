@@ -24,7 +24,9 @@ interface CMR {
 
 interface CMRStats {
   total: number
-  signed: number
+  // 后端 /cmr/stats 返回的是 completed（不是 signed），
+  // 写错导致「已签署完成」卡片一直是空白（踩坑 033）
+  completed: number
   pending: number
   damaged: number
 }
@@ -72,7 +74,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 export default function CMRManagement() {
   const [loading, setLoading] = useState(true)
   const [cmrList, setCmrList] = useState<CMR[]>([])
-  const [stats, setStats] = useState<CMRStats>({ total: 0, signed: 0, pending: 0, damaged: 0 })
+  const [stats, setStats] = useState<CMRStats>({ total: 0, completed: 0, pending: 0, damaged: 0 })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -303,7 +305,7 @@ export default function CMRManagement() {
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="CMR总数" value={stats.total} icon={<ClipboardList className="w-5 h-5" />} color="blue" />
-        <StatCard title="已签署完成" value={stats.signed} icon={<CheckCircle className="w-5 h-5" />} color="green" />
+        <StatCard title="已签署完成" value={stats.completed} icon={<CheckCircle className="w-5 h-5" />} color="green" />
         <StatCard title="待签署" value={stats.pending} icon={<Clock className="w-5 h-5" />} color="yellow" />
         <StatCard title="有货损" value={stats.damaged} icon={<AlertTriangle className="w-5 h-5" />} color="red" />
       </div>
