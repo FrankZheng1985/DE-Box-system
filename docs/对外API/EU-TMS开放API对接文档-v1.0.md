@@ -15,6 +15,8 @@ EU-TMS 提供两类推送端点，**按用途区分，不要混用**：
 |------|------|------|----------|
 | `POST /inquiries` | 推送**询价单** | 按订单号 | 我方运营报价 → 贵方/客户确认 → 转订单 |
 | `POST /orders` | 直接**下单** | 按柜号 | 固定价合作客户跳过询价，直接进入审核派单流程 |
+| `GET /inquiries/{单号}` | **回查询价进展** | 按贵方单号 | 已报价时附报价金额与有效期，已转订单时附订单号 |
+| `GET /orders/{单号}` | **回查订单状态** | 按贵方单号 | 含状态、跟踪号、柜号、计划日期 |
 
 - 所有接口仅支持 **HTTPS + JSON**（`Content-Type: application/json`）
 - 请求和响应编码均为 UTF-8
@@ -61,6 +63,7 @@ GET /api/open/v1/ping
 | 400 | `VALIDATION_ERROR` | 字段校验不通过，`message` 列出全部问题 | 修正后重发，**不要原样重试** |
 | 401 | `AUTH_ERROR` | 缺少或无效的 X-API-Key | 检查密钥 |
 | 403 | `FORBIDDEN` | 密钥已停用 / 来源 IP 不在白名单 | 联系我方运营 |
+| 404 | `NOT_FOUND` | 回查的单号不存在（或不属于贵方） | 检查单号是否推送成功 |
 | 422 | `BUSINESS_ERROR` | 业务规则拦截（如信用额度冻结） | 联系我方运营，**不要原样重试** |
 | 429 | `RATE_LIMITED` | 超出限速（默认 60 次/分钟，可调） | 退避后重试 |
 | 500 | `SERVER_ERROR` | 我方系统异常 | 稍后重试，仍失败请联系我方 |
@@ -210,17 +213,54 @@ curl -X POST https://kalunasped.com/api/open/v1/inquiries \
 
 ---
 
-## 7. 限制与约定
+## 7. 状态回查 `GET /inquiries/{单号}` 与 `GET /orders/{单号}`
+
+用贵方推送时的 `externalOrderNo` 查询进展，随时可查（受同一限速约束）。
+
+```bash
+curl https://kalunasped.com/api/open/v1/inquiries/YDD-2026-0001 -H "X-API-Key: eutms_你的密钥"
+```
+
+询价回查响应示例（已报价、已转订单时 quotation / order 才有值，否则为 null）：
+
+```json
+{
+  "code": 200, "message": "success",
+  "data": {
+    "externalOrderNo": "YDD-2026-0001",
+    "inquiryNumber": "INQ2026080001",
+    "status": "QUOTED", "statusLabel": "已报价",
+    "businessType": "TRUCK_LTL",
+    "quotation": {
+      "quotationNumber": "QUO2026080001",
+      "status": "SENT", "statusLabel": "已报价待确认",
+      "totalPrice": 1234.5, "currency": "EUR", "validUntil": "2026-08-31"
+    },
+    "order": null,
+    "createdAt": "2026-08-02T09:00:00.000Z", "updatedAt": "2026-08-02T10:00:00.000Z"
+  }
+}
+```
+
+订单回查响应字段：`orderNumber`、`status` / `statusLabel`（如 PENDING_REVIEW 待审核 →
+IN_TRANSIT 运输中 → COMPLETED 已完成）、`deliveryStatus`（FTL 派送子状态）、
+`trackingNumber`（本地派送跟踪号）、`containerNo`、`pickupDate` / `deliveryDate` /
+`expectedDeliveryDate`、`createdAt` / `updatedAt`。
+
+- 查不到（含单号不属于贵方）一律 `404 NOT_FOUND`
+- 状态枚举以本节与第 5/6 节为准；建议贵方按 `status` 编程、`statusLabel` 仅用于展示
+
+## 8. 限制与约定
 
 - 限速默认 **60 次/分钟**（按密钥计），可按贵方业务量调整
 - 请求体上限 50 MB，但建议单次一单，不支持批量数组（如需批量请逐单调用）
 - 我方对每次请求（含被拒绝的）留有完整日志，对账时可按 `externalOrderNo` 互查
-- 后续版本计划：单据状态回查接口、状态变更 Webhook 推送（v1.1 讨论范围）
+- 后续版本计划：状态变更 Webhook 主动推送（v1.1 讨论范围；状态回查已随本版提供，见第 7 节）
 
-## 8. 需要贵方确认的事项
+## 9. 需要贵方确认的事项
 
 1. 上述字段清单是否覆盖贵方推送数据？需增删哪些字段？
-2. 推送方向由贵方主动 POST 至我方，贵方是否还需要**状态回传**（Webhook 或轮询接口）？
+2. 轮询回查接口已提供（第 7 节），贵方是否还需要**状态变更 Webhook 主动推送**？需要的话请提供接收端点规范
 3. 贵方出口 IP 清单（可选，用于 IP 白名单加固）
 4. 联调时间窗口与双方技术对接人
 
@@ -232,3 +272,4 @@ curl -X POST https://kalunasped.com/api/open/v1/inquiries \
 |------|------|------|
 | v1.0 草案 | 2026-08-02 | 首版，待合作方确认字段清单 |
 | v1.0 草案修订 | 2026-08-02 | 接入地址由过渡期 IP 改为正式域名 kalunasped.com（正式 TLS 证书，证书校验保持开启） |
+| v1.0 草案修订2 | 2026-08-02 | 新增状态回查接口（第 7 节）：GET /inquiries/{单号}、GET /orders/{单号}；错误码表补 404 NOT_FOUND |

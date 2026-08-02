@@ -7,8 +7,10 @@
  * 两类端点分开设计（需求表 PDF 明确要求）：
  *   POST /inquiries —— 按订单号维度推询价单（走询价→报价流程）
  *   POST /orders    —— 按柜号维度直接下单（固定价客户，落库即进审核派单流程）
+ *   GET  /inquiries/:externalOrderNo、/orders/:externalOrderNo —— 状态回查
  *
- * 全部是固定路径，没有 /:id 参数路由（踩坑 001 不适用，但留意后续别加错顺序）。
+ * ⚠️ 路由顺序（踩坑 001）：若以后加 GET 固定路径（如 /inquiries/stats），
+ *    必须放在 GET /inquiries/:externalOrderNo 之前。
  * 对外契约文档：docs/对外API/EU-TMS开放API对接文档.md
  */
 
@@ -17,6 +19,7 @@ import { apiRequestLogger, apiKeyAuth, apiFail } from './middleware.js'
 import {
   validateInquiryPayload, validateOrderPayload,
   createInquiryFromApi, createOrderFromApi,
+  getInquiryStatusForApi, getOrderStatusForApi,
 } from './service.js'
 
 const router = Router()
@@ -115,6 +118,45 @@ router.post('/orders', async (req, res) => {
       return apiFail(req, res, 500, 'SERVER_ERROR', '服务器内部错误，请稍后重试或联系运营')
     }
     return apiFail(req, res, 422, 'BUSINESS_ERROR', error.message)
+  }
+})
+
+/**
+ * 状态回查：询价
+ * GET /api/open/v1/inquiries/:externalOrderNo
+ *
+ * 用贵方自己的单号查询进展；已报价时附客户可见的报价信息，
+ * 已转订单时附订单号。查不到（或单号不属于这把钥匙）一律 404。
+ */
+router.get('/inquiries/:externalOrderNo', async (req, res) => {
+  try {
+    req.apiExternalRef = req.params.externalOrderNo
+    const data = await getInquiryStatusForApi(req.apiPartner, req.params.externalOrderNo)
+    if (!data) {
+      return apiFail(req, res, 404, 'NOT_FOUND', '未找到该单号对应的询价单')
+    }
+    res.json({ code: 200, message: 'success', data })
+  } catch (error) {
+    console.error('[open-api] 询价回查失败:', error)
+    return apiFail(req, res, 500, 'SERVER_ERROR', '服务器内部错误，请稍后重试或联系运营')
+  }
+})
+
+/**
+ * 状态回查：订单
+ * GET /api/open/v1/orders/:externalOrderNo
+ */
+router.get('/orders/:externalOrderNo', async (req, res) => {
+  try {
+    req.apiExternalRef = req.params.externalOrderNo
+    const data = await getOrderStatusForApi(req.apiPartner, req.params.externalOrderNo)
+    if (!data) {
+      return apiFail(req, res, 404, 'NOT_FOUND', '未找到该单号对应的订单')
+    }
+    res.json({ code: 200, message: 'success', data })
+  } catch (error) {
+    console.error('[open-api] 订单回查失败:', error)
+    return apiFail(req, res, 500, 'SERVER_ERROR', '服务器内部错误，请稍后重试或联系运营')
   }
 })
 

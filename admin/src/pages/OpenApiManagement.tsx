@@ -75,6 +75,7 @@ const RESULT_BADGES: Record<string, { label: string; cls: string }> = {
   FORBIDDEN: { label: '被拒绝', cls: 'bg-amber-100 text-amber-700' },
   RATE_LIMITED: { label: '超限速', cls: 'bg-amber-100 text-amber-700' },
   BUSINESS_ERROR: { label: '业务拦截', cls: 'bg-amber-100 text-amber-700' },
+  NOT_FOUND: { label: '回查未命中', cls: 'bg-gray-100 text-gray-600' },
   SERVER_ERROR: { label: '服务器错误', cls: 'bg-red-100 text-red-700' },
 }
 

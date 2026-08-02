@@ -13,7 +13,7 @@
 import crypto from 'node:crypto'
 import { query, withTransaction } from '../../core/db.js'
 import { documentEngine } from '../../core/index.js'
-import { orderService } from '../order/service.js'
+import { orderService, getStatusLabel } from '../order/service.js'
 import inquiryService from '../inquiry/service.js'
 
 /** 服务类型允许值（和 order/service.js 的 BUSINESS_TYPES 一致） */
@@ -257,6 +257,114 @@ export function validateOrderPayload(body) {
   return errors
 }
 
+// ==================== 状态回查（P8 第三阶段） ====================
+
+/** 询价状态中文名（与 inquiry 模块的 STATUS_LABELS 一致） */
+const INQUIRY_STATUS_LABELS = {
+  PENDING_QUOTE: '待报价', QUOTED: '已报价', ACCEPTED: '已接受',
+  REJECTED: '已拒绝', CANCELLED: '已取消',
+}
+
+/** 报价状态中文名（合作方视角只描述客户可见的几种） */
+const QUOTATION_STATUS_LABELS = {
+  SENT: '已报价待确认', PENDING_DECISION: '待定',
+  ACCEPTED: '已接受', CONVERTED: '已转订单',
+  REJECTED: '已拒绝', EXPIRED: '已过期',
+}
+
+/**
+ * 按合作方 + 外部单号回查询价状态。
+ * 查不到返回 null（对外 404）——单号属不属于这把钥匙，用"不存在"语义回答，
+ * 不区分"没有这单"和"这单是别人的"（架构规则 8）。
+ *
+ * 报价只回客户可见字段：点名列查询，carrier_cost 这类成本字段永不出现（踩坑 026）。
+ */
+export async function getInquiryStatusForApi(apiKey, externalRef) {
+  const inq = await query(
+    `SELECT id, inquiry_number, status, business_type, customer_ref, created_at, updated_at
+     FROM inquiries WHERE external_source = $1 AND external_ref = $2`,
+    [apiKey.partner_code, externalRef]
+  )
+  if (inq.rows.length === 0) return null
+  const inquiry = inq.rows[0]
+
+  // 最新一版对客报价（草稿/已作废不算数）
+  const quo = await query(
+    `SELECT quotation_number, status, total_price, currency, valid_until, converted_order_id
+     FROM quotations
+     WHERE inquiry_id = $1 AND status NOT IN ('DRAFT', 'CANCELLED')
+     ORDER BY version DESC, created_at DESC
+     LIMIT 1`,
+    [inquiry.id]
+  )
+
+  let quotation = null
+  let order = null
+  if (quo.rows.length > 0) {
+    const q = quo.rows[0]
+    quotation = {
+      quotationNumber: q.quotation_number,
+      status: q.status,
+      statusLabel: QUOTATION_STATUS_LABELS[q.status] || q.status,
+      // NUMERIC 回来是字符串（踩坑 002），出门前转数字
+      totalPrice: q.total_price === null ? null : Number(q.total_price),
+      currency: q.currency,
+      validUntil: q.valid_until,
+    }
+    if (q.converted_order_id) {
+      const ord = await query(
+        `SELECT order_number, status FROM orders WHERE id = $1`, [q.converted_order_id]
+      )
+      if (ord.rows.length > 0) {
+        order = { orderNumber: ord.rows[0].order_number, status: ord.rows[0].status }
+      }
+    }
+  }
+
+  return {
+    externalOrderNo: externalRef,
+    inquiryNumber: inquiry.inquiry_number,
+    status: inquiry.status,
+    statusLabel: INQUIRY_STATUS_LABELS[inquiry.status] || inquiry.status,
+    businessType: inquiry.business_type,
+    customerRef: inquiry.customer_ref,
+    createdAt: inquiry.created_at,
+    updatedAt: inquiry.updated_at,
+    quotation,
+    order,
+  }
+}
+
+/**
+ * 按合作方 + 外部单号回查订单状态。查不到返回 null（对外 404）。
+ */
+export async function getOrderStatusForApi(apiKey, externalRef) {
+  const result = await query(
+    `SELECT order_number, status, delivery_status, business_type, tracking_number,
+            container_no, pickup_date, delivery_date, expected_delivery_date,
+            created_at, updated_at
+     FROM orders WHERE external_source = $1 AND external_ref = $2`,
+    [apiKey.partner_code, externalRef]
+  )
+  if (result.rows.length === 0) return null
+  const o = result.rows[0]
+  return {
+    externalOrderNo: externalRef,
+    orderNumber: o.order_number,
+    status: o.status,
+    statusLabel: getStatusLabel(o.business_type, o.status),
+    deliveryStatus: o.delivery_status,
+    businessType: o.business_type,
+    trackingNumber: o.tracking_number,
+    containerNo: o.container_no,
+    pickupDate: o.pickup_date,
+    deliveryDate: o.delivery_date,
+    expectedDeliveryDate: o.expected_delivery_date,
+    createdAt: o.created_at,
+    updatedAt: o.updated_at,
+  }
+}
+
 // ==================== 幂等建询价 / 建订单 ====================
 
 /**
@@ -415,4 +523,6 @@ export default {
   validateOrderPayload,
   createInquiryFromApi,
   createOrderFromApi,
+  getInquiryStatusForApi,
+  getOrderStatusForApi,
 }

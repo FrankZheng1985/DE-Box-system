@@ -39,7 +39,10 @@ export function apiRequestLogger(req, res, next) {
       partnerCode: req.apiPartner?.partner_code || null,
       method: req.method,
       path: req.originalUrl,
-      externalRef: typeof req.body?.externalOrderNo === 'string' ? req.body.externalOrderNo.slice(0, 100) : null,
+      // 推送类端点单号在请求体里；回查类端点在路径参数里，由 handler 挂到 req.apiExternalRef
+      externalRef: (req.apiExternalRef
+        || (typeof req.body?.externalOrderNo === 'string' ? req.body.externalOrderNo : null)
+      )?.slice(0, 100) || null,
       statusCode: res.statusCode,
       result: req.apiResult || (res.statusCode < 400 ? 'SUCCESS' : 'SERVER_ERROR'),
       errorMessage: req.apiError || null,

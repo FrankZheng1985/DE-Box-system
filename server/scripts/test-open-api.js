@@ -249,6 +249,45 @@ const orderPayload = {
   assert('本地派送下单 → 200（走系统统一初始状态）', localOk.status === 200 && !!localOk.json.data?.orderNumber)
 }
 
+// ==================== 4.5 状态回查 ====================
+log('\n【4.5】状态回查')
+{
+  const inq1 = await call('/inquiries/YDD-2026-0001', { key: GOOD_KEY })
+  assert('询价回查 → 200 + 待报价 + 尚无报价', inq1.status === 200
+    && inq1.json.data.status === 'PENDING_QUOTE' && inq1.json.data.quotation === null)
+
+  // 给这张询价插一版对客报价（带 carrier_cost，验证成本字段不外泄——踩坑 026 回归）
+  const inqRow = await query(`SELECT id, client_id FROM inquiries WHERE external_ref = 'YDD-2026-0001'`)
+  await query(
+    `INSERT INTO quotations (quotation_number, inquiry_id, client_id, version, status,
+                             total_price, carrier_cost, currency, valid_until)
+     VALUES ('QUO-P8-TEST-1', $1, $2, 1, 'SENT', 1234.5, 999.99, 'EUR', '2026-12-31')`,
+    [inqRow.rows[0].id, inqRow.rows[0].client_id]
+  )
+  const inq2 = await call('/inquiries/YDD-2026-0001', { key: GOOD_KEY })
+  assert('已报价后回查 → 报价金额可见（NUMERIC 已转数字）', inq2.status === 200
+    && inq2.json.data.quotation?.totalPrice === 1234.5
+    && inq2.json.data.quotation?.status === 'SENT')
+  const raw = JSON.stringify(inq2.json)
+  assert('回查响应不含 carrier_cost / 成本值（踩坑 026）', !raw.includes('carrier') && !raw.includes('999.99'))
+
+  const ord = await call('/orders/AOYI-C-8801', { key: GOOD_KEY })
+  assert('订单回查 → 200 + 待审核 + 柜号', ord.status === 200
+    && ord.json.data.status === 'PENDING_REVIEW'
+    && ord.json.data.statusLabel === '待审核'
+    && ord.json.data.containerNo === 'MSKU1234567')
+
+  const miss = await call('/orders/NO-SUCH-REF', { key: GOOD_KEY })
+  assert('查不存在的单号 → 404 NOT_FOUND', miss.status === 404 && miss.json.data?.errorCode === 'NOT_FOUND')
+
+  // 租户隔离：别的合作方查同一个单号，必须是"不存在"而不是 403（架构规则 8）
+  const cross = await call('/orders/AOYI-C-8801', { key: FROZEN_KEY })
+  assert('跨合作方回查 → 404（不暴露单据存在性）', cross.status === 404)
+
+  const noKey = await call('/orders/AOYI-C-8801')
+  assert('回查也要钥匙 → 401', noKey.status === 401)
+}
+
 // ==================== 5. 请求留痕 ====================
 log('\n【5】请求留痕')
 {
@@ -274,6 +313,10 @@ log('\n【5】请求留痕')
   const rateLog = await query(
     `SELECT 1 FROM api_request_logs WHERE partner_code = 'P8RATE' AND result = 'RATE_LIMITED'`)
   assert('限速拦截留痕', rateLog.rows.length >= 1)
+
+  const notFoundLog = await query(
+    `SELECT 1 FROM api_request_logs WHERE result = 'NOT_FOUND' AND external_ref = 'NO-SUCH-REF'`)
+  assert('回查未命中留痕（路径参数单号已记录）', notFoundLog.rows.length >= 1)
 }
 
 log(`\n═══════════ 结果：${passed} 通过 / ${failed} 失败 ═══════════`)
