@@ -62,6 +62,32 @@ router.post('/login', async (req, res) => {
       return res.json({ code: 401, message: '用户名或密码错误', messageCode: 'INVALID_CREDENTIALS', data: null })
     }
 
+    // 门户账号：校验绑定的公司是否真实存在（踩坑 035）
+    //
+    // 绑定指向一家已被删掉的公司时，租户隔离条件 WHERE client_id = <悬空UUID>
+    // 永远匹配不到行，于是门户每个页面都返回 200 + 空数组、控制台无任何报错，
+    // 看起来就像「这家公司确实还没有业务」——客户和运营都查不出毛病。
+    // requireTenantBinding 只挡「绑定为空」，挡不住「绑定指向不存在的 ID」，
+    // 所以在登录入口就拦下来，把静默失败变成明确提示。
+    if ((user.user_type === 'CLIENT' || user.user_type === 'CARRIER') && user.linked_entity_id) {
+      // 表名来自固定三元表达式，只有两种取值，不存在注入面
+      const boundTable = user.user_type === 'CLIENT' ? 'clients' : 'carriers'
+      const boundResult = await query(
+        `SELECT id FROM ${boundTable} WHERE id = $1`,
+        [user.linked_entity_id]
+      )
+      if (boundResult.rows.length === 0) {
+        console.error('[登录拒绝] 门户账号绑定的公司不存在 | username:', user.username,
+          '| userType:', user.user_type, '| linkedEntityId:', user.linked_entity_id)
+        return res.json({
+          code: 401,
+          message: '账号绑定的公司不存在，请联系管理员重新绑定',
+          messageCode: 'BOUND_COMPANY_MISSING',
+          data: null
+        })
+      }
+    }
+
     // 获取用户组织分配
     const orgResult = await query(
       `SELECT company_code, business_area, is_default

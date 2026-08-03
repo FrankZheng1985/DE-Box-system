@@ -42,6 +42,7 @@ export const MESSAGE_CODES = {
   '账号已停用，请联系管理员': 'ACCOUNT_DISABLED',
   '登录失败，请稍后重试': 'LOGIN_ERROR',
   '账号未关联公司，请联系管理员完成绑定后再使用': 'ACCOUNT_NOT_BOUND',
+  '账号绑定的公司不存在，请联系管理员重新绑定': 'BOUND_COMPANY_MISSING',
   '当前账号未关联客户公司': 'ACCOUNT_NO_CLIENT',
   '需要系统管理员权限': 'SYS_ADMIN_REQUIRED',
   '没有权限执行此操作': 'NO_PERMISSION',

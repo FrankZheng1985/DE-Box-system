@@ -425,6 +425,7 @@
     "ACCOUNT_DISABLED": "Dieses Konto ist deaktiviert, bitte an einen Administrator wenden",
     "LOGIN_ERROR": "Anmeldung fehlgeschlagen, bitte später erneut versuchen",
     "ACCOUNT_NOT_BOUND": "Dieses Konto ist noch keiner Firma zugeordnet – bitte die Zuordnung durch einen Administrator vornehmen lassen",
+    "BOUND_COMPANY_MISSING": "Die diesem Konto zugeordnete Firma existiert nicht mehr – bitte die Zuordnung durch einen Administrator erneuern lassen",
     "ACCOUNT_NO_CLIENT": "Dieses Konto ist keinem Kundenunternehmen zugeordnet",
     "SYS_ADMIN_REQUIRED": "Systemadministrator-Rechte erforderlich",
     "NO_PERMISSION": "Sie dürfen diese Aktion nicht ausführen",

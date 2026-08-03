@@ -216,6 +216,7 @@
     "ACCOUNT_DISABLED": "账号已停用，请联系管理员",
     "LOGIN_ERROR": "登录失败，请稍后重试",
     "ACCOUNT_NOT_BOUND": "账号未关联公司，请联系管理员完成绑定后再使用",
+    "BOUND_COMPANY_MISSING": "账号绑定的公司不存在，请联系管理员重新绑定",
     "ACCOUNT_NO_CLIENT": "当前账号未关联客户公司",
     "SYS_ADMIN_REQUIRED": "需要系统管理员权限",
     "NO_PERMISSION": "没有权限执行此操作",

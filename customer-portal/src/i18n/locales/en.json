@@ -425,6 +425,7 @@
     "ACCOUNT_DISABLED": "This account is disabled, please contact an administrator",
     "LOGIN_ERROR": "Sign-in failed, please try again later",
     "ACCOUNT_NOT_BOUND": "This account is not linked to a company yet — ask an administrator to complete the binding",
+    "BOUND_COMPANY_MISSING": "The company linked to this account no longer exists — ask an administrator to re-link it",
     "ACCOUNT_NO_CLIENT": "This account is not linked to a client company",
     "SYS_ADMIN_REQUIRED": "System administrator rights required",
     "NO_PERMISSION": "You are not allowed to perform this action",
