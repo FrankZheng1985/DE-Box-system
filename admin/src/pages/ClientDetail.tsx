@@ -6,6 +6,8 @@ import {
   Calendar, CreditCard, FileText, DollarSign, ShieldCheck,
   Package, TrendingUp, Clock, AlertTriangle, Star
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
@@ -83,7 +85,7 @@ function formatDate(dateStr: string): string {
 }
 
 // 信用等级样式
-function getCreditBadge(level: string) {
+function getCreditBadge(t: TFunction, level: string) {
   const map: Record<string, { bg: string; text: string }> = {
     A: { bg: 'bg-green-100', text: 'text-green-700' },
     B: { bg: 'bg-blue-100', text: 'text-blue-700' },
@@ -92,19 +94,19 @@ function getCreditBadge(level: string) {
   const style = map[level] || { bg: 'bg-gray-100', text: 'text-gray-600' }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold ${style.bg} ${style.text}`}>
-      {level} 级
+      {t('client.creditGrade', { level })}
     </span>
   )
 }
 
 // 商务等级徽章（P7：VIP / 普通，和上面的信用等级 A-D 是两套口径）
-function getClientLevelBadge(level: string) {
+function getClientLevelBadge(t: TFunction, level: string) {
   const isVip = level === 'VIP'
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
       isVip ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
     }`}>
-      {isVip ? 'VIP 客户' : '普通客户'}
+      {isVip ? t('client.levelVip') : t('client.levelNormal')}
     </span>
   )
 }
@@ -113,14 +115,14 @@ function getClientLevelBadge(level: string) {
 
 // credit Tab 需要 client:credit 权限，在组件里按权限过滤
 const tabs = [
-  { key: 'info', label: '基本信息' },
-  { key: 'credit', label: '信用风控', permission: 'client:credit' },
-  { key: 'contracts', label: '合同管理' },
-  { key: 'pricing', label: '价格体系' },
-  { key: 'orders', label: '订单历史' },
-  { key: 'finance', label: '财务概览' },
+  { key: 'info', labelKey: 'tabs.basicInfo' },
+  { key: 'credit', labelKey: 'tabs.creditRisk', permission: 'client:credit' },
+  { key: 'contracts', labelKey: 'tabs.contracts' },
+  { key: 'pricing', labelKey: 'tabs.pricing' },
+  { key: 'orders', labelKey: 'tabs.orderHistory' },
+  { key: 'finance', labelKey: 'tabs.financeOverview' },
   // 2026-08-03 新增：该客户公司下的登录账号（用户管理里仍有全量列表，两个入口并存）
-  { key: 'accounts', labelKey: 'tabs.accounts', label: '账号', permission: 'system:user' },
+  { key: 'accounts', labelKey: 'tabs.accounts', permission: 'system:user' },
 ]
 
 // ==================== 骨架屏 ====================
@@ -165,6 +167,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
 // ==================== 主组件 ====================
 
 export default function ClientDetail() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { id } = useParams()
   const { hasPermission } = useAuth()
@@ -248,24 +251,24 @@ export default function ClientDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 左列 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">公司信息</h3>
-          <InfoRow icon={Building2} label="公司全称" value={client.company_name} />
-          <InfoRow icon={FileText} label="VAT税号" value={client.vat_number} />
-          <InfoRow icon={Globe} label="国家" value={client.country} />
-          <InfoRow icon={MapPin} label="城市" value={client.city} />
-          <InfoRow icon={MapPin} label="详细地址" value={client.address} />
-          <InfoRow icon={Calendar} label="注册日期" value={formatDate(client.created_at)} />
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">{t('master.companyInfo')}</h3>
+          <InfoRow icon={Building2} label={t('master.companyFullName')} value={client.company_name} />
+          <InfoRow icon={FileText} label={t('master.vatNumber')} value={client.vat_number} />
+          <InfoRow icon={Globe} label={t('common.country')} value={client.country} />
+          <InfoRow icon={MapPin} label={t('common.city')} value={client.city} />
+          <InfoRow icon={MapPin} label={t('field.addressDetail')} value={client.address} />
+          <InfoRow icon={Calendar} label={t('client.registeredAt')} value={formatDate(client.created_at)} />
         </div>
         {/* 右列 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">联系与信用</h3>
-          <InfoRow icon={Phone} label="主联系人" value={client.contact_name} />
-          <InfoRow icon={Mail} label="联系邮箱" value={client.contact_email} />
-          <InfoRow icon={Phone} label="联系电话" value={client.contact_phone} />
-          <InfoRow icon={Mail} label="发票邮箱" value={client.invoice_email} />
-          <InfoRow icon={Clock} label="账期" value={client.payment_terms || '-'} />
-          <InfoRow icon={Star} label="客户等级" value={getClientLevelBadge(client.client_level)} />
-          <InfoRow icon={ShieldCheck} label="信用等级" value={getCreditBadge(client.credit_level)} />
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">{t('client.contactAndCredit')}</h3>
+          <InfoRow icon={Phone} label={t('client.primaryContact')} value={client.contact_name} />
+          <InfoRow icon={Mail} label={t('master.contactEmail')} value={client.contact_email} />
+          <InfoRow icon={Phone} label={t('field.phone')} value={client.contact_phone} />
+          <InfoRow icon={Mail} label={t('client.invoiceEmail')} value={client.invoice_email} />
+          <InfoRow icon={Clock} label={t('client.paymentTerms')} value={client.payment_terms || '-'} />
+          <InfoRow icon={Star} label={t('client.colLevel')} value={getClientLevelBadge(t, client.client_level)} />
+          <InfoRow icon={ShieldCheck} label={t('client.colCreditLevel')} value={getCreditBadge(t, client.credit_level)} />
         </div>
       </div>
     )
@@ -292,13 +295,13 @@ export default function ClientDetail() {
     <div className="space-y-4">
       {/* 表头区域 */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">合同列表</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{t('client.contractList')}</h3>
         <button
           disabled
           className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
         >
           <FileText className="w-4 h-4" />
-          新增合同（功能即将上线）
+          {t('client.addContractSoon')}
         </button>
       </div>
 
@@ -316,20 +319,20 @@ export default function ClientDetail() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">合同编号</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">类型</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期开始</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期结束</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('client.colContractNo')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.type')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('client.colValidFrom')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('client.colValidTo')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td colSpan={6} className="px-4 py-16 text-center">
                   <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500 mb-1">暂无合同数据</p>
-                  <p className="text-xs text-slate-400">合同管理功能即将上线，届时可录入框架合同与临时合同</p>
+                  <p className="text-sm text-slate-500 mb-1">{t('client.noContracts')}</p>
+                  <p className="text-xs text-slate-400">{t('client.noContractsHint')}</p>
                 </td>
               </tr>
             </tbody>
@@ -344,13 +347,13 @@ export default function ClientDetail() {
     <div className="space-y-4">
       {/* 表头区域 */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">价格规则</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{t('client.pricingRules')}</h3>
         <button
           disabled
           className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
         >
           <DollarSign className="w-4 h-4" />
-          新增价格规则（功能即将上线）
+          {t('client.addPricingSoon')}
         </button>
       </div>
 
@@ -368,20 +371,20 @@ export default function ClientDetail() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">路线</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">业务类型</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">运输类型</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">单价 (EUR)</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('field.businessType')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('field.transportType')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('client.colUnitPriceEur')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colValidity')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td colSpan={6} className="px-4 py-16 text-center">
                   <CreditCard className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500 mb-1">暂无价格规则</p>
-                  <p className="text-xs text-slate-400">价格体系功能即将上线，届时可为该客户配置按路线、业务类型的定价规则</p>
+                  <p className="text-sm text-slate-500 mb-1">{t('client.noPricingRules')}</p>
+                  <p className="text-xs text-slate-400">{t('client.noPricingRulesHint')}</p>
                 </td>
               </tr>
             </tbody>
@@ -419,19 +422,19 @@ export default function ClientDetail() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">订单号</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">路线</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">类型</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">报价</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">日期</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.orderNo')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.type')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('client.colQuote')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.date')}</th>
               </tr>
             </thead>
             <tbody>
               {orders.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center text-sm text-slate-400 py-12">
-                    暂无订单记录
+                    {t('client.noOrders')}
                   </td>
                 </tr>
               ) : (
@@ -492,19 +495,19 @@ export default function ClientDetail() {
         {/* 统计卡片 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard
-            title="总应收"
+            title={t('client.totalReceivable')}
             value={formatCurrency(stats.total_receivable)}
             icon={DollarSign}
             color="blue"
           />
           <StatCard
-            title="已收款"
+            title={t('client.received')}
             value={formatCurrency(stats.total_paid)}
             icon={TrendingUp}
             color="green"
           />
           <StatCard
-            title="逾期金额"
+            title={t('client.overdueAmount')}
             value={formatCurrency(stats.overdue_amount)}
             icon={AlertTriangle}
             color="red"
@@ -514,7 +517,7 @@ export default function ClientDetail() {
         {/* 最近财务记录表格 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-900">最近财务记录</h3>
+            <h3 className="text-sm font-semibold text-slate-900">{t('client.recentFinance')}</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full table-fixed">
@@ -527,18 +530,18 @@ export default function ClientDetail() {
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">类型</th>
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">描述</th>
-                  <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">金额</th>
-                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
-                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">到期日</th>
+                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.type')}</th>
+                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('finance.colDescription')}</th>
+                  <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('common.amount')}</th>
+                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
+                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('finance.colDueDate')}</th>
                 </tr>
               </thead>
               <tbody>
                 {records.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center text-sm text-slate-400 py-12">
-                      暂无财务记录
+                      {t('client.noFinanceRecords')}
                     </td>
                   </tr>
                 ) : (
@@ -601,10 +604,10 @@ export default function ClientDetail() {
           >
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
-          <h1 className="text-xl font-semibold text-slate-900">客户不存在</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('client.notFound')}</h1>
         </div>
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
-          <p className="text-slate-500 text-sm">未找到该客户信息</p>
+          <p className="text-slate-500 text-sm">{t('client.notFoundHint')}</p>
         </div>
       </div>
     )
@@ -624,11 +627,11 @@ export default function ClientDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-slate-900">{client.company_name}</h1>
-              {getClientLevelBadge(client.client_level)}
-              {getCreditBadge(client.credit_level)}
+              {getClientLevelBadge(t, client.client_level)}
+              {getCreditBadge(t, client.credit_level)}
               {client.credit_blocked && (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-red-100 text-red-700">
-                  信用冻结
+                  {t('client.creditBlocked')}
                 </span>
               )}
             </div>
@@ -641,7 +644,7 @@ export default function ClientDetail() {
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200">
           <Edit className="w-4 h-4" />
-          编辑
+          {t('common.edit')}
         </button>
       </div>
 
@@ -657,7 +660,7 @@ export default function ClientDetail() {
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

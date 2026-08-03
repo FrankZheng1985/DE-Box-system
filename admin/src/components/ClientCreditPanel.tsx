@@ -14,7 +14,9 @@ import {
   ShieldCheck, ShieldAlert, Wallet, TrendingUp, Lock, Unlock,
   CheckCircle, AlertCircle, KeyRound,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { formatDateTime, formatMoney } from '../utils/format'
 import StatCard from './StatCard'
 import ConfirmDialog from './ConfirmDialog'
 
@@ -48,11 +50,11 @@ interface ClientCreditPanelProps {
 
 // ==================== 常量 ====================
 
-const CHECK_POINT_LABELS: Record<string, string> = {
-  ORDER_CREATE: '订单创建',
-  ORDER_CONFIRM: '订单确认',
-  DELIVERY: '交付',
-  MANUAL: '人工操作',
+const CHECK_POINT_LABEL_KEYS: Record<string, string> = {
+  ORDER_CREATE: 'creditStage.ORDER_CREATE',
+  ORDER_CONFIRM: 'creditStage.ORDER_CONFIRM',
+  DELIVERY: 'creditStage.DELIVERY',
+  MANUAL: 'creditStage.MANUAL',
 }
 
 const RESULT_STYLES: Record<string, string> = {
@@ -61,31 +63,22 @@ const RESULT_STYLES: Record<string, string> = {
   BLOCKED: 'bg-red-100 text-red-700',
 }
 
-const RESULT_LABELS: Record<string, string> = {
-  PASSED: '通过',
-  WARNING: '预警',
-  BLOCKED: '已拦截',
+const RESULT_LABEL_KEYS: Record<string, string> = {
+  PASSED: 'creditResult.PASSED',
+  WARNING: 'creditResult.WARNING',
+  BLOCKED: 'creditResult.BLOCKED',
 }
 
-const RISK_LABELS: Record<string, string> = {
-  LOW: '低风险',
-  MEDIUM: '中风险',
-  HIGH: '高风险',
+const RISK_LABEL_KEYS: Record<string, string> = {
+  LOW: 'riskCategoryShort.LOW',
+  MEDIUM: 'riskCategoryShort.MEDIUM',
+  HIGH: 'riskCategoryShort.HIGH',
 }
 
 // ==================== 工具函数 ====================
 
 function formatCurrency(amount: string | number | null | undefined): string {
-  const value = Number(amount) || 0
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value)
-}
-
-function formatDateTime(dateStr: string): string {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
+  return formatMoney(Number(amount) || 0)
 }
 
 // ==================== 组件 ====================
@@ -99,6 +92,7 @@ export default function ClientCreditPanel({
   creditBlocked,
   onChanged,
 }: ClientCreditPanelProps) {
+  const { t } = useTranslation()
   const [logs, setLogs] = useState<CreditCheckLog[]>([])
   const [loading, setLoading] = useState(true)
   const [resultFilter, setResultFilter] = useState<'all' | 'WARNING' | 'BLOCKED'>('all')
@@ -141,12 +135,12 @@ export default function ClientCreditPanel({
       reason,
     })
     if (res.code === 200) {
-      setToast({ type: 'success', message: res.message || '信用已释放' })
+      setToast({ type: 'success', message: res.message || t('credit.released') })
       setReleaseTarget(null)
       fetchLogs()
       onChanged()
     } else {
-      throw new Error(res.message || '释放失败')
+      throw new Error(res.message || t('credit.releaseFailed'))
     }
   }
 
@@ -157,12 +151,12 @@ export default function ClientCreditPanel({
       reason,
     })
     if (res.code === 200) {
-      setToast({ type: 'success', message: res.message || '操作成功' })
+      setToast({ type: 'success', message: res.message || t('common.operateSuccess') })
       setBlockConfirm(false)
       fetchLogs()
       onChanged()
     } else {
-      throw new Error(res.message || '操作失败')
+      throw new Error(res.message || t('common.operateFailed'))
     }
   }
 
@@ -191,9 +185,9 @@ export default function ClientCreditPanel({
         <div className="flex items-start gap-3 px-5 py-4 bg-red-50 border border-red-200 rounded-2xl">
           <ShieldAlert className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-red-700">该客户信用已冻结</p>
+            <p className="text-sm font-medium text-red-700">{t('credit.blockedTitle')}</p>
             <p className="text-xs text-red-600 mt-0.5">
-              冻结期间无法为其创建新订单，需要先解冻或对具体的拦截记录做人工释放
+              {t('credit.blockedHint')}
             </p>
           </div>
         </div>
@@ -202,27 +196,27 @@ export default function ClientCreditPanel({
       {/* 额度概览 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="信用额度"
-          value={noLimit ? '不限额' : formatCurrency(limit)}
+          title={t('credit.limit')}
+          value={noLimit ? t('credit.unlimited') : formatCurrency(limit)}
           icon={Wallet}
           color="blue"
         />
         <StatCard
-          title="当前敞口"
+          title={t('credit.exposure')}
           value={formatCurrency(exposure)}
           icon={TrendingUp}
           color="purple"
         />
         <StatCard
-          title="可用额度"
-          value={noLimit ? '不限额' : formatCurrency(available)}
+          title={t('credit.available')}
+          value={noLimit ? t('credit.unlimited') : formatCurrency(available)}
           icon={ShieldCheck}
           color={available < 0 ? 'red' : 'green'}
         />
         <StatCard
-          title="风险类别"
-          value={RISK_LABELS[riskCategory] || riskCategory || '-'}
-          subtitle={riskCategory === 'HIGH' ? '敞口含未确认订单' : riskCategory === 'LOW' ? '仅算未清应收' : '含在途订单'}
+          title={t('client.riskCategory')}
+          value={riskCategory ? t(RISK_LABEL_KEYS[riskCategory] || '', { defaultValue: riskCategory }) : '-'}
+          subtitle={riskCategory === 'HIGH' ? t('credit.riskHintHigh') : riskCategory === 'LOW' ? t('credit.riskHintLow') : t('credit.riskHintMedium')}
           icon={ShieldAlert}
           color={riskCategory === 'HIGH' ? 'red' : riskCategory === 'LOW' ? 'green' : 'yellow'}
         />
@@ -231,15 +225,15 @@ export default function ClientCreditPanel({
       {/* 操作区 + 筛选 */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">信用检查记录</h3>
+          <h3 className="text-sm font-semibold text-slate-900">{t('credit.checkLog')}</h3>
           <select
             value={resultFilter}
             onChange={e => setResultFilter(e.target.value as any)}
             className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           >
-            <option value="all">全部结果</option>
-            <option value="WARNING">仅预警</option>
-            <option value="BLOCKED">仅拦截</option>
+            <option value="all">{t('credit.allResults')}</option>
+            <option value="WARNING">{t('credit.onlyWarning')}</option>
+            <option value="BLOCKED">{t('credit.onlyBlocked')}</option>
           </select>
         </div>
         <button
@@ -251,7 +245,7 @@ export default function ClientCreditPanel({
           }`}
         >
           {creditBlocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-          {creditBlocked ? '解除信用冻结' : '冻结客户信用'}
+          {creditBlocked ? t('credit.unblock') : t('credit.block')}
         </button>
       </div>
 
@@ -271,14 +265,14 @@ export default function ClientCreditPanel({
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">检查时间</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">检查节点</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">关联订单</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">订单金额</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">当时敞口</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">结果</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">释放记录</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colCheckedAt')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colStage')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colOrder')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colOrderAmount')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colExposureThen')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colResult')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('credit.colOverride')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -296,7 +290,7 @@ export default function ClientCreditPanel({
                 <tr>
                   <td colSpan={8} className="px-4 py-16 text-center">
                     <ShieldCheck className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">暂无信用检查记录</p>
+                    <p className="text-sm text-slate-500">{t('credit.empty')}</p>
                   </td>
                 </tr>
               ) : (
@@ -304,7 +298,7 @@ export default function ClientCreditPanel({
                   <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDateTime(log.checked_at)}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-center">
-                      {CHECK_POINT_LABELS[log.check_point] || log.check_point}
+                      {t(CHECK_POINT_LABEL_KEYS[log.check_point] || '', { defaultValue: log.check_point })}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{log.order_number || '-'}</td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">
@@ -317,12 +311,12 @@ export default function ClientCreditPanel({
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${
                         RESULT_STYLES[log.check_result] || 'bg-gray-100 text-gray-600'
                       }`}>
-                        {RESULT_LABELS[log.check_result] || log.check_result}
+                        {t(RESULT_LABEL_KEYS[log.check_result] || '', { defaultValue: log.check_result })}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 truncate" title={log.override_reason || ''}>
                       {log.override_reason
-                        ? `${log.override_by_name || '未知'}：${log.override_reason}`
+                        ? `${log.override_by_name || t('credit.unknown')}：${log.override_reason}`
                         : '-'}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -331,10 +325,10 @@ export default function ClientCreditPanel({
                         <button
                           onClick={() => setReleaseTarget(log)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-all duration-200"
-                          title="人工释放"
+                          title={t('credit.overrideTitle')}
                         >
                           <KeyRound className="w-3.5 h-3.5" />
-                          释放
+                          {t('credit.override')}
                         </button>
                       ) : (
                         <span className="text-xs text-slate-300">-</span>
@@ -353,14 +347,14 @@ export default function ClientCreditPanel({
         isOpen={releaseTarget !== null}
         onClose={() => setReleaseTarget(null)}
         onConfirm={handleRelease}
-        title="人工释放信用"
-        message="释放后这条拦截记录会标记为已通过，同时解除该客户的信用冻结标记。释放动作会记名留痕。"
+        title={t('credit.overrideModalTitle')}
+        message={t('credit.overrideMessage')}
         targetLabel={companyName}
         requireReason
-        reasonPlaceholder="请填写释放原因，例如：客户已承诺本周回款、总经理特批等"
+        reasonPlaceholder={t('credit.overrideReasonPlaceholder')}
         variant="primary"
-        confirmText="确认释放"
-        warningText="如果这次拦截是敞口超额造成的，只释放解决不了下一单——要长期放行请同时到「编辑客户」里调高信用额度"
+        confirmText={t('credit.confirmOverride')}
+        warningText={t('credit.overrideWarning')}
       />
 
       {/* 冻结 / 解冻确认 */}
@@ -368,15 +362,15 @@ export default function ClientCreditPanel({
         isOpen={blockConfirm}
         onClose={() => setBlockConfirm(false)}
         onConfirm={handleToggleBlock}
-        title={creditBlocked ? '解除信用冻结' : '冻结客户信用'}
+        title={creditBlocked ? t('credit.unblock') : t('credit.block')}
         message={creditBlocked
-          ? '解冻后该客户可以正常下单，信用检查会恢复按额度和敞口判断。'
-          : '冻结后该客户的任何新订单都会被信用检查直接拦下，直到解冻或做人工释放。'}
+          ? t('credit.unblockMessage')
+          : t('credit.blockMessage')}
         targetLabel={companyName}
         requireReason={!creditBlocked}
-        reasonPlaceholder="请填写冻结原因，例如：长期逾期未回款、合作纠纷等"
+        reasonPlaceholder={t('credit.blockReasonPlaceholder')}
         variant={creditBlocked ? 'primary' : 'danger'}
-        confirmText={creditBlocked ? '确认解冻' : '确认冻结'}
+        confirmText={creditBlocked ? t('credit.confirmUnblock') : t('credit.confirmBlock')}
       />
     </div>
   )

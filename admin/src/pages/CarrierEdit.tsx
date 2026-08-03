@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Truck,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -72,6 +73,7 @@ function FormSkeleton() {
 // ==================== 主组件 ====================
 
 export default function CarrierEdit() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -111,12 +113,12 @@ export default function CarrierEdit() {
             remarks: d.remarks || '',
           })
         } else {
-          setError(res.message || '获取承运商信息失败')
+          setError(res.message || t('carrierEdit.loadFailed'))
         }
       } catch (err: any) {
         if (cancelled) return
         console.error('[CarrierEdit] 获取承运商失败:', err)
-        setError(err.message || '请求失败')
+        setError(err.message || t('apiError.requestFailed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -135,7 +137,7 @@ export default function CarrierEdit() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.companyName.trim()) {
-      setError('公司名称不能为空')
+      setError(t('master.errCompanyNameEmpty'))
       return
     }
 
@@ -144,14 +146,14 @@ export default function CarrierEdit() {
     try {
       const res = await api.put<ApiResponse<any>>(`/carriers/${id}`, form)
       if (res.code === 200) {
-        setSuccessMsg('承运商信息已更新')
+        setSuccessMsg(t('carrierEdit.updated'))
         setTimeout(() => navigate(`/carriers/${id}`), 1200)
       } else {
-        setError(res.message || '更新失败')
+        setError(res.message || t('orderForm.updateFailed'))
       }
     } catch (err: any) {
       console.error('[CarrierEdit] 提交失败:', err)
-      setError(err.message || '提交失败')
+      setError(err.message || t('master.submitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -188,7 +190,7 @@ export default function CarrierEdit() {
         </button>
         <div className="flex items-center gap-2">
           <Truck className="w-5 h-5 text-blue-600" />
-          <h1 className="text-xl font-semibold text-slate-900">编辑承运商</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('carrierEdit.pageTitle')}</h1>
         </div>
       </div>
 
@@ -196,24 +198,24 @@ export default function CarrierEdit() {
       <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
         {/* 公司信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">公司信息</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('master.companyInfo')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                公司名称 <span className="text-red-500">*</span>
+                {t('master.companyName')} <span className="text-red-500">*</span>
               </label>
               <input type="text" value={form.companyName} onChange={(e) => updateField('companyName', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">VAT 税号</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.vatNumber')}</label>
               <input type="text" value={form.vatNumber} onChange={(e) => updateField('vatNumber', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">国家</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.country')}</label>
               <input type="text" value={form.country} onChange={(e) => updateField('country', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">地址</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.address')}</label>
               <input type="text" value={form.address} onChange={(e) => updateField('address', e.target.value)} className={inputClass} />
             </div>
           </div>
@@ -221,31 +223,31 @@ export default function CarrierEdit() {
 
         {/* 分类与备注（P7 需求 7） */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">分类与备注</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('carrier.categoryAndRemarks')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">分类</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.category')}</label>
               <select value={form.carrierCategory} onChange={(e) => updateField('carrierCategory', e.target.value)} className={inputClass}>
-                <option value="EXTERNAL">外部服务商</option>
-                <option value="OWN_FLEET">自营车辆</option>
+                <option value="EXTERNAL">{t('carrierCategory.EXTERNAL')}</option>
+                <option value="OWN_FLEET">{t('carrierCategory.OWN_FLEET')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">类型</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.type')}</label>
               <select value={form.carrierType} onChange={(e) => updateField('carrierType', e.target.value)} className={inputClass}>
-                <option value="">暂不确定</option>
-                <option value="PLATFORM">平台型（自己不养车）</option>
-                <option value="FLEET">自营车队型</option>
-                <option value="INDIVIDUAL">个体车辆</option>
+                <option value="">{t('carrier.typeUnknown')}</option>
+                <option value="PLATFORM">{t('carrierType.PLATFORM_LONG')}</option>
+                <option value="FLEET">{t('carrierType.FLEET')}</option>
+                <option value="INDIVIDUAL">{t('carrierType.INDIVIDUAL')}</option>
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">备注（特点 / 优势 / 短板）</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.remarksLabel')}</label>
               <textarea
                 value={form.remarks}
                 onChange={(e) => updateField('remarks', e.target.value)}
                 rows={3}
-                placeholder="例如：德国南部线路价格有优势，但旺季车源紧张；老板配合度高，可以垫付清关费"
+                placeholder={t('carrier.remarksPlaceholder')}
                 className={`${inputClass} resize-none`}
               />
             </div>
@@ -254,22 +256,22 @@ export default function CarrierEdit() {
 
         {/* 资质信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">资质信息</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('carrier.qualifications')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">运输许可证号</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.transportLicense')}</label>
               <input type="text" value={form.transportLicense} onChange={(e) => updateField('transportLicense', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">许可证到期日</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.licenseExpiry')}</label>
               <input type="date" value={form.licenseExpiry} onChange={(e) => updateField('licenseExpiry', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">保险单号</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.insuranceNumber')}</label>
               <input type="text" value={form.insuranceNumber} onChange={(e) => updateField('insuranceNumber', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">保险到期日</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.insuranceExpiry')}</label>
               <input type="date" value={form.insuranceExpiry} onChange={(e) => updateField('insuranceExpiry', e.target.value)} className={inputClass} />
             </div>
           </div>
@@ -277,18 +279,18 @@ export default function CarrierEdit() {
 
         {/* 联系人信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">联系人信息</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('master.contactSection')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">联系人</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('field.contact')}</label>
               <input type="text" value={form.contactName} onChange={(e) => updateField('contactName', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">联系邮箱</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.contactEmail')}</label>
               <input type="email" value={form.contactEmail} onChange={(e) => updateField('contactEmail', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">联系电话</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('field.phone')}</label>
               <input type="text" value={form.contactPhone} onChange={(e) => updateField('contactPhone', e.target.value)} className={inputClass} />
             </div>
           </div>
@@ -301,7 +303,7 @@ export default function CarrierEdit() {
             onClick={() => navigate(-1)}
             className="px-6 py-2.5 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-all duration-200"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -309,7 +311,7 @@ export default function CarrierEdit() {
             className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            保存修改
+            {t('orderForm.saveChanges')}
           </button>
         </div>
       </form>

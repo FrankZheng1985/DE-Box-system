@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download, Ban, RotateCcw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -21,8 +22,8 @@ interface Client {
   credit_blocked: boolean
   // outstanding_amount 来自 SUM(NUMERIC)，pg 驱动返回的是字符串（踩坑 002）
   outstanding_amount: string | number
-  contact_person: string
-  email: string
+  contact_name: string
+  contact_email: string
   status: string
   void_reason?: string
 }
@@ -83,14 +84,15 @@ const CLIENT_LEVEL_STYLES: Record<string, string> = {
   VIP: 'bg-amber-100 text-amber-700',
   NORMAL: 'bg-gray-100 text-gray-600',
 }
-const CLIENT_LEVEL_LABELS: Record<string, string> = {
-  VIP: 'VIP',
-  NORMAL: '普通',
+const CLIENT_LEVEL_LABEL_KEYS: Record<string, string> = {
+  VIP: 'client.levelVipShort',
+  NORMAL: 'client.levelNormalShort',
 }
 
 // ==================== 组件 ====================
 
 export default function ClientList() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [clients, setClients] = useState<Client[]>([])
@@ -155,10 +157,10 @@ export default function ClientList() {
   // 提交添加客户
   const handleAddClient = async () => {
     // 必填校验
-    if (!form.companyName.trim()) { setToast({ type: 'error', message: '请输入公司名称' }); return }
-    if (!form.country.trim()) { setToast({ type: 'error', message: '请输入国家' }); return }
-    if (!form.contactName.trim()) { setToast({ type: 'error', message: '请输入联系人' }); return }
-    if (!form.contactEmail.trim()) { setToast({ type: 'error', message: '请输入联系邮箱' }); return }
+    if (!form.companyName.trim()) { setToast({ type: 'error', message: t('master.errCompanyName') }); return }
+    if (!form.country.trim()) { setToast({ type: 'error', message: t('master.errCountry') }); return }
+    if (!form.contactName.trim()) { setToast({ type: 'error', message: t('master.errContactName') }); return }
+    if (!form.contactEmail.trim()) { setToast({ type: 'error', message: t('master.errContactEmail') }); return }
 
     setSubmitting(true)
     try {
@@ -177,12 +179,12 @@ export default function ClientList() {
         paymentTerms: form.paymentTerms ? Number(form.paymentTerms) : undefined,
       }
       await api.post<ApiResponse<unknown>>('/clients', payload)
-      setToast({ type: 'success', message: '客户添加成功' })
+      setToast({ type: 'success', message: t('client.added') })
       setShowAddModal(false)
       setForm(INITIAL_FORM)
       fetchClients()
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.message || '添加客户失败' })
+      setToast({ type: 'error', message: err?.message || t('client.addFailed') })
     } finally {
       setSubmitting(false)
     }
@@ -196,11 +198,11 @@ export default function ClientList() {
       { reason }
     )
     if (res.code === 200) {
-      setToast({ type: 'success', message: res.message || '操作成功' })
+      setToast({ type: 'success', message: res.message || t('common.operateSuccess') })
       setConfirmTarget(null)
       fetchClients()
     } else {
-      throw new Error(res.message || '操作失败')
+      throw new Error(res.message || t('common.operateFailed'))
     }
   }
 
@@ -223,7 +225,7 @@ export default function ClientList() {
         <div className="p-2 bg-blue-50 rounded-xl">
           <Users className="w-5 h-5 text-blue-600" />
         </div>
-        <h1 className="text-xl font-semibold text-slate-900">客户管理</h1>
+        <h1 className="text-xl font-semibold text-slate-900">{t('client.pageTitle')}</h1>
       </div>
 
       {/* 搜索栏 + 新建按钮 */}
@@ -233,7 +235,7 @@ export default function ClientList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="搜索公司名称、VAT税号..."
+              placeholder={t('client.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -245,18 +247,18 @@ export default function ClientList() {
             onChange={e => { setStatusFilter(e.target.value as any); setPage(1) }}
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           >
-            <option value="all">全部状态</option>
-            <option value="ACTIVE">有效</option>
-            <option value="INACTIVE">已作废</option>
+            <option value="all">{t('master.allStatus')}</option>
+            <option value="ACTIVE">{t('master.statusActive')}</option>
+            <option value="INACTIVE">{t('master.statusVoided')}</option>
           </select>
           <select
             value={levelFilter}
             onChange={e => { setLevelFilter(e.target.value as any); setPage(1) }}
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           >
-            <option value="all">全部等级</option>
-            <option value="VIP">VIP 客户</option>
-            <option value="NORMAL">普通客户</option>
+            <option value="all">{t('client.allLevels')}</option>
+            <option value="VIP">{t('client.levelVip')}</option>
+            <option value="NORMAL">{t('client.levelNormal')}</option>
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -265,14 +267,14 @@ export default function ClientList() {
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-all duration-200"
           >
             <Download className="w-4 h-4" />
-            导出
+            {t('common.export')}
           </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
-            添加客户
+            {t('client.add')}
           </button>
         </div>
       </div>
@@ -293,14 +295,14 @@ export default function ClientList() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">公司名称</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">VAT税号</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">国家</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">订单数</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">客户等级</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">信用等级</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">应收余额</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('master.companyName')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('master.vatNumber')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.country')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('client.colOrderCount')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('client.colLevel')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('client.colCreditLevel')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('client.colOutstanding')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -319,7 +321,7 @@ export default function ClientList() {
                 <tr>
                   <td colSpan={8} className="px-4 py-16 text-center">
                     <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">暂无客户数据</p>
+                    <p className="text-sm text-slate-500">{t('client.empty')}</p>
                   </td>
                 </tr>
               ) : (
@@ -337,7 +339,7 @@ export default function ClientList() {
                         </button>
                         {isInactive && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-600 border border-red-100 flex-shrink-0">
-                            已作废
+                            {t('master.statusVoided')}
                           </span>
                         )}
                       </div>
@@ -350,12 +352,12 @@ export default function ClientList() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${
                           CLIENT_LEVEL_STYLES[client.client_level] || 'bg-gray-100 text-gray-600'
                         }`}>
-                          {CLIENT_LEVEL_LABELS[client.client_level] || '普通'}
+                          {t(CLIENT_LEVEL_LABEL_KEYS[client.client_level] || 'client.levelNormalShort')}
                         </span>
                         {/* 信用被冻结的客户下不了单，列表里要一眼看得见 */}
                         {client.credit_blocked && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-600 border border-red-100">
-                            冻结
+                            {t('client.blocked')}
                           </span>
                         )}
                       </div>
@@ -375,7 +377,7 @@ export default function ClientList() {
                         <button
                           onClick={() => navigate(`/clients/${client.id}`)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                          title="查看"
+                          title={t('common.view')}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -383,7 +385,7 @@ export default function ClientList() {
                           <button
                             onClick={() => navigate(`/clients/${client.id}/edit`)}
                             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-                            title="编辑"
+                            title={t('common.edit')}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -391,7 +393,7 @@ export default function ClientList() {
                         <button
                           onClick={() => setConfirmTarget(client)}
                           className={`p-1.5 rounded-lg transition-all duration-200 ${isInactive ? 'text-slate-400 hover:text-green-600 hover:bg-green-50' : 'text-slate-400 hover:text-red-600 hover:bg-red-50'}`}
-                          title={isInactive ? '恢复' : '作废'}
+                          title={isInactive ? t('master.restore') : t('master.void')}
                         >
                           {isInactive ? <RotateCcw className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                         </button>
@@ -408,7 +410,7 @@ export default function ClientList() {
         {/* 分页 */}
         {total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">共 {total} 条记录</p>
+            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -434,7 +436,7 @@ export default function ClientList() {
       <Modal
         isOpen={showAddModal}
         onClose={() => { setShowAddModal(false); setForm(INITIAL_FORM) }}
-        title="添加客户"
+        title={t('client.add')}
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -442,14 +444,14 @@ export default function ClientList() {
               onClick={() => { setShowAddModal(false); setForm(INITIAL_FORM) }}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleAddClient}
               disabled={submitting}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {submitting ? '提交中...' : '确认添加'}
+              {submitting ? t('common.submitting') : t('master.confirmAdd')}
             </button>
           </div>
         }
@@ -458,25 +460,25 @@ export default function ClientList() {
           {/* 公司名称 */}
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              公司名称 <span className="text-red-500">*</span>
+              {t('master.companyName')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={form.companyName}
               onChange={e => updateField('companyName', e.target.value)}
-              placeholder="请输入公司名称"
+              placeholder={t('master.errCompanyName')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
 
           {/* VAT税号 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">VAT税号</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('master.vatNumber')}</label>
             <input
               type="text"
               value={form.vatNumber}
               onChange={e => updateField('vatNumber', e.target.value)}
-              placeholder="如 DE123456789"
+              placeholder={t('placeholder.vatEg')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
@@ -484,37 +486,37 @@ export default function ClientList() {
           {/* 国家 */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              国家 <span className="text-red-500">*</span>
+              {t('common.country')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={form.country}
               onChange={e => updateField('country', e.target.value)}
-              placeholder="如 Germany"
+              placeholder={t('placeholder.countryEg')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
 
           {/* 城市 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">城市</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('common.city')}</label>
             <input
               type="text"
               value={form.city}
               onChange={e => updateField('city', e.target.value)}
-              placeholder="如 Hamburg"
+              placeholder={t('placeholder.cityEg')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
 
           {/* 详细地址 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">详细地址</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('field.addressDetail')}</label>
             <input
               type="text"
               value={form.address}
               onChange={e => updateField('address', e.target.value)}
-              placeholder="请输入详细地址"
+              placeholder={t('placeholder.addressDetail')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
@@ -522,13 +524,13 @@ export default function ClientList() {
           {/* 联系人 */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              联系人 <span className="text-red-500">*</span>
+              {t('field.contact')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={form.contactName}
               onChange={e => updateField('contactName', e.target.value)}
-              placeholder="请输入联系人姓名"
+              placeholder={t('placeholder.contactName')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
@@ -536,7 +538,7 @@ export default function ClientList() {
           {/* 联系邮箱 */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              联系邮箱 <span className="text-red-500">*</span>
+              {t('master.contactEmail')} <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -549,7 +551,7 @@ export default function ClientList() {
 
           {/* 联系电话 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">联系电话</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('field.phone')}</label>
             <input
               type="tel"
               value={form.contactPhone}
@@ -561,7 +563,7 @@ export default function ClientList() {
 
           {/* 发票邮箱 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">发票邮箱</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('client.invoiceEmail')}</label>
             <input
               type="email"
               value={form.invoiceEmail}
@@ -573,20 +575,20 @@ export default function ClientList() {
 
           {/* 客户等级（商务分级，和信用等级 A-D 无关） */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">客户等级</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('client.colLevel')}</label>
             <select
               value={form.clientLevel}
               onChange={e => updateField('clientLevel', e.target.value)}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             >
-              <option value="NORMAL">普通客户</option>
-              <option value="VIP">VIP 客户</option>
+              <option value="NORMAL">{t('client.levelNormal')}</option>
+              <option value="VIP">{t('client.levelVip')}</option>
             </select>
           </div>
 
           {/* 信用额度 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">信用额度 (EUR)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('client.creditLimitEur')}</label>
             <input
               type="number"
               value={form.creditLimit}
@@ -598,12 +600,12 @@ export default function ClientList() {
 
           {/* 账期 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">账期 (天)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('client.paymentTermsDays')}</label>
             <input
               type="number"
               value={form.paymentTerms}
               onChange={e => updateField('paymentTerms', e.target.value)}
-              placeholder="如 30"
+              placeholder={t('placeholder.paymentTermsEg')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
@@ -615,18 +617,18 @@ export default function ClientList() {
         isOpen={confirmTarget !== null}
         onClose={() => setConfirmTarget(null)}
         onConfirm={handleToggleStatus}
-        title={confirmTarget?.status === 'INACTIVE' ? '恢复客户' : '作废客户'}
+        title={confirmTarget?.status === 'INACTIVE' ? t('client.restoreTitle') : t('client.voidTitle')}
         message={confirmTarget?.status === 'INACTIVE'
-          ? '恢复后，该客户将重新可用，可以创建新订单。确认继续？'
-          : '作废后，该客户将不可用，无法创建新订单。历史数据会完整保留，后续可随时恢复。'
+          ? t('client.restoreMessage')
+          : t('client.voidMessage')
         }
         targetLabel={confirmTarget?.company_name}
         requireReason={confirmTarget?.status === 'ACTIVE'}
-        reasonPlaceholder="请填写作废原因，例如：客户已停业、长期无合作等"
+        reasonPlaceholder={t('client.voidReasonPlaceholder')}
         variant={confirmTarget?.status === 'INACTIVE' ? 'primary' : 'danger'}
-        confirmText={confirmTarget?.status === 'INACTIVE' ? '确认恢复' : '确认作废'}
+        confirmText={confirmTarget?.status === 'INACTIVE' ? t('master.confirmRestore') : t('master.confirmVoid')}
         warningText={confirmTarget?.status === 'ACTIVE'
-          ? '作废前请确保该客户没有进行中的订单和未结清的应收账款'
+          ? t('client.voidWarning')
           : undefined}
       />
     </div>

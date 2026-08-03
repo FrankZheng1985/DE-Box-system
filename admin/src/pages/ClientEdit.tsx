@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Users,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -72,6 +73,7 @@ function FormSkeleton() {
 // ==================== 主组件 ====================
 
 export default function ClientEdit() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -111,12 +113,12 @@ export default function ClientEdit() {
             paymentTerms: String(d.payment_terms ?? d.paymentTerms ?? ''),
           })
         } else {
-          setError(res.message || '获取客户信息失败')
+          setError(res.message || t('clientEdit.loadFailed'))
         }
       } catch (err: any) {
         if (cancelled) return
         console.error('[ClientEdit] 获取客户失败:', err)
-        setError(err.message || '请求失败')
+        setError(err.message || t('apiError.requestFailed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -135,7 +137,7 @@ export default function ClientEdit() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.companyName.trim()) {
-      setError('公司名称不能为空')
+      setError(t('master.errCompanyNameEmpty'))
       return
     }
 
@@ -149,14 +151,14 @@ export default function ClientEdit() {
       }
       const res = await api.put<ApiResponse<any>>(`/clients/${id}`, payload)
       if (res.code === 200) {
-        setSuccessMsg('客户信息已更新')
+        setSuccessMsg(t('clientEdit.updated'))
         setTimeout(() => navigate(`/clients/${id}`), 1200)
       } else {
-        setError(res.message || '更新失败')
+        setError(res.message || t('orderForm.updateFailed'))
       }
     } catch (err: any) {
       console.error('[ClientEdit] 提交失败:', err)
-      setError(err.message || '提交失败')
+      setError(err.message || t('master.submitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -193,7 +195,7 @@ export default function ClientEdit() {
         </button>
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-blue-600" />
-          <h1 className="text-xl font-semibold text-slate-900">编辑客户</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('clientEdit.pageTitle')}</h1>
         </div>
       </div>
 
@@ -201,28 +203,28 @@ export default function ClientEdit() {
       <form onSubmit={handleSubmit} className="max-w-4xl space-y-6">
         {/* 公司信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">公司信息</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('master.companyInfo')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                公司名称 <span className="text-red-500">*</span>
+                {t('master.companyName')} <span className="text-red-500">*</span>
               </label>
               <input type="text" value={form.companyName} onChange={(e) => updateField('companyName', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">VAT 税号</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.vatNumber')}</label>
               <input type="text" value={form.vatNumber} onChange={(e) => updateField('vatNumber', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">国家</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.country')}</label>
               <input type="text" value={form.country} onChange={(e) => updateField('country', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">城市</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.city')}</label>
               <input type="text" value={form.city} onChange={(e) => updateField('city', e.target.value)} className={inputClass} />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">地址</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.address')}</label>
               <input type="text" value={form.address} onChange={(e) => updateField('address', e.target.value)} className={inputClass} />
             </div>
           </div>
@@ -230,22 +232,22 @@ export default function ClientEdit() {
 
         {/* 联系人信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">联系人信息</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('master.contactSection')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">联系人</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('field.contact')}</label>
               <input type="text" value={form.contactName} onChange={(e) => updateField('contactName', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">联系邮箱</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.contactEmail')}</label>
               <input type="email" value={form.contactEmail} onChange={(e) => updateField('contactEmail', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">联系电话</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('field.phone')}</label>
               <input type="text" value={form.contactPhone} onChange={(e) => updateField('contactPhone', e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">发票邮箱</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('client.invoiceEmail')}</label>
               <input type="email" value={form.invoiceEmail} onChange={(e) => updateField('invoiceEmail', e.target.value)} className={inputClass} />
             </div>
           </div>
@@ -253,59 +255,59 @@ export default function ClientEdit() {
 
         {/* 商务等级（P7：和下面的财务风险评级刻意分开两块，避免口径混淆） */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">商务等级</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('client.commercialLevel')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">客户等级</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('client.colLevel')}</label>
               <select value={form.clientLevel} onChange={(e) => updateField('clientLevel', e.target.value)} className={inputClass}>
-                <option value="NORMAL">普通客户</option>
-                <option value="VIP">VIP 客户</option>
+                <option value="NORMAL">{t('client.levelNormal')}</option>
+                <option value="VIP">{t('client.levelVip')}</option>
               </select>
-              <p className="mt-1.5 text-xs text-slate-500">按销售关系和货量定，和下面的信用评级无关</p>
+              <p className="mt-1.5 text-xs text-slate-500">{t('client.commercialLevelHint')}</p>
             </div>
           </div>
         </div>
 
         {/* 信用信息 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">信用与付款</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('client.creditAndPayment')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">信用额度 (EUR)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('client.creditLimitEur')}</label>
               <input type="number" min="0" value={form.creditLimit || ''} onChange={(e) => updateField('creditLimit', parseFloat(e.target.value) || 0)} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">信用等级</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('client.colCreditLevel')}</label>
               <select value={form.creditLevel} onChange={(e) => updateField('creditLevel', e.target.value)} className={inputClass}>
-                <option value="">请选择</option>
-                <option value="A">A - 优质</option>
-                <option value="B">B - 良好</option>
-                <option value="C">C - 一般</option>
-                <option value="D">D - 较差</option>
+                <option value="">{t('placeholder.pleaseSelect')}</option>
+                <option value="A">{t('creditLevel.A')}</option>
+                <option value="B">{t('creditLevel.B')}</option>
+                <option value="C">{t('creditLevel.C')}</option>
+                <option value="D">{t('creditLevel.D')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">风险类别</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('client.riskCategory')}</label>
               {/* 风险类别决定信用敞口怎么算（core/credit-manager.js）：
                   LOW 只算未清应收；MEDIUM 加上在途订单；HIGH 再加未确认订单 */}
               <select value={form.riskCategory} onChange={(e) => updateField('riskCategory', e.target.value)} className={inputClass}>
-                <option value="LOW">低风险 - 只算未清应收</option>
-                <option value="MEDIUM">中风险 - 含在途订单</option>
-                <option value="HIGH">高风险 - 含未确认订单</option>
+                <option value="LOW">{t('riskCategory.LOW')}</option>
+                <option value="MEDIUM">{t('riskCategory.MEDIUM')}</option>
+                <option value="HIGH">{t('riskCategory.HIGH')}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">付款条件（账期天数）</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('client.paymentTermsLabel')}</label>
               {/* ⚠️ clients.payment_terms 是 INTEGER（天数），value 必须是数字字符串。
                   原来存的是 net_30 这种字符串，保存时 PostgreSQL 直接报类型错误 */}
               <select value={form.paymentTerms} onChange={(e) => updateField('paymentTerms', e.target.value)} className={inputClass}>
-                <option value="">请选择</option>
-                <option value="0">预付（0 天）</option>
-                <option value="7">Net 7（7 天）</option>
-                <option value="14">Net 14（14 天）</option>
-                <option value="30">Net 30（30 天）</option>
-                <option value="60">Net 60（60 天）</option>
-                <option value="90">Net 90（90 天）</option>
+                <option value="">{t('placeholder.pleaseSelect')}</option>
+                <option value="0">{t('paymentTerms.0')}</option>
+                <option value="7">{t('paymentTerms.7')}</option>
+                <option value="14">{t('paymentTerms.14')}</option>
+                <option value="30">{t('paymentTerms.30')}</option>
+                <option value="60">{t('paymentTerms.60')}</option>
+                <option value="90">{t('paymentTerms.90')}</option>
               </select>
             </div>
           </div>
@@ -318,7 +320,7 @@ export default function ClientEdit() {
             onClick={() => navigate(-1)}
             className="px-6 py-2.5 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-all duration-200"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -326,7 +328,7 @@ export default function ClientEdit() {
             className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            保存修改
+            {t('orderForm.saveChanges')}
           </button>
         </div>
       </form>

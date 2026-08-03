@@ -8,23 +8,25 @@ import {
   DollarSign, TrendingUp, Clock, CheckCircle,
   AlertTriangle, Plus, Gauge, Package, Layers
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 
 // 承运商分类 / 类型展示映射（P7，值域见迁移 111）
-const CARRIER_CATEGORY_LABELS: Record<string, string> = {
-  EXTERNAL: '外部服务商',
-  OWN_FLEET: '自营车辆',
+const CARRIER_CATEGORY_LABEL_KEYS: Record<string, string> = {
+  EXTERNAL: 'carrierCategory.EXTERNAL',
+  OWN_FLEET: 'carrierCategory.OWN_FLEET',
 }
 const CARRIER_CATEGORY_STYLES: Record<string, string> = {
   EXTERNAL: 'bg-blue-100 text-blue-700',
   OWN_FLEET: 'bg-green-100 text-green-700',
 }
-const CARRIER_TYPE_LABELS: Record<string, string> = {
-  PLATFORM: '平台型',
-  FLEET: '自营车队型',
-  INDIVIDUAL: '个体车辆',
+const CARRIER_TYPE_LABEL_KEYS: Record<string, string> = {
+  PLATFORM: 'carrierType.PLATFORM',
+  FLEET: 'carrierType.FLEET',
+  INDIVIDUAL: 'carrierType.INDIVIDUAL',
 }
 
 // ==================== 类型定义 ====================
@@ -33,9 +35,9 @@ interface CarrierInfo {
   id: string
   company_name: string
   country: string
-  contact_person: string
-  phone: string
-  email: string
+  contact_name: string
+  contact_phone: string
+  contact_email: string
   address: string
   transport_license: string
   license_expiry: string
@@ -43,7 +45,7 @@ interface CarrierInfo {
   insurance_expiry: string
   vat_number: string
   vehicle_count: number
-  rating: number
+  performance_score: number | string | null
   status: string
   // P7 新增：分类 / 类型 / 备注
   carrier_category: string
@@ -82,44 +84,44 @@ function formatDate(dateStr: string): string {
 }
 
 // 车辆状态中文映射和样式
-function getVehicleStatusBadge(status: string) {
-  const map: Record<string, { label: string; bg: string; text: string }> = {
-    in_transit: { label: '运输中', bg: 'bg-blue-100', text: 'text-blue-700' },
-    idle: { label: '空闲', bg: 'bg-green-100', text: 'text-green-700' },
-    maintenance: { label: '维修中', bg: 'bg-amber-100', text: 'text-amber-700' },
+function getVehicleStatusBadge(t: TFunction, status: string) {
+  const map: Record<string, { labelKey: string; bg: string; text: string }> = {
+    in_transit: { labelKey: 'vehicleStatus.IN_TRANSIT', bg: 'bg-blue-100', text: 'text-blue-700' },
+    idle: { labelKey: 'vehicleStatus.IDLE', bg: 'bg-green-100', text: 'text-green-700' },
+    maintenance: { labelKey: 'vehicleStatus.MAINTENANCE', bg: 'bg-amber-100', text: 'text-amber-700' },
   }
-  const style = map[status] || { label: status, bg: 'bg-gray-100', text: 'text-gray-600' }
+  const style = map[status] || { labelKey: '', bg: 'bg-gray-100', text: 'text-gray-600' }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${style.bg} ${style.text}`}>
-      {style.label}
+      {t(style.labelKey, { defaultValue: status })}
     </span>
   )
 }
 
 // GPS 状态标签
-function getGpsBadge(hasGps: boolean) {
+function getGpsBadge(t: TFunction, hasGps: boolean) {
   return hasGps ? (
     <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-green-100 text-green-700">
-      已安装
+      {t('carrier.gpsInstalled')}
     </span>
   ) : (
     <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600">
-      未安装
+      {t('carrier.gpsNotInstalled')}
     </span>
   )
 }
 
 // 状态标签
-function getStatusBadge(status: string) {
-  const map: Record<string, { label: string; bg: string; text: string }> = {
-    active: { label: '启用', bg: 'bg-green-100', text: 'text-green-700' },
-    inactive: { label: '停用', bg: 'bg-gray-100', text: 'text-gray-600' },
-    suspended: { label: '暂停', bg: 'bg-red-100', text: 'text-red-700' },
+function getStatusBadge(t: TFunction, status: string) {
+  const map: Record<string, { labelKey: string; bg: string; text: string }> = {
+    active: { labelKey: 'status.ACTIVE', bg: 'bg-green-100', text: 'text-green-700' },
+    inactive: { labelKey: 'status.INACTIVE', bg: 'bg-gray-100', text: 'text-gray-600' },
+    suspended: { labelKey: 'carrier.statusSuspended', bg: 'bg-red-100', text: 'text-red-700' },
   }
-  const style = map[status] || { label: status, bg: 'bg-gray-100', text: 'text-gray-600' }
+  const style = map[status] || { labelKey: '', bg: 'bg-gray-100', text: 'text-gray-600' }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-medium ${style.bg} ${style.text}`}>
-      {style.label}
+      {t(style.labelKey, { defaultValue: status })}
     </span>
   )
 }
@@ -135,13 +137,13 @@ function getScoreColor(score: number): string {
 // ==================== Tab 定义 ====================
 
 const tabs = [
-  { key: 'info', label: '基本信息' },
-  { key: 'fleet', label: '车队管理' },
-  { key: 'routes', label: '覆盖路线' },
-  { key: 'performance', label: '绩效统计' },
-  { key: 'finance', label: '财务概览' },
+  { key: 'info', labelKey: 'tabs.basicInfo' },
+  { key: 'fleet', labelKey: 'tabs.fleet' },
+  { key: 'routes', labelKey: 'tabs.routes' },
+  { key: 'performance', labelKey: 'tabs.performance' },
+  { key: 'finance', labelKey: 'tabs.financeOverview' },
   // 2026-08-03 新增：该承运商公司下的登录账号
-  { key: 'accounts', labelKey: 'tabs.accounts', label: '账号', permission: 'system:user' },
+  { key: 'accounts', labelKey: 'tabs.accounts', permission: 'system:user' },
 ]
 
 // ==================== 骨架屏 ====================
@@ -186,6 +188,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
 // ==================== 主组件 ====================
 
 export default function CarrierDetail() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { id } = useParams()
 
@@ -271,46 +274,48 @@ export default function CarrierDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 左列 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">公司信息</h3>
-          <InfoRow icon={Truck} label="公司全称" value={carrier.company_name} />
-          <InfoRow icon={Globe} label="国家" value={carrier.country} />
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">{t('master.companyInfo')}</h3>
+          <InfoRow icon={Truck} label={t('master.companyFullName')} value={carrier.company_name} />
+          <InfoRow icon={Globe} label={t('common.country')} value={carrier.country} />
           <InfoRow
             icon={Layers}
-            label="分类 / 类型"
+            label={t('carrier.colCategoryType')}
             value={
               <span className="flex items-center gap-2">
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${
                   CARRIER_CATEGORY_STYLES[carrier.carrier_category] || 'bg-gray-100 text-gray-600'
                 }`}>
-                  {CARRIER_CATEGORY_LABELS[carrier.carrier_category] || '外部服务商'}
+                  {t(CARRIER_CATEGORY_LABEL_KEYS[carrier.carrier_category] || 'carrierCategory.EXTERNAL')}
                 </span>
                 <span className="text-xs text-slate-500">
-                  {carrier.carrier_type ? CARRIER_TYPE_LABELS[carrier.carrier_type] || carrier.carrier_type : '类型未分类'}
+                  {carrier.carrier_type
+                    ? t(CARRIER_TYPE_LABEL_KEYS[carrier.carrier_type] || '', { defaultValue: carrier.carrier_type })
+                    : t('carrier.typeUncategorized')}
                 </span>
               </span>
             }
           />
-          <InfoRow icon={FileText} label="注册号" value="-" />
-          <InfoRow icon={Shield} label="运输许可证号" value={carrier.transport_license || '-'} />
-          <InfoRow icon={Calendar} label="许可证有效期" value={formatDate(carrier.license_expiry)} />
-          <InfoRow icon={CreditCard} label="VAT税号" value={carrier.vat_number || '-'} />
+          <InfoRow icon={FileText} label={t('carrier.registrationNo')} value="-" />
+          <InfoRow icon={Shield} label={t('carrier.transportLicense')} value={carrier.transport_license || '-'} />
+          <InfoRow icon={Calendar} label={t('carrier.licenseExpiry')} value={formatDate(carrier.license_expiry)} />
+          <InfoRow icon={CreditCard} label={t('master.vatNumber')} value={carrier.vat_number || '-'} />
         </div>
         {/* 右列 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">联系与保险</h3>
-          <InfoRow icon={Shield} label="保险编号" value={carrier.insurance_number || '-'} />
-          <InfoRow icon={Calendar} label="保险有效期" value={formatDate(carrier.insurance_expiry)} />
-          <InfoRow icon={Phone} label="联系人" value={carrier.contact_person} />
-          <InfoRow icon={Phone} label="联系电话" value={carrier.phone} />
-          <InfoRow icon={Mail} label="联系邮箱" value={carrier.email} />
-          <InfoRow icon={MapPin} label="地址" value={carrier.address || '-'} />
+          <h3 className="text-sm font-semibold text-slate-900 mb-4">{t('carrier.contactAndInsurance')}</h3>
+          <InfoRow icon={Shield} label={t('carrier.insuranceNumber')} value={carrier.insurance_number || '-'} />
+          <InfoRow icon={Calendar} label={t('carrier.insuranceExpiry')} value={formatDate(carrier.insurance_expiry)} />
+          <InfoRow icon={Phone} label={t('field.contact')} value={carrier.contact_name || '-'} />
+          <InfoRow icon={Phone} label={t('field.phone')} value={carrier.contact_phone || '-'} />
+          <InfoRow icon={Mail} label={t('master.contactEmail')} value={carrier.contact_email || '-'} />
+          <InfoRow icon={MapPin} label={t('master.address')} value={carrier.address || '-'} />
         </div>
 
         {/* 备注单独占一行，内容可能很长 */}
         <div className="lg:col-span-2 bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">备注（特点 / 优势 / 短板）</h3>
+          <h3 className="text-sm font-semibold text-slate-900 mb-3">{t('carrier.remarksLabel')}</h3>
           <p className="text-sm text-slate-600 whitespace-pre-wrap">
-            {carrier.remarks || '暂无备注'}
+            {carrier.remarks || t('carrier.noRemarks')}
           </p>
         </div>
       </div>
@@ -337,7 +342,7 @@ export default function CarrierDetail() {
         <div className="flex justify-end">
           <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200">
             <Plus className="w-4 h-4" />
-            添加车辆
+            {t('carrier.addVehicle')}
           </button>
         </div>
 
@@ -354,18 +359,18 @@ export default function CarrierDetail() {
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">车牌号</th>
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">车型</th>
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">司机</th>
-                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">GPS设备</th>
-                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">当前状态</th>
+                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colPlateNo')}</th>
+                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colVehicleType')}</th>
+                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colDriver')}</th>
+                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colGpsDevice')}</th>
+                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotationDetail.currentStatus')}</th>
                 </tr>
               </thead>
               <tbody>
                 {vehicles.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center text-sm text-slate-400 py-12">
-                      暂无车辆数据
+                      {t('carrier.noVehicles')}
                     </td>
                   </tr>
                 ) : (
@@ -381,10 +386,10 @@ export default function CarrierDetail() {
                         {vehicle.driver_name || '-'}
                       </td>
                       <td className="text-center px-4 py-3">
-                        {getGpsBadge(vehicle.has_gps)}
+                        {getGpsBadge(t, vehicle.has_gps)}
                       </td>
                       <td className="text-center px-4 py-3">
-                        {getVehicleStatusBadge(vehicle.status)}
+                        {getVehicleStatusBadge(t, vehicle.status)}
                       </td>
                     </tr>
                   ))
@@ -402,13 +407,13 @@ export default function CarrierDetail() {
     <div className="space-y-4">
       {/* 表头区域 */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">覆盖路线列表</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{t('carrier.routeList')}</h3>
         <button
           disabled
           className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
         >
           <Plus className="w-4 h-4" />
-          添加覆盖路线（功能即将上线）
+          {t('carrier.addRouteSoon')}
         </button>
       </div>
 
@@ -425,19 +430,19 @@ export default function CarrierDetail() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">起点</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">终点</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">车型偏好</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">完成订单数</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">平均耗时 (天)</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('orderAssign.origin')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('orderAssign.destination')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colVehiclePreference')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colCompletedOrders')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colAvgDays')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td colSpan={5} className="px-4 py-16 text-center">
                   <Globe className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-500 mb-1">暂无覆盖路线数据</p>
-                  <p className="text-xs text-slate-400">路线管理功能即将上线，届时可录入该承运商的常跑路线与运输能力</p>
+                  <p className="text-sm text-slate-500 mb-1">{t('carrier.noRoutes')}</p>
+                  <p className="text-xs text-slate-400">{t('carrier.noRoutesHint')}</p>
                 </td>
               </tr>
             </tbody>
@@ -449,37 +454,37 @@ export default function CarrierDetail() {
 
   // Tab 3: 绩效统计
   const renderPerformance = () => {
-    const performanceScore = carrier ? Number(carrier.rating || 0) : 0
+    const performanceScore = carrier ? Number(carrier.performance_score || 0) : 0
 
     return (
       <div className="space-y-6">
         {/* 核心指标卡片 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="准时率"
+            title={t('orderAssign.onTimeRateShort')}
             value="--%"
-            subtitle="数据接入中"
+            subtitle={t('carrier.dataPending')}
             icon={Clock}
             color="blue"
           />
           <StatCard
-            title="货损率"
+            title={t('carrier.damageRate')}
             value="--%"
-            subtitle="数据接入中"
+            subtitle={t('carrier.dataPending')}
             icon={AlertTriangle}
             color="yellow"
           />
           <StatCard
-            title="综合评分"
+            title={t('orderAssign.overallScore')}
             value={performanceScore > 0 ? `${Number(performanceScore).toFixed(1)}/10` : '--'}
-            subtitle={performanceScore > 0 ? '基于历史评分' : '暂无评分'}
+            subtitle={performanceScore > 0 ? t('carrier.basedOnHistory') : t('carrier.noScore')}
             icon={Star}
             color="purple"
           />
           <StatCard
-            title="完成订单"
+            title={t('carrier.completedOrders')}
             value="--"
-            subtitle="数据接入中"
+            subtitle={t('carrier.dataPending')}
             icon={CheckCircle}
             color="green"
           />
@@ -488,7 +493,7 @@ export default function CarrierDetail() {
         {/* 绩效详情 */}
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-900">绩效指标明细</h3>
+            <h3 className="text-sm font-semibold text-slate-900">{t('carrier.performanceDetail')}</h3>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -496,7 +501,7 @@ export default function CarrierDetail() {
               <div className="border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Clock className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm font-medium text-slate-900">准时交付</span>
+                  <span className="text-sm font-medium text-slate-900">{t('carrier.onTimeDelivery')}</span>
                 </div>
                 <div className="flex items-end gap-2 mb-2">
                   <span className="text-2xl font-semibold text-slate-300">--%</span>
@@ -504,14 +509,14 @@ export default function CarrierDetail() {
                 <div className="w-full bg-slate-100 rounded-full h-2">
                   <div className="bg-slate-200 h-2 rounded-full" style={{ width: '0%' }} />
                 </div>
-                <p className="text-xs text-slate-400 mt-2">准时 -- 次 / 总计 -- 次</p>
+                <p className="text-xs text-slate-400 mt-2">{t('carrier.onTimeCounts')}</p>
               </div>
 
               {/* 货物完好 */}
               <div className="border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Package className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium text-slate-900">货物完好率</span>
+                  <span className="text-sm font-medium text-slate-900">{t('carrier.cargoIntactRate')}</span>
                 </div>
                 <div className="flex items-end gap-2 mb-2">
                   <span className="text-2xl font-semibold text-slate-300">--%</span>
@@ -519,26 +524,26 @@ export default function CarrierDetail() {
                 <div className="w-full bg-slate-100 rounded-full h-2">
                   <div className="bg-slate-200 h-2 rounded-full" style={{ width: '0%' }} />
                 </div>
-                <p className="text-xs text-slate-400 mt-2">货损 -- 次 / 总计 -- 次</p>
+                <p className="text-xs text-slate-400 mt-2">{t('carrier.damageCounts')}</p>
               </div>
 
               {/* 响应速度 */}
               <div className="border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Gauge className="w-4 h-4 text-amber-500" />
-                  <span className="text-sm font-medium text-slate-900">平均响应速度</span>
+                  <span className="text-sm font-medium text-slate-900">{t('carrier.avgResponse')}</span>
                 </div>
                 <div className="flex items-end gap-2 mb-2">
-                  <span className="text-2xl font-semibold text-slate-300">-- 小时</span>
+                  <span className="text-2xl font-semibold text-slate-300">{t('carrier.hoursPlaceholder')}</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-2">从询价到确认的平均用时</p>
+                <p className="text-xs text-slate-400 mt-2">{t('carrier.avgResponseHint')}</p>
               </div>
 
               {/* 综合评价 */}
               <div className="border border-slate-100 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Star className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm font-medium text-slate-900">综合评价</span>
+                  <span className="text-sm font-medium text-slate-900">{t('carrier.overallRating')}</span>
                 </div>
                 <div className="flex items-end gap-2 mb-2">
                   <span className={`text-2xl font-semibold ${performanceScore > 0 ? getScoreColor(performanceScore) : 'text-slate-300'}`}>
@@ -556,12 +561,12 @@ export default function CarrierDetail() {
                     style={{ width: performanceScore > 0 ? `${(performanceScore / 10) * 100}%` : '0%' }}
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-2">基于历史运输表现的综合评分</p>
+                <p className="text-xs text-slate-400 mt-2">{t('carrier.overallRatingHint')}</p>
               </div>
             </div>
 
             <p className="text-xs text-slate-400 text-center mt-6">
-              绩效详细数据将在系统积累足够运输记录后自动计算，统计功能即将完善
+              {t('carrier.performanceSoon')}
             </p>
           </div>
         </div>
@@ -590,19 +595,19 @@ export default function CarrierDetail() {
         {/* 统计卡片 */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard
-            title="应付总额"
+            title={t('carrier.totalPayable')}
             value={formatCurrency(stats.total_payable)}
             icon={DollarSign}
             color="blue"
           />
           <StatCard
-            title="已付总额"
+            title={t('carrier.totalPaid')}
             value={formatCurrency(stats.total_paid)}
             icon={TrendingUp}
             color="green"
           />
           <StatCard
-            title="待付金额"
+            title={t('carrier.pendingPayment')}
             value={formatCurrency(stats.outstanding)}
             icon={Package}
             color={stats.outstanding > 0 ? 'red' : 'blue'}
@@ -646,10 +651,10 @@ export default function CarrierDetail() {
           >
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
-          <h1 className="text-xl font-semibold text-slate-900">承运商不存在</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('carrier.notFound')}</h1>
         </div>
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
-          <p className="text-slate-500 text-sm">未找到该承运商信息</p>
+          <p className="text-slate-500 text-sm">{t('carrier.notFoundHint')}</p>
         </div>
       </div>
     )
@@ -669,26 +674,26 @@ export default function CarrierDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-slate-900">{carrier.company_name}</h1>
-              {getStatusBadge(carrier.status)}
+              {getStatusBadge(t, carrier.status)}
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-xs text-slate-400">{carrier.country || '-'}</span>
               <span className="text-xs text-slate-300">|</span>
               <span className="text-xs text-slate-400">
                 <Truck className="w-3 h-3 inline mr-1" />
-                {carrier.vehicle_count ?? 0} 辆车
+                {t('carrier.vehicleCountLabel', { count: carrier.vehicle_count ?? 0 })}
               </span>
               <span className="text-xs text-slate-300">|</span>
-              <span className={`text-xs font-medium ${getScoreColor(carrier.rating || 0)}`}>
+              <span className={`text-xs font-medium ${getScoreColor(Number(carrier.performance_score) || 0)}`}>
                 <Star className="w-3 h-3 inline mr-0.5 fill-current" />
-                {carrier.rating ? Number(carrier.rating).toFixed(1) : '-'}/10
+                {carrier.performance_score ? Number(carrier.performance_score).toFixed(1) : '-'}/10
               </span>
             </div>
           </div>
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200">
           <Edit className="w-4 h-4" />
-          编辑
+          {t('common.edit')}
         </button>
       </div>
 
@@ -704,7 +709,7 @@ export default function CarrierDetail() {
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

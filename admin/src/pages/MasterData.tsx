@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import type { MasterDataItem } from '../types'
 import Modal from '../components/Modal'
@@ -30,23 +31,23 @@ import ConfirmDialog from '../components/ConfirmDialog'
 
 interface ColumnDef {
   key: string
-  label: string
+  labelKey: string
   width: string
   align: 'text-left' | 'text-center' | 'text-right'
 }
 
 interface FormFieldDef {
   key: string
-  label: string
+  labelKey: string
   required: boolean
   type: 'text' | 'number' | 'select' | 'textarea'
-  placeholder?: string
-  options?: { value: string; label: string }[]
+  placeholderKey?: string
+  options?: { value: string; labelKey: string }[]
 }
 
 interface TabConfig {
   key: string
-  label: string
+  labelKey: string
   icon: typeof Ship
   columns: ColumnDef[]
   formFields: FormFieldDef[]
@@ -55,155 +56,155 @@ interface TabConfig {
 const TAB_CONFIGS: TabConfig[] = [
   {
     key: 'shipping-lines',
-    label: '船司',
+    labelKey: 'masterData.tabShippingLines',
     icon: Ship,
     columns: [
-      { key: 'code', label: '代码', width: 'w-[12%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[18%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[20%]', align: 'text-left' },
-      { key: 'country', label: '所属国家', width: 'w-[14%]', align: 'text-center' },
-      { key: 'website', label: '官网', width: 'w-[16%]', align: 'text-left' },
-      { key: 'is_active', label: '状态', width: 'w-[10%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[10%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.colCode', width: 'w-[12%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[18%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[20%]', align: 'text-left' },
+      { key: 'country', labelKey: 'masterData.colCountry', width: 'w-[14%]', align: 'text-center' },
+      { key: 'website', labelKey: 'masterData.colWebsite', width: 'w-[16%]', align: 'text-left' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[10%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[10%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '船司代码', required: true, type: 'text', placeholder: '如 MSC, MAERSK' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 地中海航运' },
-      { key: 'name_en', label: '英文名称', required: false, type: 'text', placeholder: '如 MSC' },
-      { key: 'country', label: '所属国家', required: false, type: 'text', placeholder: '如 Switzerland' },
-      { key: 'website', label: '官网地址', required: false, type: 'text', placeholder: '如 https://www.msc.com' },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'code', labelKey: 'masterData.fieldShippingLineCode', required: true, type: 'text', placeholderKey: 'masterData.phShippingLineCode' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phShippingLineNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: false, type: 'text', placeholderKey: 'masterData.phShippingLineNameEn' },
+      { key: 'country', labelKey: 'masterData.colCountry', required: false, type: 'text', placeholderKey: 'masterData.phCountrySwitzerland' },
+      { key: 'website', labelKey: 'masterData.fieldWebsite', required: false, type: 'text', placeholderKey: 'masterData.phWebsite' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
   {
     key: 'container-types',
-    label: '箱型',
+    labelKey: 'masterData.tabContainerTypes',
     icon: Box,
     columns: [
-      { key: 'code', label: '箱型代码', width: 'w-[15%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[20%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[22%]', align: 'text-left' },
-      { key: 'length_ft', label: '尺长(ft)', width: 'w-[13%]', align: 'text-right' },
-      { key: 'is_active', label: '状态', width: 'w-[15%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[15%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.fieldContainerTypeCode', width: 'w-[15%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[20%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[22%]', align: 'text-left' },
+      { key: 'length_ft', labelKey: 'masterData.colLengthFt', width: 'w-[13%]', align: 'text-right' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[15%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[15%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '箱型代码', required: true, type: 'text', placeholder: '如 20GP, 40HQ' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 20尺普柜' },
-      { key: 'name_en', label: '英文名称', required: false, type: 'text', placeholder: '如 20\' General Purpose' },
-      { key: 'length_ft', label: '尺长(英尺)', required: false, type: 'number', placeholder: '如 20, 40, 45' },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'code', labelKey: 'masterData.fieldContainerTypeCode', required: true, type: 'text', placeholderKey: 'masterData.phContainerTypeCode' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phContainerTypeNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: false, type: 'text', placeholderKey: 'masterData.phContainerTypeNameEn' },
+      { key: 'length_ft', labelKey: 'masterData.fieldLengthFt', required: false, type: 'number', placeholderKey: 'masterData.phLengthFt' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
   {
     key: 'currencies',
-    label: '币种',
+    labelKey: 'masterData.tabCurrencies',
     icon: Banknote,
     columns: [
-      { key: 'code', label: '币种代码', width: 'w-[14%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[18%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[22%]', align: 'text-left' },
-      { key: 'symbol', label: '符号', width: 'w-[12%]', align: 'text-center' },
-      { key: 'is_active', label: '状态', width: 'w-[16%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[18%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.fieldCurrencyCode', width: 'w-[14%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[18%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[22%]', align: 'text-left' },
+      { key: 'symbol', labelKey: 'masterData.colSymbol', width: 'w-[12%]', align: 'text-center' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[16%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[18%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '币种代码', required: true, type: 'text', placeholder: '如 EUR, USD, GBP' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 欧元' },
-      { key: 'name_en', label: '英文名称', required: false, type: 'text', placeholder: '如 Euro' },
-      { key: 'symbol', label: '货币符号', required: false, type: 'text', placeholder: '如 €, $, £' },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'code', labelKey: 'masterData.fieldCurrencyCode', required: true, type: 'text', placeholderKey: 'masterData.phCurrencyCode' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phCurrencyNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: false, type: 'text', placeholderKey: 'masterData.phCurrencyNameEn' },
+      { key: 'symbol', labelKey: 'masterData.fieldSymbol', required: false, type: 'text', placeholderKey: 'masterData.phSymbol' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
   {
     key: 'countries',
-    label: '国家',
+    labelKey: 'masterData.tabCountries',
     icon: Globe,
     columns: [
-      { key: 'code', label: '国家代码', width: 'w-[12%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[16%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[20%]', align: 'text-left' },
-      { key: 'region', label: '区域', width: 'w-[18%]', align: 'text-center' },
-      { key: 'is_active', label: '状态', width: 'w-[16%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[18%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.colCountryCode', width: 'w-[12%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[16%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[20%]', align: 'text-left' },
+      { key: 'region', labelKey: 'masterData.colRegion', width: 'w-[18%]', align: 'text-center' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[16%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[18%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '国家代码(ISO)', required: true, type: 'text', placeholder: '如 DE, FR, PL' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 德国' },
-      { key: 'name_en', label: '英文名称', required: true, type: 'text', placeholder: '如 Germany' },
-      { key: 'region', label: '所属区域', required: false, type: 'text', placeholder: '如 Western Europe' },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'code', labelKey: 'masterData.fieldCountryCodeIso', required: true, type: 'text', placeholderKey: 'masterData.phCountryCodeIso' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phCountryNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: true, type: 'text', placeholderKey: 'placeholder.countryEg' },
+      { key: 'region', labelKey: 'masterData.fieldRegion', required: false, type: 'text', placeholderKey: 'masterData.phRegion' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
   {
     key: 'ports',
-    label: '港口',
+    labelKey: 'masterData.tabPorts',
     icon: Anchor,
     columns: [
-      { key: 'code', label: '港口代码', width: 'w-[12%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[16%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[16%]', align: 'text-left' },
-      { key: 'country_code', label: '所属国家', width: 'w-[12%]', align: 'text-center' },
-      { key: 'port_type', label: '类型', width: 'w-[12%]', align: 'text-center' },
-      { key: 'is_active', label: '状态', width: 'w-[14%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[18%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.fieldPortCode', width: 'w-[12%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[16%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[16%]', align: 'text-left' },
+      { key: 'country_code', labelKey: 'masterData.colCountry', width: 'w-[12%]', align: 'text-center' },
+      { key: 'port_type', labelKey: 'common.type', width: 'w-[12%]', align: 'text-center' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[14%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[18%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '港口代码', required: true, type: 'text', placeholder: '如 DEHAM, NLRTM' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 汉堡港' },
-      { key: 'name_en', label: '英文名称', required: true, type: 'text', placeholder: '如 Hamburg' },
-      { key: 'country_code', label: '所属国家代码', required: false, type: 'text', placeholder: '如 DE, NL, CN' },
+      { key: 'code', labelKey: 'masterData.fieldPortCode', required: true, type: 'text', placeholderKey: 'masterData.phPortCode' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phPortNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: true, type: 'text', placeholderKey: 'masterData.phPortNameEn' },
+      { key: 'country_code', labelKey: 'masterData.fieldCountryCode', required: false, type: 'text', placeholderKey: 'masterData.phCountryCode' },
       {
-        key: 'port_type', label: '港口类型', required: false, type: 'select',
+        key: 'port_type', labelKey: 'masterData.fieldPortType', required: false, type: 'select',
         options: [
-          { value: 'SEA', label: '海港' },
-          { value: 'INLAND', label: '内河港' },
-          { value: 'RAIL', label: '铁路港' },
+          { value: 'SEA', labelKey: 'portType.SEA' },
+          { value: 'INLAND', labelKey: 'portType.INLAND' },
+          { value: 'RAIL', labelKey: 'portType.RAIL' },
         ],
       },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
   {
     key: 'vehicle-types',
-    label: '车型',
+    labelKey: 'masterData.tabVehicleTypes',
     icon: Truck,
     columns: [
-      { key: 'code', label: '代码', width: 'w-[14%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[16%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[18%]', align: 'text-left' },
-      { key: 'max_weight_kg', label: '最大载重(kg)', width: 'w-[14%]', align: 'text-right' },
-      { key: 'max_volume_m3', label: '最大容积(m³)', width: 'w-[14%]', align: 'text-right' },
-      { key: 'is_active', label: '状态', width: 'w-[12%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[12%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.colCode', width: 'w-[14%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[16%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[18%]', align: 'text-left' },
+      { key: 'max_weight_kg', labelKey: 'masterData.colMaxWeightKg', width: 'w-[14%]', align: 'text-right' },
+      { key: 'max_volume_m3', labelKey: 'masterData.colMaxVolumeM3', width: 'w-[14%]', align: 'text-right' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[12%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[12%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '车型代码', required: true, type: 'text', placeholder: '如 CURTAIN_SIDE, FLATBED' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 篷布车' },
-      { key: 'name_en', label: '英文名称', required: false, type: 'text', placeholder: '如 Curtain Side' },
-      { key: 'max_weight_kg', label: '最大载重(kg)', required: false, type: 'number', placeholder: '如 24000' },
-      { key: 'max_volume_m3', label: '最大容积(m³)', required: false, type: 'number', placeholder: '如 80' },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'code', labelKey: 'masterData.fieldVehicleTypeCode', required: true, type: 'text', placeholderKey: 'masterData.phVehicleTypeCode' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phVehicleTypeNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: false, type: 'text', placeholderKey: 'masterData.phVehicleTypeNameEn' },
+      { key: 'max_weight_kg', labelKey: 'masterData.colMaxWeightKg', required: false, type: 'number', placeholderKey: 'masterData.phMaxWeight' },
+      { key: 'max_volume_m3', labelKey: 'masterData.colMaxVolumeM3', required: false, type: 'number', placeholderKey: 'masterData.phMaxVolume' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
   {
     key: 'special-requirements',
-    label: '特殊要求',
+    labelKey: 'masterData.tabSpecialRequirements',
     icon: AlertTriangle,
     columns: [
-      { key: 'code', label: '代码', width: 'w-[14%]', align: 'text-left' },
-      { key: 'name_zh', label: '中文名', width: 'w-[18%]', align: 'text-left' },
-      { key: 'name_en', label: '英文名', width: 'w-[20%]', align: 'text-left' },
-      { key: 'description', label: '说明', width: 'w-[18%]', align: 'text-left' },
-      { key: 'is_active', label: '状态', width: 'w-[14%]', align: 'text-center' },
-      { key: '_actions', label: '操作', width: 'w-[16%]', align: 'text-center' },
+      { key: 'code', labelKey: 'masterData.colCode', width: 'w-[14%]', align: 'text-left' },
+      { key: 'name_zh', labelKey: 'masterData.colNameZh', width: 'w-[18%]', align: 'text-left' },
+      { key: 'name_en', labelKey: 'masterData.colNameEn', width: 'w-[20%]', align: 'text-left' },
+      { key: 'description', labelKey: 'masterData.colDescription', width: 'w-[18%]', align: 'text-left' },
+      { key: 'is_active', labelKey: 'common.status', width: 'w-[14%]', align: 'text-center' },
+      { key: '_actions', labelKey: 'common.actions', width: 'w-[16%]', align: 'text-center' },
     ],
     formFields: [
-      { key: 'code', label: '需求代码', required: true, type: 'text', placeholder: '如 TEMP_CONTROL, ADR' },
-      { key: 'name_zh', label: '中文名称', required: true, type: 'text', placeholder: '如 温控运输' },
-      { key: 'name_en', label: '英文名称', required: false, type: 'text', placeholder: '如 Temperature Controlled' },
-      { key: 'description', label: '补充说明', required: false, type: 'textarea', placeholder: '详细描述该特殊要求的内容' },
-      { key: 'sort_order', label: '排序', required: false, type: 'number', placeholder: '数字越小越靠前' },
+      { key: 'code', labelKey: 'masterData.fieldRequirementCode', required: true, type: 'text', placeholderKey: 'masterData.phRequirementCode' },
+      { key: 'name_zh', labelKey: 'masterData.fieldNameZh', required: true, type: 'text', placeholderKey: 'masterData.phRequirementNameZh' },
+      { key: 'name_en', labelKey: 'masterData.fieldNameEn', required: false, type: 'text', placeholderKey: 'masterData.phRequirementNameEn' },
+      { key: 'description', labelKey: 'masterData.fieldDescription', required: false, type: 'textarea', placeholderKey: 'masterData.phDescription' },
+      { key: 'sort_order', labelKey: 'masterData.fieldSortOrder', required: false, type: 'number', placeholderKey: 'masterData.phSortOrder' },
     ],
   },
 ]
@@ -211,6 +212,7 @@ const TAB_CONFIGS: TabConfig[] = [
 // ==================== 组件 ====================
 
 export default function MasterData() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // Tab 状态
@@ -264,7 +266,7 @@ export default function MasterData() {
       }
     } catch (err: any) {
       console.error('[MasterData] 获取列表失败:', err)
-      setToast({ type: 'error', message: '获取数据失败' })
+      setToast({ type: 'error', message: t('common.loadFailed') })
     } finally {
       setLoading(false)
     }
@@ -327,7 +329,7 @@ export default function MasterData() {
     // 必填验证
     for (const field of currentTabConfig.formFields) {
       if (field.required && !String(form[field.key] || '').trim()) {
-        setToast({ type: 'error', message: `请填写${field.label}` })
+        setToast({ type: 'error', message: t('masterData.errRequired', { field: t(field.labelKey) }) })
         return
       }
     }
@@ -347,16 +349,16 @@ export default function MasterData() {
 
       if (editingItem) {
         await api.put<ApiResponse<unknown>>(`/system/master-data/${activeTab}/${editingItem.id}`, payload)
-        setToast({ type: 'success', message: '更新成功' })
+        setToast({ type: 'success', message: t('masterData.updated') })
       } else {
         await api.post<ApiResponse<unknown>>(`/system/master-data/${activeTab}`, payload)
-        setToast({ type: 'success', message: '添加成功' })
+        setToast({ type: 'success', message: t('masterData.added') })
       }
 
       handleCloseModal()
       fetchList()
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.message || '操作失败' })
+      setToast({ type: 'error', message: err?.message || t('common.operateFailed') })
     } finally {
       setSubmitting(false)
     }
@@ -378,7 +380,7 @@ export default function MasterData() {
       setToggleTarget(null)
       fetchList()
     } else {
-      throw new Error(res.message || '操作失败')
+      throw new Error(res.message || t('common.operateFailed'))
     }
   }
 
@@ -387,11 +389,11 @@ export default function MasterData() {
     if (col.key === 'is_active') {
       return item.is_active ? (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-          启用
+          {t('status.ACTIVE')}
         </span>
       ) : (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-          停用
+          {t('status.INACTIVE')}
         </span>
       )
     }
@@ -402,7 +404,7 @@ export default function MasterData() {
           <button
             onClick={() => handleEdit(item)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-            title="编辑"
+            title={t('common.edit')}
           >
             <Edit3 className="w-3.5 h-3.5" />
           </button>
@@ -413,7 +415,7 @@ export default function MasterData() {
                 ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'
                 : 'text-slate-400 hover:text-green-600 hover:bg-green-50'
             }`}
-            title={item.is_active ? '停用' : '启用'}
+            title={item.is_active ? t('status.INACTIVE') : t('status.ACTIVE')}
           >
             {item.is_active ? (
               <ToggleRight className="w-3.5 h-3.5" />
@@ -484,8 +486,8 @@ export default function MasterData() {
             <Database className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">基础数据维护</h1>
-            <p className="text-xs text-slate-500">管理船司、箱型、币种、国家、港口、车型、特殊要求等基础配置数据</p>
+            <h1 className="text-xl font-bold text-slate-900">{t('masterData.pageTitle')}</h1>
+            <p className="text-xs text-slate-500">{t('masterData.pageSubtitle')}</p>
           </div>
         </div>
       </div>
@@ -507,7 +509,7 @@ export default function MasterData() {
                 }`}
               >
                 <TabIcon className="w-4 h-4" />
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             )
           })}
@@ -523,7 +525,7 @@ export default function MasterData() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="搜索代码或名称..."
+                placeholder={t('masterData.searchPlaceholder')}
                 className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
               />
             </div>
@@ -532,9 +534,9 @@ export default function MasterData() {
               onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
               className="text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             >
-              <option value="all">全部状态</option>
-              <option value="active">已启用</option>
-              <option value="inactive">已停用</option>
+              <option value="all">{t('master.allStatus')}</option>
+              <option value="active">{t('masterData.filterActive')}</option>
+              <option value="inactive">{t('masterData.filterInactive')}</option>
             </select>
           </div>
           <button
@@ -542,7 +544,7 @@ export default function MasterData() {
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            新增
+            {t('common.add')}
           </button>
         </div>
 
@@ -561,7 +563,7 @@ export default function MasterData() {
                     key={col.key}
                     className={`${col.align} text-xs font-medium text-slate-500 px-4 py-3`}
                   >
-                    {col.label}
+                    {t(col.labelKey)}
                   </th>
                 ))}
               </tr>
@@ -583,12 +585,14 @@ export default function MasterData() {
                 <tr>
                   <td colSpan={currentTabConfig.columns.length} className="px-4 py-16 text-center">
                     <Database className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">暂无{currentTabConfig.label}数据</p>
+                    <p className="text-sm text-slate-500">
+                      {t('masterData.emptyOf', { name: t(currentTabConfig.labelKey) })}
+                    </p>
                     <button
                       onClick={handleAdd}
                       className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      + 添加{currentTabConfig.label}
+                      + {t('masterData.addOf', { name: t(currentTabConfig.labelKey) })}
                     </button>
                   </td>
                 </tr>
@@ -617,7 +621,7 @@ export default function MasterData() {
         {total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
             <p className="text-xs text-slate-500">
-              共 {total} 条记录
+              {t('common.totalCount', { count: total })}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -646,7 +650,11 @@ export default function MasterData() {
       <Modal
         isOpen={showModal}
         onClose={handleCloseModal}
-        title={editingItem ? `编辑${currentTabConfig.label}` : `添加${currentTabConfig.label}`}
+        title={
+          editingItem
+            ? t('masterData.editOf', { name: t(currentTabConfig.labelKey) })
+            : t('masterData.addOf', { name: t(currentTabConfig.labelKey) })
+        }
         size="md"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -654,7 +662,7 @@ export default function MasterData() {
               onClick={handleCloseModal}
               className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 font-medium rounded-xl hover:bg-slate-100 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSubmit}
@@ -662,7 +670,7 @@ export default function MasterData() {
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              {submitting ? '提交中...' : editingItem ? '保存修改' : '确认添加'}
+              {submitting ? t('common.submitting') : editingItem ? t('orderForm.saveChanges') : t('master.confirmAdd')}
             </button>
           </div>
         }
@@ -671,7 +679,7 @@ export default function MasterData() {
           {currentTabConfig.formFields.map(field => (
             <div key={field.key} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                {field.label}
+                {t(field.labelKey)}
                 {field.required && <span className="text-red-500 ml-0.5">*</span>}
               </label>
               {field.type === 'select' ? (
@@ -680,16 +688,16 @@ export default function MasterData() {
                   onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
                 >
-                  <option value="">请选择</option>
+                  <option value="">{t('placeholder.pleaseSelect')}</option>
                   {field.options?.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
                   ))}
                 </select>
               ) : field.type === 'textarea' ? (
                 <textarea
                   value={form[field.key] || ''}
                   onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                  placeholder={field.placeholder}
+                  placeholder={field.placeholderKey ? t(field.placeholderKey) : ''}
                   rows={3}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
                 />
@@ -701,7 +709,7 @@ export default function MasterData() {
                     ...prev,
                     [field.key]: field.type === 'number' ? e.target.value : e.target.value,
                   }))}
-                  placeholder={field.placeholder}
+                  placeholder={field.placeholderKey ? t(field.placeholderKey) : ''}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
                 />
               )}
@@ -715,14 +723,18 @@ export default function MasterData() {
         isOpen={toggleTarget !== null}
         onClose={() => setToggleTarget(null)}
         onConfirm={confirmToggle}
-        title={toggleTarget?.is_active ? `停用${currentTabConfig.label}` : `启用${currentTabConfig.label}`}
+        title={
+          toggleTarget?.is_active
+            ? t('masterData.disableOf', { name: t(currentTabConfig.labelKey) })
+            : t('masterData.enableOf', { name: t(currentTabConfig.labelKey) })
+        }
         message={toggleTarget?.is_active
-          ? '停用后，该项将不再出现在订单/报价的下拉选项中。已使用该项的历史数据不受影响，随时可重新启用。'
-          : '启用后，该项将重新出现在订单/报价的下拉选项中。'
+          ? t('masterData.disableMessage')
+          : t('masterData.enableMessage')
         }
         targetLabel={toggleTarget ? `${toggleTarget.code} - ${toggleTarget.name_zh}` : undefined}
         variant={toggleTarget?.is_active ? 'warning' : 'primary'}
-        confirmText={toggleTarget?.is_active ? '确认停用' : '确认启用'}
+        confirmText={toggleTarget?.is_active ? t('masterData.confirmDisable') : t('masterData.confirmEnable')}
       />
     </div>
   )
