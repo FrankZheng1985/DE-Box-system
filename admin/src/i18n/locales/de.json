@@ -1324,7 +1324,9 @@
     "phRequirementCode": "z. B. TEMP_CONTROL, ADR",
     "phRequirementNameZh": "z. B. 温控运输",
     "phRequirementNameEn": "z. B. Temperature Controlled",
-    "phDescription": "Beschreiben Sie, was diese besondere Anforderung umfasst"
+    "phDescription": "Beschreiben Sie, was diese besondere Anforderung umfasst",
+    "fieldNameDe": "Bezeichnung (Deutsch)",
+    "phNameDe": "z. B. Deutschland (leer = englische Bezeichnung wird angezeigt)"
   },
   "clearanceStatus": {
     "PENDING": "Verzollung ausstehend",

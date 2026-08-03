@@ -1324,7 +1324,9 @@
     "phRequirementCode": "e.g. TEMP_CONTROL, ADR",
     "phRequirementNameZh": "e.g. 温控运输",
     "phRequirementNameEn": "e.g. Temperature Controlled",
-    "phDescription": "Describe what this special requirement covers"
+    "phDescription": "Describe what this special requirement covers",
+    "fieldNameDe": "Name (German)",
+    "phNameDe": "e.g. Deutschland (falls back to the English name if empty)"
   },
   "clearanceStatus": {
     "PENDING": "Pending clearance",

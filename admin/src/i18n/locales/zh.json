@@ -1324,7 +1324,9 @@
     "phRequirementCode": "如 TEMP_CONTROL, ADR",
     "phRequirementNameZh": "如 温控运输",
     "phRequirementNameEn": "如 Temperature Controlled",
-    "phDescription": "详细描述该特殊要求的内容"
+    "phDescription": "详细描述该特殊要求的内容",
+    "fieldNameDe": "德文名称",
+    "phNameDe": "如 Deutschland（留空则显示英文名）"
   },
   "clearanceStatus": {
     "PENDING": "待清关",

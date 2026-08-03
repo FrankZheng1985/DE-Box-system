@@ -110,6 +110,8 @@ async function request<T>(
       signal: fetchOptions.signal || controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        // 后端按这个头决定基础数据下拉框（国家/币种/港口…）用哪种语言的名称
+        'Accept-Language': i18n.language || 'zh',
         ...authHeaders,
         ...fetchOptions.headers,
       },

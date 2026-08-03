@@ -5,6 +5,7 @@
 import { Router } from 'express'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { query, withTransaction } from '../../core/db.js'
+import { resolveLang, pickName } from '../../utils/i18n.js'
 import {
   listPermissionCatalog,
   invalidatePermissionCache,
@@ -342,48 +343,57 @@ router.get('/master-data/:type/options', requireUserType('OPERATOR'), async (req
     }
 
     const extraCols = MD_EXTRA_COLS[req.params.type] || []
-    const selectCols = ['code', 'name_zh', 'name_en', ...extraCols].join(', ')
+    const selectCols = ['code', 'name_zh', 'name_en', 'name_de', ...extraCols].join(', ')
 
     const result = await query(
       `SELECT ${selectCols} FROM ${table} WHERE is_active = true ORDER BY sort_order ASC, name_zh ASC`
     )
 
-    // 根据类型返回不同格式的 value（与业务表已存值兼容）
+    /**
+     * label 按当前请求语言拼（迁移 116）
+     *
+     * ⚠️ value 一律保持原样，不能跟着语言变 —— 它要和业务表里已经存下的值
+     *    对得上（orders.country 存的是 name_en、special_requirements 存的是
+     *    name_zh）。跟着语言变的话，德语界面下建的单会存进德语值，
+     *    再用中文界面打开就匹配不上了。
+     */
+    const lang = resolveLang(req)
     const type = req.params.type
     const options = result.rows.map(row => {
+      const name = pickName(row, lang)
       let value, label
 
       if (type === 'countries') {
         // 国家：value = name_en（与 orders 表中已存值一致）
         value = row.name_en
-        label = `${row.name_en} (${row.name_zh})`
+        label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else if (type === 'currencies') {
         // 币种：value = code
         value = row.code
-        label = `${row.code} (${row.name_zh})`
+        label = `${row.code} (${name})`
       } else if (type === 'container-types') {
         // 箱型：value = code
         value = row.code
-        label = `${row.code} - ${row.name_zh}`
+        label = `${row.code} - ${name}`
       } else if (type === 'shipping-lines') {
         // 船司：value = name_en（与 orders 表中已存值一致，如 "MSC", "Maersk"）
         value = row.name_en
-        label = `${row.name_en} (${row.name_zh})`
+        label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else if (type === 'special-requirements') {
-        // 特殊要求：value = name_zh（与 orders 表中已存值一致）
+        // 特殊要求：value = name_zh（与 orders 表中已存值一致，不能跟着语言变）
         value = row.name_zh
-        label = row.name_zh
+        label = name
       } else if (type === 'ports') {
         // 港口：value = name_en
         value = row.name_en
-        label = `${row.name_en} (${row.name_zh})`
+        label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else if (type === 'vehicle-types') {
         // 车型：value = name_en
         value = row.name_en
-        label = `${row.name_en} (${row.name_zh})`
+        label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else {
         value = row.code
-        label = row.name_zh
+        label = name
       }
 
       const option = { value, label, code: row.code }
@@ -415,7 +425,7 @@ router.get('/master-data/:type', requireUserType('OPERATOR'), requirePermission(
 
     const { search, status, page = 1, pageSize = 20 } = req.query
     const extraCols = MD_EXTRA_COLS[req.params.type] || []
-    const allCols = ['id', 'code', 'name_zh', 'name_en', 'is_active', 'sort_order', 'created_at', 'updated_at', ...extraCols]
+    const allCols = ['id', 'code', 'name_zh', 'name_en', 'name_de', 'is_active', 'sort_order', 'created_at', 'updated_at', ...extraCols]
     const selectCols = allCols.join(', ')
 
     let sql = `SELECT ${selectCols} FROM ${table} WHERE 1=1`
@@ -426,7 +436,7 @@ router.get('/master-data/:type', requireUserType('OPERATOR'), requirePermission(
     if (search) {
       params.push(`%${search}%`)
       idx++
-      sql += ` AND (code ILIKE $${idx} OR name_zh ILIKE $${idx} OR name_en ILIKE $${idx})`
+      sql += ` AND (code ILIKE $${idx} OR name_zh ILIKE $${idx} OR name_en ILIKE $${idx} OR name_de ILIKE $${idx})`
     }
 
     // 状态筛选
@@ -470,7 +480,7 @@ router.post('/master-data/:type', requireUserType('OPERATOR'), requirePermission
     }
 
     const typeName = MD_TYPE_NAMES[req.params.type]
-    const { code, name_zh, name_en, sort_order, ...extraFields } = req.body
+    const { code, name_zh, name_en, name_de, sort_order, ...extraFields } = req.body
 
     if (!code || !name_zh) {
       return res.status(400).json({ code: 400, message: '代码和中文名称为必填项', data: null })
@@ -483,8 +493,8 @@ router.post('/master-data/:type', requireUserType('OPERATOR'), requirePermission
     }
 
     // 构建INSERT
-    const cols = ['code', 'name_zh', 'name_en', 'sort_order']
-    const vals = [code.toUpperCase(), name_zh, name_en || null, sort_order || 0]
+    const cols = ['code', 'name_zh', 'name_en', 'name_de', 'sort_order']
+    const vals = [code.toUpperCase(), name_zh, name_en || null, name_de || null, sort_order || 0]
     let paramIdx = vals.length
 
     // 追加额外字段
@@ -524,7 +534,7 @@ router.put('/master-data/:type/:id', requireUserType('OPERATOR'), requirePermiss
 
     const typeName = MD_TYPE_NAMES[req.params.type]
     const { id } = req.params
-    const { code, name_zh, name_en, sort_order, ...extraFields } = req.body
+    const { code, name_zh, name_en, name_de, sort_order, ...extraFields } = req.body
 
     // 检查是否存在
     const existing = await query(`SELECT id FROM ${table} WHERE id = $1`, [id])
@@ -545,7 +555,7 @@ router.put('/master-data/:type/:id', requireUserType('OPERATOR'), requirePermiss
     const params = []
     let idx = 0
 
-    const fieldMap = { code, name_zh, name_en, sort_order }
+    const fieldMap = { code, name_zh, name_en, name_de, sort_order }
     for (const [field, value] of Object.entries(fieldMap)) {
       if (value !== undefined) {
         params.push(field === 'code' ? value.toUpperCase() : value)
