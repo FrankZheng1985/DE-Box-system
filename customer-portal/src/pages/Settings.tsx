@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Save, Loader2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import api, { ApiResponse } from '../utils/api'
@@ -14,6 +15,7 @@ interface AccountInfo {
 }
 
 export default function Settings() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -37,7 +39,8 @@ export default function Settings() {
       const res = await api.get<ApiResponse<any>>('/system/settings/account')
       if (res.code === 200 && res.data) {
         setForm({
-          name: res.data.name || user?.name || '',
+          // 后端字段叫 display_name，原来读 res.data.name 永远是 undefined
+          name: res.data.display_name || res.data.name || user?.name || '',
           email: res.data.email || user?.email || '',
           phone: res.data.phone || '',
           company: res.data.company || '',
@@ -63,14 +66,21 @@ export default function Settings() {
     setMessage({ type: '', text: '' })
 
     try {
-      const res = await api.put<ApiResponse<any>>('/system/settings/account', form)
+      // 后端只认 email / phone / displayName / language 四个字段，
+      // 原来整个 form 发过去，name 因为键名对不上（后端要 displayName）从来没存进去过。
+      // company / address / contactPerson 后端没有对应字段，发了也会被忽略。
+      const res = await api.put<ApiResponse<any>>('/system/settings/account', {
+        email: form.email,
+        phone: form.phone,
+        displayName: form.name,
+      })
       if (res.code === 200) {
-        setMessage({ type: 'success', text: '保存成功' })
+        setMessage({ type: 'success', text: t('settings.saveSuccess') })
       } else {
-        setMessage({ type: 'error', text: res.message || '保存失败' })
+        setMessage({ type: 'error', text: res.message || t('settings.saveFailed') })
       }
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || '保存失败' })
+      setMessage({ type: 'error', text: err.message || t('settings.saveFailed') })
     } finally {
       setSaving(false)
     }
@@ -96,7 +106,7 @@ export default function Settings() {
   return (
     <div className="max-w-lg mx-auto space-y-4">
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <h2 className="text-sm font-semibold text-slate-900 mb-4">账户信息</h2>
+        <h2 className="text-sm font-semibold text-slate-900 mb-4">{t('settings.accountInfo')}</h2>
 
         {message.text && (
           <div className={`px-4 py-2 rounded-lg text-xs mb-4 ${
@@ -108,7 +118,7 @@ export default function Settings() {
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">姓名</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('settings.name')}</label>
             <input
               type="text"
               value={form.name}
@@ -118,7 +128,7 @@ export default function Settings() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">邮箱</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('settings.email')}</label>
             <input
               type="email"
               value={form.email}
@@ -128,7 +138,7 @@ export default function Settings() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">电话</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('settings.phone')}</label>
             <input
               type="tel"
               value={form.phone}
@@ -138,7 +148,7 @@ export default function Settings() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">公司名称</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('settings.company')}</label>
             <input
               type="text"
               value={form.company}
@@ -148,7 +158,7 @@ export default function Settings() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">联系人</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('settings.contactPerson')}</label>
             <input
               type="text"
               value={form.contactPerson}
@@ -158,7 +168,7 @@ export default function Settings() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">地址</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('settings.address')}</label>
             <textarea
               value={form.address}
               onChange={(e) => handleChange('address', e.target.value)}
@@ -174,7 +184,7 @@ export default function Settings() {
               className="h-9 px-4 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center gap-1"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              保存修改
+              {t('settings.save')}
             </button>
           </div>
         </form>

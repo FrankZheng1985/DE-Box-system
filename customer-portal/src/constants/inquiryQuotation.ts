@@ -6,13 +6,8 @@
  *    库里存的是大写，状态徽章永远走兜底显示英文原文）。
  */
 
-export const INQUIRY_STATUS_LABELS: Record<string, string> = {
-  PENDING_QUOTE: '待报价',
-  QUOTED: '已报价',
-  ACCEPTED: '已接受',
-  REJECTED: '已拒绝',
-  CANCELLED: '已取消',
-}
+// 文案统一走 inquiryStatus.* / quotationStatus.* 语言包（P9），
+// 这里只保留徽章样式。
 
 export const INQUIRY_STATUS_STYLES: Record<string, string> = {
   PENDING_QUOTE: 'bg-amber-100 text-amber-700',
@@ -32,17 +27,6 @@ export const QUOTATION_STATUS = {
   EXPIRED: 'EXPIRED',
   CANCELLED: 'CANCELLED',
 } as const
-
-export const QUOTATION_STATUS_LABELS: Record<string, string> = {
-  DRAFT: '草稿',
-  SENT: '待确认',
-  PENDING_DECISION: '已标记待定',
-  ACCEPTED: '已接受',
-  CONVERTED: '已下单',
-  REJECTED: '已拒绝',
-  EXPIRED: '已过期',
-  CANCELLED: '已作废',
-}
 
 export const QUOTATION_STATUS_STYLES: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',

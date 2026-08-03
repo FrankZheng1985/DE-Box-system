@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import BrandMark from '../components/BrandMark'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 
 export default function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
 
@@ -23,7 +26,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username || !password) {
-      setError('请输入用户名和密码')
+      setError(t('login.errorEmpty'))
       return
     }
 
@@ -38,7 +41,7 @@ export default function Login() {
         setError(result.message)
       }
     } catch (err: any) {
-      setError(err.message || '登录失败')
+      setError(err.message || t('login.errorFailed'))
     } finally {
       setLoading(false)
     }
@@ -59,7 +62,11 @@ export default function Login() {
             <span className="text-2xl font-bold" style={{ color: '#1C1C1E' }}>KALUNA SPED</span>
           </div>
           <div className="text-sm text-slate-500">
-            客户门户 / Client Portal
+            {t('app.loginSubtitle')}
+          </div>
+          {/* 语言切换（未登录也能切） */}
+          <div className="flex justify-center mt-4">
+            <LanguageSwitcher className="w-40" />
           </div>
         </div>
 
@@ -72,7 +79,7 @@ export default function Login() {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">用户名</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t('login.username')}</label>
             <input
               type="text"
               value={username}
@@ -84,19 +91,20 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">密码</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">{t('login.password')}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="输入密码"
+                placeholder={t('login.passwordPlaceholder')}
                 className="w-full h-10 px-3 pr-10 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                 disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -115,16 +123,16 @@ export default function Login() {
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                登录中...
+                {t('login.submitting')}
               </>
             ) : (
-              '登 录'
+              t('login.submit')
             )}
           </button>
         </form>
 
         <div className="text-center mt-4 text-xs text-slate-400">
-          还没有账号? <a href="#" style={{ color: '#4472C4' }}>联系管理员</a>
+          {t('login.noAccount')} <a href="#" style={{ color: '#4472C4' }}>{t('login.contactAdmin')}</a>
         </div>
       </div>
     </div>

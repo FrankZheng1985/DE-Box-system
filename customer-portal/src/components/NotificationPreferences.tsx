@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Save, Loader2, Bell, Building2, User as UserIcon } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -37,6 +38,7 @@ interface PrefState {
 const DEFAULT_ROW = { email: false, system: true }
 
 export default function NotificationPreferences() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isClientAdmin = user?.roleCode === 'client_admin'
 
@@ -71,11 +73,11 @@ export default function NotificationPreferences() {
         }
         setPrefs(map)
       } else {
-        setMessage({ type: 'error', text: res.message || '获取通知设置失败' })
+        setMessage({ type: 'error', text: res.message || t('notification.loadFailed') })
       }
     } catch (err) {
       console.error('获取通知设置失败:', err)
-      setMessage({ type: 'error', text: '获取通知设置失败' })
+      setMessage({ type: 'error', text: t('notification.loadFailed') })
     } finally {
       setLoading(false)
     }
@@ -103,14 +105,14 @@ export default function NotificationPreferences() {
       }))
       const res = await api.put<ApiResponse<null>>('/notifications/preferences', { scope, preferences })
       if (res.code === 200) {
-        setMessage({ type: 'success', text: scope === 'CLIENT' ? '公司默认设置已保存' : '我的通知设置已保存' })
+        setMessage({ type: 'success', text: scope === 'CLIENT' ? t('notification.savedCompany') : t('notification.savedUser') })
       } else {
         // else 分支必须显示后端 message，否则失败会被伪装成成功（踩坑 011）
-        setMessage({ type: 'error', text: res.message || '保存失败' })
+        setMessage({ type: 'error', text: res.message || t('notification.saveFailed') })
       }
     } catch (err) {
       console.error('保存通知设置失败:', err)
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : '保存失败' })
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : t('notification.saveFailed') })
     } finally {
       setSaving(false)
     }
@@ -134,18 +136,18 @@ export default function NotificationPreferences() {
     <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
       <div className="flex items-center gap-2 mb-1">
         <Bell className="w-4 h-4 text-slate-400" />
-        <h2 className="text-sm font-semibold text-slate-900">通知设置</h2>
+        <h2 className="text-sm font-semibold text-slate-900">{t('notification.title')}</h2>
       </div>
       <p className="text-xs text-slate-400 mb-4">
-        选择哪些事件要发邮件、哪些只在站内提醒
+        {t('notification.subtitle')}
       </p>
 
       {/* 维度切换：只有客户管理员才有「公司默认」 */}
       {isClientAdmin && (
         <div className="inline-flex items-center gap-1 p-1 bg-gray-100 rounded-lg mb-4">
           {([
-            { key: 'USER' as Scope, label: '我的通知', icon: UserIcon },
-            { key: 'CLIENT' as Scope, label: '公司默认', icon: Building2 },
+            { key: 'USER' as Scope, label: t('notification.scopeUser'), icon: UserIcon },
+            { key: 'CLIENT' as Scope, label: t('notification.scopeCompany'), icon: Building2 },
           ]).map((t) => {
             const Icon = t.icon
             return (
@@ -166,7 +168,7 @@ export default function NotificationPreferences() {
 
       {scope === 'CLIENT' && (
         <div className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-slate-600 mb-4">
-          公司默认只对没有单独设置过的同事生效；个人设置优先级更高。
+          {t('notification.companyHint')}
         </div>
       )}
 
@@ -189,8 +191,8 @@ export default function NotificationPreferences() {
       ) : (
         <>
           <div className="flex items-center justify-end gap-6 px-3 pb-2 text-[11px] text-slate-400">
-            <span className="w-[38px] text-center">邮件</span>
-            <span className="w-[38px] text-center">站内</span>
+            <span className="w-[38px] text-center">{t('notification.channelEmail')}</span>
+            <span className="w-[38px] text-center">{t('notification.channelSystem')}</span>
           </div>
           <div className="space-y-1.5">
             {events.map((e) => {
@@ -200,10 +202,11 @@ export default function NotificationPreferences() {
                   key={e.event_type}
                   className="flex items-center justify-between gap-4 py-2.5 px-3 bg-gray-50/60 rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out"
                 >
-                  <span className="text-xs text-slate-700 min-w-0">{e.label}</span>
+                  {/* 事件名走前端语言包，后端返回的中文 label 只作兜底（后端 i18n 是 P9 第 4 批） */}
+                  <span className="text-xs text-slate-700 min-w-0">{t(`notificationEvent.${e.event_type}`, { defaultValue: e.label })}</span>
                   <div className="flex items-center gap-6 flex-shrink-0">
-                    <Toggle on={row.email} onClick={() => toggle(e.event_type, 'email')} label={`${e.label} 邮件通知`} />
-                    <Toggle on={row.system} onClick={() => toggle(e.event_type, 'system')} label={`${e.label} 站内通知`} />
+                    <Toggle on={row.email} onClick={() => toggle(e.event_type, 'email')} label={`${t(`notificationEvent.${e.event_type}`, { defaultValue: e.label })} ${t('notification.channelEmail')}`} />
+                    <Toggle on={row.system} onClick={() => toggle(e.event_type, 'system')} label={`${t(`notificationEvent.${e.event_type}`, { defaultValue: e.label })} ${t('notification.channelSystem')}`} />
                   </div>
                 </div>
               )
@@ -220,7 +223,7 @@ export default function NotificationPreferences() {
           className="h-9 px-4 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 ease-in-out"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          保存通知设置
+          {t('notification.save')}
         </button>
       </div>
     </div>

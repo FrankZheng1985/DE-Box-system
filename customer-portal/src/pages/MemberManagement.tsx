@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Users, Plus, KeyRound, UserX, UserCheck, Loader2, X } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -53,6 +54,7 @@ const EMPTY_FORM: MemberFormData = {
 // ==================== 组件 ====================
 
 export default function MemberManagement() {
+  const { t } = useTranslation()
   const { user } = useAuth()
 
   const [members, setMembers] = useState<Member[]>([])
@@ -86,7 +88,7 @@ export default function MemberManagement() {
       if (roleRes.code === 200) setRoles(roleRes.data || [])
     } catch (error) {
       console.error('加载成员失败:', error)
-      notify('error', '加载失败，请刷新重试')
+      notify('error', t('members.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -100,14 +102,14 @@ export default function MemberManagement() {
       if (res.code === 200) {
         setShowCreate(false)
         setForm(EMPTY_FORM)
-        notify('success', '成员创建成功')
+        notify('success', t('members.createSuccess'))
         loadAll()
       } else {
-        notify('error', res.message || '创建失败')
+        notify('error', res.message || t('members.createFailed'))
       }
     } catch (error: any) {
       console.error('创建成员失败:', error)
-      notify('error', error.message || '创建失败')
+      notify('error', error.message || t('members.createFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -117,14 +119,14 @@ export default function MemberManagement() {
     try {
       const res = await api.put<ApiResponse<null>>(`/portal/users/${member.id}`, { role_id: roleId })
       if (res.code === 200) {
-        notify('success', `${member.display_name} 的角色已更新`)
+        notify('success', t('members.roleUpdated', { name: member.display_name }))
         loadAll()
       } else {
-        notify('error', res.message || '更新失败')
+        notify('error', res.message || t('members.updateFailed'))
       }
     } catch (error: any) {
       console.error('更新角色失败:', error)
-      notify('error', error.message || '更新失败')
+      notify('error', error.message || t('members.updateFailed'))
     }
   }
 
@@ -137,11 +139,11 @@ export default function MemberManagement() {
         notify('success', res.message)
         loadAll()
       } else {
-        notify('error', res.message || '操作失败')
+        notify('error', res.message || t('members.actionFailed'))
       }
     } catch (error: any) {
       console.error('切换状态失败:', error)
-      notify('error', error.message || '操作失败')
+      notify('error', error.message || t('members.actionFailed'))
     }
   }
 
@@ -157,13 +159,13 @@ export default function MemberManagement() {
       if (res.code === 200) {
         setResetTarget(null)
         setNewPassword('')
-        notify('success', '密码已重置，请通知本人使用新密码登录')
+        notify('success', t('members.resetSuccess'))
       } else {
-        notify('error', res.message || '重置失败')
+        notify('error', res.message || t('members.resetFailed'))
       }
     } catch (error: any) {
       console.error('重置密码失败:', error)
-      notify('error', error.message || '重置失败')
+      notify('error', error.message || t('members.resetFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -186,9 +188,9 @@ export default function MemberManagement() {
       {/* 页头 */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-lg font-bold text-slate-900">账号管理</h1>
+          <h1 className="text-lg font-bold text-slate-900">{t('nav.members')}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            管理本公司在系统里的成员账号和各自的权限
+            {t('members.subtitle')}
           </p>
         </div>
         <button
@@ -197,7 +199,7 @@ export default function MemberManagement() {
             rounded-xl hover:bg-primary-700 transition-all duration-200 ease-in-out shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          添加成员
+          {t('members.add')}
         </button>
       </div>
 
@@ -216,8 +218,8 @@ export default function MemberManagement() {
       <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
           <Users className="w-4 h-4 text-primary-500" />
-          <h3 className="text-sm font-semibold text-slate-800">本公司成员</h3>
-          <span className="ml-auto text-xs text-slate-400">{members.length} 人</span>
+          <h3 className="text-sm font-semibold text-slate-800">{t('members.listTitle')}</h3>
+          <span className="ml-auto text-xs text-slate-400">{t('members.count', { count: members.length })}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -232,19 +234,19 @@ export default function MemberManagement() {
             </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">登录名</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">姓名</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">邮箱</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">角色</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">状态</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">操作</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t('members.username')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t('members.displayName')}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t('members.email')}</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('members.role')}</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('common.status')}</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {members.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
-                    暂无成员
+                    {t('members.empty')}
                   </td>
                 </tr>
               ) : (
@@ -254,13 +256,13 @@ export default function MemberManagement() {
                     <tr key={member.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3 text-xs font-medium text-slate-900 truncate">
                         {member.username}
-                        {isSelf && <span className="ml-1 text-primary-600">（我）</span>}
+                        {isSelf && <span className="ml-1 text-primary-600">{t('members.self')}</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-700 truncate">{member.display_name}</td>
                       <td className="px-4 py-3 text-xs text-slate-600 truncate">{member.email || '-'}</td>
                       <td className="px-4 py-3 text-center">
                         {isSelf ? (
-                          <span className="text-xs text-slate-500">{member.role_name || '-'}</span>
+                          <span className="text-xs text-slate-500">{t(`role.${member.role_code}`, { defaultValue: member.role_name || t('common.empty') })}</span>
                         ) : (
                           <select
                             value={member.role_id || ''}
@@ -270,7 +272,7 @@ export default function MemberManagement() {
                               transition-all duration-200"
                           >
                             {roles.map(r => (
-                              <option key={r.id} value={r.id}>{r.role_name}</option>
+                              <option key={r.id} value={r.id}>{t(`role.${r.role_code}`, { defaultValue: r.role_name })}</option>
                             ))}
                           </select>
                         )}
@@ -281,14 +283,14 @@ export default function MemberManagement() {
                             member.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                           }`}
                         >
-                          {member.is_active ? '启用' : '停用'}
+                          {member.is_active ? t('members.active') : t('members.inactive')}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => setResetTarget(member)}
-                            title="重置密码"
+                            title={t('members.resetPassword')}
                             className="p-1.5 rounded-lg text-slate-500 hover:bg-gray-100 hover:text-slate-700
                               transition-all duration-200"
                           >
@@ -297,7 +299,7 @@ export default function MemberManagement() {
                           {!isSelf && (
                             <button
                               onClick={() => handleToggle(member)}
-                              title={member.is_active ? '停用' : '启用'}
+                              title={member.is_active ? t('members.disable') : t('members.enable')}
                               className={`p-1.5 rounded-lg transition-all duration-200 ${
                                 member.is_active
                                   ? 'text-red-500 hover:bg-red-50'
@@ -320,71 +322,71 @@ export default function MemberManagement() {
 
       {/* 新建成员弹窗 */}
       {showCreate && (
-        <Dialog title="添加成员" onClose={() => setShowCreate(false)}>
+        <Dialog title={t('members.add')} onClose={() => setShowCreate(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
-            <Field label="登录名" required>
+            <Field label={t('members.username')} required>
               <input
                 type="text"
                 required
                 value={form.username}
                 onChange={e => setForm({ ...form, username: e.target.value })}
-                placeholder="用于登录的账号名，创建后不可修改"
+                placeholder={t('members.phUsername')}
                 className={INPUT_CLASS}
               />
             </Field>
-            <Field label="姓名" required>
+            <Field label={t('members.displayName')} required>
               <input
                 type="text"
                 required
                 value={form.display_name}
                 onChange={e => setForm({ ...form, display_name: e.target.value })}
-                placeholder="真实姓名，用于系统内显示"
+                placeholder={t('members.phDisplayName')}
                 className={INPUT_CLASS}
               />
             </Field>
-            <Field label="初始密码" required>
+            <Field label={t('members.initialPassword')} required>
               <input
                 type="password"
                 required
                 minLength={6}
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
-                placeholder="至少 6 位，创建后请转告本人尽快修改"
+                placeholder={t('members.phPassword')}
                 className={INPUT_CLASS}
               />
             </Field>
-            <Field label="角色" required>
+            <Field label={t('members.role')} required>
               <select
                 required
                 value={form.role_id}
                 onChange={e => setForm({ ...form, role_id: e.target.value })}
                 className={INPUT_CLASS}
               >
-                <option value="">请选择角色</option>
+                <option value="">{t('members.selectRole')}</option>
                 {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.role_name}</option>
                 ))}
               </select>
               <p className="text-xs text-slate-400 mt-1">
-                客户管理员可管理账号、查看账单、确认报价；客户用户只能下单和询价。
+                {t('members.roleHint')}
               </p>
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="邮箱">
+              <Field label={t('members.email')}>
                 <input
                   type="email"
                   value={form.email}
                   onChange={e => setForm({ ...form, email: e.target.value })}
-                  placeholder="用于接收系统通知邮件"
+                  placeholder={t('members.phEmail')}
                   className={INPUT_CLASS}
                 />
               </Field>
-              <Field label="电话">
+              <Field label={t('members.phone')}>
                 <input
                   type="text"
                   value={form.phone}
                   onChange={e => setForm({ ...form, phone: e.target.value })}
-                  placeholder="联系电话"
+                  placeholder={t('members.phPhone')}
                   className={INPUT_CLASS}
                 />
               </Field>
@@ -396,7 +398,7 @@ export default function MemberManagement() {
                 onClick={() => setShowCreate(false)}
                 className="px-4 py-2 text-sm text-slate-600 rounded-xl hover:bg-gray-100 transition-all duration-200"
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -405,7 +407,7 @@ export default function MemberManagement() {
                   rounded-xl hover:bg-primary-700 disabled:bg-gray-300 transition-all duration-200"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                创建
+                {t('members.create')}
               </button>
             </div>
           </form>
@@ -414,16 +416,16 @@ export default function MemberManagement() {
 
       {/* 重置密码弹窗 */}
       {resetTarget && (
-        <Dialog title={`重置 ${resetTarget.display_name} 的密码`} onClose={() => setResetTarget(null)}>
+        <Dialog title={t('members.resetTitle', { name: resetTarget.display_name })} onClose={() => setResetTarget(null)}>
           <form onSubmit={handleResetPassword} className="space-y-4">
-            <Field label="新密码" required>
+            <Field label={t('members.newPassword')} required>
               <input
                 type="password"
                 required
                 minLength={6}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                placeholder="至少 6 位，重置后请当面或电话转告本人"
+                placeholder={t('members.phNewPassword')}
                 className={INPUT_CLASS}
               />
             </Field>
@@ -433,7 +435,7 @@ export default function MemberManagement() {
                 onClick={() => setResetTarget(null)}
                 className="px-4 py-2 text-sm text-slate-600 rounded-xl hover:bg-gray-100 transition-all duration-200"
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -442,7 +444,7 @@ export default function MemberManagement() {
                   rounded-xl hover:bg-primary-700 disabled:bg-gray-300 transition-all duration-200"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                确认重置
+                {t('members.confirmReset')}
               </button>
             </div>
           </form>

@@ -13,26 +13,12 @@ export const BUSINESS_TYPES = {
 
 export type BusinessType = (typeof BUSINESS_TYPES)[keyof typeof BUSINESS_TYPES]
 
-/** 服务类型中文名 */
-export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
-  TRUCK_LTL: '卡车派送 LTL',
-  TRUCK_FTL: '卡车运输 FTL',
-  LOCAL_DELIVERY: '本地派送',
-}
-
-// 卡车运输的状态中文名（数据库存大写，踩坑 004：不要用小写键）
-const TRUCK_STATUS_LABELS: Record<string, string> = {
-  PENDING_REVIEW: '待审核', CONFIRMED: '已确认', PENDING_ASSIGN: '待派单',
-  ASSIGNED: '已派单', IN_TRANSIT: '运输中', DELIVERED: '已送达',
-  COMPLETED: '已完成', CANCELLED: '已取消', EXCEPTION: '异常',
-}
-
-// 本地派送复用 IN_TRANSIT / COMPLETED 两个值，但叫法不同
-const LOCAL_DELIVERY_STATUS_LABELS: Record<string, string> = {
-  PENDING_QUOTE: '待报价', PENDING_DISPATCH: '待派送',
-  IN_TRANSIT: '派送中', COMPLETED: '已签收',
-  CANCELLED: '已取消', EXCEPTION: '异常',
-}
+/** 服务类型的可选值（文案走 businessType.* 语言包，P9） */
+export const BUSINESS_TYPE_VALUES: BusinessType[] = [
+  BUSINESS_TYPES.TRUCK_LTL,
+  BUSINESS_TYPES.TRUCK_FTL,
+  BUSINESS_TYPES.LOCAL_DELIVERY,
+]
 
 /** 状态徽章颜色（按状态值，大写键） */
 const STATUS_STYLES: Record<string, string> = {
@@ -50,14 +36,26 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 /**
- * 取状态中文名（同一个状态值在不同业务类型下叫法不同）
+ * 取状态文案（P9 起走语言包）
+ *
+ * 同一个状态值在不同业务类型下叫法不同：本地派送复用了 IN_TRANSIT / COMPLETED
+ * 两个值，但要显示成「派送中」「已签收」而不是「运输中」「已完成」。
+ * 所以本地派送先查 localDeliveryStatus.*，查不到再回退到通用的 orderStatus.*，
+ * 再查不到就原样显示后端值（别把信息吞成空白）。
+ *
+ * @param t 由调用方传入 useTranslation() 的 t，这样语言切换时组件能正常重渲染
  */
-export function getStatusLabel(businessType: string | undefined, status: string): string {
+export function getStatusLabel(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  businessType: string | undefined,
+  status: string
+): string {
   const key = (status || '').toUpperCase()
-  const labels = businessType === BUSINESS_TYPES.LOCAL_DELIVERY
-    ? LOCAL_DELIVERY_STATUS_LABELS
-    : TRUCK_STATUS_LABELS
-  return labels[key] || status
+  const generic = t(`orderStatus.${key}`, { defaultValue: status })
+  if (businessType === BUSINESS_TYPES.LOCAL_DELIVERY) {
+    return t(`localDeliveryStatus.${key}`, { defaultValue: generic })
+  }
+  return generic
 }
 
 /** 取状态徽章颜色 */

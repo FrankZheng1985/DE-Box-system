@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
-import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
+import { BUSINESS_TYPES, BUSINESS_TYPE_VALUES, type BusinessType } from '../constants/businessTypes'
 
 export default function CreateOrder() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -44,11 +46,11 @@ export default function CreateOrder() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.pickupCountry.trim() || !form.pickupCity.trim()) {
-      setError('请填写装货国家和城市')
+      setError(t('createOrder.errorPickup'))
       return
     }
     if (!form.deliveryCountry.trim() || !form.deliveryCity.trim()) {
-      setError('请填写卸货国家和城市')
+      setError(t('createOrder.errorDelivery'))
       return
     }
 
@@ -84,7 +86,7 @@ export default function CreateOrder() {
         cargoQuantity: form.packageCount ? Number(form.packageCount) : undefined,
         specialRequirements: form.specialRequirements || undefined,
         remarks: form.contactName || form.contactPhone
-          ? `联系人：${form.contactName || '-'} / ${form.contactPhone || '-'}`
+          ? `${t('createOrder.contactName')}: ${form.contactName || '-'} / ${form.contactPhone || '-'}`
           : undefined,
         clientPrice: 0,
         currency: 'EUR',
@@ -94,10 +96,10 @@ export default function CreateOrder() {
         setSuccess(true)
         setTimeout(() => navigate('/orders'), 1500)
       } else {
-        setError(res.message || '创建失败')
+        setError(res.message || t('createOrder.failed'))
       }
     } catch (err: any) {
-      setError(err.message || '创建订单失败')
+      setError(err.message || t('createOrder.failed'))
     } finally {
       setLoading(false)
     }
@@ -109,8 +111,8 @@ export default function CreateOrder() {
         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
           <Save className="w-6 h-6 text-green-600" />
         </div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-1">订单创建成功</h2>
-        <p className="text-sm text-slate-500">正在跳转...</p>
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">{t('createOrder.success')}</h2>
+        <p className="text-sm text-slate-500">{t('createOrder.redirecting')}</p>
       </div>
     )
   }
@@ -123,11 +125,11 @@ export default function CreateOrder() {
         className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
       >
         <ArrowLeft className="w-4 h-4" />
-        返回订单列表
+        {t('createOrder.backToList')}
       </button>
 
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <h2 className="text-sm font-semibold text-slate-900 mb-4">新建运输订单</h2>
+        <h2 className="text-sm font-semibold text-slate-900 mb-4">{t('createOrder.title')}</h2>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-lg text-xs mb-4">
@@ -138,46 +140,46 @@ export default function CreateOrder() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* 装货地址 */}
           <div>
-            <h3 className="text-xs font-semibold text-slate-700 mb-2">装货地址</h3>
+            <h3 className="text-xs font-semibold text-slate-700 mb-2">{t('createOrder.pickupAddress')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">国家 *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.country')} {t('common.required')}</label>
                 <input
                   type="text"
                   value={form.pickupCountry}
                   onChange={(e) => handleChange('pickupCountry', e.target.value)}
-                  placeholder="如：Germany"
+                  placeholder={t('createOrder.phCountryDE')}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">城市 *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.city')} {t('common.required')}</label>
                 <input
                   type="text"
                   value={form.pickupCity}
                   onChange={(e) => handleChange('pickupCity', e.target.value)}
-                  placeholder="如：Hamburg"
+                  placeholder={t('createOrder.phCityDE')}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">邮编</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.zipCode')}</label>
                 <input
                   type="text"
                   value={form.pickupZipCode}
                   onChange={(e) => handleChange('pickupZipCode', e.target.value)}
-                  placeholder="如：20095"
+                  placeholder={t('createOrder.phZipDE')}
                   className={inputClass}
                 />
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-medium text-slate-600 mb-1">详细地址</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.address')}</label>
               <input
                 type="text"
                 value={form.pickupAddress}
                 onChange={(e) => handleChange('pickupAddress', e.target.value)}
-                placeholder="街道、门牌号"
+                placeholder={t('createOrder.phStreet')}
                 className={inputClass}
               />
             </div>
@@ -185,46 +187,46 @@ export default function CreateOrder() {
 
           {/* 卸货地址 */}
           <div>
-            <h3 className="text-xs font-semibold text-slate-700 mb-2">卸货地址</h3>
+            <h3 className="text-xs font-semibold text-slate-700 mb-2">{t('createOrder.deliveryAddress')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">国家 *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.country')} {t('common.required')}</label>
                 <input
                   type="text"
                   value={form.deliveryCountry}
                   onChange={(e) => handleChange('deliveryCountry', e.target.value)}
-                  placeholder="如：Poland"
+                  placeholder={t('createOrder.phCountryPL')}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">城市 *</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.city')} {t('common.required')}</label>
                 <input
                   type="text"
                   value={form.deliveryCity}
                   onChange={(e) => handleChange('deliveryCity', e.target.value)}
-                  placeholder="如：Warsaw"
+                  placeholder={t('createOrder.phCityPL')}
                   className={inputClass}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">邮编</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.zipCode')}</label>
                 <input
                   type="text"
                   value={form.deliveryZipCode}
                   onChange={(e) => handleChange('deliveryZipCode', e.target.value)}
-                  placeholder="如：00-001"
+                  placeholder={t('createOrder.phZipPL')}
                   className={inputClass}
                 />
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-xs font-medium text-slate-600 mb-1">详细地址</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.address')}</label>
               <input
                 type="text"
                 value={form.deliveryAddress}
                 onChange={(e) => handleChange('deliveryAddress', e.target.value)}
-                placeholder="街道、门牌号"
+                placeholder={t('createOrder.phStreet')}
                 className={inputClass}
               />
             </div>
@@ -233,30 +235,30 @@ export default function CreateOrder() {
           {/* 服务类型 + 运输类型 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">服务类型 *</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.serviceType')} {t('common.required')}</label>
               <select
                 value={form.businessType}
                 onChange={(e) => handleChange('businessType', e.target.value)}
                 className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
               >
-                {(Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((t) => (
-                  <option key={t} value={t}>{BUSINESS_TYPE_LABELS[t]}</option>
+                {BUSINESS_TYPE_VALUES.map((bt) => (
+                  <option key={bt} value={bt}>{t(`businessType.${bt}`)}</option>
                 ))}
               </select>
             </div>
             {/* 本地派送没有 FTL/LTL 之分 */}
             {form.businessType !== BUSINESS_TYPES.LOCAL_DELIVERY && (
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">运输类型</label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.transportType')}</label>
                 <select
                   value={form.transportType}
                   onChange={(e) => handleChange('transportType', e.target.value)}
                   className="w-full h-9 px-3 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
                 >
-                  <option value="FTL">整车 (FTL)</option>
-                  <option value="LTL">拼车 (LTL)</option>
-                  <option value="FCL">整箱 (FCL)</option>
-                  <option value="LCL">拼箱 (LCL)</option>
+                  <option value="FTL">{t('transportType.FTL')}</option>
+                  <option value="LTL">{t('transportType.LTL')}</option>
+                  <option value="FCL">{t('transportType.FCL')}</option>
+                  <option value="LCL">{t('transportType.LCL')}</option>
                 </select>
               </div>
             )}
@@ -264,11 +266,11 @@ export default function CreateOrder() {
 
           {/* 货物信息 */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">货物描述</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.cargoDescription')}</label>
             <textarea
               value={form.cargoDescription}
               onChange={(e) => handleChange('cargoDescription', e.target.value)}
-              placeholder="请描述货物类型、名称等信息"
+              placeholder={t('createOrder.phCargo')}
               rows={2}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
             />
@@ -276,7 +278,7 @@ export default function CreateOrder() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">总重量 (kg)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.weightKg')}</label>
               <input
                 type="number"
                 value={form.totalWeight}
@@ -286,7 +288,7 @@ export default function CreateOrder() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">总体积 (m3)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.volumeM3')}</label>
               <input
                 type="number"
                 value={form.totalVolume}
@@ -296,7 +298,7 @@ export default function CreateOrder() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">件数</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.quantity')}</label>
               <input
                 type="number"
                 value={form.packageCount}
@@ -310,7 +312,7 @@ export default function CreateOrder() {
           {/* 日期 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">期望提货日期</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.pickupDate')}</label>
               <input
                 type="date"
                 value={form.pickupDate}
@@ -319,7 +321,7 @@ export default function CreateOrder() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">期望交付日期</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.deliveryDate')}</label>
               <input
                 type="date"
                 value={form.deliveryDate}
@@ -332,7 +334,7 @@ export default function CreateOrder() {
           {/* 联系人 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">联系人姓名</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.contactName')}</label>
               <input
                 type="text"
                 value={form.contactName}
@@ -341,7 +343,7 @@ export default function CreateOrder() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">联系电话</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.contactPhone')}</label>
               <input
                 type="tel"
                 value={form.contactPhone}
@@ -353,11 +355,11 @@ export default function CreateOrder() {
 
           {/* 特殊要求 */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">特殊要求</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">{t('createOrder.specialRequirements')}</label>
             <textarea
               value={form.specialRequirements}
               onChange={(e) => handleChange('specialRequirements', e.target.value)}
-              placeholder="如有特殊要求请在此说明"
+              placeholder={t('createOrder.phSpecial')}
               rows={2}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
             />
@@ -370,7 +372,7 @@ export default function CreateOrder() {
               onClick={() => navigate('/orders')}
               className="h-9 px-4 text-xs text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -378,7 +380,7 @@ export default function CreateOrder() {
               className="h-9 px-4 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center gap-1"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              提交订单
+              {t('createOrder.submit')}
             </button>
           </div>
         </form>

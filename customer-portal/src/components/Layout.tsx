@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard,
@@ -18,26 +19,28 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import BrandMark from './BrandMark'
+import LanguageSwitcher from './LanguageSwitcher'
 
 /**
  * 导航项
  * permission 为空表示所有客户账号都能看；配了权限码则按权限码过滤（P5）
  */
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: '概览', permission: '' },
-  { path: '/orders', icon: Package, label: '我的订单', permission: 'portal:order_view' },
-  { path: '/orders/create', icon: PlusCircle, label: '新建订单', permission: 'portal:order_create' },
-  { path: '/inquiry', icon: MessageSquare, label: '询价', permission: 'portal:inquiry_manage' },
-  { path: '/quotations', icon: Tag, label: '我的报价', permission: 'portal:quotation_view' },
-  { path: '/tracking', icon: MapPin, label: '运输追踪', permission: 'portal:order_view' },
-  { path: '/customs', icon: ShieldCheck, label: '清关操作', permission: 'portal:order_view' },
-  { path: '/cmr', icon: FileText, label: 'CMR文件', permission: 'portal:file_download' },
-  { path: '/billing', icon: Receipt, label: '我的账单', permission: 'portal:billing_view' },
-  { path: '/members', icon: Users, label: '账号管理', permission: 'portal:user_manage' },
-  { path: '/settings', icon: Settings, label: '账户设置', permission: '' },
+  { path: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', permission: '' },
+  { path: '/orders', icon: Package, labelKey: 'nav.orders', permission: 'portal:order_view' },
+  { path: '/orders/create', icon: PlusCircle, labelKey: 'nav.createOrder', permission: 'portal:order_create' },
+  { path: '/inquiry', icon: MessageSquare, labelKey: 'nav.inquiry', permission: 'portal:inquiry_manage' },
+  { path: '/quotations', icon: Tag, labelKey: 'nav.quotations', permission: 'portal:quotation_view' },
+  { path: '/tracking', icon: MapPin, labelKey: 'nav.tracking', permission: 'portal:order_view' },
+  { path: '/customs', icon: ShieldCheck, labelKey: 'nav.customs', permission: 'portal:order_view' },
+  { path: '/cmr', icon: FileText, labelKey: 'nav.cmr', permission: 'portal:file_download' },
+  { path: '/billing', icon: Receipt, labelKey: 'nav.billing', permission: 'portal:billing_view' },
+  { path: '/members', icon: Users, labelKey: 'nav.members', permission: 'portal:user_manage' },
+  { path: '/settings', icon: Settings, labelKey: 'nav.settings', permission: '' },
 ]
 
 export default function Layout() {
+  const { t } = useTranslation()
   const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -79,7 +82,7 @@ export default function Layout() {
             <BrandMark className="w-4 h-4" />
           </div>
           <span className="text-sm font-bold text-slate-900">KALUNA SPED</span>
-          <span className="text-[10px] text-slate-400 ml-auto">客户端</span>
+          <span className="text-[10px] text-slate-400 ml-auto">{t('app.shortName')}</span>
         </div>
 
         {/* 导航菜单 */}
@@ -99,13 +102,14 @@ export default function Layout() {
               }
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
 
         {/* 底部用户信息 */}
         <div className="border-t border-gray-100 p-3">
+          <LanguageSwitcher className="mb-2" />
           <div className="flex items-center gap-2 mb-2">
             <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center">
               <User className="w-3.5 h-3.5 text-gray-500" />
@@ -115,7 +119,7 @@ export default function Layout() {
                 {user?.name || user?.username}
               </div>
               <div className="text-[10px] text-slate-400 truncate">
-                {user?.company || '客户'}
+                {user?.company || t('nav.defaultUserName')}
               </div>
             </div>
           </div>
@@ -124,7 +128,7 @@ export default function Layout() {
             className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
           >
             <LogOut className="w-3.5 h-3.5" />
-            退出登录
+            {t('nav.logout')}
           </button>
         </div>
       </aside>
@@ -135,12 +139,13 @@ export default function Layout() {
         <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 lg:px-6 sticky top-0 z-30">
           <button
             onClick={() => setSidebarOpen(true)}
+            aria-label={t('nav.openMenu')}
             className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 mr-3"
           >
             <Menu className="w-5 h-5" />
           </button>
           <h1 className="text-sm font-semibold text-slate-900">
-            {currentPage?.label || '客户门户'}
+            {currentPage ? t(currentPage.labelKey) : t('app.portalName')}
           </h1>
         </header>
 

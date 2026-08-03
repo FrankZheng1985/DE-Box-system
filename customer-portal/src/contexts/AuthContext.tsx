@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
 const AUTH_STORAGE_KEY = 'eu_tms_client_auth'
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 验证用户类型必须是 CLIENT
         if (userData.userType !== 'CLIENT') {
-          return { success: false, message: '此账户不是客户账户，请使用管理后台登录' }
+          return { success: false, message: i18n.t('login.errorNotClient') }
         }
 
         const perms: string[] = data.data.permissions || []
@@ -85,13 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: userData,
           permissions: perms,
         }))
-        return { success: true, message: '登录成功' }
+        return { success: true, message: i18n.t('login.success') }
       }
 
-      return { success: false, message: data.message || '用户名或密码错误' }
+      return { success: false, message: data.message || i18n.t('login.errorWrong') }
     } catch (error: any) {
       console.error('登录失败:', error)
-      return { success: false, message: '网络错误，请检查连接' }
+      return { success: false, message: i18n.t('login.errorNetwork') }
     }
   }
 

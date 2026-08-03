@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, Download, Eye, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { formatDate } from '../utils/format'
 
 interface CMRDocument {
   id: string
@@ -8,22 +10,27 @@ interface CMRDocument {
   order_number: string
   from_city: string
   to_city: string
-  status: string
+  // ⚠️ cmr_documents 表里没有 status 列，只有 sign_status
   sign_status: string
   file_url: string
   uploaded_at: string
   created_at: string
 }
 
-const statusMap: Record<string, { label: string; style: string }> = {
-  draft: { label: '草稿', style: 'bg-gray-100 text-gray-600' },
-  issued: { label: '已签发', style: 'bg-blue-100 text-blue-700' },
-  in_transit: { label: '运输中', style: 'bg-amber-100 text-amber-700' },
-  delivered: { label: '已交付', style: 'bg-green-100 text-green-700' },
-  completed: { label: '已完成', style: 'bg-green-100 text-green-700' },
+// 只留样式，文案走 signStatus.* 语言包。
+// ⚠️ key 必须是 cmr_documents.sign_status 的真实取值（大写）：
+//    UNSIGNED / SENDER_SIGNED / RECEIVER_SIGNED / COMPLETED
+//    原来写的是 draft / issued / in_transit / delivered，只有 completed 侥幸对上，
+//    其余三个状态一直显示原始英文（踩坑 004 + 033）
+const STATUS_STYLES: Record<string, string> = {
+  UNSIGNED: 'bg-gray-100 text-gray-600',
+  SENDER_SIGNED: 'bg-amber-100 text-amber-700',
+  RECEIVER_SIGNED: 'bg-blue-100 text-blue-700',
+  COMPLETED: 'bg-green-100 text-green-700',
 }
 
 export default function CMRFiles() {
+  const { t } = useTranslation()
   const [documents, setDocuments] = useState<CMRDocument[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -49,8 +56,8 @@ export default function CMRFiles() {
     <div className="space-y-4">
       {/* 操作栏 */}
       <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500">共 {documents.length} 份CMR文件</span>
-        <button onClick={loadCMR} className="h-8 px-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors">
+        <span className="text-xs text-slate-500">{t('cmrFiles.count', { count: documents.length })}</span>
+        <button onClick={loadCMR} aria-label={t('common.refresh')} className="h-8 px-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -69,12 +76,12 @@ export default function CMRFiles() {
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
-                <th className="text-left px-3 py-2.5 font-medium">CMR编号</th>
-                <th className="text-left px-3 py-2.5 font-medium">订单号</th>
-                <th className="text-left px-3 py-2.5 font-medium">路线</th>
-                <th className="text-center px-3 py-2.5 font-medium">状态</th>
-                <th className="text-center px-3 py-2.5 font-medium">日期</th>
-                <th className="text-center px-3 py-2.5 font-medium">操作</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('cmrFiles.cmrNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('common.orderNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.date')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -90,25 +97,28 @@ export default function CMRFiles() {
                 <tr>
                   <td colSpan={6} className="text-center py-8">
                     <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">暂无CMR文件</p>
+                    <p className="text-sm text-slate-400">{t('cmrFiles.empty')}</p>
                   </td>
                 </tr>
               ) : (
                 documents.map((doc) => {
-                  const statusKey = (doc.sign_status || doc.status || '').toLowerCase()
-                  const st = statusMap[statusKey] || { label: doc.sign_status || doc.status || '-', style: 'bg-gray-100 text-gray-600' }
+                  const statusKey = (doc.sign_status || '').toUpperCase()
                   return (
                     <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{doc.cmr_number || '-'}</td>
-                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{doc.order_number || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{doc.cmr_number || t('common.empty')}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{doc.order_number || t('common.empty')}</td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
-                        {doc.from_city || '-'} → {doc.to_city || '-'}
+                        {doc.from_city || t('common.empty')} → {doc.to_city || t('common.empty')}
                       </td>
                       <td className="text-center px-3 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>{st.label}</span>
+                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${
+                          STATUS_STYLES[statusKey] || 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {t(`signStatus.${statusKey}`, { defaultValue: doc.sign_status || t('common.empty') })}
+                        </span>
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {(doc.uploaded_at || doc.created_at) ? new Date(doc.uploaded_at || doc.created_at).toLocaleDateString('zh-CN') : '-'}
+                        {formatDate(doc.uploaded_at || doc.created_at)}
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <div className="flex items-center justify-center gap-1">
@@ -121,7 +131,7 @@ export default function CMRFiles() {
                                 className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-primary-600 hover:bg-primary-50 rounded transition-colors"
                               >
                                 <Eye className="w-3 h-3" />
-                                查看
+                                {t('common.view')}
                               </a>
                               <a
                                 href={doc.file_url}
@@ -129,12 +139,12 @@ export default function CMRFiles() {
                                 className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-slate-600 hover:bg-gray-100 rounded transition-colors"
                               >
                                 <Download className="w-3 h-3" />
-                                下载
+                                {t('common.download')}
                               </a>
                             </>
                           )}
                           {!doc.file_url && (
-                            <span className="text-[10px] text-slate-400">暂无文件</span>
+                            <span className="text-[10px] text-slate-400">{t('cmrFiles.noFile')}</span>
                           )}
                         </div>
                       </td>

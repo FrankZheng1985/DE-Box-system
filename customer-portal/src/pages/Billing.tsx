@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Receipt, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { formatMoney, formatDate } from '../utils/format'
 
 interface BillingItem {
   id: string
@@ -12,21 +14,25 @@ interface BillingItem {
   due_date: string
   paid_date: string
   counterparty_name: string
+  remarks: string | null
   created_at: string
 }
 
-const statusMap: Record<string, { label: string; style: string }> = {
-  draft: { label: '草稿', style: 'bg-gray-100 text-gray-600' },
-  unpaid: { label: '待付款', style: 'bg-amber-100 text-amber-700' },
-  pending: { label: '待付款', style: 'bg-amber-100 text-amber-700' },
-  partial: { label: '部分付款', style: 'bg-blue-100 text-blue-700' },
-  paid: { label: '已付款', style: 'bg-green-100 text-green-700' },
-  overdue: { label: '已逾期', style: 'bg-red-100 text-red-700' },
-  voided: { label: '已作废', style: 'bg-gray-100 text-gray-500' },
-  cancelled: { label: '已取消', style: 'bg-gray-100 text-gray-500' },
+// 只留样式，文案走 receivableStatus.* 语言包。
+// ⚠️ key 必须是 financial_records.payment_status 的真实取值（大写）：
+//    UNPAID / PARTIAL / PAID / OVERDUE / VOID
+//    原来这里混了 draft / pending / voided / cancelled 四个库里没有的值，
+//    其中 VOID 被写成 voided，作废的账单会露出原始英文（踩坑 004 + 033）
+const STATUS_STYLES: Record<string, string> = {
+  UNPAID: 'bg-amber-100 text-amber-700',
+  PARTIAL: 'bg-blue-100 text-blue-700',
+  PAID: 'bg-green-100 text-green-700',
+  OVERDUE: 'bg-red-100 text-red-700',
+  VOID: 'bg-gray-100 text-gray-500',
 }
 
 export default function Billing() {
+  const { t } = useTranslation()
   const [items, setItems] = useState<BillingItem[]>([])
   const [loading, setLoading] = useState(true)
   const [totalOwed, setTotalOwed] = useState(0)
@@ -46,10 +52,10 @@ export default function Billing() {
         setItems(list)
         // 计算待付总额
         const owed = list
-          .filter((item: BillingItem) => {
-            const s = (item.payment_status || '').toLowerCase()
-            return s === 'unpaid' || s === 'overdue' || s === 'partial'
-          })
+          // 待付 = 未付 + 部分付 + 逾期（已作废的不算）
+          .filter((item: BillingItem) =>
+            ['UNPAID', 'PARTIAL', 'OVERDUE'].includes((item.payment_status || '').toUpperCase())
+          )
           .reduce((sum: number, item: BillingItem) => sum + (Number(item.amount) || 0), 0)
         setTotalOwed(owed)
       }
@@ -66,12 +72,12 @@ export default function Billing() {
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-4">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs text-slate-500">待付总额</span>
+            <span className="text-xs text-slate-500">{t('billing.totalOwed')}</span>
             <div className="text-xl font-bold text-slate-900 mt-1">
-              EUR {totalOwed.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {formatMoney(totalOwed)}
             </div>
           </div>
-          <button onClick={loadBilling} className="h-8 px-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={loadBilling} aria-label={t('common.refresh')} className="h-8 px-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-colors">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -92,13 +98,13 @@ export default function Billing() {
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
-                <th className="text-left px-3 py-2.5 font-medium">发票号</th>
-                <th className="text-left px-3 py-2.5 font-medium">订单号</th>
-                <th className="text-left px-3 py-2.5 font-medium">描述</th>
-                <th className="text-right px-3 py-2.5 font-medium">金额</th>
-                <th className="text-center px-3 py-2.5 font-medium">状态</th>
-                <th className="text-center px-3 py-2.5 font-medium">到期日</th>
-                <th className="text-center px-3 py-2.5 font-medium">付款日</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('billing.recordNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('common.orderNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('common.description')}</th>
+                <th className="text-right px-3 py-2.5 font-medium">{t('common.amount')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('billing.dueDate')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('billing.paidDate')}</th>
               </tr>
             </thead>
             <tbody>
@@ -114,33 +120,38 @@ export default function Billing() {
                 <tr>
                   <td colSpan={7} className="text-center py-8">
                     <Receipt className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">暂无账单记录</p>
+                    <p className="text-sm text-slate-400">{t('billing.empty')}</p>
                   </td>
                 </tr>
               ) : (
                 items.map((item) => {
-                  const statusKey = (item.payment_status || '').toLowerCase()
-                  const st = statusMap[statusKey] || { label: item.payment_status || '-', style: 'bg-gray-100 text-gray-600' }
+                  const statusKey = (item.payment_status || '').toUpperCase()
                   return (
                     <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">
-                        {item.record_number || '-'}
+                        {item.record_number || t('common.empty')}
                       </td>
-                      <td className="text-left px-3 py-2.5 text-xs text-slate-600">{item.order_number || '-'}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">{item.order_number || t('common.empty')}</td>
+                      {/* 表头写的是「描述」，原来却显示 counterparty_name（对方公司名，
+                          在客户门户里就是客户自己），改为真正的描述字段 remarks */}
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
-                        {item.counterparty_name || '-'}
+                        {item.remarks || t('common.empty')}
                       </td>
                       <td className="text-right px-3 py-2.5 text-xs font-medium text-slate-900">
-                        {item.currency || 'EUR'} {Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {formatMoney(item.amount, item.currency || 'EUR')}
                       </td>
                       <td className="text-center px-3 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${st.style}`}>{st.label}</span>
+                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${
+                          STATUS_STYLES[statusKey] || 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {t(`receivableStatus.${statusKey}`, { defaultValue: item.payment_status || t('common.empty') })}
+                        </span>
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {item.due_date ? new Date(item.due_date).toLocaleDateString('zh-CN') : '-'}
+                        {formatDate(item.due_date)}
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs text-slate-500">
-                        {item.paid_date ? new Date(item.paid_date).toLocaleDateString('zh-CN') : '-'}
+                        {formatDate(item.paid_date)}
                       </td>
                     </tr>
                   )

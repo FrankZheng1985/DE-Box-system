@@ -8,13 +8,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   RefreshCw, CheckCircle, XCircle, Clock, FileText, X, AlertCircle, Loader2,
 } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
-import { BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
+import { formatMoney, formatDate } from '../utils/format'
 import {
-  QUOTATION_STATUS, QUOTATION_STATUS_LABELS, QUOTATION_STATUS_STYLES, CLIENT_DECIDABLE,
+  QUOTATION_STATUS, QUOTATION_STATUS_STYLES, CLIENT_DECIDABLE,
 } from '../constants/inquiryQuotation'
 
 // ==================== 类型定义 ====================
@@ -44,20 +45,17 @@ interface Quotation {
 
 type DecisionType = 'accept' | 'reject' | 'pending'
 
-const DECISION_META: Record<DecisionType, { title: string; verb: string; endpoint: string; needNote: boolean }> = {
-  accept: { title: '接受报价', verb: '接受', endpoint: 'accept', needNote: false },
-  reject: { title: '拒绝报价', verb: '拒绝', endpoint: 'reject', needNote: true },
-  pending: { title: '标记待定', verb: '标记待定', endpoint: 'pending', needNote: false },
+// 文案走 quotations.decision.* 语言包（P9），这里只留行为配置
+const DECISION_META: Record<DecisionType, { endpoint: string; needNote: boolean }> = {
+  accept: { endpoint: 'accept', needNote: false },
+  reject: { endpoint: 'reject', needNote: true },
+  pending: { endpoint: 'pending', needNote: false },
 }
 
 // ==================== 工具 ====================
 
-/** NUMERIC 回来是字符串，格式化前先转数字（踩坑 002） */
-function fmtMoney(value: string | number | null, currency = 'EUR'): string {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return '-'
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(n)
-}
+/** 金额格式化统一走 utils/format 的 Intl 实现，跟随当前界面语言（P9） */
+const fmtMoney = formatMoney
 
 function routeText(q: Quotation): string {
   const fmt = (a: Quotation['route_from']) => (a ? [a.country, a.city].filter(Boolean).join(' ') : '')
@@ -87,6 +85,7 @@ function DecisionModal({
   onClose: () => void
   onConfirm: (note: string) => void
 }) {
+  const { t } = useTranslation()
   const [note, setNote] = useState('')
   const meta = DECISION_META[type]
 
@@ -94,7 +93,7 @@ function DecisionModal({
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-slate-900">{meta.title}</h3>
+          <h3 className="text-sm font-semibold text-slate-900">{t(`quotations.decision.${type}.title`)}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
             <X className="w-4 h-4" />
           </button>
@@ -103,15 +102,15 @@ function DecisionModal({
         <div className="px-6 py-5 space-y-4">
           <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">报价单号</span>
+              <span className="text-slate-500">{t('quotations.quotationNo')}</span>
               <span className="font-medium text-slate-900">{quotation.quotation_number}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">路线</span>
+              <span className="text-slate-500">{t('common.route')}</span>
               <span className="text-slate-700">{routeText(quotation)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-slate-500">报价金额</span>
+              <span className="text-slate-500">{t('quotations.amount')}</span>
               <span className="font-semibold text-slate-900">{fmtMoney(quotation.total_price, quotation.currency)}</span>
             </div>
           </div>
@@ -120,20 +119,20 @@ function DecisionModal({
             <div className="flex gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl">
               <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-slate-600 leading-relaxed">
-                接受后系统会立即生成运输订单并转入我司审核，审核通过即开始安排。
+                {t('quotations.acceptHint')}
               </p>
             </div>
           )}
 
           <div>
             <label className="block text-xs text-slate-500 mb-1">
-              {type === 'reject' ? '拒绝原因 *' : '备注（选填）'}
+              {type === 'reject' ? t('quotations.rejectReason') : t('quotations.noteOptional')}
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
-              placeholder={type === 'reject' ? '例如：价格超出预算 / 时效不符合要求' : '有什么想让我们知道的？'}
+              placeholder={type === 'reject' ? t('quotations.rejectPlaceholder') : t('quotations.notePlaceholder')}
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary-500 resize-none transition-all duration-200 ease-in-out"
             />
           </div>
@@ -141,7 +140,7 @@ function DecisionModal({
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
           <button onClick={onClose} className="h-8 px-3 text-xs text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out">
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={() => onConfirm(note.trim())}
@@ -153,7 +152,7 @@ function DecisionModal({
             }`}
           >
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            确认{meta.verb}
+            {t(`quotations.decision.${type}.confirm`)}
           </button>
         </div>
       </div>
@@ -164,6 +163,7 @@ function DecisionModal({
 // ==================== 主组件 ====================
 
 export default function MyQuotations() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
@@ -180,11 +180,11 @@ export default function MyQuotations() {
         // 草稿是运营还没发出来的，客户不该看到
         setQuotations((res.data || []).filter((q) => q.status !== QUOTATION_STATUS.DRAFT))
       } else {
-        setMessage({ text: res.message || '加载报价失败', type: 'error' })
+        setMessage({ text: res.message || t('quotations.loadFailed'), type: 'error' })
       }
     } catch (err) {
       console.error('加载报价失败:', err)
-      setMessage({ text: '加载报价失败', type: 'error' })
+      setMessage({ text: t('quotations.loadFailed'), type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -208,7 +208,7 @@ export default function MyQuotations() {
         { note }
       )
       if (res.code === 200) {
-        setMessage({ text: res.message || '操作成功', type: 'success' })
+        setMessage({ text: res.message || t('quotations.actionSuccess'), type: 'success' })
         setDecision(null)
         await load()
         // 接受后后端会带回自动创建的订单号，直接引导客户去看订单
@@ -217,11 +217,11 @@ export default function MyQuotations() {
         }
       } else {
         // else 分支必须把后端 message 显示出来 —— 信用超额等业务拒绝都靠它传达（踩坑 011）
-        setMessage({ text: res.message || '操作失败', type: 'error' })
+        setMessage({ text: res.message || t('quotations.actionFailed'), type: 'error' })
       }
     } catch (err) {
       console.error('提交报价决策失败:', err)
-      setMessage({ text: err instanceof Error ? err.message : '操作失败，请稍后重试', type: 'error' })
+      setMessage({ text: err instanceof Error ? err.message : t('quotations.actionFailedRetry'), type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -242,7 +242,7 @@ export default function MyQuotations() {
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">收到报价后请及时确认，接受即自动生成订单</p>
+        <p className="text-xs text-slate-500">{t('quotations.pageHint')}</p>
         <button onClick={load} className="h-8 px-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-all duration-200 ease-in-out">
           <RefreshCw className="w-4 h-4" />
         </button>
@@ -274,14 +274,14 @@ export default function MyQuotations() {
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
-                <th className="text-left px-3 py-2.5 font-medium">报价单号</th>
-                <th className="text-left px-3 py-2.5 font-medium">来源询价</th>
-                <th className="text-left px-3 py-2.5 font-medium">服务类型</th>
-                <th className="text-left px-3 py-2.5 font-medium">路线</th>
-                <th className="text-right px-3 py-2.5 font-medium">报价金额</th>
-                <th className="text-center px-3 py-2.5 font-medium">有效期至</th>
-                <th className="text-center px-3 py-2.5 font-medium">状态</th>
-                <th className="text-center px-3 py-2.5 font-medium">操作</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('quotations.quotationNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('quotations.fromInquiry')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('quotations.serviceType')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
+                <th className="text-right px-3 py-2.5 font-medium">{t('quotations.amount')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('quotations.validUntil')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -297,8 +297,8 @@ export default function MyQuotations() {
                 <tr>
                   <td colSpan={8} className="text-center py-12">
                     <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">暂无报价</p>
-                    <p className="text-xs text-slate-400 mt-1">提交询价后，我司会尽快给出报价</p>
+                    <p className="text-sm text-slate-400">{t('quotations.empty')}</p>
+                    <p className="text-xs text-slate-400 mt-1">{t('quotations.emptyHint')}</p>
                   </td>
                 </tr>
               ) : (
@@ -311,12 +311,12 @@ export default function MyQuotations() {
                         <span className="text-xs font-medium text-slate-900 block truncate">{q.quotation_number}</span>
                         {q.version > 1 && <span className="text-[10px] text-slate-400">V{q.version}</span>}
                         {q.converted_order_number && (
-                          <span className="block text-[10px] text-purple-600">订单 {q.converted_order_number}</span>
+                          <span className="block text-[10px] text-purple-600">{t('common.orderNo')} {q.converted_order_number}</span>
                         )}
                       </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-500 truncate">{q.inquiry_number || '-'}</td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600">
-                        {BUSINESS_TYPE_LABELS[q.business_type as BusinessType] || q.business_type}
+                        {t(`businessType.${q.business_type}`, { defaultValue: q.business_type })}
                       </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">{routeText(q)}</td>
                       <td className="text-right px-3 py-2.5 text-xs font-semibold text-slate-900">
@@ -324,14 +324,14 @@ export default function MyQuotations() {
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs">
                         <span className={expired ? 'text-red-600' : 'text-slate-500'}>
-                          {q.valid_until ? new Date(q.valid_until).toLocaleDateString('de-DE') : '-'}
+                          {formatDate(q.valid_until)}
                         </span>
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${
                           QUOTATION_STATUS_STYLES[q.status] || 'bg-gray-100 text-gray-600'
                         }`}>
-                          {QUOTATION_STATUS_LABELS[q.status] || q.status}
+                          {t(`quotationStatus.${q.status}`, { defaultValue: q.status })}
                         </span>
                       </td>
                       <td className="text-center px-3 py-2.5">
@@ -339,30 +339,30 @@ export default function MyQuotations() {
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => setDecision({ quotation: q, type: 'accept' })}
-                              title="接受报价"
+                              title={t('quotations.decision.accept.title')}
                               className="h-7 px-2 flex items-center gap-1 text-[11px] text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200 ease-in-out"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
-                              接受
+                              {t('quotations.decision.accept.verb')}
                             </button>
                             {/* 已经标过待定的不用再标一次 */}
                             {q.status === QUOTATION_STATUS.SENT && (
                               <button
                                 onClick={() => setDecision({ quotation: q, type: 'pending' })}
-                                title="暂时无法决定"
+                                title={t('quotations.decision.pending.title')}
                                 className="h-7 px-2 flex items-center gap-1 text-[11px] text-amber-700 hover:bg-amber-50 rounded-lg transition-all duration-200 ease-in-out"
                               >
                                 <Clock className="w-3.5 h-3.5" />
-                                待定
+                                {t('quotations.decision.pending.verb')}
                               </button>
                             )}
                             <button
                               onClick={() => setDecision({ quotation: q, type: 'reject' })}
-                              title="拒绝报价"
+                              title={t('quotations.decision.reject.title')}
                               className="h-7 px-2 flex items-center gap-1 text-[11px] text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 ease-in-out"
                             >
                               <XCircle className="w-3.5 h-3.5" />
-                              拒绝
+                              {t('quotations.decision.reject.verb')}
                             </button>
                           </div>
                         ) : (

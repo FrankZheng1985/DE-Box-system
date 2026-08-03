@@ -6,11 +6,12 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Plus, RefreshCw, Send, X, Trash2, Package } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
-import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
+import { BUSINESS_TYPES, BUSINESS_TYPE_VALUES, type BusinessType } from '../constants/businessTypes'
 import {
-  INQUIRY_STATUS_LABELS, INQUIRY_STATUS_STYLES,
+  INQUIRY_STATUS_STYLES,
   calcUnitVolumeM3, calcLineLdm,
 } from '../constants/inquiryQuotation'
 
@@ -104,14 +105,15 @@ function AddressFields({ label, value, onChange }: {
   value: AddressForm
   onChange: (v: AddressForm) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div>
       <p className="text-xs font-medium text-slate-700 mb-2">{label}</p>
       <div className="grid grid-cols-2 gap-2">
-        <input type="text" value={value.country} onChange={(e) => onChange({ ...value, country: e.target.value })} placeholder="国家（如 DE）" className={inputClass} />
-        <input type="text" value={value.zipCode} onChange={(e) => onChange({ ...value, zipCode: e.target.value })} placeholder="邮编" className={inputClass} />
-        <input type="text" value={value.city} onChange={(e) => onChange({ ...value, city: e.target.value })} placeholder="城市" className={inputClass} />
-        <input type="text" value={value.address} onChange={(e) => onChange({ ...value, address: e.target.value })} placeholder="详细地址" className={inputClass} />
+        <input type="text" value={value.country} onChange={(e) => onChange({ ...value, country: e.target.value })} placeholder={t('inquiry.phCountry')} className={inputClass} />
+        <input type="text" value={value.zipCode} onChange={(e) => onChange({ ...value, zipCode: e.target.value })} placeholder={t('inquiry.phZip')} className={inputClass} />
+        <input type="text" value={value.city} onChange={(e) => onChange({ ...value, city: e.target.value })} placeholder={t('inquiry.phCity')} className={inputClass} />
+        <input type="text" value={value.address} onChange={(e) => onChange({ ...value, address: e.target.value })} placeholder={t('inquiry.phAddress')} className={inputClass} />
       </div>
     </div>
   )
@@ -120,6 +122,7 @@ function AddressFields({ label, value, onChange }: {
 // ==================== 主组件 ====================
 
 export default function InquiryList() {
+  const { t } = useTranslation()
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -137,11 +140,11 @@ export default function InquiryList() {
       if (res.code === 200) {
         setInquiries(res.data || [])
       } else {
-        setError(res.message || '加载询价列表失败')
+        setError(res.message || t('inquiry.loadFailed'))
       }
     } catch (err) {
       console.error('加载询价列表失败:', err)
-      setError('加载询价列表失败')
+      setError(t('inquiry.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -188,11 +191,11 @@ export default function InquiryList() {
     e.preventDefault()
     setError('')
     if (!form.routeFrom.city && !form.routeFrom.country) {
-      setError('请至少填写起运地的国家或城市')
+      setError(t('inquiry.errorFrom'))
       return
     }
     if (!form.routeTo.city && !form.routeTo.country) {
-      setError('请至少填写目的地的国家或城市')
+      setError(t('inquiry.errorTo'))
       return
     }
 
@@ -232,11 +235,11 @@ export default function InquiryList() {
         loadInquiries()
       } else {
         // 必须有 else 分支显示后端 message，否则失败会被伪装成成功（踩坑 011）
-        setError(res.message || '提交询价失败')
+        setError(res.message || t('inquiry.submitFailed'))
       }
     } catch (err) {
       console.error('创建询价失败:', err)
-      setError(err instanceof Error ? err.message : '提交询价失败')
+      setError(err instanceof Error ? err.message : t('inquiry.submitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -254,7 +257,7 @@ export default function InquiryList() {
           className="h-8 px-3 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-all duration-200 ease-in-out flex items-center gap-1"
         >
           <Plus className="w-4 h-4" />
-          新建询价
+          {t('inquiry.create')}
         </button>
       </div>
 
@@ -267,7 +270,7 @@ export default function InquiryList() {
         <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-4xl shadow-xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-slate-900">新建询价</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{t('inquiry.create')}</h3>
               <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -281,24 +284,24 @@ export default function InquiryList() {
               {/* 基本信息 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">服务类型 *</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t('inquiry.serviceType')} {t('common.required')}</label>
                   <select
                     value={form.businessType}
                     onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value as BusinessType }))}
                     className={`${inputClass} bg-white`}
                   >
-                    {(Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((t) => (
-                      <option key={t} value={t}>{BUSINESS_TYPE_LABELS[t]}</option>
+                    {BUSINESS_TYPE_VALUES.map((bt) => (
+                      <option key={bt} value={bt}>{t(`businessType.${bt}`)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">贵司单号</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t('inquiry.customerRef')}</label>
                   <input
                     type="text"
                     value={form.customerRef}
                     onChange={(e) => setForm((f) => ({ ...f, customerRef: e.target.value }))}
-                    placeholder="便于双方对账的参考号"
+                    placeholder={t('inquiry.phCustomerRef')}
                     className={inputClass}
                   />
                 </div>
@@ -306,17 +309,17 @@ export default function InquiryList() {
 
               {/* 地址 */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <AddressFields label="起运地 *" value={form.routeFrom} onChange={(v) => setForm((f) => ({ ...f, routeFrom: v }))} />
-                <AddressFields label="目的地 *" value={form.routeTo} onChange={(v) => setForm((f) => ({ ...f, routeTo: v }))} />
+                <AddressFields label={`${t('inquiry.routeFrom')} *`} value={form.routeFrom} onChange={(v) => setForm((f) => ({ ...f, routeFrom: v }))} />
+                <AddressFields label={`${t('inquiry.routeTo')} *`} value={form.routeTo} onChange={(v) => setForm((f) => ({ ...f, routeTo: v }))} />
               </div>
 
               {/* 联系人 */}
               <div>
-                <p className="text-xs font-medium text-slate-700 mb-2">联系人</p>
+                <p className="text-xs font-medium text-slate-700 mb-2">{t('inquiry.contact')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <input type="text" value={form.contactName} onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))} placeholder="姓名" className={inputClass} />
-                  <input type="tel" value={form.contactPhone} onChange={(e) => setForm((f) => ({ ...f, contactPhone: e.target.value }))} placeholder="电话" className={inputClass} />
-                  <input type="email" value={form.contactEmail} onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))} placeholder="邮箱（接收报价通知）" className={inputClass} />
+                  <input type="text" value={form.contactName} onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))} placeholder={t('inquiry.phContactName')} className={inputClass} />
+                  <input type="tel" value={form.contactPhone} onChange={(e) => setForm((f) => ({ ...f, contactPhone: e.target.value }))} placeholder={t('inquiry.phContactPhone')} className={inputClass} />
+                  <input type="email" value={form.contactEmail} onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))} placeholder={t('inquiry.phContactEmail')} className={inputClass} />
                 </div>
               </div>
 
@@ -325,7 +328,7 @@ export default function InquiryList() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
                     <Package className="w-3.5 h-3.5 text-slate-400" />
-                    按件货物明细
+                    {t('inquiry.cargoItems')}
                   </p>
                   <button
                     type="button"
@@ -333,7 +336,7 @@ export default function InquiryList() {
                     className="h-7 px-2 text-[11px] text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 flex items-center gap-1 transition-all duration-200 ease-in-out"
                   >
                     <Plus className="w-3 h-3" />
-                    添加一行
+                    {t('inquiry.addRow')}
                   </button>
                 </div>
 
@@ -353,14 +356,14 @@ export default function InquiryList() {
                     </colgroup>
                     <thead>
                       <tr className="text-[11px] text-slate-500 border-b border-gray-100">
-                        <th className="text-left px-1.5 py-2 font-medium">件号</th>
-                        <th className="text-left px-1.5 py-2 font-medium">货物描述</th>
-                        <th className="text-right px-1.5 py-2 font-medium">件数</th>
-                        <th className="text-right px-1.5 py-2 font-medium">长(cm)</th>
-                        <th className="text-right px-1.5 py-2 font-medium">宽(cm)</th>
-                        <th className="text-right px-1.5 py-2 font-medium">高(cm)</th>
-                        <th className="text-right px-1.5 py-2 font-medium">单件重(kg)</th>
-                        <th className="text-right px-1.5 py-2 font-medium">体积(m³)</th>
+                        <th className="text-left px-1.5 py-2 font-medium">{t('inquiry.colRef')}</th>
+                        <th className="text-left px-1.5 py-2 font-medium">{t('inquiry.colDesc')}</th>
+                        <th className="text-right px-1.5 py-2 font-medium">{t('inquiry.colQty')}</th>
+                        <th className="text-right px-1.5 py-2 font-medium">{t('inquiry.colLength')}</th>
+                        <th className="text-right px-1.5 py-2 font-medium">{t('inquiry.colWidth')}</th>
+                        <th className="text-right px-1.5 py-2 font-medium">{t('inquiry.colHeight')}</th>
+                        <th className="text-right px-1.5 py-2 font-medium">{t('inquiry.colUnitWeight')}</th>
+                        <th className="text-right px-1.5 py-2 font-medium">{t('inquiry.colVolume')}</th>
                         <th className="text-right px-1.5 py-2 font-medium">LDM</th>
                         <th className="text-center px-1.5 py-2 font-medium"></th>
                       </tr>
@@ -397,18 +400,18 @@ export default function InquiryList() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-gray-100 text-[11px] text-slate-500">
-                  <span>合计 <b className="text-slate-900">{totals.quantity}</b> 件</span>
-                  <span>实重 <b className="text-slate-900">{totals.weight.toFixed(2)}</b> kg</span>
-                  <span>体积 <b className="text-slate-900">{totals.volume.toFixed(3)}</b> m³</span>
+                  <span>{t('inquiry.totalQty')} <b className="text-slate-900">{totals.quantity}</b></span>
+                  <span>{t('inquiry.totalWeight')} <b className="text-slate-900">{totals.weight.toFixed(2)}</b> kg</span>
+                  <span>{t('inquiry.totalVolume')} <b className="text-slate-900">{totals.volume.toFixed(3)}</b> m³</span>
                   <span>LDM <b className="text-slate-900">{totals.ldm.toFixed(2)}</b></span>
-                  <span className="text-slate-400">LDM 按 长m × 宽m ÷ 2.4 × 件数 自动计算</span>
+                  <span className="text-slate-400">{t('inquiry.ldmHint')}</span>
                 </div>
               </div>
 
               {/* 补充说明 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">货物描述</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t('inquiry.cargoDescription')}</label>
                   <textarea
                     value={form.cargoDescription}
                     onChange={(e) => setForm((f) => ({ ...f, cargoDescription: e.target.value }))}
@@ -417,7 +420,7 @@ export default function InquiryList() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">备注</label>
+                  <label className="block text-xs text-slate-500 mb-1">{t('common.remark')}</label>
                   <textarea
                     value={form.remarks}
                     onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
@@ -430,7 +433,7 @@ export default function InquiryList() {
 
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
               <button type="button" onClick={() => setShowCreate(false)} className="h-8 px-3 text-xs text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out">
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -439,7 +442,7 @@ export default function InquiryList() {
                 className="h-8 px-3 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 flex items-center gap-1 disabled:opacity-50 transition-all duration-200 ease-in-out"
               >
                 <Send className="w-3.5 h-3.5" />
-                {submitting ? '提交中…' : '提交询价'}
+                {submitting ? t('inquiry.submitting') : t('inquiry.submit')}
               </button>
             </div>
           </div>
@@ -462,14 +465,14 @@ export default function InquiryList() {
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
-                <th className="text-left px-3 py-2.5 font-medium">询价编号</th>
-                <th className="text-left px-3 py-2.5 font-medium">服务类型</th>
-                <th className="text-left px-3 py-2.5 font-medium">路线</th>
-                <th className="text-right px-3 py-2.5 font-medium">件数</th>
-                <th className="text-right px-3 py-2.5 font-medium">实重(kg)</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.inquiryNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.serviceType')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
+                <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.colQty')}</th>
+                <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.weightKg')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">LDM</th>
-                <th className="text-center px-3 py-2.5 font-medium">状态</th>
-                <th className="text-center px-3 py-2.5 font-medium">创建日期</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.createdAt')}</th>
               </tr>
             </thead>
             <tbody>
@@ -483,17 +486,17 @@ export default function InquiryList() {
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-sm text-slate-400">暂无询价记录</td>
+                  <td colSpan={8} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item) => (
                   <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="text-left px-3 py-2.5">
                       <span className="text-xs font-medium text-slate-900 block truncate">{item.inquiry_number || '-'}</span>
-                      {item.customer_ref && <span className="text-[10px] text-slate-400">贵司单号 {item.customer_ref}</span>}
+                      {item.customer_ref && <span className="text-[10px] text-slate-400">{t('inquiry.customerRef')} {item.customer_ref}</span>}
                     </td>
                     <td className="text-left px-3 py-2.5 text-xs text-slate-600">
-                      {BUSINESS_TYPE_LABELS[item.business_type as BusinessType] || item.business_type}
+                      {t(`businessType.${item.business_type}`, { defaultValue: item.business_type })}
                     </td>
                     <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
                       {routeText(item.route_from)} → {routeText(item.route_to)}
@@ -506,7 +509,7 @@ export default function InquiryList() {
                       <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${
                         INQUIRY_STATUS_STYLES[item.status] || 'bg-gray-100 text-gray-600'
                       }`}>
-                        {INQUIRY_STATUS_LABELS[item.status] || item.status}
+                        {t(`inquiryStatus.${item.status}`, { defaultValue: item.status })}
                       </span>
                     </td>
                     <td className="text-center px-3 py-2.5 text-xs text-slate-500">
