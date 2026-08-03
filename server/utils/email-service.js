@@ -5,6 +5,7 @@
  */
 
 import nodemailer from 'nodemailer'
+import { t } from './i18n.js'
 
 // SMTP 配置
 const smtpConfig = {
@@ -73,7 +74,7 @@ export async function sendEmail({ to, subject, html, attachments = [] }) {
 /**
  * 通用邮件外壳
  */
-function emailWrapper(title, bodyHtml) {
+function emailWrapper(title, bodyHtml, lang = 'zh') {
   return `
 <!DOCTYPE html>
 <html>
@@ -95,7 +96,7 @@ function emailWrapper(title, bodyHtml) {
         <tr><td style="background:#f1f5f9;padding:16px 32px;text-align:center;">
           <p style="margin:0;color:#94a3b8;font-size:11px;">
             EU-TMS | European Transport Management System<br/>
-            此邮件由系统自动发送，请勿直接回复
+            ${t(lang, 'email.footerAuto')}
           </p>
         </td></tr>
       </table>
@@ -112,17 +113,17 @@ function emailWrapper(title, bodyHtml) {
  * @param {string} [message] - 通知正文
  * @returns {{ subject: string, html: string }}
  */
-export function notificationEmail(title, message) {
-  const subject = `[EU-TMS] ${title}`
+export function notificationEmail(title, message, lang = 'zh') {
+  const subject = t(lang, 'email.notifySubject', { title })
   // 通知标题/正文里会拼客户名、承运商名等外部可控内容，先转义再换行
   const bodyText = esc(message || '').replace(/\n/g, '<br/>')
-  const html = emailWrapper('系统通知', `
+  const html = emailWrapper(t(lang, 'email.headerNotification'), `
     <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">${esc(title)}</h2>
     ${bodyText ? `<p style="color:#475569;line-height:1.6;font-size:14px;">${bodyText}</p>` : ''}
     <p style="color:#94a3b8;font-size:12px;margin-top:24px;">
-      登录 EU-TMS 系统查看详情。
+      ${t(lang, 'email.notifyLoginHint')}
     </p>
-  `)
+  `, lang)
   return { subject, html }
 }
 
@@ -164,8 +165,8 @@ function esc(value) {
  * @param {string} p.pendingUrl      待定链接
  * @returns {{ subject: string, html: string }}
  */
-export function quotationEmail(p) {
-  const subject = `[EU-TMS] 报价单 ${p.quotationNumber} 请确认`
+export function quotationEmail(p, lang = 'zh') {
+  const subject = t(lang, 'email.quoteSubject', { number: p.quotationNumber })
 
   const row = (label, value) => value
     ? `<tr><td style="padding:10px 14px;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;">${esc(label)}</td>
@@ -179,38 +180,38 @@ export function quotationEmail(p) {
           padding:12px 22px;border-radius:6px;font-size:14px;font-weight:bold;">${esc(text)}</a>
      </td>`
 
-  const html = emailWrapper('报价确认', `
-    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">您的报价已出</h2>
+  const html = emailWrapper(t(lang, 'email.headerQuotation'), `
+    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">${t(lang, 'email.quoteHeading')}</h2>
     <p style="color:#475569;line-height:1.6;font-size:14px;">
-      尊敬的 <strong>${esc(p.clientName)}</strong>，您好！
+      ${t(lang, 'email.quoteGreeting', { client: esc(p.clientName) })}
     </p>
     <p style="color:#475569;line-height:1.6;font-size:14px;">
-      报价单 <strong style="color:#2563eb;">${esc(p.quotationNumber)}</strong> 详情如下，请确认：
+      ${t(lang, 'email.quoteIntro', { number: esc(p.quotationNumber) })}
     </p>
 
     <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border-radius:6px;">
-      ${row('路线', p.route)}
-      ${row('有效期至', p.validUntil)}
-      ${row('备注', p.remarks)}
+      ${row(t(lang, 'email.quoteRoute'), p.route)}
+      ${row(t(lang, 'email.quoteValidUntil'), p.validUntil)}
+      ${row(t(lang, 'email.quoteRemarks'), p.remarks)}
       <tr>
-        <td style="padding:14px;color:#64748b;font-size:13px;">报价金额</td>
+        <td style="padding:14px;color:#64748b;font-size:13px;">${t(lang, 'email.quoteAmount')}</td>
         <td style="padding:14px;color:#2563eb;font-size:20px;font-weight:bold;">${esc(p.totalPrice)}</td>
       </tr>
     </table>
 
-    <p style="color:#475569;font-size:14px;margin:24px 0 12px;">请选择：</p>
+    <p style="color:#475569;font-size:14px;margin:24px 0 12px;">${t(lang, 'email.quotePickPrompt')}</p>
     <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-      ${button(p.acceptUrl,  '同意报价', '#16a34a')}
-      ${button(p.pendingUrl, '暂时待定', '#d97706')}
-      ${button(p.rejectUrl,  '拒绝报价', '#dc2626')}
+      ${button(p.acceptUrl,  t(lang, 'email.quoteAccept'), '#16a34a')}
+      ${button(p.pendingUrl, t(lang, 'email.quotePending'), '#d97706')}
+      ${button(p.rejectUrl,  t(lang, 'email.quoteReject'), '#dc2626')}
     </tr></table>
 
     <p style="color:#94a3b8;font-size:12px;margin-top:24px;line-height:1.6;">
-      点击「同意报价」后，系统会自动为您生成运输订单并转入我司审核。<br/>
-      以上链接仅可使用一次${p.validUntil ? `，并在 ${esc(p.validUntil)} 后失效` : ''}。<br/>
-      您也可以登录客户门户，在「我的报价」中完成确认。
+      ${t(lang, 'email.quoteFootLine1')}<br/>
+      ${t(lang, 'email.quoteFootOnce')}${p.validUntil ? t(lang, 'email.quoteFootExpires', { date: esc(p.validUntil) }) : ''}<br/>
+      ${t(lang, 'email.quoteFootPortal')}
     </p>
-  `)
+  `, lang)
   return { subject, html }
 }
 
@@ -225,36 +226,44 @@ export function quotationEmail(p) {
  * @param {number} p.daysDiff     距到期天数；正数=还剩几天，负数=已逾期几天
  * @returns {{ subject: string, html: string }}
  */
-export function paymentReminderEmail(p) {
+export function paymentReminderEmail(p, lang = 'zh') {
   const overdue = p.daysDiff < 0
   const days = Math.abs(p.daysDiff)
-  const headline = overdue ? `账单已逾期 ${days} 天` : `账单将于 ${days} 天后到期`
-  const subject = `[EU-TMS] ${overdue ? '逾期催款' : '账单到期提醒'} - ${p.recordNumber}`
+  const headline = overdue
+    ? t(lang, 'email.payOverdueHeadline', { days })
+    : t(lang, 'email.payDueHeadline', { days })
+  const subject = overdue
+    ? t(lang, 'email.payOverdueSubject', { number: p.recordNumber })
+    : t(lang, 'email.payDueSubject', { number: p.recordNumber })
   const accent = overdue ? '#dc2626' : '#d97706'
 
-  const html = emailWrapper(overdue ? '逾期催款' : '账单提醒', `
+  const header = overdue
+    ? t(lang, 'email.payHeaderOverdue')
+    : t(lang, 'email.headerPaymentReminder')
+
+  const html = emailWrapper(header, `
     <h2 style="color:${accent};margin:0 0 16px;font-size:18px;">${esc(headline)}</h2>
     <p style="color:#475569;line-height:1.6;font-size:14px;">
-      尊敬的 <strong>${esc(p.clientName)}</strong>，您好！
+      ${t(lang, 'email.payGreeting', { client: esc(p.clientName) })}
     </p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border-radius:6px;">
       <tr>
-        <td style="padding:10px 14px;color:#64748b;font-size:13px;">账单号</td>
+        <td style="padding:10px 14px;color:#64748b;font-size:13px;">${t(lang, 'email.payBillNo')}</td>
         <td style="padding:10px 14px;color:#1e293b;font-size:13px;font-weight:bold;">${esc(p.recordNumber)}</td>
       </tr>
       <tr>
-        <td style="padding:10px 14px;color:#64748b;font-size:13px;">到期日</td>
+        <td style="padding:10px 14px;color:#64748b;font-size:13px;">${t(lang, 'email.payDueDate')}</td>
         <td style="padding:10px 14px;color:${accent};font-size:13px;font-weight:bold;">${esc(p.dueDate)}</td>
       </tr>
       <tr>
-        <td style="padding:14px;color:#64748b;font-size:13px;">应付金额</td>
+        <td style="padding:14px;color:#64748b;font-size:13px;">${t(lang, 'email.payAmount')}</td>
         <td style="padding:14px;color:${accent};font-size:20px;font-weight:bold;">${esc(p.amount)}</td>
       </tr>
     </table>
     <p style="color:#475569;font-size:13px;">
-      ${overdue ? '请尽快安排付款。' : '请在到期日前完成付款。'}如已付款请忽略本邮件，或联系财务部门核对。
+      ${overdue ? t(lang, 'email.payActionOverdue') : t(lang, 'email.payActionDue')}${t(lang, 'email.payIgnoreHint')}
     </p>
-  `)
+  `, lang)
   return { subject, html }
 }
 

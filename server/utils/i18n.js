@@ -10,7 +10,12 @@
  * 这样老前端拿到的 message 一个字都没变，不会踩到「靠文案判断成败」（踩坑 032）。
  */
 
+import zhPack from '../i18n/locales/zh.json' with { type: 'json' }
+import enPack from '../i18n/locales/en.json' with { type: 'json' }
+import dePack from '../i18n/locales/de.json' with { type: 'json' }
+
 const SUPPORTED = ['zh', 'en', 'de']
+const PACKS = { zh: zhPack, en: enPack, de: dePack }
 const DEFAULT_LANG = 'zh'
 
 /**
@@ -75,4 +80,28 @@ export function pickName(row, lang) {
   return byLang[lang] || row.name_en || row.name_zh || ''
 }
 
-export default { normalizeLang, resolveLang, pickName }
+/**
+ * 后端自己渲染的文案取翻译（目前是 Excel 表头，以后加邮件模板）
+ *
+ * API 响应的 message 不走这里 —— 那条路是「响应带 messageCode，前端按码翻译」，
+ * 见 middleware/messageCode.js。后端只翻译前端看不到、必须后端出成品的东西。
+ *
+ * @param {'zh'|'en'|'de'} lang
+ * @param {string} key 形如 'excel.orderNo'
+ * @param {object} [vars] 形如 { count: 3 }，模板里写 {{count}}
+ * @returns {string} 查不到时返回中文包的值，中文包也没有就返回 key 本身
+ */
+export function t(lang, key, vars) {
+  const read = (pack) => key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), pack)
+  let text = read(PACKS[lang] || PACKS.zh)
+  if (text === undefined) text = read(PACKS.zh)
+  if (text === undefined) return key
+  if (vars) {
+    text = String(text).replace(/\{\{\s*(\w+)\s*\}\}/g, (_, name) =>
+      vars[name] === undefined ? '' : String(vars[name])
+    )
+  }
+  return text
+}
+
+export default { normalizeLang, resolveLang, pickName, t }

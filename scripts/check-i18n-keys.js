@@ -21,7 +21,9 @@ const fs = require('fs')
 const path = require('path')
 
 const ROOT = path.join(__dirname, '..')
-const APPS = ['admin', 'customer-portal', 'carrier-portal']
+// 三个前端 + 后端。后端语言包只放它自己渲染的东西（Excel 表头、邮件模板），
+// API 响应的 message 走 messageCode，不在这里
+const APPS = ['admin', 'customer-portal', 'carrier-portal', 'server']
 const LANGS = ['zh', 'en', 'de']
 
 const targets = process.argv.slice(2).length ? process.argv.slice(2) : APPS
@@ -45,15 +47,17 @@ function walkSourceFiles(dir, acc = []) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) {
       if (entry.name === 'node_modules' || entry.name === 'locales') continue
+      if (entry.name === 'uploads' || entry.name === 'dist') continue
       walkSourceFiles(full, acc)
-    } else if (/\.tsx?$/.test(entry.name)) {
+    } else if (/\.(tsx?|js)$/.test(entry.name)) {
       acc.push(full)
     }
   }
   return acc
 }
 
-const STATIC_KEY = /\bt\(\s*['"]([\w.]+)['"]/g
+// 前端 t('a.b')；后端 t(lang, 'a.b')
+const STATIC_KEY = /\bt\(\s*(?:lang\s*,\s*)?['"]([\w.]+)['"]/g
 const INDIRECT_KEY = /(?:labelKey|titleKey|descriptionKey|placeholderKey)\s*[:=]\s*['"]([\w.]+)['"]/g
 const TEMPLATE_KEY = /\bt\(\s*`/
 const PLACEHOLDER = /\{\{\s*(\w+)/g
@@ -61,8 +65,12 @@ const PLACEHOLDER = /\{\{\s*(\w+)/g
 let failed = false
 
 for (const app of targets) {
-  const srcDir = path.join(ROOT, app, 'src')
-  const localeDir = path.join(srcDir, 'i18n', 'locales')
+  // 后端的语言包在 server/i18n/locales，源码就是 server/ 本身
+  const isServer = app === 'server'
+  const srcDir = isServer ? path.join(ROOT, 'server') : path.join(ROOT, app, 'src')
+  const localeDir = isServer
+    ? path.join(ROOT, 'server', 'i18n', 'locales')
+    : path.join(srcDir, 'i18n', 'locales')
   if (!fs.existsSync(localeDir)) {
     process.stdout.write(`跳过 ${app}（没有 src/i18n/locales）\n`)
     continue

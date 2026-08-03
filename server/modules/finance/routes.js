@@ -8,6 +8,7 @@ import { Router } from 'express'
 import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { resolveLang, t } from '../../utils/i18n.js'
 import { getPool } from '../../core/db.js'
 import { documentEngine, accountDetermination, documentFlow } from '../../core/index.js'
 
@@ -91,6 +92,8 @@ router.get('/payables', requirePermission('finance:view', 'carrier_portal:billin
 
 // === 应收导出 Excel ===
 router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission('finance:export'), async (req, res) => {
+  // Excel 表头按请求语言渲染（P9）
+  const lang = resolveLang(req)
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -106,21 +109,21 @@ router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'EU-TMS'
     workbook.created = new Date()
-    const sheet = workbook.addWorksheet('应收账款')
+    const sheet = workbook.addWorksheet(t(lang, 'excel.sheetReceivables'))
 
     const statusMap = {
       UNPAID: '未付款', PARTIAL: '部分付款', PAID: '已付款', OVERDUE: '已逾期', VOID: '已作废'
     }
 
     sheet.columns = [
-      { header: '账单号', key: 'recordNumber', width: 18 },
-      { header: '客户', key: 'client', width: 24 },
-      { header: '关联订单', key: 'orderNumber', width: 18 },
-      { header: '金额', key: 'amount', width: 14 },
-      { header: '币种', key: 'currency', width: 8 },
-      { header: '状态', key: 'status', width: 12 },
-      { header: '到期日', key: 'dueDate', width: 14 },
-      { header: '已付金额', key: 'paidAmount', width: 14 },
+      { header: t(lang, 'excel.billNo'), key: 'recordNumber', width: 18 },
+      { header: t(lang, 'excel.client'), key: 'client', width: 24 },
+      { header: t(lang, 'excel.relatedOrder'), key: 'orderNumber', width: 18 },
+      { header: t(lang, 'excel.amount'), key: 'amount', width: 14 },
+      { header: t(lang, 'excel.currency'), key: 'currency', width: 8 },
+      { header: t(lang, 'excel.status'), key: 'status', width: 12 },
+      { header: t(lang, 'excel.dueDate'), key: 'dueDate', width: 14 },
+      { header: t(lang, 'excel.paidAmount'), key: 'paidAmount', width: 14 },
     ]
 
     sheet.getRow(1).font = { bold: true }
@@ -153,6 +156,8 @@ router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission
 
 // === 应付导出 Excel ===
 router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('finance:export'), async (req, res) => {
+  // Excel 表头按请求语言渲染（P9）
+  const lang = resolveLang(req)
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -168,21 +173,21 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'EU-TMS'
     workbook.created = new Date()
-    const sheet = workbook.addWorksheet('应付账款')
+    const sheet = workbook.addWorksheet(t(lang, 'excel.sheetPayables'))
 
     const statusMap = {
       UNPAID: '未付款', PARTIAL: '部分付款', PAID: '已付款', OVERDUE: '已逾期', VOID: '已作废'
     }
 
     sheet.columns = [
-      { header: '账单号', key: 'recordNumber', width: 18 },
-      { header: '承运商', key: 'carrier', width: 24 },
-      { header: '关联订单', key: 'orderNumber', width: 18 },
-      { header: '金额', key: 'amount', width: 14 },
-      { header: '币种', key: 'currency', width: 8 },
-      { header: '状态', key: 'status', width: 12 },
-      { header: '到期日', key: 'dueDate', width: 14 },
-      { header: '已付金额', key: 'paidAmount', width: 14 },
+      { header: t(lang, 'excel.billNo'), key: 'recordNumber', width: 18 },
+      { header: t(lang, 'excel.carrier'), key: 'carrier', width: 24 },
+      { header: t(lang, 'excel.relatedOrder'), key: 'orderNumber', width: 18 },
+      { header: t(lang, 'excel.amount'), key: 'amount', width: 14 },
+      { header: t(lang, 'excel.currency'), key: 'currency', width: 8 },
+      { header: t(lang, 'excel.status'), key: 'status', width: 12 },
+      { header: t(lang, 'excel.dueDate'), key: 'dueDate', width: 14 },
+      { header: t(lang, 'excel.paidAmount'), key: 'paidAmount', width: 14 },
     ]
 
     sheet.getRow(1).font = { bold: true }

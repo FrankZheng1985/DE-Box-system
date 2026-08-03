@@ -10,6 +10,7 @@ import fs from 'fs'
 import path from 'path'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { getPool } from '../../core/db.js'
+import { resolveLang, t } from '../../utils/i18n.js'
 import { uploadToOSS, deleteFromOSS } from '../../utils/oss-service.js'
 import orderController from './controller.js'
 import { BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
@@ -246,6 +247,8 @@ router.get('/stats', requireUserType('OPERATOR'), requirePermission('order:view'
 
 // Excel 导出（放在 /:id 前面，避免被匹配为 id）
 router.get('/export', requirePermission('order:export'), async (req, res) => {
+  // Excel 表头按请求语言渲染（P9）
+  const lang = resolveLang(req)
   try {
     const { businessType, status, dateFrom, dateTo, search } = req.query
     const pool = getPool()
@@ -292,24 +295,24 @@ router.get('/export', requirePermission('order:export'), async (req, res) => {
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'EU-TMS'
     workbook.created = new Date()
-    const sheet = workbook.addWorksheet('订单列表')
+    const sheet = workbook.addWorksheet(t(lang, 'excel.sheetOrders'))
 
     // 中文名统一从 service.js 取，避免前后端/各处各抄一份
     // ⚠️ 原来的 bizTypeMap 放的是 FTL/LTL/CONTAINER 这些"运输类型"值，
     //    却拿去匹配 business_type，导出的业务类型列一直显示原始英文
 
     sheet.columns = [
-      { header: '订单号', key: 'orderNumber', width: 18 },
-      { header: '客户', key: 'clientName', width: 20 },
-      { header: '业务类型', key: 'businessType', width: 12 },
-      { header: '状态', key: 'status', width: 12 },
-      { header: '运输类型', key: 'transportType', width: 12 },
-      { header: '重量(kg)', key: 'weight', width: 12 },
-      { header: '路线', key: 'route', width: 25 },
-      { header: '客户报价', key: 'clientPrice', width: 14 },
-      { header: '承运商成本', key: 'carrierCost', width: 14 },
-      { header: '币种', key: 'currency', width: 8 },
-      { header: '创建日期', key: 'createdAt', width: 18 },
+      { header: t(lang, 'excel.orderNo'), key: 'orderNumber', width: 18 },
+      { header: t(lang, 'excel.client'), key: 'clientName', width: 20 },
+      { header: t(lang, 'excel.businessType'), key: 'businessType', width: 12 },
+      { header: t(lang, 'excel.status'), key: 'status', width: 12 },
+      { header: t(lang, 'excel.transportType'), key: 'transportType', width: 12 },
+      { header: t(lang, 'excel.weightKg'), key: 'weight', width: 12 },
+      { header: t(lang, 'excel.route'), key: 'route', width: 25 },
+      { header: t(lang, 'excel.clientPrice'), key: 'clientPrice', width: 14 },
+      { header: t(lang, 'excel.carrierCost'), key: 'carrierCost', width: 14 },
+      { header: t(lang, 'excel.currency'), key: 'currency', width: 8 },
+      { header: t(lang, 'excel.createdDate'), key: 'createdAt', width: 18 },
     ]
 
     // 表头样式

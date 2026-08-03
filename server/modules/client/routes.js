@@ -6,6 +6,7 @@ import { Router } from 'express'
 import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { resolveLang, t } from '../../utils/i18n.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange, creditManager } from '../../core/index.js'
 import { roleHasAnyPermission } from '../../core/permission-service.js'
@@ -113,6 +114,8 @@ router.get('/', requirePermission('client:view'), async (req, res) => {
  * GET /api/v1/clients/export
  */
 router.get('/export', requirePermission('client:export'), async (req, res) => {
+  // Excel 表头按请求语言渲染（P9）
+  const lang = resolveLang(req)
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -126,25 +129,26 @@ router.get('/export', requirePermission('client:export'), async (req, res) => {
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'EU-TMS'
     workbook.created = new Date()
-    const sheet = workbook.addWorksheet('客户列表')
+    const sheet = workbook.addWorksheet(t(lang, 'excel.sheetClients'))
 
     const creditLevelMap = {
-      A: 'A - 优质', B: 'B - 良好', C: 'C - 一般', D: 'D - 较差'
+      A: t(lang, 'excel.creditLevelA'), B: t(lang, 'excel.creditLevelB'),
+      C: t(lang, 'excel.creditLevelC'), D: t(lang, 'excel.creditLevelD'),
     }
 
     sheet.columns = [
-      { header: '客户编码', key: 'clientCode', width: 16 },
-      { header: '公司名称', key: 'companyName', width: 28 },
-      { header: 'VAT税号', key: 'vatNumber', width: 22 },
-      { header: '国家', key: 'country', width: 12 },
-      { header: '城市', key: 'city', width: 14 },
-      { header: '联系人', key: 'contactName', width: 14 },
-      { header: '邮箱', key: 'email', width: 24 },
-      { header: '电话', key: 'phone', width: 16 },
-      { header: '客户等级', key: 'clientLevel', width: 12 },
-      { header: '信用额度', key: 'creditLimit', width: 14 },
-      { header: '信用等级', key: 'creditLevel', width: 12 },
-      { header: '账期(天)', key: 'paymentTerms', width: 10 },
+      { header: t(lang, 'excel.clientCode'), key: 'clientCode', width: 16 },
+      { header: t(lang, 'excel.companyName'), key: 'companyName', width: 28 },
+      { header: t(lang, 'excel.vatNumber'), key: 'vatNumber', width: 22 },
+      { header: t(lang, 'excel.country'), key: 'country', width: 12 },
+      { header: t(lang, 'excel.city'), key: 'city', width: 14 },
+      { header: t(lang, 'excel.contactName'), key: 'contactName', width: 14 },
+      { header: t(lang, 'excel.email'), key: 'email', width: 24 },
+      { header: t(lang, 'excel.phone'), key: 'phone', width: 16 },
+      { header: t(lang, 'excel.clientLevel'), key: 'clientLevel', width: 12 },
+      { header: t(lang, 'excel.creditLimit'), key: 'creditLimit', width: 14 },
+      { header: t(lang, 'excel.creditLevel'), key: 'creditLevel', width: 12 },
+      { header: t(lang, 'excel.paymentTermsDays'), key: 'paymentTerms', width: 10 },
     ]
 
     sheet.getRow(1).font = { bold: true }

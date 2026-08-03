@@ -11,6 +11,7 @@ import { Router } from 'express'
 import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { resolveLang, t } from '../../utils/i18n.js'
 import { documentEngine } from '../../core/index.js'
 import inquiryService from './service.js'
 
@@ -201,41 +202,43 @@ router.post('/summary', requireUserType('OPERATOR'), requirePermission('inquiry:
  * 一行一件货，表头字段在每行重复，方便服务商直接筛选排序。
  */
 router.get('/export', requireUserType('OPERATOR'), requirePermission('inquiry:export'), async (req, res) => {
+  // Excel 表头按请求语言渲染（P9）
+  const lang = resolveLang(req)
   try {
     const ids = req.query.ids ? String(req.query.ids).split(',').filter(Boolean) : null
     const rows = await loadInquiriesForExport(req, ids)
 
     const workbook = new ExcelJS.Workbook()
-    const sheet = workbook.addWorksheet('询价单')
+    const sheet = workbook.addWorksheet(t(lang, 'excel.sheetInquiries'))
 
     sheet.columns = [
-      { header: '询价单号', key: 'inquiry_number', width: 20 },
-      { header: '客户单号', key: 'customer_ref', width: 16 },
-      { header: '客户', key: 'client_name', width: 20 },
-      { header: '服务类型', key: 'business_type', width: 14 },
-      { header: '状态', key: 'status', width: 10 },
-      { header: '起运国家', key: 'from_country', width: 10 },
-      { header: '起运邮编', key: 'from_zip', width: 10 },
-      { header: '起运城市', key: 'from_city', width: 14 },
-      { header: '起运地址', key: 'from_address', width: 26 },
-      { header: '目的国家', key: 'to_country', width: 10 },
-      { header: '目的邮编', key: 'to_zip', width: 10 },
-      { header: '目的城市', key: 'to_city', width: 14 },
-      { header: '目的地址', key: 'to_address', width: 26 },
-      { header: '联系人', key: 'contact_name', width: 12 },
-      { header: '电话', key: 'contact_phone', width: 18 },
-      { header: '邮箱', key: 'contact_email', width: 24 },
-      { header: '行号', key: 'line_number', width: 6 },
-      { header: '件号', key: 'reference_no', width: 16 },
-      { header: '货物描述', key: 'description', width: 20 },
-      { header: '件数', key: 'quantity', width: 8 },
-      { header: '长(cm)', key: 'length_cm', width: 10 },
-      { header: '宽(cm)', key: 'width_cm', width: 10 },
-      { header: '高(cm)', key: 'height_cm', width: 10 },
-      { header: '单件实重(kg)', key: 'unit_weight_kg', width: 14 },
-      { header: '单件体积(m³)', key: 'unit_volume_m3', width: 14 },
+      { header: t(lang, 'excel.inquiryNo'), key: 'inquiry_number', width: 20 },
+      { header: t(lang, 'excel.customerRef'), key: 'customer_ref', width: 16 },
+      { header: t(lang, 'excel.client'), key: 'client_name', width: 20 },
+      { header: t(lang, 'excel.serviceType'), key: 'business_type', width: 14 },
+      { header: t(lang, 'excel.status'), key: 'status', width: 10 },
+      { header: t(lang, 'excel.fromCountry'), key: 'from_country', width: 10 },
+      { header: t(lang, 'excel.fromZip'), key: 'from_zip', width: 10 },
+      { header: t(lang, 'excel.fromCity'), key: 'from_city', width: 14 },
+      { header: t(lang, 'excel.fromAddress'), key: 'from_address', width: 26 },
+      { header: t(lang, 'excel.toCountry'), key: 'to_country', width: 10 },
+      { header: t(lang, 'excel.toZip'), key: 'to_zip', width: 10 },
+      { header: t(lang, 'excel.toCity'), key: 'to_city', width: 14 },
+      { header: t(lang, 'excel.toAddress'), key: 'to_address', width: 26 },
+      { header: t(lang, 'excel.contactName'), key: 'contact_name', width: 12 },
+      { header: t(lang, 'excel.phone'), key: 'contact_phone', width: 18 },
+      { header: t(lang, 'excel.email'), key: 'contact_email', width: 24 },
+      { header: t(lang, 'excel.lineNo'), key: 'line_number', width: 6 },
+      { header: t(lang, 'excel.itemNo'), key: 'reference_no', width: 16 },
+      { header: t(lang, 'excel.cargoDescription'), key: 'description', width: 20 },
+      { header: t(lang, 'excel.quantity'), key: 'quantity', width: 8 },
+      { header: t(lang, 'excel.lengthCm'), key: 'length_cm', width: 10 },
+      { header: t(lang, 'excel.widthCm'), key: 'width_cm', width: 10 },
+      { header: t(lang, 'excel.heightCm'), key: 'height_cm', width: 10 },
+      { header: t(lang, 'excel.unitWeightKg'), key: 'unit_weight_kg', width: 14 },
+      { header: t(lang, 'excel.unitVolumeM3'), key: 'unit_volume_m3', width: 14 },
       { header: 'LDM', key: 'ldm', width: 10 },
-      { header: '备注', key: 'remarks', width: 24 },
+      { header: t(lang, 'excel.remarks'), key: 'remarks', width: 24 },
     ]
     sheet.getRow(1).font = { bold: true }
 

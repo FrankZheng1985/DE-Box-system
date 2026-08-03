@@ -11,10 +11,32 @@
  */
 
 import { query } from '../core/db.js'
+import { normalizeLang } from './i18n.js'
 import {
   sendEmail, isConfigured,
   notificationEmail, quotationEmail, paymentReminderEmail,
 } from './email-service.js'
+
+/**
+ * 按收件邮箱查这个人偏好的语言（P9）
+ *
+ * 发信是后台任务，没有请求上下文、拿不到 Accept-Language，只能按收件人查。
+ * 收件人不一定有账号（客户联系人邮箱可能从没注册过门户），查不到就用中文。
+ */
+async function langForRecipient(email) {
+  if (!email) return 'zh'
+  try {
+    const r = await query(
+      `SELECT language FROM users WHERE lower(email) = lower($1) AND is_active = true LIMIT 1`,
+      [email]
+    )
+    return normalizeLang(r.rows[0]?.language) || 'zh'
+  } catch (error) {
+    // 查语言失败不能挡住发信
+    console.warn('[邮件队列] 查收件人语言失败，按中文发:', error.message)
+    return 'zh'
+  }
+}
 
 /**
  * 邮件模板分发表
@@ -24,19 +46,21 @@ import {
  * 也不要因为模板名写错就把整封邮件卡在队列里（迁移 108 之前的老数据也走这条路）。
  */
 const TEMPLATES = {
-  QUOTATION_RESPONSE: (row) => quotationEmail(row.email_payload || {}),
-  PAYMENT_REMINDER: (row) => paymentReminderEmail(row.email_payload || {}),
+  QUOTATION_RESPONSE: (row, lang) => quotationEmail(row.email_payload || {}, lang),
+  PAYMENT_REMINDER: (row, lang) => paymentReminderEmail(row.email_payload || {}, lang),
 }
 
-function renderEmail(row) {
+function renderEmail(row, lang) {
   const render = row.email_template ? TEMPLATES[row.email_template] : null
   if (!render) {
     if (row.email_template) {
       console.warn(`[邮件队列] 未知模板 ${row.email_template}，退回通用模板`)
     }
-    return notificationEmail(row.title, row.message)
+    // 通用模板的 title/message 是通知引擎写库时就定死的中文，这里翻不了，
+    // 只把外壳（页头页脚）按语言渲染
+    return notificationEmail(row.title, row.message, lang)
   }
-  return render(row)
+  return render(row, lang)
 }
 
 // 单次轮询最多处理多少封，避免一次拉太多把 SMTP 打挂
@@ -95,7 +119,8 @@ export async function processPendingEmails() {
     const attempts = parseInt(row.email_attempts, 10) || 0
 
     try {
-      const { subject, html } = renderEmail(row)
+      const lang = await langForRecipient(row.email_to)
+      const { subject, html } = renderEmail(row, lang)
       const result = await sendEmail({ to: row.email_to, subject, html })
 
       if (result.skipped) {

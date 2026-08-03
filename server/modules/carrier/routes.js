@@ -6,6 +6,7 @@ import { Router } from 'express'
 import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { resolveLang, t } from '../../utils/i18n.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
 
@@ -107,6 +108,8 @@ router.get('/match', requirePermission('carrier:view'), async (req, res) => {
  * GET /api/v1/carriers/export
  */
 router.get('/export', requirePermission('carrier:export'), async (req, res) => {
+  // Excel 表头按请求语言渲染（P9）
+  const lang = resolveLang(req)
   try {
     const pool = getPool()
     const result = await pool.query(
@@ -121,26 +124,26 @@ router.get('/export', requirePermission('carrier:export'), async (req, res) => {
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'EU-TMS'
     workbook.created = new Date()
-    const sheet = workbook.addWorksheet('承运商列表')
+    const sheet = workbook.addWorksheet(t(lang, 'excel.sheetCarriers'))
 
     const statusMap = { ACTIVE: '活跃', INACTIVE: '停用', SUSPENDED: '暂停' }
     const categoryMap = { EXTERNAL: '外部服务商', OWN_FLEET: '自营车辆' }
     const typeMap = { PLATFORM: '平台型', FLEET: '自营车队型', INDIVIDUAL: '个体车辆' }
 
     sheet.columns = [
-      { header: '承运商编码', key: 'carrierCode', width: 16 },
-      { header: '公司名称', key: 'companyName', width: 28 },
-      { header: 'VAT税号', key: 'vatNumber', width: 22 },
-      { header: '国家', key: 'country', width: 12 },
-      { header: '分类', key: 'category', width: 14 },
-      { header: '类型', key: 'type', width: 14 },
-      { header: '许可证号', key: 'license', width: 20 },
-      { header: '许可证到期', key: 'licenseExpiry', width: 14 },
-      { header: '保险号', key: 'insurance', width: 20 },
-      { header: '保险到期', key: 'insuranceExpiry', width: 14 },
-      { header: '评分', key: 'score', width: 8 },
-      { header: '状态', key: 'status', width: 10 },
-      { header: '备注', key: 'remarks', width: 40 },
+      { header: t(lang, 'excel.carrierCode'), key: 'carrierCode', width: 16 },
+      { header: t(lang, 'excel.companyName'), key: 'companyName', width: 28 },
+      { header: t(lang, 'excel.vatNumber'), key: 'vatNumber', width: 22 },
+      { header: t(lang, 'excel.country'), key: 'country', width: 12 },
+      { header: t(lang, 'excel.category'), key: 'category', width: 14 },
+      { header: t(lang, 'excel.type'), key: 'type', width: 14 },
+      { header: t(lang, 'excel.licenseNo'), key: 'license', width: 20 },
+      { header: t(lang, 'excel.licenseExpiry'), key: 'licenseExpiry', width: 14 },
+      { header: t(lang, 'excel.insuranceNo'), key: 'insurance', width: 20 },
+      { header: t(lang, 'excel.insuranceExpiry'), key: 'insuranceExpiry', width: 14 },
+      { header: t(lang, 'excel.score'), key: 'score', width: 8 },
+      { header: t(lang, 'excel.status'), key: 'status', width: 10 },
+      { header: t(lang, 'excel.remarks'), key: 'remarks', width: 40 },
     ]
 
     sheet.getRow(1).font = { bold: true }
