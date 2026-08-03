@@ -175,6 +175,27 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ code: 400, message: '参数错误：无效的用户类型' })
     }
 
+    // 角色必填：role_id 为空的账号权限集是空的，登得进去但所有接口都 403，
+    // 表现为"账号能用但处处报没权限"，很难查（2026-08-03 duguirong 就是这么建出来的）
+    if (!role_id) {
+      return res.status(400).json({ code: 400, message: '参数错误：必须为账号指定角色' })
+    }
+
+    // 角色类型必须和用户类型匹配，否则会建出「CLIENT 用户挂运营角色」这种越权账号
+    const roleRow = await query(
+      `SELECT role_code, role_type FROM roles WHERE id = $1 AND is_active = true`,
+      [role_id]
+    )
+    if (roleRow.rows.length === 0) {
+      return res.status(400).json({ code: 400, message: '参数错误：角色不存在或已停用' })
+    }
+    if (roleRow.rows[0].role_type !== user_type) {
+      return res.status(400).json({
+        code: 400,
+        message: `参数错误：角色「${roleRow.rows[0].role_code}」属于 ${roleRow.rows[0].role_type}，不能分配给 ${user_type} 账号`
+      })
+    }
+
     // 检查用户名是否已存在
     const existing = await query(
       `SELECT id FROM users WHERE username = $1`, [username]

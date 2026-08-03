@@ -243,7 +243,7 @@
     "createFailed": "Anlegen fehlgeschlagen",
     "resetSuccess": "Passwort zurückgesetzt — bitte den Benutzer über das neue Passwort informieren",
     "resetFailed": "Zurücksetzen fehlgeschlagen",
-    "errorRequired": "Anmeldename, Name und Initialpasswort sind Pflichtfelder",
+    "errorRequired": "Anmeldename, Name, Initialpasswort und Rolle sind Pflichtfelder",
     "errorPasswordShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
     "phUsername": "Anmeldename, später nicht mehr änderbar",
     "phDisplayName": "Echter Name, wird im System angezeigt",

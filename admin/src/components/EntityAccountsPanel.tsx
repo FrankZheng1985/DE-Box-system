@@ -301,7 +301,9 @@ function CreateAccountDialog({
   const [error, setError] = useState('')
 
   const submit = async () => {
-    if (!form.username.trim() || !form.password.trim() || !form.display_name.trim()) {
+    // 角色必须一起校验：role_id 为空建出来的账号权限集是空的，
+    // 登得进去但每个接口都 403，表现为「账号好像坏了」而不是明确报错
+    if (!form.username.trim() || !form.password.trim() || !form.display_name.trim() || !form.role_id) {
       setError(t('accounts.errorRequired'))
       return
     }

@@ -243,7 +243,7 @@
     "createFailed": "Creation failed",
     "resetSuccess": "Password reset — tell the user to log in with the new password",
     "resetFailed": "Reset failed",
-    "errorRequired": "Login name, name and initial password are required",
+    "errorRequired": "Login name, name, initial password and role are required",
     "errorPasswordShort": "The password must be at least 6 characters",
     "phUsername": "Login name, cannot be changed later",
     "phDisplayName": "Real name, shown across the system",

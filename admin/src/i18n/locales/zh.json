@@ -243,7 +243,7 @@
     "createFailed": "创建失败",
     "resetSuccess": "密码已重置，请通知本人使用新密码登录",
     "resetFailed": "重置失败",
-    "errorRequired": "登录名、姓名、初始密码为必填项",
+    "errorRequired": "登录名、姓名、初始密码、角色为必填项",
     "errorPasswordShort": "密码长度至少 6 位",
     "phUsername": "用于登录的账号名，创建后不可修改",
     "phDisplayName": "真实姓名，用于系统内显示",
