@@ -7,6 +7,19 @@
 
 import i18n from '../i18n'
 
+/**
+ * 按后端返回的 messageCode 翻译提示语（P9）
+ *
+ * 后端在响应里 additive 地带 messageCode（见 server/middleware/messageCode.js）。
+ * 这里按码查语言包 `apiMessage.<CODE>`，查不到就原样用后端给的中文 message ——
+ * 所以后端漏映射、或者语言包漏一条，只是那条不翻译，不会显示成空白或 key。
+ */
+function translateByCode(body: { message?: string; messageCode?: string } | null | undefined): string | undefined {
+  if (!body) return undefined
+  if (!body.messageCode) return body.message
+  return i18n.t(`apiMessage.${body.messageCode}`, { defaultValue: body.message || '' }) || body.message
+}
+
 export interface ApiResponse<T = any> {
   code: number
   message: string
@@ -102,7 +115,7 @@ async function request<T>(
       let errorMsg = response.statusText
       try {
         const errorData = await response.json()
-        errorMsg = errorData.message || errorData.msg || errorMsg
+        errorMsg = translateByCode(errorData) || errorData.msg || errorMsg
       } catch {
         // 无法解析响应体
       }
@@ -115,7 +128,12 @@ async function request<T>(
       throw new ApiError(errorMsg, response.status, `HTTP_${response.status}`)
     }
 
-    return response.json()
+    const body = await response.json()
+    // 成功响应里的 message 也按码翻译，页面直接用 res.message 就是当前语言
+    if (body && typeof body === 'object' && body.messageCode) {
+      body.message = translateByCode(body) ?? body.message
+    }
+    return body
   } catch (error: any) {
     clearTimeout(timeoutId)
 

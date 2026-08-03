@@ -46,6 +46,7 @@ import openApiAdminRoutes from './modules/open-api/admin-routes.js'
 // 中间件
 import { errorHandler } from './middleware/errorHandler.js'
 import { requestLogger, securityHeaders, rateLimiter } from './middleware/security.js'
+import { attachMessageCode } from './middleware/messageCode.js'
 
 // 定时任务（自动启动）
 import './utils/cron-jobs.js'
@@ -94,6 +95,8 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+// 响应里 additive 地补 messageCode，供前端按码翻译（P9）。必须在路由之前挂
+app.use(attachMessageCode)
 app.use('/api/v1/auth/login', rateLimiter(10, 60000))
 
 // 静态文件
