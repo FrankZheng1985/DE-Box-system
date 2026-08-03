@@ -429,6 +429,11 @@
     "TOKEN_EXPIRED": "Your session has expired, please sign in again",
     "INVALID_TOKEN": "Invalid authentication token",
     "RATE_LIMITED": "Too many requests, please try again shortly",
-    "ACCESS_DENIED": "Access denied"
+    "ACCESS_DENIED": "Access denied",
+    "COMPANY_NOT_LINKED": "This account is not linked to a company",
+    "COMPANY_RECORD_MISSING": "The linked company record no longer exists — please contact an administrator",
+    "COMPANY_PROFILE_SAVED": "Company details saved",
+    "COMPANY_PROFILE_LOAD_FAILED": "Could not load the company details",
+    "COMPANY_PROFILE_SAVE_FAILED": "Could not save the company details"
   }
 }

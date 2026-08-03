@@ -290,6 +290,13 @@ export const MESSAGE_CODES = {
   '该合作方还没有配置 Webhook 接收地址': 'WEBHOOK_URL_NOT_SET',
   '这是一条来自 EU-TMS 的联调测试事件，收到即说明接收端与验签配置正确': 'WEBHOOK_TEST_EVENT',
 
+  // ── 门户「公司设置」页 ────────────────────────────────────────────────
+  '当前账号未关联公司': 'COMPANY_NOT_LINKED',
+  '关联的公司记录不存在，请联系管理员': 'COMPANY_RECORD_MISSING',
+  '公司资料已保存': 'COMPANY_PROFILE_SAVED',
+  '获取公司资料失败': 'COMPANY_PROFILE_LOAD_FAILED',
+  '保存公司资料失败': 'COMPANY_PROFILE_SAVE_FAILED',
+
   // ── 仪表板 / 统计 ─────────────────────────────────────────────────────
   '获取仪表板数据失败': 'DASHBOARD_LOAD_FAILED',
   '获取统计失败': 'STATS_LOAD_FAILED',

@@ -638,6 +638,11 @@
     "TOKEN_EXPIRED": "Ihre Sitzung ist abgelaufen, bitte erneut anmelden",
     "INVALID_TOKEN": "Ungültiges Authentifizierungstoken",
     "RATE_LIMITED": "Zu viele Anfragen, bitte kurz warten",
-    "ACCESS_DENIED": "Zugriff verweigert"
+    "ACCESS_DENIED": "Zugriff verweigert",
+    "COMPANY_NOT_LINKED": "Dieses Konto ist keiner Firma zugeordnet",
+    "COMPANY_RECORD_MISSING": "Der zugeordnete Firmendatensatz existiert nicht mehr – bitte an einen Administrator wenden",
+    "COMPANY_PROFILE_SAVED": "Firmendaten gespeichert",
+    "COMPANY_PROFILE_LOAD_FAILED": "Firmendaten konnten nicht geladen werden",
+    "COMPANY_PROFILE_SAVE_FAILED": "Firmendaten konnten nicht gespeichert werden"
   }
 }

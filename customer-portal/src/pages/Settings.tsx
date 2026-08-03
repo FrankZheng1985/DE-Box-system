@@ -36,16 +36,22 @@ export default function Settings() {
 
   const loadAccount = async () => {
     try {
-      const res = await api.get<ApiResponse<any>>('/system/settings/account')
-      if (res.code === 200 && res.data) {
+      // 个人账号信息和公司资料分别来自两个接口：
+      // /settings/account 管本人的 email/phone/显示名，
+      // /settings/company 管本公司的名称/地址/联系人（写 clients 表）
+      const [acc, company] = await Promise.all([
+        api.get<ApiResponse<any>>('/system/settings/account'),
+        api.get<ApiResponse<any>>('/system/settings/company').catch(() => null),
+      ])
+      if (acc.code === 200 && acc.data) {
         setForm({
           // 后端字段叫 display_name，原来读 res.data.name 永远是 undefined
-          name: res.data.display_name || res.data.name || user?.name || '',
-          email: res.data.email || user?.email || '',
-          phone: res.data.phone || '',
-          company: res.data.company || '',
-          address: res.data.address || '',
-          contactPerson: res.data.contactPerson || '',
+          name: acc.data.display_name || acc.data.name || user?.name || '',
+          email: acc.data.email || user?.email || '',
+          phone: acc.data.phone || '',
+          company: company?.data?.companyName || '',
+          address: company?.data?.address || '',
+          contactPerson: company?.data?.contactPerson || '',
         })
       }
     } catch (err) {
@@ -66,14 +72,25 @@ export default function Settings() {
     setMessage({ type: '', text: '' })
 
     try {
-      // 后端只认 email / phone / displayName / language 四个字段，
-      // 原来整个 form 发过去，name 因为键名对不上（后端要 displayName）从来没存进去过。
-      // company / address / contactPerson 后端没有对应字段，发了也会被忽略。
-      const res = await api.put<ApiResponse<any>>('/system/settings/account', {
-        email: form.email,
-        phone: form.phone,
-        displayName: form.name,
-      })
+      // 分两个接口存：个人信息进 users，公司资料进 clients。
+      // 原来公司名/地址/联系人一起发给 /settings/account，那个接口不认这几个
+      // 字段，发了就被丢掉——页面照弹「保存成功」，刷新就没了。
+      const [res, companyRes] = await Promise.all([
+        api.put<ApiResponse<any>>('/system/settings/account', {
+          email: form.email,
+          phone: form.phone,
+          displayName: form.name,
+        }),
+        api.put<ApiResponse<any>>('/system/settings/company', {
+          companyName: form.company,
+          address: form.address,
+          contactPerson: form.contactPerson,
+        }).catch(() => null),
+      ])
+      if (companyRes && companyRes.code !== 200) {
+        setMessage({ type: 'error', text: companyRes.message || t('settings.saveFailed') })
+        return
+      }
       if (res.code === 200) {
         setMessage({ type: 'success', text: t('settings.saveSuccess') })
       } else {

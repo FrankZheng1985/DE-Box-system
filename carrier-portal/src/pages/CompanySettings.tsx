@@ -39,10 +39,10 @@ export default function CompanySettings() {
 
   const fetchSettings = async () => {
     try {
-      const res = await api.get<ApiResponse<Partial<CompanyInfo>>>('/system/settings/account')
+      const res = await api.get<ApiResponse<Partial<CompanyInfo>>>('/system/settings/company')
       if (res.code === 200 && res.data) {
-        // 只挑本表单认识的字段。接口还会返回 language 等字段，
-        // 整个 spread 进来会在保存时把用户刚切的语言按旧值写回去（P9）
+        // 只挑本表单认识的字段（/settings/company 已经只返回这几个，
+        // 这层保留着当护栏，接口以后加字段也不会串进表单）
         const next = { ...emptyInfo }
         for (const key of Object.keys(emptyInfo) as (keyof CompanyInfo)[]) {
           if (res.data[key] !== undefined && res.data[key] !== null) next[key] = String(res.data[key])
@@ -61,7 +61,9 @@ export default function CompanySettings() {
     setSaving(true)
     setMessage(null)
     try {
-      const res = await api.put<ApiResponse>('/system/settings/account', info)
+      // 走 /settings/company（不是 /settings/account）——后者只认
+      // email/phone/displayName/language 四个字段，其余六个会被静默丢掉
+      const res = await api.put<ApiResponse>('/system/settings/company', info)
       if (res.code === 200) {
         setMessage({ text: t('companySettings.success'), ok: true })
       }

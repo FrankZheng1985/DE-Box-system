@@ -78,6 +78,112 @@ router.put('/settings/account', async (req, res) => {
   } catch (error) { res.status(500).json({ code: 500, message: error.message, data: null }) }
 })
 
+/**
+ * 本公司资料（客户 / 承运商门户的「公司设置」页用）
+ *
+ * 背景：这两个门户的公司设置页原来 PUT 的是 /settings/account，
+ *      而那个接口只认 email / phone / displayName / language 四个字段，
+ *      公司名、税号、地址、银行账户这些**发过去直接被忽略**，
+ *      页面还照弹「保存成功」，用户填完刷新就没了。
+ *
+ * ⚠️ 租户隔离：改的是哪家公司，**只认 JWT 里的 linkedEntityId**，
+ *    不接受前端传公司 id（踩坑 016 / 023）。运营账号没有 linkedEntityId，
+ *    直接拒绝——运营改客户/承运商资料走各自的管理页，不走这里。
+ */
+
+/** 门户用户类型 → 表名和可写字段 */
+const COMPANY_PROFILE = {
+  CLIENT: {
+    table: 'clients',
+    // 客户是我们开票收钱的对象，不需要存他们的收款账户
+    fields: {
+      companyName: 'company_name',
+      taxNumber: 'vat_number',
+      contactPerson: 'contact_name',
+      email: 'contact_email',
+      phone: 'contact_phone',
+      address: 'address',
+      city: 'city',
+    },
+  },
+  CARRIER: {
+    table: 'carriers',
+    // 银行字段是迁移 119 加的：我们付钱给承运商，收款账户该记在档案里
+    fields: {
+      companyName: 'company_name',
+      taxNumber: 'vat_number',
+      contactPerson: 'contact_name',
+      email: 'contact_email',
+      phone: 'contact_phone',
+      address: 'address',
+      bankName: 'bank_name',
+      bankAccount: 'bank_account',
+    },
+  },
+}
+
+function resolveCompanyScope(req) {
+  const userType = req.user.userType || req.user.roleCode
+  const cfg = COMPANY_PROFILE[userType]
+  if (!cfg) return null
+  if (!req.user.linkedEntityId) return null
+  return { ...cfg, id: req.user.linkedEntityId }
+}
+
+router.get('/settings/company', async (req, res) => {
+  try {
+    const scope = resolveCompanyScope(req)
+    if (!scope) {
+      return res.status(403).json({ code: 403, message: '当前账号未关联公司', data: null })
+    }
+    const cols = Object.entries(scope.fields).map(([k, col]) => `${col} AS "${k}"`).join(', ')
+    const result = await query(`SELECT ${cols} FROM ${scope.table} WHERE id = $1`, [scope.id])
+    if (result.rows.length === 0) {
+      // 绑定指向一条已被删除的公司记录（踩坑 035），明确报错别静默返回空
+      return res.status(404).json({ code: 404, message: '关联的公司记录不存在，请联系管理员', data: null })
+    }
+    res.json({ code: 200, message: 'success', data: result.rows[0] })
+  } catch (error) {
+    console.error('[公司资料] 读取失败:', error)
+    res.status(500).json({ code: 500, message: '获取公司资料失败', data: null })
+  }
+})
+
+router.put('/settings/company', async (req, res) => {
+  try {
+    const scope = resolveCompanyScope(req)
+    if (!scope) {
+      return res.status(403).json({ code: 403, message: '当前账号未关联公司', data: null })
+    }
+
+    // 只挑白名单里的字段，前端多传的一律丢掉
+    const sets = []
+    const params = []
+    let idx = 0
+    for (const [key, col] of Object.entries(scope.fields)) {
+      if (req.body[key] === undefined) continue
+      params.push(req.body[key] === '' ? null : req.body[key])
+      sets.push(`${col} = $${++idx}`)
+    }
+    if (sets.length === 0) {
+      return res.status(400).json({ code: 400, message: '没有可更新的字段', data: null })
+    }
+
+    params.push(scope.id)
+    const result = await query(
+      `UPDATE ${scope.table} SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${++idx}`,
+      params
+    )
+    if (result.rowCount === 0) {
+      return res.status(404).json({ code: 404, message: '关联的公司记录不存在，请联系管理员', data: null })
+    }
+    res.json({ code: 200, message: '公司资料已保存', data: null })
+  } catch (error) {
+    console.error('[公司资料] 保存失败:', error)
+    res.status(500).json({ code: 500, message: '保存公司资料失败', data: null })
+  }
+})
+
 // ==================== 角色列表 ====================
 
 // 角色权限页和用户管理页都要用这个列表，放行两者中任一权限即可
