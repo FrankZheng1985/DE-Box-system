@@ -20,8 +20,6 @@ import {
   Ship,
   Box,
   ClipboardList,
-  User,
-  Phone,
   AlertCircle,
   CheckCircle,
 } from 'lucide-react'
@@ -270,13 +268,6 @@ function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; child
 export default function OrderCreate() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-
-  // 基础数据选项（从数据库加载）
-  const { options: countryOptions } = useMasterDataOptions('countries')
-  const { options: shippingLineOptions } = useMasterDataOptions('shipping-lines')
-  const { options: containerTypeOptions } = useMasterDataOptions('container-types')
-  const { options: specialReqOptions } = useMasterDataOptions('special-requirements')
-  const { options: currencyOptions } = useMasterDataOptions('currencies')
 
   // 业务类型
   const [businessType, setBusinessType] = useState<BusinessType>(BUSINESS_TYPES.TRUCK_LTL)

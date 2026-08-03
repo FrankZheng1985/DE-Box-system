@@ -37,7 +37,7 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
 import OrderFilesSection from '../components/OrderFilesSection'
-import { formatDate, formatDateTime, formatMoney, formatNumber } from '../utils/format'
+import { formatDate, formatDateTime, formatMoney } from '../utils/format'
 import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================

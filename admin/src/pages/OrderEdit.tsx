@@ -15,10 +15,7 @@ import {
   MapPin,
   Package,
   FileText,
-  Euro,
   Ship,
-  User,
-  Phone,
   AlertCircle,
   Lock,
 } from 'lucide-react'

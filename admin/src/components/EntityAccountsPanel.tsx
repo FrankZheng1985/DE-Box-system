@@ -16,7 +16,6 @@ import { useTranslation } from 'react-i18next'
 import { UserPlus, KeyRound, UserX, UserCheck, Loader2, X } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
-import { formatDate } from '../utils/format'
 
 /** 与 GET /users 返回一致（snake_case，踩坑 003） */
 interface AccountRow {

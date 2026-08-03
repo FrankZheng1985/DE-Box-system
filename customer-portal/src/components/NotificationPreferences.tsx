@@ -51,7 +51,7 @@ export default function NotificationPreferences() {
 
   // 事件清单只用拉一次
   useEffect(() => {
-    ;(async () => {
+    (async () => {
       try {
         const res = await api.get<ApiResponse<EventType[]>>('/notifications/event-types')
         if (res.code === 200) setEvents(res.data || [])

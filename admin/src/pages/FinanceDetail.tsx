@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileText, DollarSign, Calendar, User, Package, CheckCircle } from 'lucide-react'
+import { ArrowLeft, FileText, DollarSign, Calendar, CheckCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
@@ -57,7 +57,6 @@ export default function FinanceDetail() {
   }
 
   const isAR = record.type === 'RECEIVABLE'
-  const profit = isAR ? null : null
   const outstanding = (parseFloat(record.amount) || 0) - (parseFloat(record.paid_amount) || 0)
 
   return (

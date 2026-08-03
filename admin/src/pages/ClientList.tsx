@@ -28,11 +28,6 @@ interface Client {
   void_reason?: string
 }
 
-interface ClientListResponse {
-  items: Client[]
-  pagination: { total: number; page: number; pageSize: number }
-}
-
 interface ClientForm {
   companyName: string
   vatNumber: string

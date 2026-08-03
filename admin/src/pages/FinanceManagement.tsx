@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wallet, DollarSign, CreditCard, TrendingUp, Percent, Eye, ChevronLeft, ChevronRight,
-  Plus, CheckCircle, AlertCircle, Ban, Banknote, BarChart3, Download, FileText, Calendar,
+  Plus, CheckCircle, AlertCircle, Ban, Banknote, BarChart3, Download, Calendar,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'

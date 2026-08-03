@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
   Bell,
-  CheckCircle,
   AlertTriangle,
   Package,
   FileText,

@@ -226,7 +226,7 @@ export default function InquiryEdit() {
 
   // 客户下拉
   useEffect(() => {
-    ;(async () => {
+    (async () => {
       try {
         const res = await api.get<ApiResponse<ClientOption[]>>('/clients?pageSize=500')
         if (res.code === 200) setClients(res.data || [])
@@ -551,7 +551,7 @@ export default function InquiryEdit() {
             </thead>
             <tbody>
               {items.map((it) => {
-                const { unitVolume, autoLdm, effectiveLdm } = derive(it)
+                const { unitVolume, autoLdm } = derive(it)
                 return (
                   <tr key={it.key} className="border-b border-slate-50">
                     <td className="px-2 py-2">

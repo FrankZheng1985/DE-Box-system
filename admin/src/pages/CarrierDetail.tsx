@@ -11,7 +11,6 @@ import {
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import api, { type ApiResponse } from '../utils/api'
-import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 
 // 承运商分类 / 类型展示映射（P7，值域见迁移 111）

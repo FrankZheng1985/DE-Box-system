@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Edit, Building2, Mail, Phone, Globe, MapPin,
   Calendar, CreditCard, FileText, DollarSign, ShieldCheck,
-  Package, TrendingUp, Clock, AlertTriangle, Star
+  TrendingUp, Clock, AlertTriangle, Star
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'

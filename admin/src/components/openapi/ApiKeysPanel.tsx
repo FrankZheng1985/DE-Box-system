@@ -6,7 +6,7 @@
  */
 import { useState, useEffect } from 'react'
 import {
-  Plus, Pencil, Power, RefreshCcw, Copy, CheckCircle, AlertTriangle,
+  Pencil, Power, RefreshCcw, Copy, CheckCircle, AlertTriangle,
   Send, XCircle, Loader2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'

@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:check": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

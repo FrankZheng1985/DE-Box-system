@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Ship, Search, Eye, Edit, ChevronLeft, ChevronRight,
+  Ship, Search, Eye, ChevronLeft, ChevronRight,
   CheckCircle, Mail, Send, Clock, Ban, RefreshCw,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
