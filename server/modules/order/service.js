@@ -46,6 +46,9 @@ async function notifyCreditAlert(clientId, creditResult) {
       title: isBlocked
         ? `信用超额拦截：${companyName}`
         : `信用预警：${companyName}`,
+      titleKey: isBlocked ? 'notify.creditBlockedTitle' : 'notify.creditWarningTitle',
+      messageKey: 'notify.creditMessage',
+      payload: { client: companyName, detail: creditResult.message },
       message: `${creditResult.message}\n\n处理入口：客户管理 → ${companyName} → 信用风控`,
       channel: 'AUTO'
     })
@@ -278,6 +281,9 @@ export const orderService = {
           type: NOTIFICATION_TYPES.STATUS_UPDATE,
           title: `新订单 ${doc.docNumber}`,
           message: `新订单 ${doc.docNumber} 已创建，请及时审核`,
+          titleKey: 'notify.newOrderTitle',
+          messageKey: 'notify.newOrderMessage',
+          payload: { orderNo: doc.docNumber },
           relatedOrderId: order.id
         })
       }
@@ -340,6 +346,9 @@ export const orderService = {
             type: NOTIFICATION_TYPES.ORDER_CONFIRMED,
             title: `订单 ${order.order_number} 已确认`,
             message: `您的订单 ${order.order_number} 已通过审核`,
+            titleKey: 'notify.orderConfirmedTitle',
+            messageKey: 'notify.orderConfirmedMessage',
+            payload: { orderNo: order.order_number },
             relatedOrderId: orderId
           })
         }
@@ -355,6 +364,9 @@ export const orderService = {
             type: NOTIFICATION_TYPES.CARRIER_ACCEPTED,
             title: `订单 ${order.order_number} 已发运`,
             message: `您的订单 ${order.order_number} 承运商已接单，正在运输中`,
+            titleKey: 'notify.orderShippedTitle',
+            messageKey: 'notify.orderShippedMessage',
+            payload: { orderNo: order.order_number },
             relatedOrderId: orderId
           })
         }
@@ -370,6 +382,9 @@ export const orderService = {
             type: NOTIFICATION_TYPES.DELIVERED,
             title: `订单 ${order.order_number} 已送达`,
             message: `您的订单 ${order.order_number} 已成功送达目的地`,
+            titleKey: 'notify.orderDeliveredTitle',
+            messageKey: 'notify.orderDeliveredMessage',
+            payload: { orderNo: order.order_number },
             relatedOrderId: orderId
           })
         }
@@ -396,6 +411,13 @@ export const orderService = {
             type: NOTIFICATION_TYPES.EXCEPTION,
             title: `订单 ${order.order_number} 出现异常`,
             message: `订单 ${order.order_number} 出现异常：${remarks || '请及时处理'}`,
+            titleKey: 'notify.orderExceptionTitle',
+            // remarks 是运营填的原文，不翻译；没填时换成另一条不带变量的文案，
+            // 这样渲染端不用为「变量是空」特判
+            messageKey: remarks
+              ? 'notify.orderExceptionMessage'
+              : 'notify.orderExceptionMessageNoDetail',
+            payload: { orderNo: order.order_number, detail: remarks || '' },
             relatedOrderId: orderId
           })
         }
@@ -598,6 +620,9 @@ export const orderService = {
           type: NOTIFICATION_TYPES.STATUS_UPDATE,
           title: `新派单：订单 ${order.order_number}`,
           message: `您有新的运输任务，订单号 ${order.order_number}，请及时确认`,
+          titleKey: 'notify.newAssignmentTitle',
+          messageKey: 'notify.newAssignmentMessage',
+          payload: { orderNo: order.order_number },
           relatedOrderId: orderId
         })
       }

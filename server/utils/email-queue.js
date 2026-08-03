@@ -11,7 +11,7 @@
  */
 
 import { query } from '../core/db.js'
-import { normalizeLang } from './i18n.js'
+import { normalizeLang, renderNotification } from './i18n.js'
 import {
   sendEmail, isConfigured,
   notificationEmail, quotationEmail, paymentReminderEmail,
@@ -107,7 +107,7 @@ export async function processPendingEmails() {
        FOR UPDATE SKIP LOCKED
      )
      RETURNING id, type, title, message, email_to, email_attempts,
-               email_template, email_payload`,
+               email_template, email_payload, title_key, message_key, payload`,
     [BATCH_SIZE]
   )
 
@@ -120,7 +120,9 @@ export async function processPendingEmails() {
 
     try {
       const lang = await langForRecipient(row.email_to)
-      const { subject, html } = renderEmail(row, lang)
+      // 通用模板用的 title/message 先按收件人语言重渲染（迁移 118）
+      const localized = renderNotification(row, lang)
+      const { subject, html } = renderEmail({ ...row, ...localized }, lang)
       const result = await sendEmail({ to: row.email_to, subject, html })
 
       if (result.skipped) {

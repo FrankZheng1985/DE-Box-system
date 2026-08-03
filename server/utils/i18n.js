@@ -104,4 +104,24 @@ export function t(lang, key, vars) {
   return text
 }
 
-export default { normalizeLang, resolveLang, pickName, t }
+/**
+ * 渲染一条通知的标题/正文（P9，迁移 118）
+ *
+ * 有 title_key / message_key 的按语言渲染；没有的（老数据，或者还没补 key 的
+ * 调用点）原样返回库里那份中文。这样加 key 可以一处一处来，不用一次改完。
+ *
+ * @param {{title?:string, message?:string, title_key?:string, message_key?:string, payload?:object}} row
+ * @param {'zh'|'en'|'de'} lang
+ * @returns {{ title: string, message: string }}
+ */
+export function renderNotification(row, lang) {
+  if (!row) return { title: '', message: '' }
+  // payload 是 JSONB，pg 驱动已经解析成对象；老行可能是 null
+  const vars = row.payload || {}
+  return {
+    title: row.title_key ? t(lang, row.title_key, vars) : (row.title || ''),
+    message: row.message_key ? t(lang, row.message_key, vars) : (row.message || ''),
+  }
+}
+
+export default { normalizeLang, resolveLang, pickName, t, renderNotification }

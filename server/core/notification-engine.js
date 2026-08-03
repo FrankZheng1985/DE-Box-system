@@ -16,16 +16,27 @@ export class NotificationEngine {
    * @param {object} params
    * @param {string|string[]} params.userIds - 目标用户 ID（支持数组批量发送）
    * @param {string} params.type - 通知类型
-   * @param {string} params.title - 通知标题
-   * @param {string} [params.message] - 通知内容
+   * @param {string} params.title - 通知标题（中文成品，老读取方仍然用它）
+   * @param {string} [params.message] - 通知内容（中文成品）
+   * @param {string} [params.titleKey] - 标题的语言包 key（P9，迁移 118）
+   * @param {string} [params.messageKey] - 正文的语言包 key
+   * @param {object} [params.payload] - 渲染 key 用的变量，如 { orderNo: 'ORD1' }
    * @param {string} [params.relatedOrderId] - 关联订单 ID
    * @param {string} [params.channel='AUTO'] - 通知渠道 (SYSTEM/EMAIL/BOTH/AUTO)
+   *
+   * ⚠️ titleKey / messageKey / payload 是 **additive** 的：
+   *    title / message 照旧写中文成品。有 key 的通知，站内信列表和邮件队列
+   *    会按收件人语言重新渲染；没 key 的（老数据、以及还没补 key 的调用点）
+   *    继续显示中文。这样加 key 可以一处一处来，不用一次改完。
    */
   async notify(client, {
     userIds,
     type,
     title,
     message,
+    titleKey = null,
+    messageKey = null,
+    payload = null,
     relatedOrderId,
     channel = 'AUTO'
   }) {
@@ -55,12 +66,14 @@ export class NotificationEngine {
       // email_status = PENDING 的行由 utils/email-queue.js 轮询发送
       await client.query(
         `INSERT INTO notifications
-           (user_id, type, title, message, related_order_id, channel, email_to, email_status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+           (user_id, type, title, message, related_order_id, channel, email_to, email_status,
+            title_key, message_key, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           userId, type, title, message, relatedOrderId, actualChannel,
           emailTo,
-          emailTo ? 'PENDING' : null
+          emailTo ? 'PENDING' : null,
+          titleKey, messageKey, payload ? JSON.stringify(payload) : null
         ]
       )
     }

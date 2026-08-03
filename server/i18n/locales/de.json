@@ -105,5 +105,31 @@
     "payActionOverdue": "Bitte veranlassen Sie die Zahlung baldmöglichst.",
     "payActionDue": "Bitte begleichen Sie die Rechnung bis zum Fälligkeitsdatum.",
     "payIgnoreHint": "Sollten Sie bereits bezahlt haben, betrachten Sie diese E-Mail als gegenstandslos oder wenden Sie sich zur Abstimmung an unsere Buchhaltung."
+  },
+  "notify": {
+    "creditBlockedTitle": "Kreditlimit überschritten – gesperrt: {{client}}",
+    "creditWarningTitle": "Kreditwarnung: {{client}}",
+    "creditMessage": "{{detail}}\n\nBearbeitung unter: Kunden → {{client}} → Kredit & Risiko",
+    "newOrderTitle": "Neuer Auftrag {{orderNo}}",
+    "newOrderMessage": "Neuer Auftrag {{orderNo}} wurde angelegt und muss geprüft werden",
+    "orderConfirmedTitle": "Auftrag {{orderNo}} bestätigt",
+    "orderConfirmedMessage": "Ihr Auftrag {{orderNo}} wurde freigegeben",
+    "orderShippedTitle": "Auftrag {{orderNo}} versandt",
+    "orderShippedMessage": "Der Frachtführer hat Ihren Auftrag {{orderNo}} angenommen, die Ware ist unterwegs",
+    "orderDeliveredTitle": "Auftrag {{orderNo}} zugestellt",
+    "orderDeliveredMessage": "Ihr Auftrag {{orderNo}} wurde am Ziel zugestellt",
+    "orderExceptionTitle": "Störung bei Auftrag {{orderNo}}",
+    "orderExceptionMessage": "Störung bei Auftrag {{orderNo}}: {{detail}}",
+    "newAssignmentTitle": "Neue Disposition: Auftrag {{orderNo}}",
+    "newAssignmentMessage": "Sie haben einen neuen Transportauftrag, Auftragsnr. {{orderNo}} – bitte bestätigen",
+    "cmrUploadedTitle": "CMR zu Auftrag {{orderNo}} hochgeladen",
+    "cmrUploadedMessage": "CMR {{cmrNo}} wurde hochgeladen – bitte den Unterschriftsstatus prüfen",
+    "qualificationExpiringTitle": "Frachtführer-Nachweise laufen aus: {{carrier}}",
+    "qualificationExpiringMessage": "Betroffen: {{items}}",
+    "invoiceOverdueTitle": "Rechnung überfällig: {{recordNo}}",
+    "invoiceDueTitle": "Rechnung wird fällig: {{recordNo}}",
+    "invoiceDueMessage": "Kunde {{client}}, Betrag {{currency}} {{amount}}, fällig am {{dueDate}}",
+    "unknownClient": "Unbekannt",
+    "orderExceptionMessageNoDetail": "Störung bei Auftrag {{orderNo}} – bitte prüfen"
   }
 }

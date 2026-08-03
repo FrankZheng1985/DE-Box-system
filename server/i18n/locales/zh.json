@@ -105,5 +105,31 @@
     "payActionOverdue": "请尽快安排付款。",
     "payActionDue": "请在到期日前完成付款。",
     "payIgnoreHint": "如已付款请忽略本邮件，或联系财务部门核对。"
+  },
+  "notify": {
+    "creditBlockedTitle": "信用超额拦截：{{client}}",
+    "creditWarningTitle": "信用预警：{{client}}",
+    "creditMessage": "{{detail}}\n\n处理入口：客户管理 → {{client}} → 信用风控",
+    "newOrderTitle": "新订单 {{orderNo}}",
+    "newOrderMessage": "新订单 {{orderNo}} 已创建，请及时审核",
+    "orderConfirmedTitle": "订单 {{orderNo}} 已确认",
+    "orderConfirmedMessage": "您的订单 {{orderNo}} 已通过审核",
+    "orderShippedTitle": "订单 {{orderNo}} 已发运",
+    "orderShippedMessage": "您的订单 {{orderNo}} 承运商已接单，正在运输中",
+    "orderDeliveredTitle": "订单 {{orderNo}} 已送达",
+    "orderDeliveredMessage": "您的订单 {{orderNo}} 已成功送达目的地",
+    "orderExceptionTitle": "订单 {{orderNo}} 出现异常",
+    "orderExceptionMessage": "订单 {{orderNo}} 出现异常：{{detail}}",
+    "newAssignmentTitle": "新派单：订单 {{orderNo}}",
+    "newAssignmentMessage": "您有新的运输任务，订单号 {{orderNo}}，请及时确认",
+    "cmrUploadedTitle": "订单 {{orderNo}} 的 CMR 已上传",
+    "cmrUploadedMessage": "CMR {{cmrNo}} 已上传，请及时核对签署状态",
+    "qualificationExpiringTitle": "承运商资质即将到期：{{carrier}}",
+    "qualificationExpiringMessage": "到期项：{{items}}",
+    "invoiceOverdueTitle": "账单逾期：{{recordNo}}",
+    "invoiceDueTitle": "账单即将到期：{{recordNo}}",
+    "invoiceDueMessage": "客户 {{client}}，金额 {{currency}} {{amount}}，到期日 {{dueDate}}",
+    "unknownClient": "未知",
+    "orderExceptionMessageNoDetail": "订单 {{orderNo}} 出现异常，请及时处理"
   }
 }

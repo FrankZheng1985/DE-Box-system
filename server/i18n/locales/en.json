@@ -105,5 +105,31 @@
     "payActionOverdue": "Please arrange payment as soon as possible.",
     "payActionDue": "Please pay before the due date.",
     "payIgnoreHint": "If you have already paid, please ignore this email or contact our finance team to reconcile."
+  },
+  "notify": {
+    "creditBlockedTitle": "Credit limit exceeded — blocked: {{client}}",
+    "creditWarningTitle": "Credit warning: {{client}}",
+    "creditMessage": "{{detail}}\n\nWhere to act: Clients → {{client}} → Credit & risk",
+    "newOrderTitle": "New order {{orderNo}}",
+    "newOrderMessage": "New order {{orderNo}} has been created and needs review",
+    "orderConfirmedTitle": "Order {{orderNo}} confirmed",
+    "orderConfirmedMessage": "Your order {{orderNo}} has passed review",
+    "orderShippedTitle": "Order {{orderNo}} dispatched",
+    "orderShippedMessage": "The carrier has accepted your order {{orderNo}} and it is now in transit",
+    "orderDeliveredTitle": "Order {{orderNo}} delivered",
+    "orderDeliveredMessage": "Your order {{orderNo}} has been delivered to its destination",
+    "orderExceptionTitle": "Exception on order {{orderNo}}",
+    "orderExceptionMessage": "Exception on order {{orderNo}}: {{detail}}",
+    "newAssignmentTitle": "New assignment: order {{orderNo}}",
+    "newAssignmentMessage": "You have a new transport job, order {{orderNo}} — please confirm",
+    "cmrUploadedTitle": "CMR uploaded for order {{orderNo}}",
+    "cmrUploadedMessage": "CMR {{cmrNo}} has been uploaded — please check the signature status",
+    "qualificationExpiringTitle": "Carrier credentials expiring: {{carrier}}",
+    "qualificationExpiringMessage": "Expiring: {{items}}",
+    "invoiceOverdueTitle": "Invoice overdue: {{recordNo}}",
+    "invoiceDueTitle": "Invoice due soon: {{recordNo}}",
+    "invoiceDueMessage": "Client {{client}}, amount {{currency}} {{amount}}, due {{dueDate}}",
+    "unknownClient": "Unknown",
+    "orderExceptionMessageNoDetail": "Exception on order {{orderNo}} — please look into it"
   }
 }

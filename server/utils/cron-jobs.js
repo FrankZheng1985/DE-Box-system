@@ -35,7 +35,10 @@ cron.schedule('0 8 * * *', async () => {
             userIds,
             type: NOTIFICATION_TYPES.QUALIFICATION_EXPIRING,
             title: `承运商资质即将到期: ${carrier.company_name}`,
-            message: `到期项: ${parts.join(', ')}`
+            message: `到期项: ${parts.join(', ')}`,
+            titleKey: 'notify.qualificationExpiringTitle',
+            messageKey: 'notify.qualificationExpiringMessage',
+            payload: { carrier: carrier.company_name, items: parts.join(', ') }
           })
         }
       })
@@ -113,6 +116,15 @@ cron.schedule('0 9 * * *', async () => {
             type: NOTIFICATION_TYPES.INVOICE_DUE,
             title,
             message,
+            titleKey: overdue ? 'notify.invoiceOverdueTitle' : 'notify.invoiceDueTitle',
+            messageKey: 'notify.invoiceDueMessage',
+            payload: {
+              recordNo: record.record_number,
+              client: record.client_name || null,
+              currency: record.currency,
+              amount: record.amount,
+              dueDate: record.due_date,
+            },
           })
         }
 

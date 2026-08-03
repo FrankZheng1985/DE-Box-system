@@ -5,6 +5,7 @@
 import { Router } from 'express'
 import { authenticateToken } from '../../middleware/auth.js'
 import { query, withTransaction } from '../../core/db.js'
+import { resolveLang, renderNotification } from '../../utils/i18n.js'
 import { NOTIFICATION_TYPES, NOTIFICATION_TYPE_LABELS } from '../../core/index.js'
 
 const router = Router()
@@ -17,7 +18,10 @@ router.get('/', async (req, res) => {
     const result = await query(
       `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
       [req.user.id, parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize)])
-    res.json({ code: 200, message: 'success', data: result.rows,
+    // 有 title_key 的按当前语言重渲染；老通知没有 key，原样返回库里的中文
+    const lang = resolveLang(req)
+    const rows = result.rows.map((row) => ({ ...row, ...renderNotification(row, lang) }))
+    res.json({ code: 200, message: 'success', data: rows,
       pagination: { total: parseInt(countResult.rows[0].total), page: parseInt(page), pageSize: parseInt(pageSize) } })
   } catch (error) { res.status(500).json({ code: 500, message: '获取通知失败', data: null }) }
 })

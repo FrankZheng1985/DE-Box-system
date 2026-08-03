@@ -198,6 +198,9 @@ router.post('/upload', requirePermission('cmr:upload', 'carrier_portal:cmr_uploa
             type: NOTIFICATION_TYPES.CMR_UPLOADED,
             title: `订单 ${orderNumber} 的 CMR 已上传`,
             message: `CMR ${result.rows[0].cmr_number} 已上传，请及时核对签署状态`,
+            titleKey: 'notify.cmrUploadedTitle',
+            messageKey: 'notify.cmrUploadedMessage',
+            payload: { orderNo: orderNumber, cmrNo: result.rows[0].cmr_number },
             relatedOrderId: req.body.orderId
           })
         }
