@@ -130,7 +130,8 @@ const initialTruckForm: TruckForm = {
   deliveryDate: '',
   deliveryContact: '',
   deliveryPhone: '',
-  specialRequirements: '无',
+  // 迁移 120 起存的是 code，不再是中文名
+  specialRequirements: 'NONE',
   remarks: '',
   clientPrice: '',
   currency: 'EUR',

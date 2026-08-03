@@ -425,13 +425,16 @@
     "ORIGINAL": "Original-Konnossement"
   },
   "specialRequirement": {
-    "无": "Keine",
-    "温控运输": "Temperaturgeführt",
-    "危险品 ADR": "Gefahrgut ADR",
-    "超宽超重": "Übermaß / Übergewicht",
-    "需要尾板": "Ladebordwand erforderlich",
-    "需要顶部装卸": "Dachbeladung erforderlich",
-    "需要熏蒸": "Begasung erforderlich"
+    "NONE": "Keine",
+    "TEMP_CONTROL": "Temperaturgeführt",
+    "ADR": "Gefahrgut ADR",
+    "DG": "Gefahrgut",
+    "OVERSIZE": "Übermaß / Übergewicht",
+    "TAIL_LIFT": "Ladebordwand erforderlich",
+    "TOP_LOADING": "Dachbeladung erforderlich",
+    "FUMIGATION": "Begasung erforderlich",
+    "UN3480": "UN3480-Batterien",
+    "UN3481": "UN3481-Batterien"
   },
   "docType": {
     "quotation": "Angebot",
@@ -1336,11 +1339,11 @@
     "CLEARED": "Verzollt"
   },
   "customsDocType": {
-    "报关单": "Zollanmeldung",
-    "商业发票": "Handelsrechnung",
-    "装箱单": "Packliste",
-    "原产地证": "Ursprungszeugnis",
-    "其他": "Sonstiges"
+    "CUSTOMS_DECLARATION": "Zollanmeldung",
+    "COMMERCIAL_INVOICE": "Handelsrechnung",
+    "PACKING_LIST": "Packliste",
+    "CERTIFICATE_OF_ORIGIN": "Ursprungszeugnis",
+    "OTHER": "Sonstiges"
   },
   "cmr": {
     "pageTitle": "CMR-Frachtbriefe",

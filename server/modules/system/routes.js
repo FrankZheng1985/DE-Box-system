@@ -486,8 +486,9 @@ router.get('/master-data/:type/options', requireUserType('OPERATOR'), async (req
         value = row.name_en
         label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else if (type === 'special-requirements') {
-        // 特殊要求：value = name_zh（与 orders 表中已存值一致，不能跟着语言变）
-        value = row.name_zh
+        // 特殊要求：value = code（迁移 120 起。以前存的是 name_zh，
+        // 运营改一次中文名历史订单就成孤儿，而且开放 API 得让合作方推中文）
+        value = row.code
         label = name
       } else if (type === 'ports') {
         // 港口：value = name_en

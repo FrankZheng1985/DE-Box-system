@@ -50,11 +50,13 @@ const CLEARANCE_STATUS_OPTIONS = [
 ]
 
 const DOC_TYPE_OPTIONS = [
-  { value: '报关单', labelKey: 'customsDocType.报关单' },
-  { value: '商业发票', labelKey: 'customsDocType.商业发票' },
-  { value: '装箱单', labelKey: 'customsDocType.装箱单' },
-  { value: '原产地证', labelKey: 'customsDocType.原产地证' },
-  { value: '其他', labelKey: 'customsDocType.其他' },
+  // 值用 code 不用中文：customs_documents.file_type 以前存中文，
+  // 一换语言就没法翻、也没法按类型统计。生产这张表当时是空的，直接换掉没有存量成本
+  { value: 'CUSTOMS_DECLARATION', labelKey: 'customsDocType.CUSTOMS_DECLARATION' },
+  { value: 'COMMERCIAL_INVOICE', labelKey: 'customsDocType.COMMERCIAL_INVOICE' },
+  { value: 'PACKING_LIST', labelKey: 'customsDocType.PACKING_LIST' },
+  { value: 'CERTIFICATE_OF_ORIGIN', labelKey: 'customsDocType.CERTIFICATE_OF_ORIGIN' },
+  { value: 'OTHER', labelKey: 'customsDocType.OTHER' },
 ]
 
 // ==================== Toast 组件 ====================
@@ -105,7 +107,7 @@ export default function CustomsManagement() {
   const [docTarget, setDocTarget] = useState<CustomsItem | null>(null)
   const [docForm, setDocForm] = useState({
     fileName: '',
-    fileType: '报关单',
+    fileType: 'CUSTOMS_DECLARATION',
   })
   const [docSubmitting, setDocSubmitting] = useState(false)
 
@@ -208,7 +210,7 @@ export default function CustomsManagement() {
   // ========== 上传文件（元数据） ==========
   const openDocModal = (item: CustomsItem) => {
     setDocTarget(item)
-    setDocForm({ fileName: '', fileType: '报关单' })
+    setDocForm({ fileName: '', fileType: 'CUSTOMS_DECLARATION' })
     setDocModalOpen(true)
   }
 
@@ -225,7 +227,7 @@ export default function CustomsManagement() {
         setToast(t('customs.docSubmitted'))
         setDocModalOpen(false)
         setDocTarget(null)
-        setDocForm({ fileName: '', fileType: '报关单' })
+        setDocForm({ fileName: '', fileType: 'CUSTOMS_DECLARATION' })
         refreshAll()
       }
     } catch (err) {
@@ -463,13 +465,13 @@ export default function CustomsManagement() {
       {/* ==================== 上传文件 Modal ==================== */}
       <Modal
         isOpen={docModalOpen}
-        onClose={() => { setDocModalOpen(false); setDocTarget(null); setDocForm({ fileName: '', fileType: '报关单' }) }}
+        onClose={() => { setDocModalOpen(false); setDocTarget(null); setDocForm({ fileName: '', fileType: 'CUSTOMS_DECLARATION' }) }}
         title={t('customs.uploadDoc')}
         size="md"
         footer={
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => { setDocModalOpen(false); setDocTarget(null); setDocForm({ fileName: '', fileType: '报关单' }) }}
+              onClick={() => { setDocModalOpen(false); setDocTarget(null); setDocForm({ fileName: '', fileType: 'CUSTOMS_DECLARATION' }) }}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
               {t('common.cancel')}

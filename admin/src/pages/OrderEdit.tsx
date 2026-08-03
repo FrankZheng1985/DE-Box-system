@@ -26,15 +26,6 @@ import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constants/businessTypes'
 
-/**
- * 特殊要求的可选值
- *
- * ⚠️ 值必须保持中文：orders.special_requirements 存的就是
- * md_special_requirements.name_zh（见 103_master_data_seed.sql 的注释）。
- * 这里只翻译显示用的 label，值原样提交。
- */
-const SPECIAL_REQUIREMENT_VALUES = ['无', '温控运输', '危险品 ADR', '超宽超重', '需要尾板']
-
 // ==================== 类型定义 ====================
 
 interface Address {
@@ -175,6 +166,9 @@ export default function OrderEdit() {
 
   // 基础数据选项
   const { options: countryOpts } = useMasterDataOptions('countries')
+  // 特殊要求从基础数据接口取，不再在页面里硬编码一份中文值
+  // （迁移 120 起库里存的是 code，硬编码的中文值会存进错的东西）
+  const { options: specialReqOpts } = useMasterDataOptions('special-requirements')
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -663,9 +657,9 @@ export default function OrderEdit() {
               <div>
                 <Label>{t('field.specialRequirements')}</Label>
                 <SelectInput value={specialRequirements} onChange={setSpecialRequirements}
-                  options={SPECIAL_REQUIREMENT_VALUES.map((v) => ({
-                    value: v,
-                    label: t(`specialRequirement.${v}`, { defaultValue: v }),
+                  options={specialReqOpts.map((o) => ({
+                    value: o.value,
+                    label: t(`specialRequirement.${o.value}`, { defaultValue: o.label }),
                   }))} />
               </div>
             )}

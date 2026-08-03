@@ -103,6 +103,29 @@ export function logRequest({ apiKeyId, partnerCode, method, path, externalRef,
  * API 建单以谁的身份过凭证引擎：建钥匙的运营 → 任意在职 sys_admin → 抛错。
  * 不伪造身份、不放开 NOT NULL，和报价确认链接（quotation/service.js）同一套规矩。
  */
+/**
+ * 把「特殊要求」归一成 code（迁移 120 起数据库存的是 code，不再是中文名）
+ *
+ * 合作方推过来的可能是：
+ *   - code（'ADR'）—— 直接用
+ *   - 中文名（'危险品 ADR'）—— 老对接方一直这么传，按 name_zh 查出 code
+ *   - 英文名（'ADR Dangerous Goods'）—— 顺手也认
+ *   - 库里根本没有的自由文本 —— 原样保留，不硬塞也不清空
+ *
+ * 认不出来就原样存，是刻意的：合作方的业务信息不能因为我们的字典没收录就丢掉。
+ */
+async function normalizeSpecialRequirement(client, input) {
+  const raw = typeof input === 'string' ? input.trim() : ''
+  if (!raw) return null
+  const r = await client.query(
+    `SELECT code FROM md_special_requirements
+     WHERE upper(code) = upper($1) OR name_zh = $1 OR name_en = $1
+     LIMIT 1`,
+    [raw]
+  )
+  return r.rows[0]?.code || raw
+}
+
 async function resolveActingUser(client, apiKey) {
   if (apiKey.created_by) {
     const owner = await client.query(
@@ -408,7 +431,8 @@ export async function createInquiryFromApi(apiKey, body) {
          JSON.stringify(body.routeFrom || {}), JSON.stringify(body.routeTo || {}),
          body.cargoDescription || null, toNumber(body.cargoWeightKg),
          toNumber(body.cargoVolumeM3), toNumber(body.cargoQuantity), toNumber(body.ldm),
-         body.specialRequirements || null, body.pod || null, body.containerType || null,
+         await normalizeSpecialRequirement(client, body.specialRequirements),
+         body.pod || null, body.containerType || null,
          body.remarks || null, 'PENDING_QUOTE',
          body.contactName || null, body.contactPhone || null, body.contactEmail || null,
          body.customerRef || null,

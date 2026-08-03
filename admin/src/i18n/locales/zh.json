@@ -425,13 +425,16 @@
     "ORIGINAL": "正本提单 (Original B/L)"
   },
   "specialRequirement": {
-    "无": "无",
-    "温控运输": "温控运输",
-    "危险品 ADR": "危险品 ADR",
-    "超宽超重": "超宽超重",
-    "需要尾板": "需要尾板",
-    "需要顶部装卸": "需要顶部装卸",
-    "需要熏蒸": "需要熏蒸"
+    "NONE": "无",
+    "TEMP_CONTROL": "温控运输",
+    "ADR": "危险品 ADR",
+    "DG": "危险品",
+    "OVERSIZE": "超宽超重",
+    "TAIL_LIFT": "需要尾板",
+    "TOP_LOADING": "需要顶部装卸",
+    "FUMIGATION": "需要熏蒸",
+    "UN3480": "UN3480电池",
+    "UN3481": "UN3481电池"
   },
   "docType": {
     "quotation": "报价单",
@@ -1336,11 +1339,11 @@
     "CLEARED": "已放行"
   },
   "customsDocType": {
-    "报关单": "报关单",
-    "商业发票": "商业发票",
-    "装箱单": "装箱单",
-    "原产地证": "原产地证",
-    "其他": "其他"
+    "CUSTOMS_DECLARATION": "报关单",
+    "COMMERCIAL_INVOICE": "商业发票",
+    "PACKING_LIST": "装箱单",
+    "CERTIFICATE_OF_ORIGIN": "原产地证",
+    "OTHER": "其他"
   },
   "cmr": {
     "pageTitle": "CMR 运单管理",

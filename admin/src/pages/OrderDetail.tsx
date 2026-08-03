@@ -707,7 +707,15 @@ export default function OrderDetail() {
                     : '-'
                 }
               />
-              <InfoItem label={t('field.specialRequirements')} value={order.special_requirements || '-'} fullWidth />
+              <InfoItem label={t('field.specialRequirements')} value={
+                  order.special_requirements
+                    ? t(`specialRequirement.${order.special_requirements}`, {
+                        defaultValue: order.special_requirements,
+                      })
+                    : '-'
+                }
+                fullWidth
+              />
               <InfoItem label={t('common.remark')} value={order.remarks || '-'} fullWidth />
             </div>
           </div>

@@ -425,13 +425,16 @@
     "ORIGINAL": "Original B/L"
   },
   "specialRequirement": {
-    "无": "None",
-    "温控运输": "Temperature controlled",
-    "危险品 ADR": "ADR dangerous goods",
-    "超宽超重": "Oversize / overweight",
-    "需要尾板": "Tail lift required",
-    "需要顶部装卸": "Top loading required",
-    "需要熏蒸": "Fumigation required"
+    "NONE": "None",
+    "TEMP_CONTROL": "Temperature controlled",
+    "ADR": "ADR dangerous goods",
+    "DG": "Dangerous goods",
+    "OVERSIZE": "Oversize / overweight",
+    "TAIL_LIFT": "Tail lift required",
+    "TOP_LOADING": "Top loading required",
+    "FUMIGATION": "Fumigation required",
+    "UN3480": "UN3480 batteries",
+    "UN3481": "UN3481 batteries"
   },
   "docType": {
     "quotation": "Quotation",
@@ -1336,11 +1339,11 @@
     "CLEARED": "Cleared"
   },
   "customsDocType": {
-    "报关单": "Customs declaration",
-    "商业发票": "Commercial invoice",
-    "装箱单": "Packing list",
-    "原产地证": "Certificate of origin",
-    "其他": "Other"
+    "CUSTOMS_DECLARATION": "Customs declaration",
+    "COMMERCIAL_INVOICE": "Commercial invoice",
+    "PACKING_LIST": "Packing list",
+    "CERTIFICATE_OF_ORIGIN": "Certificate of origin",
+    "OTHER": "Other"
   },
   "cmr": {
     "pageTitle": "CMR notes",
