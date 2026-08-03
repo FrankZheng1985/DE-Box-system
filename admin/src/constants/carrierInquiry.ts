@@ -13,12 +13,9 @@ export const CARRIER_INQUIRY_STATUS = {
   CANCELLED: 'CANCELLED',
 } as const
 
-export const CARRIER_INQUIRY_STATUS_LABELS: Record<string, string> = {
-  PENDING: '待回价',
-  QUOTED: '已回价',
-  SELECTED: '已选用',
-  DECLINED: '不报价',
-  CANCELLED: '已取消',
+/** 服务商询价状态文案的语言包 key（文案在 src/i18n/locales/） */
+export function carrierInquiryStatusLabelKey(status: string): string {
+  return `carrierInquiryStatus.${status}`
 }
 
 /** 状态色（全局规范的状态配色表） */

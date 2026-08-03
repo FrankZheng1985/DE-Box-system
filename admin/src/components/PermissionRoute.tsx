@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ShieldAlert } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getRequiredPermissions } from '../constants/permissions'
@@ -23,17 +24,18 @@ export default function PermissionRoute({ children }: { children: React.ReactNod
 }
 
 function NoPermission() {
+  const { t } = useTranslation()
   return (
     <div className="h-full flex items-center justify-center p-4 lg:p-6">
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-8 py-10 max-w-md text-center">
         <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
           <ShieldAlert className="w-7 h-7 text-amber-600" />
         </div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">无权访问</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">{t('noPermission.title')}</h2>
         <p className="text-sm text-slate-500 leading-relaxed">
-          你当前的角色没有查看这个页面的权限。
+          {t('noPermission.line1')}
           <br />
-          如果确实需要，请联系系统管理员在「角色权限」里为你的角色开通。
+          {t('noPermission.line2')}
         </p>
       </div>
     </div>

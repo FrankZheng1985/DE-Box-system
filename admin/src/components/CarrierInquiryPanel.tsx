@@ -14,11 +14,13 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Truck, Plus, Loader2, CheckCircle2, Ban, XCircle, Trash2, Pencil, Search,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from './Modal'
+import { formatDate, formatMoney } from '../utils/format'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  CARRIER_INQUIRY_STATUS, CARRIER_INQUIRY_STATUS_LABELS,
+  CARRIER_INQUIRY_STATUS, carrierInquiryStatusLabelKey,
   CARRIER_INQUIRY_STATUS_STYLES, CARRIER_INQUIRY_PERMISSIONS,
   type CarrierInquiry,
 } from '../constants/carrierInquiry'
@@ -40,7 +42,7 @@ interface CarrierInquiryListResponse extends ApiResponse<CarrierInquiry[]> {
 
 interface Props {
   inquiryId: string
-  /** 服务商成本变化时通知父组件（例如刷新"由此报价"的成本提示） */
+  /** 服务商成本变化时通知父组件（例如刷新报价的成本提示） */
   onChanged?: () => void
   onToast: (message: string, type: 'success' | 'error') => void
 }
@@ -60,21 +62,10 @@ const EMPTY_REPLY: ReplyForm = {
 // ==================== 工具 ====================
 
 /** NUMERIC 回来是字符串，显示前先转数字（踩坑 002） */
-function fmtMoney(value: string | number | null, currency = 'EUR'): string {
-  if (value === null || value === undefined || value === '') return '-'
-  const n = Number(value)
-  if (!Number.isFinite(n)) return '-'
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(n)
-}
-
-function fmtDate(value: string | null): string {
-  if (!value) return '-'
-  return new Date(value).toLocaleDateString('de-DE')
-}
-
 // ==================== 组件 ====================
 
 export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: Props) {
+  const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const canManage = hasPermission(CARRIER_INQUIRY_PERMISSIONS.MANAGE)
 
@@ -109,11 +100,11 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
         setRows(res.data)
         setLowestId(res.summary?.lowest_id ?? null)
       } else {
-        toastRef.current(res.message || '获取服务商询价失败', 'error')
+        toastRef.current(res.message || t('carrierInquiry.loadFailed'), 'error')
       }
     } catch (err) {
       console.error('获取服务商询价失败:', err)
-      toastRef.current('获取服务商询价失败', 'error')
+      toastRef.current(t('carrierInquiry.loadFailed'), 'error')
     } finally {
       setLoading(false)
     }
@@ -135,7 +126,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
       }
     } catch (err) {
       console.error('获取服务商列表失败:', err)
-      onToast('获取服务商列表失败', 'error')
+      onToast(t('carrierInquiry.loadCarriersFailed'), 'error')
     }
   }
 
@@ -145,7 +136,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
 
   const handleSend = async () => {
     if (picked.length === 0) {
-      onToast('请至少选择一家服务商', 'error')
+      onToast(t('carrierInquiry.pickAtLeastOne'), 'error')
       return
     }
     setSending(true)
@@ -156,16 +147,16 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
         requestRemarks: requestRemarks || undefined,
       })
       if (res.code === 200) {
-        onToast(res.message || '已发起服务商询价', 'success')
+        onToast(res.message || t('carrierInquiry.started'), 'success')
         setSendOpen(false)
         await fetchRows()
         onChanged?.()
       } else {
-        onToast(res.message || '发起失败', 'error')
+        onToast(res.message || t('carrierInquiry.startFailed'), 'error')
       }
     } catch (err) {
       console.error('发起服务商询价失败:', err)
-      onToast('发起服务商询价失败', 'error')
+      onToast(t('carrierInquiry.startFailedRetry'), 'error')
     } finally {
       setSending(false)
     }
@@ -187,7 +178,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
   const handleReply = async () => {
     if (!replyTarget) return
     if (replyForm.quotedCost === '') {
-      onToast('请填写服务商报来的成本金额', 'error')
+      onToast(t('carrierInquiry.costRequired'), 'error')
       return
     }
     setReplying(true)
@@ -200,16 +191,16 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
         replyRemarks: replyForm.replyRemarks || null,
       })
       if (res.code === 200) {
-        onToast('服务商报价已记录', 'success')
+        onToast(t('carrierInquiry.replySaved'), 'success')
         setReplyTarget(null)
         await fetchRows()
         onChanged?.()
       } else {
-        onToast(res.message || '回填失败', 'error')
+        onToast(res.message || t('carrierInquiry.replyFailed'), 'error')
       }
     } catch (err) {
       console.error('回填服务商报价失败:', err)
-      onToast('回填服务商报价失败', 'error')
+      onToast(t('carrierInquiry.replyFailedRetry'), 'error')
     } finally {
       setReplying(false)
     }
@@ -220,9 +211,13 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
   const runAction = async (row: CarrierInquiry, action: 'select' | 'decline' | 'cancel' | 'delete') => {
     const confirmText: Record<typeof action, string | null> = {
       select: null,
-      decline: `确定把 ${row.carrier_name || '该服务商'} 标记为不报价吗？`,
-      cancel: `确定取消对 ${row.carrier_name || '该服务商'} 的询价吗？`,
-      delete: `确定删除 ${row.carrier_inquiry_number} 吗？此操作不可撤销。`,
+      decline: t('carrierInquiry.confirmDecline', {
+        carrier: row.carrier_name || t('carrierInquiry.thisCarrier'),
+      }),
+      cancel: t('carrierInquiry.confirmCancel', {
+        carrier: row.carrier_name || t('carrierInquiry.thisCarrier'),
+      }),
+      delete: t('carrierInquiry.confirmDelete', { number: row.carrier_inquiry_number }),
     }
     const text = confirmText[action]
     if (text && !window.confirm(text)) return
@@ -233,15 +228,15 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
         ? await api.delete<ApiResponse<null>>(`/carrier-inquiries/${row.id}`)
         : await api.post<ApiResponse<CarrierInquiry>>(`/carrier-inquiries/${row.id}/${action}`, {})
       if (res.code === 200) {
-        onToast(res.message || '操作成功', 'success')
+        onToast(res.message || t('common.operateSuccess'), 'success')
         await fetchRows()
         onChanged?.()
       } else {
-        onToast(res.message || '操作失败', 'error')
+        onToast(res.message || t('common.operateFailed'), 'error')
       }
     } catch (err) {
       console.error('操作服务商询价失败:', err)
-      onToast('操作失败', 'error')
+      onToast(t('common.operateFailed'), 'error')
     } finally {
       setBusyId(null)
     }
@@ -266,8 +261,8 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
           <Truck className="w-4 h-4 text-slate-400" />
-          服务商询价（{rows.length} 家）
-          <span className="text-xs font-normal text-slate-400">成本信息，仅服务商管理岗可见</span>
+          {t('carrierInquiry.title', { count: rows.length })}
+          <span className="text-xs font-normal text-slate-400">{t('carrierInquiry.costVisibilityHint')}</span>
         </h2>
         {canManage && (
           <button
@@ -275,7 +270,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
             className="h-9 px-4 bg-slate-900 text-white text-sm rounded-xl hover:bg-slate-800 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
           >
             <Plus className="w-4 h-4" />
-            发起服务商询价
+            {t('carrierInquiry.start')}
           </button>
         )}
       </div>
@@ -289,8 +284,8 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
           </div>
         ) : rows.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">
-            还没有对这张询价发起服务商询价。
-            {canManage && '点右上角发起，回价填进来后可以对比选用。'}
+            {t('carrierInquiry.emptyTitle')}
+            {canManage && t('carrierInquiry.emptyHint')}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -306,13 +301,13 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               </colgroup>
               <thead>
                 <tr className="text-xs text-slate-500 border-b border-slate-100">
-                  <th className="text-left px-3 py-2.5 font-medium">服务商</th>
-                  <th className="text-left px-3 py-2.5 font-medium">询价单号</th>
-                  <th className="text-center px-3 py-2.5 font-medium">状态</th>
-                  <th className="text-right px-3 py-2.5 font-medium">成本</th>
-                  <th className="text-right px-3 py-2.5 font-medium">时效(天)</th>
-                  <th className="text-center px-3 py-2.5 font-medium">报价有效期</th>
-                  <th className="text-center px-3 py-2.5 font-medium">操作</th>
+                  <th className="text-left px-3 py-2.5 font-medium">{t('carrierInquiry.colCarrier')}</th>
+                  <th className="text-left px-3 py-2.5 font-medium">{t('carrierInquiry.colNumber')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('carrierInquiry.colCost')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('carrierInquiry.colTransitDays')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('carrierInquiry.colValidUntil')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -327,17 +322,17 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                       <span className={`inline-block px-2 py-0.5 text-[11px] rounded-full ${
                         CARRIER_INQUIRY_STATUS_STYLES[row.status] || 'bg-gray-100 text-gray-600'
                       }`}>
-                        {CARRIER_INQUIRY_STATUS_LABELS[row.status] || row.status}
+                        {t(carrierInquiryStatusLabelKey(row.status), { defaultValue: row.status })}
                       </span>
                     </td>
                     <td className="text-right px-3 py-2.5 text-xs text-slate-900">
-                      {fmtMoney(row.quoted_cost, row.currency)}
+                      {formatMoney(row.quoted_cost, row.currency)}
                       {row.id === lowestId && (
-                        <span className="ml-1 text-[10px] text-green-600" title="当前最低成本">最低</span>
+                        <span className="ml-1 text-[10px] text-green-600" title={t('carrierInquiry.lowestCostTitle')}>{t('carrierInquiry.lowest')}</span>
                       )}
                     </td>
                     <td className="text-right px-3 py-2.5 text-xs text-slate-600">{row.transit_days ?? '-'}</td>
-                    <td className="text-center px-3 py-2.5 text-xs text-slate-500">{fmtDate(row.valid_until)}</td>
+                    <td className="text-center px-3 py-2.5 text-xs text-slate-500">{formatDate(row.valid_until)}</td>
                     <td className="text-center px-3 py-2.5">
                       {canManage ? (
                         <div className="flex items-center justify-center gap-1.5">
@@ -348,7 +343,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                               className="h-7 px-2 text-[11px] text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 inline-flex items-center gap-1 transition-all duration-200 ease-in-out"
                             >
                               <Pencil className="w-3 h-3" />
-                              {row.status === CARRIER_INQUIRY_STATUS.PENDING ? '回价' : '改价'}
+                              {row.status === CARRIER_INQUIRY_STATUS.PENDING ? t('carrierInquiry.reply') : t('carrierInquiry.editReply')}
                             </button>
                           )}
                           {row.status === CARRIER_INQUIRY_STATUS.QUOTED && (
@@ -357,7 +352,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                               className="h-7 px-2 text-[11px] text-green-700 border border-green-200 rounded-lg hover:bg-green-50 inline-flex items-center gap-1 transition-all duration-200 ease-in-out"
                             >
                               <CheckCircle2 className="w-3 h-3" />
-                              选用
+                              {t('carrierInquiry.select')}
                             </button>
                           )}
                           {[CARRIER_INQUIRY_STATUS.PENDING, CARRIER_INQUIRY_STATUS.QUOTED].includes(
@@ -368,7 +363,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                               className="h-7 px-2 text-[11px] text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 inline-flex items-center gap-1 transition-all duration-200 ease-in-out"
                             >
                               <Ban className="w-3 h-3" />
-                              不报
+                              {t('carrierInquiry.decline')}
                             </button>
                           )}
                           {row.status === CARRIER_INQUIRY_STATUS.PENDING && (
@@ -377,7 +372,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                               className="h-7 px-2 text-[11px] text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 inline-flex items-center gap-1 transition-all duration-200 ease-in-out"
                             >
                               <XCircle className="w-3 h-3" />
-                              取消
+                              {t('common.cancel')}
                             </button>
                           )}
                           {[CARRIER_INQUIRY_STATUS.PENDING, CARRIER_INQUIRY_STATUS.CANCELLED].includes(
@@ -388,12 +383,12 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                               className="h-7 px-2 text-[11px] text-red-600 border border-red-200 rounded-lg hover:bg-red-50 inline-flex items-center gap-1 transition-all duration-200 ease-in-out"
                             >
                               <Trash2 className="w-3 h-3" />
-                              删除
+                              {t('common.delete')}
                             </button>
                           )}
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400">只读</span>
+                        <span className="text-[11px] text-slate-400">{t('carrierInquiry.readOnly')}</span>
                       )}
                     </td>
                   </tr>
@@ -406,8 +401,12 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                 {rows.filter((r) => r.reply_remarks || r.request_remarks).map((r) => (
                   <div key={`remark-${r.id}`} className="text-xs text-slate-500">
                     <span className="text-slate-900 font-medium">{r.carrier_name}</span>
-                    {r.request_remarks && <span className="ml-2">询价要求：{r.request_remarks}</span>}
-                    {r.reply_remarks && <span className="ml-2">回复备注：{r.reply_remarks}</span>}
+                    {r.request_remarks && (
+                      <span className="ml-2">{t('carrierInquiry.requestRemarks')}: {r.request_remarks}</span>
+                    )}
+                    {r.reply_remarks && (
+                      <span className="ml-2">{t('carrierInquiry.replyRemarks')}: {r.reply_remarks}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -420,7 +419,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
       <Modal
         isOpen={sendOpen}
         onClose={() => setSendOpen(false)}
-        title="发起服务商询价"
+        title={t('carrierInquiry.start')}
         size="lg"
         footer={
           <div className="flex justify-end gap-2">
@@ -428,7 +427,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               onClick={() => setSendOpen(false)}
               className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 ease-in-out"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSend}
@@ -436,14 +435,14 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               className="h-9 px-4 bg-slate-900 text-white text-sm rounded-xl hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
             >
               {sending && <Loader2 className="w-4 h-4 animate-spin" />}
-              发起询价（{picked.length}）
+              {t('carrierInquiry.startWithCount', { count: picked.length })}
             </button>
           </div>
         }
       >
         <div className="space-y-4">
           <p className="text-xs text-slate-500">
-            这里只在系统内建立询价记录。实际询价内容请用页面上方的「复制摘要」粘给服务商。
+            {t('carrierInquiry.startModalHint')}
           </p>
 
           <div className="relative">
@@ -451,14 +450,14 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
             <input
               value={carrierSearch}
               onChange={(e) => setCarrierSearch(e.target.value)}
-              placeholder="按公司名称或服务商编号搜索"
+              placeholder={t('carrierInquiry.searchPlaceholder')}
               className="w-full h-9 pl-9 pr-3 min-w-[260px] border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-400 transition-all duration-200 ease-in-out"
             />
           </div>
 
           <div className="max-h-72 overflow-y-auto border border-slate-100 rounded-xl divide-y divide-slate-50">
             {visibleCarriers.length === 0 ? (
-              <p className="text-sm text-slate-400 py-8 text-center">没有匹配的服务商</p>
+              <p className="text-sm text-slate-400 py-8 text-center">{t('carrierInquiry.noMatch')}</p>
             ) : (
               visibleCarriers.map((c) => {
                 const asked = alreadyAsked.has(c.id)
@@ -482,7 +481,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                         {c.carrier_code}{c.country ? ` · ${c.country}` : ''}
                       </p>
                     </div>
-                    {asked && <span className="text-[11px] text-amber-600 flex-shrink-0">已在询价中</span>}
+                    {asked && <span className="text-[11px] text-amber-600 flex-shrink-0">{t('carrierInquiry.alreadyAsked')}</span>}
                   </label>
                 )
               })
@@ -490,12 +489,12 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
           </div>
 
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5">补充要求（可选）</label>
+            <label className="block text-xs text-slate-500 mb-1.5">{t('carrierInquiry.extraRequirements')}</label>
             <textarea
               value={requestRemarks}
               onChange={(e) => setRequestRemarks(e.target.value)}
               rows={3}
-              placeholder="例如：需要带尾板、周五前提货"
+              placeholder={t('carrierInquiry.extraRequirementsPlaceholder')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-400 resize-none transition-all duration-200 ease-in-out"
             />
           </div>
@@ -506,7 +505,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
       <Modal
         isOpen={replyTarget !== null}
         onClose={() => setReplyTarget(null)}
-        title={`回填服务商报价 · ${replyTarget?.carrier_name || ''}`}
+        title={`${t('carrierInquiry.replyModalTitle')} · ${replyTarget?.carrier_name || ''}`}
         size="md"
         footer={
           <div className="flex justify-end gap-2">
@@ -514,7 +513,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               onClick={() => setReplyTarget(null)}
               className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 ease-in-out"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleReply}
@@ -522,7 +521,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               className="h-9 px-4 bg-slate-900 text-white text-sm rounded-xl hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
             >
               {replying && <Loader2 className="w-4 h-4 animate-spin" />}
-              保存
+              {t('common.save')}
             </button>
           </div>
         }
@@ -530,19 +529,19 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">成本金额 *</label>
+              <label className="block text-xs text-slate-500 mb-1.5">{t('carrierInquiry.costAmountRequired')}</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={replyForm.quotedCost}
                 onChange={(e) => setReplyForm({ ...replyForm, quotedCost: e.target.value })}
-                placeholder="服务商报来的价格"
+                placeholder={t('carrierInquiry.costAmountPlaceholder')}
                 className="w-full h-9 px-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-400 transition-all duration-200 ease-in-out"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">币种</label>
+              <label className="block text-xs text-slate-500 mb-1.5">{t('common.currency')}</label>
               <select
                 value={replyForm.currency}
                 onChange={(e) => setReplyForm({ ...replyForm, currency: e.target.value })}
@@ -555,18 +554,18 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">时效（天）</label>
+              <label className="block text-xs text-slate-500 mb-1.5">{t('carrierInquiry.transitDays')}</label>
               <input
                 type="number"
                 min="0"
                 value={replyForm.transitDays}
                 onChange={(e) => setReplyForm({ ...replyForm, transitDays: e.target.value })}
-                placeholder="例如 3"
+                placeholder={t('carrierInquiry.transitDaysPlaceholder')}
                 className="w-full h-9 px-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-400 transition-all duration-200 ease-in-out"
               />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1.5">报价有效期</label>
+              <label className="block text-xs text-slate-500 mb-1.5">{t('carrierInquiry.colValidUntil')}</label>
               <input
                 type="date"
                 value={replyForm.validUntil}
@@ -576,12 +575,12 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
             </div>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5">回复备注</label>
+            <label className="block text-xs text-slate-500 mb-1.5">{t('carrierInquiry.replyRemarks')}</label>
             <textarea
               value={replyForm.replyRemarks}
               onChange={(e) => setReplyForm({ ...replyForm, replyRemarks: e.target.value })}
               rows={3}
-              placeholder="服务商的附加说明，例如含税、不含装卸"
+              placeholder={t('carrierInquiry.replyRemarksPlaceholder')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-400 resize-none transition-all duration-200 ease-in-out"
             />
           </div>

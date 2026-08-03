@@ -8,7 +8,9 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
-import { BUSINESS_TYPE_LABELS } from '../constants/businessTypes'
+import { useTranslation } from 'react-i18next'
+import { businessTypeLabelKey } from '../constants/businessTypes'
+import { formatMoney } from '../utils/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import InquiryQuotationTabs from '../components/InquiryQuotationTabs'
 import { QUOTATION_STATUS, QUOTATION_STATUS_TABS } from '../constants/inquiryQuotation'
@@ -53,19 +55,12 @@ interface QuotationStats {
 // 状态 Tab 用共享常量（PENDING_QUOTE 是询价单的状态，报价单没有这个值，旧版放在这里永远筛不出东西）
 const STATUS_TABS = QUOTATION_STATUS_TABS
 
-// 中文名统一用共享常量 BUSINESS_TYPE_LABELS，这里只配颜色
+// 类型名统一走语言包 businessType.*，这里只配颜色
 // （旧版键是小写 curtain_side/container，和库里的大写值永远匹配不上）
 const BUSINESS_TYPE_STYLES: Record<string, string> = {
   TRUCK_LTL: 'bg-blue-100 text-blue-700',
   TRUCK_FTL: 'bg-purple-100 text-purple-700',
   LOCAL_DELIVERY: 'bg-green-100 text-green-700',
-}
-
-/** NUMERIC 经 pg 返回的是字符串，格式化前必须先转数字（踩坑 002） */
-function formatCurrency(amount: string | number | null, currency = 'EUR'): string {
-  const n = Number(amount)
-  if (!Number.isFinite(n)) return '-'
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(n)
 }
 
 /** 路线是两个 JSONB 字段，拼成 "DE München → PL Warszawa" */
@@ -101,6 +96,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 // ==================== 组件 ====================
 
 export default function QuotationManagement() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [quotations, setQuotations] = useState<Quotation[]>([])
@@ -181,11 +177,11 @@ export default function QuotationManagement() {
     if (!voidTarget) return
     const res = await api.post<ApiResponse<any>>(`/quotations/${voidTarget.id}/void`, { reason })
     if (res.code === 200) {
-      setToast({ message: res.message || '报价已作废', type: 'success' })
+      setToast({ message: res.message || t('quotation.voided'), type: 'success' })
       setVoidTarget(null)
       await refreshData()
     } else {
-      throw new Error(res.message || '作废失败')
+      throw new Error(res.message || t('quotation.voidFailed'))
     }
   }
 
@@ -195,14 +191,14 @@ export default function QuotationManagement() {
     try {
       const res = await api.post<ApiResponse<any>>(`/quotations/${quotation.id}/send`)
       if (res.code === 200) {
-        setToast({ message: '报价已发送', type: 'success' })
+        setToast({ message: t('quotation.sent'), type: 'success' })
         await refreshData()
       } else {
-        setToast({ message: res.message || '发送失败', type: 'error' })
+        setToast({ message: res.message || t('quotation.sendFailed'), type: 'error' })
       }
     } catch (err: any) {
       console.error('发送报价失败:', err)
-      setToast({ message: err.message || '发送失败，请稍后重试', type: 'error' })
+      setToast({ message: err.message || t('quotation.sendFailedRetry'), type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -219,18 +215,18 @@ export default function QuotationManagement() {
       )
       if (res.code === 200) {
         // 需求 2：接受即自动建单，后端把新订单号带回来
-        setToast({ message: res.message || '报价已接受，订单已自动创建', type: 'success' })
+        setToast({ message: res.message || t('quotation.acceptedOrderCreated'), type: 'success' })
         setAcceptModal({ open: false, quotation: null })
         await refreshData()
         if (res.data?.orderId) {
           setTimeout(() => navigate(`/orders/${res.data.orderId}`), 900)
         }
       } else {
-        setToast({ message: res.message || '操作失败', type: 'error' })
+        setToast({ message: res.message || t('common.operateFailed'), type: 'error' })
       }
     } catch (err: any) {
       console.error('接受报价失败:', err)
-      setToast({ message: err.message || '操作失败，请稍后重试', type: 'error' })
+      setToast({ message: err.message || t('orderAction.failedRetry'), type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -241,7 +237,7 @@ export default function QuotationManagement() {
     const quotation = rejectModal.quotation
     if (!quotation) return
     if (!rejectReason.trim()) {
-      setToast({ message: '请填写拒绝原因', type: 'error' })
+      setToast({ message: t('quotation.rejectReasonRequired'), type: 'error' })
       return
     }
     setSubmitting(true)
@@ -250,16 +246,16 @@ export default function QuotationManagement() {
         reason: rejectReason.trim(),
       })
       if (res.code === 200) {
-        setToast({ message: '报价已拒绝', type: 'success' })
+        setToast({ message: t('quotation.rejected'), type: 'success' })
         setRejectModal({ open: false, quotation: null })
         setRejectReason('')
         await refreshData()
       } else {
-        setToast({ message: res.message || '操作失败', type: 'error' })
+        setToast({ message: res.message || t('common.operateFailed'), type: 'error' })
       }
     } catch (err: any) {
       console.error('拒绝报价失败:', err)
-      setToast({ message: err.message || '操作失败，请稍后重试', type: 'error' })
+      setToast({ message: err.message || t('orderAction.failedRetry'), type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -275,18 +271,18 @@ export default function QuotationManagement() {
       // 旧版传的 quotation.route 是个根本不存在的字段（undefined）
       const res = await api.post<ApiResponse<{ id: string }>>(`/quotations/${quotation.id}/convert-order`, {})
       if (res.code === 200 && res.data) {
-        setToast({ message: '订单创建成功，正在跳转...', type: 'success' })
+        setToast({ message: t('quotation.orderCreated'), type: 'success' })
         setConvertModal({ open: false, quotation: null })
         // convert-order 返回的是订单对象本身，主键是 id（旧版读 orderId 永远 undefined，跳到 /orders/undefined）
         setTimeout(() => {
           navigate(`/orders/${res.data.id}`)
         }, 800)
       } else {
-        setToast({ message: res.message || '创建订单失败', type: 'error' })
+        setToast({ message: res.message || t('quotation.createOrderFailed'), type: 'error' })
       }
     } catch (err: any) {
       console.error('一键下单失败:', err)
-      setToast({ message: err.message || '创建订单失败，请稍后重试', type: 'error' })
+      setToast({ message: err.message || t('quotation.createOrderFailedRetry'), type: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -302,7 +298,7 @@ export default function QuotationManagement() {
         <button
           onClick={() => navigate(`/quotes/${q.id}`)}
           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-          title="查看"
+          title={t('common.view')}
         >
           <Eye className="w-4 h-4" />
         </button>
@@ -312,7 +308,7 @@ export default function QuotationManagement() {
           <button
             onClick={() => navigate(`/quotes/${q.id}/edit`)}
             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-            title="编辑"
+            title={t('common.edit')}
           >
             <Edit className="w-4 h-4" />
           </button>
@@ -324,7 +320,7 @@ export default function QuotationManagement() {
             onClick={() => handleSend(q)}
             disabled={submitting}
             className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-40"
-            title="发送"
+            title={t('quotation.send')}
           >
             <Send className="w-4 h-4" />
           </button>
@@ -336,14 +332,14 @@ export default function QuotationManagement() {
             <button
               onClick={() => setAcceptModal({ open: true, quotation: q })}
               className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
-              title="接受"
+              title={t('quotation.accept')}
             >
               <CheckCircle className="w-4 h-4" />
             </button>
             <button
               onClick={() => { setRejectModal({ open: true, quotation: q }); setRejectReason('') }}
               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-              title="拒绝"
+              title={t('quotation.reject')}
             >
               <XCircle className="w-4 h-4" />
             </button>
@@ -355,7 +351,7 @@ export default function QuotationManagement() {
           <button
             onClick={() => setConvertModal({ open: true, quotation: q })}
             className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
-            title="一键下单"
+            title={t('quotation.convertToOrder')}
           >
             <ShoppingCart className="w-4 h-4" />
           </button>
@@ -366,7 +362,7 @@ export default function QuotationManagement() {
           <button
             onClick={() => setVoidTarget(q)}
             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-            title="作废"
+            title={t('quotation.void')}
           >
             <Ban className="w-4 h-4" />
           </button>
@@ -388,19 +384,19 @@ export default function QuotationManagement() {
           <div className="p-2 bg-blue-50 rounded-xl">
             <FileText className="w-5 h-5 text-blue-600" />
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">询价报价管理</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('quotation.pageTitle')}</h1>
         </div>
         <InquiryQuotationTabs />
       </div>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard title="本月报价" value={stats.month_total} icon={<Send className="w-5 h-5" />} color="blue" />
-        <StatCard title="待回复" value={stats.pending_response} icon={<Clock className="w-5 h-5" />} color="yellow" />
-        <StatCard title="客户待定" value={stats.pending_decision} icon={<AlertCircle className="w-5 h-5" />} color="yellow" />
-        <StatCard title="已接受" value={stats.accepted} icon={<CheckCircle className="w-5 h-5" />} color="green" />
-        <StatCard title="已拒绝" value={stats.rejected} icon={<XCircle className="w-5 h-5" />} color="red" />
-        <StatCard title="转化率" value={`${Number(stats.conversion_rate || 0).toFixed(1)}%`} icon={<TrendingUp className="w-5 h-5" />} color="purple" />
+        <StatCard title={t('quotation.statMonthTotal')} value={stats.month_total} icon={<Send className="w-5 h-5" />} color="blue" />
+        <StatCard title={t('quotation.statPendingResponse')} value={stats.pending_response} icon={<Clock className="w-5 h-5" />} color="yellow" />
+        <StatCard title={t('quotationStatus.PENDING_DECISION')} value={stats.pending_decision} icon={<AlertCircle className="w-5 h-5" />} color="yellow" />
+        <StatCard title={t('quotationStatus.ACCEPTED')} value={stats.accepted} icon={<CheckCircle className="w-5 h-5" />} color="green" />
+        <StatCard title={t('quotationStatus.REJECTED')} value={stats.rejected} icon={<XCircle className="w-5 h-5" />} color="red" />
+        <StatCard title={t('quotation.statConversionRate')} value={`${Number(stats.conversion_rate || 0).toFixed(1)}%`} icon={<TrendingUp className="w-5 h-5" />} color="purple" />
       </div>
 
       {/* 搜索栏 + 新建按钮 */}
@@ -409,7 +405,7 @@ export default function QuotationManagement() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="搜索报价编号、客户名称..."
+            placeholder={t('quotation.searchPlaceholder')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -421,7 +417,7 @@ export default function QuotationManagement() {
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200"
         >
           <Plus className="w-4 h-4" />
-          新建报价
+          {t('quotation.create')}
         </button>
       </div>
 
@@ -437,7 +433,7 @@ export default function QuotationManagement() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -454,16 +450,16 @@ export default function QuotationManagement() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">报价编号</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">来源询价</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">客户</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">路线</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">业务类型</th>
-                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">报价金额</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">版本</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">有效期</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">状态</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colNumber')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colSourceInquiry')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.client')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('field.businessType')}</th>
+                <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colAmount')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colVersion')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colValidity')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -479,7 +475,7 @@ export default function QuotationManagement() {
                 <tr>
                   <td colSpan={10} className="px-4 py-16 text-center">
                     <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">暂无报价数据</p>
+                    <p className="text-sm text-slate-500">{t('quotation.empty')}</p>
                   </td>
                 </tr>
               ) : (
@@ -488,7 +484,9 @@ export default function QuotationManagement() {
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium truncate">
                       {q.quotation_number}
                       {q.converted_order_number && (
-                        <span className="block text-[10px] text-purple-600">订单 {q.converted_order_number}</span>
+                        <span className="block text-[10px] text-purple-600">
+                          {t('docType.order')} {q.converted_order_number}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 truncate">{q.inquiry_number || '-'}</td>
@@ -496,11 +494,11 @@ export default function QuotationManagement() {
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{routeText(q)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium ${BUSINESS_TYPE_STYLES[q.business_type] || 'bg-gray-100 text-gray-600'}`}>
-                        {(BUSINESS_TYPE_LABELS as Record<string, string>)[q.business_type] || q.business_type}
+                        {t(businessTypeLabelKey(q.business_type), { defaultValue: q.business_type })}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">
-                      {formatCurrency(q.total_price, q.currency || 'EUR')}
+                      {formatMoney(q.total_price, q.currency || 'EUR')}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">V{q.version || 1}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{q.valid_until?.split('T')[0] || '-'}</td>
@@ -518,7 +516,7 @@ export default function QuotationManagement() {
         {/* 分页 */}
         {total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">共 {total} 条记录</p>
+            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
             <div className="flex items-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
@@ -538,7 +536,7 @@ export default function QuotationManagement() {
       <Modal
         isOpen={acceptModal.open}
         onClose={() => setAcceptModal({ open: false, quotation: null })}
-        title="确认接受报价"
+        title={t('quotation.acceptTitle')}
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -546,36 +544,36 @@ export default function QuotationManagement() {
               onClick={() => setAcceptModal({ open: false, quotation: null })}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleAccept}
               disabled={submitting}
               className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? '处理中...' : '确认接受'}
+              {submitting ? t('confirmDialog.processing') : t('quotation.acceptConfirm')}
             </button>
           </div>
         }
       >
         <div className="space-y-3">
           <p className="text-sm text-slate-600">
-            确定要接受以下报价吗？
+            {t('quotation.acceptQuestion')}
           </p>
           {acceptModal.quotation && (
             <div className="bg-slate-50 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">报价编号</span>
+                <span className="text-xs text-slate-400">{t('quotation.colNumber')}</span>
                 <span className="text-sm font-medium text-slate-900">{acceptModal.quotation.quotation_number}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">客户</span>
+                <span className="text-xs text-slate-400">{t('common.client')}</span>
                 <span className="text-sm text-slate-700">{acceptModal.quotation.client_name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">金额</span>
+                <span className="text-xs text-slate-400">{t('common.amount')}</span>
                 <span className="text-sm font-medium text-slate-900">
-                  {formatCurrency(acceptModal.quotation.total_price, acceptModal.quotation.currency || 'EUR')}
+                  {formatMoney(acceptModal.quotation.total_price, acceptModal.quotation.currency || 'EUR')}
                 </span>
               </div>
             </div>
@@ -587,7 +585,7 @@ export default function QuotationManagement() {
       <Modal
         isOpen={rejectModal.open}
         onClose={() => { setRejectModal({ open: false, quotation: null }); setRejectReason('') }}
-        title="拒绝报价"
+        title={t('quotation.rejectTitle')}
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -595,30 +593,32 @@ export default function QuotationManagement() {
               onClick={() => { setRejectModal({ open: false, quotation: null }); setRejectReason('') }}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleReject}
               disabled={submitting}
               className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? '处理中...' : '确认拒绝'}
+              {submitting ? t('confirmDialog.processing') : t('quotation.rejectConfirm')}
             </button>
           </div>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            确定要拒绝报价 <span className="font-medium text-slate-900">{rejectModal.quotation?.quotation_number}</span> 吗？
+            {t('quotation.rejectQuestionPrefix')}{' '}
+            <span className="font-medium text-slate-900">{rejectModal.quotation?.quotation_number}</span>
+            {t('quotation.rejectQuestionSuffix')}
           </p>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1.5">
-              拒绝原因 <span className="text-red-500">*</span>
+              {t('quotation.rejectReason')} <span className="text-red-500">*</span>
             </label>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="请输入拒绝原因..."
+              placeholder={t('quotation.rejectReasonPlaceholder')}
               rows={3}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
             />
@@ -630,7 +630,7 @@ export default function QuotationManagement() {
       <Modal
         isOpen={convertModal.open}
         onClose={() => setConvertModal({ open: false, quotation: null })}
-        title="一键下单"
+        title={t('quotation.convertToOrder')}
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -638,47 +638,49 @@ export default function QuotationManagement() {
               onClick={() => setConvertModal({ open: false, quotation: null })}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleConvertToOrder}
               disabled={submitting}
               className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? '创建中...' : '确认创建订单'}
+              {submitting ? t('quotation.creatingOrder') : t('quotation.createOrderConfirm')}
             </button>
           </div>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            将以下报价转为正式订单，报价中的客户、路线、价格信息将自动带入。
+            {t('quotation.convertHint')}
           </p>
           {convertModal.quotation && (
             <div className="bg-slate-50 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">报价编号</span>
+                <span className="text-xs text-slate-400">{t('quotation.colNumber')}</span>
                 <span className="text-sm font-medium text-slate-900">{convertModal.quotation.quotation_number}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">客户</span>
+                <span className="text-xs text-slate-400">{t('common.client')}</span>
                 <span className="text-sm text-slate-700">{convertModal.quotation.client_name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">路线</span>
+                <span className="text-xs text-slate-400">{t('common.route')}</span>
                 <span className="text-sm text-slate-700">{routeText(convertModal.quotation)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">业务类型</span>
+                <span className="text-xs text-slate-400">{t('field.businessType')}</span>
                 <span className="text-sm text-slate-700">
-                  {(BUSINESS_TYPE_LABELS as Record<string, string>)[convertModal.quotation.business_type] || convertModal.quotation.business_type}
+                  {t(businessTypeLabelKey(convertModal.quotation.business_type), {
+                    defaultValue: convertModal.quotation.business_type,
+                  })}
                 </span>
               </div>
               <div className="border-t border-slate-200 pt-2 mt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">报价金额</span>
+                  <span className="text-xs text-slate-400">{t('quotation.colAmount')}</span>
                   <span className="text-sm font-semibold text-blue-600">
-                    {formatCurrency(convertModal.quotation.total_price, convertModal.quotation.currency || 'EUR')}
+                    {formatMoney(convertModal.quotation.total_price, convertModal.quotation.currency || 'EUR')}
                   </span>
                 </div>
               </div>
@@ -692,14 +694,14 @@ export default function QuotationManagement() {
         isOpen={voidTarget !== null}
         onClose={() => setVoidTarget(null)}
         onConfirm={handleVoid}
-        title="作废报价"
-        message={'作废后，该报价将不可再接受或转为订单。历史数据会完整保留，可在"已作废"筛选中查看。'}
+        title={t('quotation.voidTitle')}
+        message={t('quotation.voidMessage')}
         targetLabel={voidTarget?.quotation_number}
         requireReason
-        reasonPlaceholder="请填写作废原因，例如：客户取消询价、报价错误等"
+        reasonPlaceholder={t('quotation.voidReasonPlaceholder')}
         variant="danger"
-        confirmText="确认作废"
-        warningText="此操作不可撤销，请谨慎操作"
+        confirmText={t('quotation.voidConfirm')}
+        warningText={t('quotation.voidWarning')}
       />
     </div>
   )

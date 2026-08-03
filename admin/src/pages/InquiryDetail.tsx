@@ -16,10 +16,12 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import CarrierInquiryPanel from '../components/CarrierInquiryPanel'
 import { useAuth } from '../contexts/AuthContext'
-import { BUSINESS_TYPE_LABELS } from '../constants/businessTypes'
+import { useTranslation } from 'react-i18next'
+import { formatDateTime } from '../utils/format'
+import { businessTypeLabelKey } from '../constants/businessTypes'
 import { CARRIER_INQUIRY_PERMISSIONS } from '../constants/carrierInquiry'
 import {
-  INQUIRY_STATUS, INQUIRY_STATUS_LABELS, INQUIRY_STATUS_STYLES,
+  INQUIRY_STATUS, inquiryStatusLabelKey, INQUIRY_STATUS_STYLES,
 } from '../constants/inquiryQuotation'
 
 // ==================== 类型定义 ====================
@@ -150,6 +152,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 // ==================== 主组件 ====================
 
 export default function InquiryDetail() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
@@ -176,11 +179,11 @@ export default function InquiryDetail() {
       if (res.code === 200 && res.data) {
         setData(res.data)
       } else {
-        showToast(res.message || '获取询价详情失败', 'error')
+        showToast(res.message || t('inquiryDetail.loadFailed'), 'error')
       }
     } catch (err) {
       console.error('获取询价详情失败:', err)
-      showToast('获取询价详情失败', 'error')
+      showToast(t('inquiryDetail.loadFailed'), 'error')
     } finally {
       setLoading(false)
     }
@@ -193,38 +196,38 @@ export default function InquiryDetail() {
     try {
       const res = await api.get<ApiResponse<{ text: string }>>(`/inquiries/${id}/summary`)
       if (res.code !== 200 || !res.data) {
-        showToast(res.message || '生成摘要失败', 'error')
+        showToast(res.message || t('inquiry.summaryFailed'), 'error')
         return
       }
       try {
         await navigator.clipboard.writeText(res.data.text)
-        showToast('摘要已复制，可直接粘给服务商', 'success')
+        showToast(t('inquiryDetail.summaryCopied'), 'success')
       } catch {
         // 剪贴板不可用时把文本显示出来让用户手动复制，而不是静默失败
         setSummaryText(res.data.text)
-        showToast('浏览器不允许自动复制，请手动全选复制', 'error')
+        showToast(t('inquiryDetail.copyBlocked'), 'error')
       }
     } catch (err) {
       console.error('生成摘要失败:', err)
-      showToast('生成摘要失败', 'error')
+      showToast(t('inquiry.summaryFailed'), 'error')
     }
   }
 
   const handleDelete = async () => {
     if (!id || !data) return
-    if (!window.confirm(`确定删除询价单 ${data.inquiry_number} 吗？此操作不可撤销。`)) return
+    if (!window.confirm(t('inquiryDetail.deleteConfirm', { number: data.inquiry_number }))) return
     setDeleting(true)
     try {
       const res = await api.delete<ApiResponse<null>>(`/inquiries/${id}`)
       if (res.code === 200) {
-        showToast('询价已删除', 'success')
+        showToast(t('inquiryDetail.deleted'), 'success')
         setTimeout(() => navigate('/inquiries'), 800)
       } else {
-        showToast(res.message || '删除失败', 'error')
+        showToast(res.message || t('orderFiles.deleteFailed'), 'error')
       }
     } catch (err) {
       console.error('删除询价失败:', err)
-      showToast('删除失败', 'error')
+      showToast(t('orderFiles.deleteFailed'), 'error')
     } finally {
       setDeleting(false)
     }
@@ -247,9 +250,9 @@ export default function InquiryDetail() {
     return (
       <div className="p-4 lg:p-6">
         <button onClick={() => navigate('/inquiries')} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> 返回询价列表
+          <ArrowLeft className="w-4 h-4" /> {t('inquiryDetail.backToList')}
         </button>
-        <div className="bg-white rounded-2xl p-12 text-center text-sm text-slate-400">询价单不存在或无权访问</div>
+        <div className="bg-white rounded-2xl p-12 text-center text-sm text-slate-400">{t('inquiryDetail.notFound')}</div>
       </div>
     )
   }
@@ -265,14 +268,14 @@ export default function InquiryDetail() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <button onClick={() => navigate('/inquiries')} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-2 transition-colors">
-            <ArrowLeft className="w-4 h-4" /> 返回询价列表
+            <ArrowLeft className="w-4 h-4" /> {t('inquiryDetail.backToList')}
           </button>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold text-slate-900">{data.inquiry_number}</h1>
             <span className={`inline-block px-2.5 py-1 text-xs rounded-full ${
               INQUIRY_STATUS_STYLES[data.status] || 'bg-gray-100 text-gray-600'
             }`}>
-              {INQUIRY_STATUS_LABELS[data.status] || data.status}
+              {t(inquiryStatusLabelKey(data.status), { defaultValue: data.status })}
             </span>
           </div>
         </div>
@@ -283,7 +286,7 @@ export default function InquiryDetail() {
             className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
           >
             <Copy className="w-4 h-4" />
-            复制摘要
+            {t('inquiry.copySummary')}
           </button>
           {canEdit && (
             <button
@@ -291,7 +294,7 @@ export default function InquiryDetail() {
               className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
             >
               <Pencil className="w-4 h-4" />
-              编辑
+              {t('common.edit')}
             </button>
           )}
           {canEdit && (
@@ -301,7 +304,7 @@ export default function InquiryDetail() {
               className="h-9 px-4 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 ease-in-out"
             >
               {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              删除
+              {t('common.delete')}
             </button>
           )}
           {canQuote && (
@@ -310,7 +313,7 @@ export default function InquiryDetail() {
               className="h-9 px-4 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
             >
               <Tag className="w-4 h-4" />
-              由此报价
+              {t('inquiry.quoteFromThis')}
             </button>
           )}
         </div>
@@ -320,7 +323,7 @@ export default function InquiryDetail() {
       {summaryText && (
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">询价摘要（请手动全选复制）</h3>
+            <h3 className="text-sm font-semibold text-slate-900">{t('inquiryDetail.summaryManualCopy')}</h3>
             <button onClick={() => setSummaryText(null)} className="text-slate-400 hover:text-slate-600 transition-colors">✕</button>
           </div>
           <textarea
@@ -335,33 +338,33 @@ export default function InquiryDetail() {
 
       {/* 基本信息 + 联系人 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section title="基本信息" icon={FileText}>
-          <InfoRow label="客户" value={data.client_name} />
-          <InfoRow label="客户单号" value={data.customer_ref} />
+        <Section title={t('section.basicInfo')} icon={FileText}>
+          <InfoRow label={t('common.client')} value={data.client_name} />
+          <InfoRow label={t('inquiry.customerRef')} value={data.customer_ref} />
           <InfoRow
-            label="服务类型"
-            value={BUSINESS_TYPE_LABELS[data.business_type as keyof typeof BUSINESS_TYPE_LABELS] || data.business_type}
+            label={t('field.businessType')}
+            value={t(businessTypeLabelKey(data.business_type), { defaultValue: data.business_type })}
           />
-          <InfoRow label="运输方式" value={data.transport_type} />
-          <InfoRow label="创建时间" value={new Date(data.created_at).toLocaleString('de-DE')} />
+          <InfoRow label={t('field.transportType')} value={data.transport_type} />
+          <InfoRow label={t('common.createdAt')} value={formatDateTime(data.created_at)} />
         </Section>
 
-        <Section title="联系人" icon={User}>
-          <InfoRow label="姓名" value={data.contact_name} />
-          <InfoRow label="电话" value={data.contact_phone} />
-          <InfoRow label="邮箱" value={data.contact_email} />
+        <Section title={t('section.contact')} icon={User}>
+          <InfoRow label={t('field.name')} value={data.contact_name} />
+          <InfoRow label={t('field.phone')} value={data.contact_phone} />
+          <InfoRow label={t('field.email')} value={data.contact_email} />
         </Section>
       </div>
 
       {/* 路线 */}
-      <Section title="路线" icon={MapPin}>
+      <Section title={t('common.route')} icon={MapPin}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-xs text-slate-400 mb-1">起运地</p>
+            <p className="text-xs text-slate-400 mb-1">{t('field.origin')}</p>
             <p className="text-sm text-slate-700 break-words">{addressLines(data.route_from)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400 mb-1">目的地</p>
+            <p className="text-xs text-slate-400 mb-1">{t('field.destination')}</p>
             <p className="text-sm text-slate-700 break-words">{addressLines(data.route_to)}</p>
           </div>
         </div>
@@ -369,20 +372,20 @@ export default function InquiryDetail() {
 
       {/* 按件货物明细 */}
       <Section
-        title={`按件货物明细（${data.cargoItems.length} 行）`}
+        title={t('cargo.itemsTitleWithCount', { count: data.cargoItems.length })}
         icon={Package}
         action={
           <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span>合计 <b className="text-slate-900">{data.cargo_quantity ?? '-'}</b> 件</span>
-            <span>实重 <b className="text-slate-900">{fmt(data.cargo_weight_kg)}</b> kg</span>
-            <span>体积 <b className="text-slate-900">{fmt(data.cargo_volume_m3)}</b> m³</span>
+            <span>{t('cargo.totalPieces')} <b className="text-slate-900">{data.cargo_quantity ?? '-'}</b></span>
+            <span>{t('cargo.totalWeight')} <b className="text-slate-900">{fmt(data.cargo_weight_kg)}</b> kg</span>
+            <span>{t('cargo.totalVolume')} <b className="text-slate-900">{fmt(data.cargo_volume_m3)}</b> m³</span>
             <span>LDM <b className="text-slate-900">{fmt(data.ldm)}</b></span>
           </div>
         }
       >
         {data.cargoItems.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">
-            未录入按件明细。表头合计值来自客户填写的总量。
+            {t('inquiryDetail.noCargoItems')}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -400,15 +403,15 @@ export default function InquiryDetail() {
               </colgroup>
               <thead>
                 <tr className="text-xs text-slate-500 border-b border-slate-100">
-                  <th className="text-left px-3 py-2.5 font-medium">行号</th>
-                  <th className="text-left px-3 py-2.5 font-medium">件号</th>
-                  <th className="text-left px-3 py-2.5 font-medium">货物描述</th>
-                  <th className="text-right px-3 py-2.5 font-medium">件数</th>
-                  <th className="text-center px-3 py-2.5 font-medium">长×宽×高 (cm)</th>
-                  <th className="text-right px-3 py-2.5 font-medium">单件实重 (kg)</th>
-                  <th className="text-right px-3 py-2.5 font-medium">单件体积 (m³)</th>
+                  <th className="text-left px-3 py-2.5 font-medium">{t('cargo.colLineNo')}</th>
+                  <th className="text-left px-3 py-2.5 font-medium">{t('cargo.colItemNo')}</th>
+                  <th className="text-left px-3 py-2.5 font-medium">{t('field.cargoDescription')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('cargo.colPieces')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('cargo.colDimensions')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('cargo.colUnitWeightKg')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('cargo.colUnitVolumeM3')}</th>
                   <th className="text-right px-3 py-2.5 font-medium">LDM</th>
-                  <th className="text-center px-3 py-2.5 font-medium">可堆叠</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('cargo.colStackable')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,9 +428,9 @@ export default function InquiryDetail() {
                     <td className="text-right px-3 py-2.5 text-xs text-slate-600">{fmt(it.unit_volume_m3, 3)}</td>
                     <td className="text-right px-3 py-2.5 text-xs text-slate-600">
                       {fmt(it.ldm)}
-                      {it.ldm_manual && <span className="ml-1 text-[10px] text-amber-600" title="人工调整过">手改</span>}
+                      {it.ldm_manual && <span className="ml-1 text-[10px] text-amber-600" title={t('cargo.manualAdjustedTitle')}>{t('cargo.manualAdjusted')}</span>}
                     </td>
-                    <td className="text-center px-3 py-2.5 text-xs text-slate-600">{it.stackable ? '是' : '否'}</td>
+                    <td className="text-center px-3 py-2.5 text-xs text-slate-600">{it.stackable ? t('common.yes') : t('common.no')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -437,9 +440,9 @@ export default function InquiryDetail() {
 
         {(data.cargo_description || data.special_requirements || data.remarks) && (
           <div className="mt-5 pt-4 border-t border-slate-100 space-y-1">
-            {data.cargo_description && <InfoRow label="货物描述" value={data.cargo_description} />}
-            {data.special_requirements && <InfoRow label="特殊要求" value={data.special_requirements} />}
-            {data.remarks && <InfoRow label="备注" value={data.remarks} />}
+            {data.cargo_description && <InfoRow label={t('field.cargoDescription')} value={data.cargo_description} />}
+            {data.special_requirements && <InfoRow label={t('field.specialRequirements')} value={data.special_requirements} />}
+            {data.remarks && <InfoRow label={t('common.remark')} value={data.remarks} />}
           </div>
         )}
       </Section>
@@ -450,11 +453,11 @@ export default function InquiryDetail() {
       )}
 
       {/* 关联报价 */}
-      <Section title={`关联报价（${data.quotations.length} 张）`} icon={Tag}>
+      <Section title={t('inquiryDetail.relatedQuotations', { count: data.quotations.length })} icon={Tag}>
         {data.quotations.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">
-            还没有为这张询价开出报价。
-            {canQuote && '点右上角「由此报价」创建。'}
+            {t('inquiryDetail.noQuotations')}
+            {canQuote && t('inquiryDetail.noQuotationsHint')}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -469,12 +472,12 @@ export default function InquiryDetail() {
               </colgroup>
               <thead>
                 <tr className="text-xs text-slate-500 border-b border-slate-100">
-                  <th className="text-left px-3 py-2.5 font-medium">报价编号</th>
-                  <th className="text-right px-3 py-2.5 font-medium">版本</th>
-                  <th className="text-right px-3 py-2.5 font-medium">金额</th>
-                  <th className="text-center px-3 py-2.5 font-medium">状态</th>
-                  <th className="text-center px-3 py-2.5 font-medium">有效期至</th>
-                  <th className="text-center px-3 py-2.5 font-medium">创建时间</th>
+                  <th className="text-left px-3 py-2.5 font-medium">{t('quotation.colNumber')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('quotation.colVersion')}</th>
+                  <th className="text-right px-3 py-2.5 font-medium">{t('common.amount')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('quotation.colValidUntil')}</th>
+                  <th className="text-center px-3 py-2.5 font-medium">{t('common.createdAt')}</th>
                 </tr>
               </thead>
               <tbody>

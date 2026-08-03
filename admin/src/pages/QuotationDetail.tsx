@@ -14,8 +14,10 @@ import {
   Banknote,
   Clock,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
+import { formatMoney } from '../utils/format'
 
 // ==================== 类型定义 ====================
 
@@ -86,6 +88,7 @@ function InfoRow({ label, value }: { label: string; value: string | number | und
 // ==================== 主组件 ====================
 
 export default function QuotationDetail() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -105,12 +108,12 @@ export default function QuotationDetail() {
         if (res.code === 200 && res.data) {
           setQuotation(res.data)
         } else {
-          setError(res.message || '获取报价详情失败')
+          setError(res.message || t('quotationDetail.loadFailed'))
         }
       } catch (err: any) {
         if (cancelled) return
         console.error('[QuotationDetail] 获取详情失败:', err)
-        setError(err.message || '请求失败')
+        setError(err.message || t('apiError.requestFailed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -129,16 +132,15 @@ export default function QuotationDetail() {
           <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-slate-100 transition-all duration-200">
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
-          <h1 className="text-xl font-semibold text-slate-900">报价详情</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('quotationDetail.pageTitle')}</h1>
         </div>
         <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl text-sm">
-          {error || '报价不存在'}
+          {error || t('quotationDetail.notFound')}
         </div>
       </div>
     )
   }
 
-  const currencySymbol = quotation.currency === 'GBP' ? '£' : quotation.currency === 'PLN' ? 'zł' : '€'
 
   return (
     <div className="p-4 lg:p-6">
@@ -162,14 +164,14 @@ export default function QuotationDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-blue-600" />
-              基本信息
+              {t('section.basicInfo')}
             </h2>
             <div className="space-y-0">
-              <InfoRow label="客户" value={quotation.client_name} />
-              <InfoRow label="业务类型" value={quotation.business_type} />
-              <InfoRow label="运输类型" value={quotation.transport_type} />
-              <InfoRow label="有效期至" value={quotation.valid_until} />
-              <InfoRow label="版本" value={`V${quotation.version || 1}`} />
+              <InfoRow label={t('common.client')} value={quotation.client_name} />
+              <InfoRow label={t('field.businessType')} value={quotation.business_type} />
+              <InfoRow label={t('field.transportType')} value={quotation.transport_type} />
+              <InfoRow label={t('quotation.colValidUntil')} value={quotation.valid_until} />
+              <InfoRow label={t('quotation.colVersion')} value={`V${quotation.version || 1}`} />
             </div>
           </div>
 
@@ -177,16 +179,16 @@ export default function QuotationDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-blue-600" />
-              路线信息
+              {t('quotationDetail.routeInfo')}
             </h2>
             <div className="flex items-center gap-4">
               <div className="flex-1 bg-green-50 rounded-xl px-4 py-3 text-center">
-                <p className="text-xs text-green-600 mb-1">起点</p>
+                <p className="text-xs text-green-600 mb-1">{t('orderAssign.origin')}</p>
                 <p className="text-sm font-medium text-slate-800">{quotation.route_from || '-'}</p>
               </div>
               <span className="text-slate-300 text-lg">&rarr;</span>
               <div className="flex-1 bg-red-50 rounded-xl px-4 py-3 text-center">
-                <p className="text-xs text-red-500 mb-1">终点</p>
+                <p className="text-xs text-red-500 mb-1">{t('orderAssign.destination')}</p>
                 <p className="text-sm font-medium text-slate-800">{quotation.route_to || '-'}</p>
               </div>
             </div>
@@ -196,31 +198,31 @@ export default function QuotationDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <Banknote className="w-5 h-5 text-blue-600" />
-              价格明细
+              {t('quotationDetail.priceBreakdown')}
             </h2>
             <div className="space-y-2.5">
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-slate-500">基础运费</span>
-                <span className="text-sm text-slate-700">{currencySymbol} {(quotation.base_freight || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-sm text-slate-500">{t('quotationDetail.baseFreight')}</span>
+                <span className="text-sm text-slate-700">{formatMoney(quotation.base_freight, quotation.currency)}</span>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-slate-500">附加费</span>
-                <span className="text-sm text-slate-700">{currencySymbol} {(quotation.surcharge || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-sm text-slate-500">{t('quotationDetail.surcharge')}</span>
+                <span className="text-sm text-slate-700">{formatMoney(quotation.surcharge, quotation.currency)}</span>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-slate-500">保险费</span>
-                <span className="text-sm text-slate-700">{currencySymbol} {(quotation.insurance_fee || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-sm text-slate-500">{t('quotationDetail.insuranceFee')}</span>
+                <span className="text-sm text-slate-700">{formatMoney(quotation.insurance_fee, quotation.currency)}</span>
               </div>
               {/* 自定义定价项 */}
               {quotation.pricingItems?.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between py-2">
                   <span className="text-sm text-slate-500">{item.name}</span>
-                  <span className="text-sm text-slate-700">{currencySymbol} {(item.amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-sm text-slate-700">{formatMoney(item.amount, quotation.currency)}</span>
                 </div>
               ))}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-900">合计</span>
-                <span className="text-lg font-bold text-blue-600">{currencySymbol} {(quotation.total_price || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-sm font-semibold text-slate-900">{t('quotationDetail.total')}</span>
+                <span className="text-lg font-bold text-blue-600">{formatMoney(quotation.total_price, quotation.currency)}</span>
               </div>
             </div>
           </div>
@@ -230,7 +232,7 @@ export default function QuotationDetail() {
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />
-                备注
+                {t('common.remark')}
               </h2>
               <p className="text-sm text-slate-600 whitespace-pre-wrap">{quotation.remarks}</p>
             </div>
@@ -242,20 +244,20 @@ export default function QuotationDetail() {
           <div className="lg:sticky lg:top-6 space-y-6">
             {/* 状态卡片 */}
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-              <h2 className="text-sm font-semibold text-slate-900 mb-4">状态信息</h2>
+              <h2 className="text-sm font-semibold text-slate-900 mb-4">{t('quotationDetail.statusInfo')}</h2>
               <div className="space-y-3">
                 <div>
-                  <p className="text-xs text-slate-400">当前状态</p>
+                  <p className="text-xs text-slate-400">{t('quotationDetail.currentStatus')}</p>
                   <div className="mt-1">
                     <StatusBadge status={quotation.status} type="quotation" />
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">币种</p>
+                  <p className="text-xs text-slate-400">{t('common.currency')}</p>
                   <p className="text-sm text-slate-800 mt-1">{quotation.currency}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">有效期</p>
+                  <p className="text-xs text-slate-400">{t('quotation.colValidity')}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-sm text-slate-700">{quotation.valid_until || '-'}</span>
@@ -263,7 +265,7 @@ export default function QuotationDetail() {
                 </div>
                 {quotation.created_at && (
                   <div>
-                    <p className="text-xs text-slate-400">创建时间</p>
+                    <p className="text-xs text-slate-400">{t('common.createdAt')}</p>
                     <p className="text-sm text-slate-700 mt-1">{quotation.created_at}</p>
                   </div>
                 )}
@@ -274,10 +276,10 @@ export default function QuotationDetail() {
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
               <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-blue-600" />
-                版本历史
+                {t('quotationDetail.versionHistory')}
               </h2>
               <div className="text-sm text-slate-400 text-center py-4">
-                当前版本: V{quotation.version || 1}
+                {t('quotationDetail.currentVersion', { version: quotation.version || 1 })}
               </div>
             </div>
           </div>

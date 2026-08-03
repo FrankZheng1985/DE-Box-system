@@ -19,8 +19,10 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse, getAuthHeaders } from '../utils/api'
 import StatusBadge from './StatusBadge'
+import { formatDateTime } from '../utils/format'
 import { BUSINESS_TYPES } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
@@ -54,25 +56,24 @@ interface OrderFilesSectionProps {
 
 // ==================== 类别配置 ====================
 
-const CATEGORY_CONFIG: Record<FileCategory, { label: string; icon: React.ElementType; badge: string; hint?: string }> = {
+const CATEGORY_CONFIG: Record<FileCategory, { labelKey: string; icon: React.ElementType; badge: string }> = {
   LOADING_PHOTO: {
-    label: '装车图',
+    labelKey: 'orderFiles.categoryLoadingPhoto',
     icon: Camera,
     badge: 'bg-blue-100 text-blue-700',
-    hint: '要求车牌和货物清晰可见',
   },
   CMR: {
-    label: 'CMR 单据',
+    labelKey: 'orderFiles.categoryCmr',
     icon: FileText,
     badge: 'bg-purple-100 text-purple-700',
   },
   POD_PROOF: {
-    label: '签收凭证',
+    labelKey: 'orderFiles.categoryPodProof',
     icon: ClipboardCheck,
     badge: 'bg-green-100 text-green-700',
   },
   OTHER: {
-    label: '其他',
+    labelKey: 'orderFiles.categoryOther',
     icon: File,
     badge: 'bg-gray-100 text-gray-600',
   },
@@ -115,6 +116,7 @@ export default function OrderFilesSection({
   canManage = true,
   onToast,
 }: OrderFilesSectionProps) {
+  const { t } = useTranslation()
   const [files, setFiles] = useState<OrderFileItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -150,7 +152,7 @@ export default function OrderFilesSection({
   // ---------- 上传 ----------
   const handleUpload = async () => {
     if (!uploadFile) {
-      onToast('请先选择文件', 'error')
+      onToast(t('orderFiles.pickFileFirst'), 'error')
       return
     }
     setUploading(true)
@@ -176,17 +178,17 @@ export default function OrderFilesSection({
       })
       const res = await response.json()
       if (res.code === 200) {
-        onToast('文件上传成功', 'success')
+        onToast(t('orderFiles.uploadSuccess'), 'success')
         setShowUpload(false)
         setUploadFile(null)
         setUploadRemarks('')
         fetchFiles()
       } else {
-        onToast(res.message || '上传失败', 'error')
+        onToast(res.message || t('orderFiles.uploadFailed'), 'error')
       }
     } catch (err) {
       console.error('[OrderFiles] 上传失败:', err)
-      onToast('上传失败，请重试', 'error')
+      onToast(t('orderFiles.uploadFailedRetry'), 'error')
     } finally {
       setUploading(false)
     }
@@ -194,14 +196,14 @@ export default function OrderFilesSection({
 
   // ---------- 删除 ----------
   const handleDelete = async (file: OrderFileItem) => {
-    if (!window.confirm(`确认删除「${file.file_name}」？`)) return
+    if (!window.confirm(t('orderFiles.deleteConfirm', { name: file.file_name }))) return
     try {
       await api.delete<ApiResponse<null>>(`/orders/files/${file.id}`)
-      onToast('文件已删除', 'success')
+      onToast(t('orderFiles.deleted'), 'success')
       fetchFiles()
     } catch (err) {
       console.error('[OrderFiles] 删除失败:', err)
-      onToast(err instanceof Error ? err.message : '删除失败', 'error')
+      onToast(err instanceof Error ? err.message : t('orderFiles.deleteFailed'), 'error')
     }
   }
 
@@ -212,7 +214,7 @@ export default function OrderFilesSection({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
           <FolderOpen className="w-5 h-5 text-blue-600" />
-          订单文件
+          {t('orderFiles.title')}
           <span className="text-xs font-normal text-slate-400">({files.length})</span>
         </h2>
         {canManage && (
@@ -221,7 +223,7 @@ export default function OrderFilesSection({
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all duration-200"
           >
             <Upload className="w-4 h-4" />
-            上传文件
+            {t('orderFiles.uploadButton')}
           </button>
         )}
       </div>
@@ -231,10 +233,10 @@ export default function OrderFilesSection({
         <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
           <div className="text-sm text-amber-700">
-            <span className="font-medium">当前状态建议补齐：</span>
-            {missing.map((c) => CATEGORY_CONFIG[c].label).join('、')}
+            <span className="font-medium">{t('orderFiles.missingTitle')}</span>
+            {missing.map((c) => t(CATEGORY_CONFIG[c].labelKey)).join(t('orderFiles.listSeparator'))}
             {missing.includes('LOADING_PHOTO') && (
-              <span className="block text-xs text-amber-600 mt-0.5">装车图{CATEGORY_CONFIG.LOADING_PHOTO.hint}</span>
+              <span className="block text-xs text-amber-600 mt-0.5">{t('orderFiles.loadingPhotoHint')}</span>
             )}
           </div>
         </div>
@@ -250,7 +252,7 @@ export default function OrderFilesSection({
               className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
             >
               {(Object.keys(CATEGORY_CONFIG) as FileCategory[]).map((c) => (
-                <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
+                <option key={c} value={c}>{t(CATEGORY_CONFIG[c].labelKey)}</option>
               ))}
             </select>
             <input
@@ -261,14 +263,14 @@ export default function OrderFilesSection({
             />
           </div>
           {uploadCategory === 'LOADING_PHOTO' && (
-            <p className="text-xs text-slate-500">提示：装车图{CATEGORY_CONFIG.LOADING_PHOTO.hint}</p>
+            <p className="text-xs text-slate-500">{t('orderFiles.loadingPhotoTip')}</p>
           )}
           {uploadCategory !== 'CMR' && (
             <input
               type="text"
               value={uploadRemarks}
               onChange={(e) => setUploadRemarks(e.target.value)}
-              placeholder="备注（可选）"
+              placeholder={t('orderFiles.remarksPlaceholder')}
               className="w-full min-w-[280px] px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
             />
           )}
@@ -279,15 +281,15 @@ export default function OrderFilesSection({
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              {uploading ? '上传中...' : '确认上传'}
+              {uploading ? t('orderFiles.uploading') : t('orderFiles.confirmUpload')}
             </button>
             <button
               onClick={() => setShowUpload(false)}
               className="px-4 py-2 text-sm border border-gray-200 rounded-xl text-slate-600 hover:bg-gray-50 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
-            <span className="text-xs text-slate-400">支持 PDF/JPG/PNG/WebP，单个 20MB 以内</span>
+            <span className="text-xs text-slate-400">{t('orderFiles.acceptHint')}</span>
           </div>
         </div>
       )}
@@ -302,7 +304,7 @@ export default function OrderFilesSection({
       ) : files.length === 0 ? (
         <div className="py-8 text-center text-slate-400">
           <File className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-          <p className="text-sm">暂无文件</p>
+          <p className="text-sm">{t('orderFiles.empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -323,18 +325,18 @@ export default function OrderFilesSection({
                       {file.file_name}
                     </span>
                     <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${cfg.badge}`}>
-                      {cfg.label}
+                      {t(cfg.labelKey)}
                     </span>
                     {file.source === 'CMR_DOC' && file.sign_status && (
                       <StatusBadge status={file.sign_status} type="cmr" />
                     )}
                     {file.has_damage_note && (
-                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">货损</span>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">{t('orderFiles.damaged')}</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5 truncate">
                     {formatFileSize(file.file_size_bytes)} · {file.uploaded_by_name || '-'} ·{' '}
-                    {file.uploaded_at ? new Date(file.uploaded_at).toLocaleString('zh-CN') : '-'}
+                    {formatDateTime(file.uploaded_at)}
                     {file.remarks && ` · ${file.remarks}`}
                   </p>
                 </div>
@@ -344,7 +346,7 @@ export default function OrderFilesSection({
                     target="_blank"
                     rel="noreferrer"
                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                    title="下载/查看"
+                    title={t('orderFiles.downloadOrView')}
                   >
                     <Download className="w-4 h-4" />
                   </a>
@@ -352,7 +354,7 @@ export default function OrderFilesSection({
                     <button
                       onClick={() => handleDelete(file)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
-                      title="删除"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

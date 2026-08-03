@@ -26,12 +26,13 @@ import {
   CheckCircle,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
+import { useTranslation } from 'react-i18next'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 import {
   BUSINESS_TYPES,
   type BusinessType,
-  BUSINESS_TYPE_LABELS,
-  BUSINESS_TYPE_DESCRIPTIONS,
+  businessTypeLabelKey,
+  businessTypeDescKey,
 } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
@@ -267,6 +268,7 @@ function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; child
 
 export default function OrderCreate() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   // 基础数据选项（从数据库加载）
   const { options: countryOptions } = useMasterDataOptions('countries')
@@ -342,36 +344,36 @@ export default function OrderCreate() {
 
   function validateTruck(): string[] {
     const errs: string[] = []
-    if (!truckForm.clientId) errs.push('请选择客户')
-    if (!truckForm.cargoDescription.trim()) errs.push('请填写货物描述')
-    if (!truckForm.cargoWeightKg || Number(truckForm.cargoWeightKg) <= 0) errs.push('请填写有效的货物重量')
-    if (!truckForm.cargoQuantity || Number(truckForm.cargoQuantity) <= 0) errs.push('请填写有效的货物数量')
-    if (!truckForm.pickupCountry) errs.push('请选择装货国家')
-    if (!truckForm.pickupCity.trim()) errs.push('请填写装货城市')
-    if (!truckForm.pickupZipCode.trim()) errs.push('请填写装货邮编')
-    if (!truckForm.pickupAddress.trim()) errs.push('请填写装货详细地址')
-    if (!truckForm.pickupDate) errs.push('请选择装货日期')
-    if (!truckForm.deliveryCountry) errs.push('请选择卸货国家')
-    if (!truckForm.deliveryCity.trim()) errs.push('请填写卸货城市')
-    if (!truckForm.deliveryZipCode.trim()) errs.push('请填写卸货邮编')
-    if (!truckForm.deliveryAddress.trim()) errs.push('请填写卸货详细地址')
-    if (!truckForm.deliveryDate) errs.push('请选择到达日期')
+    if (!truckForm.clientId) errs.push(t('placeholder.selectClient'))
+    if (!truckForm.cargoDescription.trim()) errs.push(t('orderForm.errCargoDescRequired'))
+    if (!truckForm.cargoWeightKg || Number(truckForm.cargoWeightKg) <= 0) errs.push(t('orderForm.errWeightInvalid'))
+    if (!truckForm.cargoQuantity || Number(truckForm.cargoQuantity) <= 0) errs.push(t('orderForm.errQuantityInvalid'))
+    if (!truckForm.pickupCountry) errs.push(t('orderForm.errPickupCountryRequired'))
+    if (!truckForm.pickupCity.trim()) errs.push(t('orderForm.errPickupCityRequired'))
+    if (!truckForm.pickupZipCode.trim()) errs.push(t('orderForm.errPickupZipRequired'))
+    if (!truckForm.pickupAddress.trim()) errs.push(t('orderForm.errPickupAddressRequired'))
+    if (!truckForm.pickupDate) errs.push(t('orderForm.errPickupDateRequired'))
+    if (!truckForm.deliveryCountry) errs.push(t('orderForm.errDeliveryCountryRequired'))
+    if (!truckForm.deliveryCity.trim()) errs.push(t('orderForm.errDeliveryCityRequired'))
+    if (!truckForm.deliveryZipCode.trim()) errs.push(t('orderForm.errDeliveryZipRequired'))
+    if (!truckForm.deliveryAddress.trim()) errs.push(t('orderForm.errDeliveryAddressRequired'))
+    if (!truckForm.deliveryDate) errs.push(t('orderForm.errDeliveryDateRequired'))
     return errs
   }
 
   function validateContainer(): string[] {
     const errs: string[] = []
-    if (!containerForm.clientId) errs.push('请选择客户')
-    if (!containerForm.shippingLine) errs.push('请选择船司')
-    if (!containerForm.blNumber.trim()) errs.push('请填写提单号')
-    if (!containerForm.eta) errs.push('请选择 ETA')
-    if (!containerForm.cnee.trim()) errs.push('请填写收货人 (CNEE)')
-    if (!containerForm.containerNo.trim()) errs.push('请填写柜号')
-    if (!containerForm.containerType) errs.push('请选择柜型')
-    if (!containerForm.pod.trim()) errs.push('请填写卸港')
-    if (!containerForm.finalDestination.trim()) errs.push('请填写最终目的地')
-    if (!containerForm.finalDestAddress.trim()) errs.push('请填写最终目的地详细地址')
-    if (!containerForm.expectedDeliveryDate) errs.push('请选择期望送仓时间')
+    if (!containerForm.clientId) errs.push(t('placeholder.selectClient'))
+    if (!containerForm.shippingLine) errs.push(t('placeholder.selectShippingLine'))
+    if (!containerForm.blNumber.trim()) errs.push(t('orderForm.errBlNumberRequired'))
+    if (!containerForm.eta) errs.push(t('orderForm.errEtaRequired'))
+    if (!containerForm.cnee.trim()) errs.push(t('orderForm.errCneeRequired'))
+    if (!containerForm.containerNo.trim()) errs.push(t('orderForm.errContainerNoRequired'))
+    if (!containerForm.containerType) errs.push(t('placeholder.selectContainerType'))
+    if (!containerForm.pod.trim()) errs.push(t('orderForm.errPodRequired'))
+    if (!containerForm.finalDestination.trim()) errs.push(t('orderForm.errFinalDestRequired'))
+    if (!containerForm.finalDestAddress.trim()) errs.push(t('orderForm.errFinalDestAddressRequired'))
+    if (!containerForm.expectedDeliveryDate) errs.push(t('orderForm.errExpectedDeliveryRequired'))
     return errs
   }
 
@@ -457,11 +459,11 @@ export default function OrderCreate() {
         setSuccess(true)
         setTimeout(() => navigate('/orders'), 1500)
       } else {
-        setErrors([res.message || '创建失败，请重试'])
+        setErrors([res.message || t('orderForm.createFailed')])
       }
     } catch (err: any) {
       console.error('创建订单失败:', err)
-      setErrors([err.message || '网络错误，请检查连接后重试'])
+      setErrors([err.message || t('orderForm.networkError')])
     } finally {
       setSubmitting(false)
     }
@@ -486,7 +488,7 @@ export default function OrderCreate() {
         >
           <ArrowLeft className="w-5 h-5 text-slate-600" />
         </button>
-        <h1 className="text-xl font-semibold text-slate-900">新建订单</h1>
+        <h1 className="text-xl font-semibold text-slate-900">{t('order.create')}</h1>
       </div>
 
       {/* 业务类型选择 */}
@@ -512,9 +514,9 @@ export default function OrderCreate() {
               </div>
               <div className="text-left">
                 <div className={`font-semibold ${isActive ? 'text-blue-700' : 'text-slate-800'}`}>
-                  {BUSINESS_TYPE_LABELS[key]}
+                  {t(businessTypeLabelKey(key))}
                 </div>
-                <div className="text-xs text-slate-500 mt-0.5">{BUSINESS_TYPE_DESCRIPTIONS[key]}</div>
+                <div className="text-xs text-slate-500 mt-0.5">{t(businessTypeDescKey(key))}</div>
               </div>
             </button>
           )
@@ -526,7 +528,7 @@ export default function OrderCreate() {
         <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-            <p className="text-sm font-medium text-green-700">订单创建成功！正在跳转...</p>
+            <p className="text-sm font-medium text-green-700">{t('orderForm.createSuccess')}</p>
           </div>
         </div>
       )}
@@ -537,7 +539,7 @@ export default function OrderCreate() {
           <div className="flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-medium text-red-700 mb-1">请修正以下问题：</p>
+              <p className="text-sm font-medium text-red-700 mb-1">{t('orderForm.fixIssues')}</p>
               <ul className="text-sm text-red-600 space-y-0.5">
                 {errors.map((e, i) => (
                   <li key={i}>- {e}</li>
@@ -592,7 +594,7 @@ export default function OrderCreate() {
           className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600
             hover:bg-slate-50 transition-all duration-200 disabled:opacity-50"
         >
-          取消
+          {t('common.cancel')}
         </button>
         <button
           onClick={handleSubmit}
@@ -604,12 +606,12 @@ export default function OrderCreate() {
           {submitting ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              提交中...
+              {t('common.submitting')}
             </>
           ) : (
             <>
               <Send className="w-4 h-4" />
-              提交订单
+              {t('orderForm.submitOrder')}
             </>
           )}
         </button>
@@ -633,6 +635,7 @@ function TruckFormSection({
   clientsLoading: boolean
   isLocalDelivery?: boolean
 }) {
+  const { t } = useTranslation()
   const { options: countryOpts } = useMasterDataOptions('countries')
   const { options: specialReqOpts } = useMasterDataOptions('special-requirements')
   const { options: currencyOpts } = useMasterDataOptions('currencies')
@@ -642,64 +645,64 @@ function TruckFormSection({
     <>
       {/* 基本信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={Package}>基本信息</SectionTitle>
+        <SectionTitle icon={Package}>{t('section.basicInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>客户</Label>
+            <Label required>{t('common.client')}</Label>
             <SelectInput
               value={form.clientId}
               onChange={(v) => onUpdate('clientId', v)}
               options={clientOptions}
-              placeholder={clientsLoading ? '加载中...' : '请选择客户'}
+              placeholder={clientsLoading ? t('common.loading') : t('placeholder.selectClient')}
             />
           </div>
           {/* 本地派送没有 FTL/LTL 之分 */}
           {!isLocalDelivery && (
             <div>
-              <Label required>运输类型</Label>
+              <Label required>{t('field.transportType')}</Label>
               <SelectInput
                 value={form.transportType}
                 onChange={(v) => onUpdate('transportType', v as TransportType)}
                 options={[
-                  { value: 'FTL', label: 'FTL 整车' },
-                  { value: 'LTL', label: 'LTL 拼车' },
+                  { value: 'FTL', label: t('transportType.FTL') },
+                  { value: 'LTL', label: t('transportType.LTL') },
                 ]}
               />
             </div>
           )}
           <div className="sm:col-span-2">
-            <Label required>货物描述</Label>
+            <Label required>{t('field.cargoDescription')}</Label>
             <TextInput
               value={form.cargoDescription}
               onChange={(v) => onUpdate('cargoDescription', v)}
-              placeholder="例如：机械零件、电子产品等"
+              placeholder={t('placeholder.cargoDescriptionEg')}
             />
           </div>
           <div>
-            <Label required>货物重量 (kg)</Label>
+            <Label required>{t('field.cargoWeightKg')}</Label>
             <TextInput
               value={form.cargoWeightKg}
               onChange={(v) => onUpdate('cargoWeightKg', v)}
               type="number"
-              placeholder="例如：12000"
+              placeholder={t('placeholder.weightEg')}
             />
           </div>
           <div>
-            <Label>货物体积 (m³)</Label>
+            <Label>{t('field.cargoVolumeM3')}</Label>
             <TextInput
               value={form.cargoVolumeM3}
               onChange={(v) => onUpdate('cargoVolumeM3', v)}
               type="number"
-              placeholder="例如：35"
+              placeholder={t('placeholder.volumeEg')}
             />
           </div>
           <div>
-            <Label required>货物数量</Label>
+            <Label required>{t('field.cargoQuantity')}</Label>
             <TextInput
               value={form.cargoQuantity}
               onChange={(v) => onUpdate('cargoQuantity', v)}
               type="number"
-              placeholder="例如：24"
+              placeholder={t('placeholder.quantityEg')}
             />
           </div>
         </div>
@@ -707,35 +710,35 @@ function TruckFormSection({
 
       {/* 装货信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={MapPin}>装货信息</SectionTitle>
+        <SectionTitle icon={MapPin}>{t('section.pickupInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>国家</Label>
+            <Label required>{t('common.country')}</Label>
             <SelectInput
               value={form.pickupCountry}
               onChange={(v) => onUpdate('pickupCountry', v)}
               options={countryOptions}
-              placeholder="请选择国家"
+              placeholder={t('placeholder.selectCountry')}
             />
           </div>
           <div>
-            <Label required>城市</Label>
+            <Label required>{t('common.city')}</Label>
             <TextInput
               value={form.pickupCity}
               onChange={(v) => onUpdate('pickupCity', v)}
-              placeholder="例如：Munich"
+              placeholder={t('placeholder.cityMunich')}
             />
           </div>
           <div>
-            <Label required>邮编</Label>
+            <Label required>{t('field.zipCode')}</Label>
             <TextInput
               value={form.pickupZipCode}
               onChange={(v) => onUpdate('pickupZipCode', v)}
-              placeholder="例如：80331"
+              placeholder={t('placeholder.zipMunich')}
             />
           </div>
           <div>
-            <Label required>装货日期</Label>
+            <Label required>{t('field.pickupDate')}</Label>
             <TextInput
               value={form.pickupDate}
               onChange={(v) => onUpdate('pickupDate', v)}
@@ -743,23 +746,23 @@ function TruckFormSection({
             />
           </div>
           <div className="sm:col-span-2">
-            <Label required>详细地址</Label>
+            <Label required>{t('field.addressDetail')}</Label>
             <TextInput
               value={form.pickupAddress}
               onChange={(v) => onUpdate('pickupAddress', v)}
-              placeholder="街道、门牌号等"
+              placeholder={t('placeholder.streetAndNumber')}
             />
           </div>
           <div>
-            <Label>联系人</Label>
+            <Label>{t('field.contact')}</Label>
             <TextInput
               value={form.pickupContact}
               onChange={(v) => onUpdate('pickupContact', v)}
-              placeholder="装货联系人"
+              placeholder={t('placeholder.pickupContact')}
             />
           </div>
           <div>
-            <Label>联系电话</Label>
+            <Label>{t('field.phone')}</Label>
             <TextInput
               value={form.pickupPhone}
               onChange={(v) => onUpdate('pickupPhone', v)}
@@ -771,35 +774,35 @@ function TruckFormSection({
 
       {/* 卸货信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={MapPin}>卸货信息</SectionTitle>
+        <SectionTitle icon={MapPin}>{t('section.deliveryInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>国家</Label>
+            <Label required>{t('common.country')}</Label>
             <SelectInput
               value={form.deliveryCountry}
               onChange={(v) => onUpdate('deliveryCountry', v)}
               options={countryOptions}
-              placeholder="请选择国家"
+              placeholder={t('placeholder.selectCountry')}
             />
           </div>
           <div>
-            <Label required>城市</Label>
+            <Label required>{t('common.city')}</Label>
             <TextInput
               value={form.deliveryCity}
               onChange={(v) => onUpdate('deliveryCity', v)}
-              placeholder="例如：Warsaw"
+              placeholder={t('placeholder.cityWarsaw')}
             />
           </div>
           <div>
-            <Label required>邮编</Label>
+            <Label required>{t('field.zipCode')}</Label>
             <TextInput
               value={form.deliveryZipCode}
               onChange={(v) => onUpdate('deliveryZipCode', v)}
-              placeholder="例如：00-001"
+              placeholder={t('placeholder.zipWarsaw')}
             />
           </div>
           <div>
-            <Label required>到达日期</Label>
+            <Label required>{t('field.deliveryDate')}</Label>
             <TextInput
               value={form.deliveryDate}
               onChange={(v) => onUpdate('deliveryDate', v)}
@@ -807,23 +810,23 @@ function TruckFormSection({
             />
           </div>
           <div className="sm:col-span-2">
-            <Label required>详细地址</Label>
+            <Label required>{t('field.addressDetail')}</Label>
             <TextInput
               value={form.deliveryAddress}
               onChange={(v) => onUpdate('deliveryAddress', v)}
-              placeholder="街道、门牌号等"
+              placeholder={t('placeholder.streetAndNumber')}
             />
           </div>
           <div>
-            <Label>联系人</Label>
+            <Label>{t('field.contact')}</Label>
             <TextInput
               value={form.deliveryContact}
               onChange={(v) => onUpdate('deliveryContact', v)}
-              placeholder="卸货联系人"
+              placeholder={t('placeholder.deliveryContact')}
             />
           </div>
           <div>
-            <Label>联系电话</Label>
+            <Label>{t('field.phone')}</Label>
             <TextInput
               value={form.deliveryPhone}
               onChange={(v) => onUpdate('deliveryPhone', v)}
@@ -835,22 +838,25 @@ function TruckFormSection({
 
       {/* 特殊要求 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={ClipboardList}>特殊要求</SectionTitle>
+        <SectionTitle icon={ClipboardList}>{t('field.specialRequirements')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>特殊要求</Label>
+            <Label>{t('field.specialRequirements')}</Label>
             <SelectInput
               value={form.specialRequirements}
               onChange={(v) => onUpdate('specialRequirements', v)}
-              options={specialReqOpts.map(o => ({ value: o.value, label: o.label }))}
+              options={specialReqOpts.map((o) => ({
+                value: o.value,
+                label: t(`specialRequirement.${o.value}`, { defaultValue: o.label }),
+              }))}
             />
           </div>
           <div className="sm:col-span-2">
-            <Label>备注</Label>
+            <Label>{t('common.remark')}</Label>
             <TextArea
               value={form.remarks}
               onChange={(v) => onUpdate('remarks', v)}
-              placeholder="其他特殊说明..."
+              placeholder={t('placeholder.otherNotes')}
             />
           </div>
         </div>
@@ -858,19 +864,19 @@ function TruckFormSection({
 
       {/* 报价信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={Euro}>报价信息</SectionTitle>
+        <SectionTitle icon={Euro}>{t('section.pricingInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>客户报价</Label>
+            <Label>{t('field.clientPrice')}</Label>
             <TextInput
               value={form.clientPrice}
               onChange={(v) => onUpdate('clientPrice', v)}
               type="number"
-              placeholder="例如：3500"
+              placeholder={t('placeholder.priceEg')}
             />
           </div>
           <div>
-            <Label>币种</Label>
+            <Label>{t('common.currency')}</Label>
             <SelectInput
               value={form.currency}
               onChange={(v) => onUpdate('currency', v)}
@@ -896,6 +902,7 @@ function ContainerFormSection({
   clientOptions: { value: string; label: string }[]
   clientsLoading: boolean
 }) {
+  const { t } = useTranslation()
   const { options: shippingLineOpts } = useMasterDataOptions('shipping-lines')
   const { options: containerTypeOpts } = useMasterDataOptions('container-types')
   const { options: currencyOpts } = useMasterDataOptions('currencies')
@@ -904,25 +911,25 @@ function ContainerFormSection({
     <>
       {/* 基本信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={Package}>基本信息</SectionTitle>
+        <SectionTitle icon={Package}>{t('section.basicInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>客户</Label>
+            <Label required>{t('common.client')}</Label>
             <SelectInput
               value={form.clientId}
               onChange={(v) => onUpdate('clientId', v)}
               options={clientOptions}
-              placeholder={clientsLoading ? '加载中...' : '请选择客户'}
+              placeholder={clientsLoading ? t('common.loading') : t('placeholder.selectClient')}
             />
           </div>
           <div>
-            <Label required>运输类型</Label>
+            <Label required>{t('field.transportType')}</Label>
             <SelectInput
               value={form.transportType}
               onChange={(v) => onUpdate('transportType', v as TransportType)}
               options={[
-                { value: 'FTL', label: 'FTL 整车' },
-                { value: 'LTL', label: 'LTL 拼车' },
+                { value: 'FTL', label: t('transportType.FTL') },
+                { value: 'LTL', label: t('transportType.LTL') },
               ]}
             />
           </div>
@@ -931,23 +938,23 @@ function ContainerFormSection({
 
       {/* 航运信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={Ship}>航运信息</SectionTitle>
+        <SectionTitle icon={Ship}>{t('section.shippingInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>船司</Label>
+            <Label required>{t('field.shippingLine')}</Label>
             <SelectInput
               value={form.shippingLine}
               onChange={(v) => onUpdate('shippingLine', v)}
               options={shippingLineOpts.map(o => ({ value: o.value, label: o.label }))}
-              placeholder="请选择船司"
+              placeholder={t('placeholder.selectShippingLine')}
             />
           </div>
           <div>
-            <Label required>提单号</Label>
+            <Label required>{t('field.blNumber')}</Label>
             <TextInput
               value={form.blNumber}
               onChange={(v) => onUpdate('blNumber', v)}
-              placeholder="例如：MSCU1234567"
+              placeholder={t('placeholder.blNumberEg')}
             />
           </div>
           <div>
@@ -959,11 +966,11 @@ function ContainerFormSection({
             />
           </div>
           <div>
-            <Label required>CNEE (收货人)</Label>
+            <Label required>{t('field.cnee')}</Label>
             <TextInput
               value={form.cnee}
               onChange={(v) => onUpdate('cnee', v)}
-              placeholder="例如：BMW AG"
+              placeholder={t('placeholder.cneeEg')}
             />
           </div>
         </div>
@@ -971,31 +978,31 @@ function ContainerFormSection({
 
       {/* 集装箱信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={Box}>集装箱信息</SectionTitle>
+        <SectionTitle icon={Box}>{t('section.containerInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>柜号</Label>
+            <Label required>{t('field.containerNo')}</Label>
             <TextInput
               value={form.containerNo}
               onChange={(v) => onUpdate('containerNo', v)}
-              placeholder="例如：MSCU1234567"
+              placeholder={t('placeholder.blNumberEg')}
             />
           </div>
           <div>
-            <Label required>柜型</Label>
+            <Label required>{t('field.containerType')}</Label>
             <SelectInput
               value={form.containerType}
               onChange={(v) => onUpdate('containerType', v)}
               options={containerTypeOpts.map(o => ({ value: o.value, label: o.label }))}
-              placeholder="请选择柜型"
+              placeholder={t('placeholder.selectContainerType')}
             />
           </div>
           <div>
-            <Label>封号</Label>
+            <Label>{t('field.sealNo')}</Label>
             <TextInput
               value={form.sealNo}
               onChange={(v) => onUpdate('sealNo', v)}
-              placeholder="例如：SL123"
+              placeholder={t('placeholder.sealNoEg')}
             />
           </div>
         </div>
@@ -1003,34 +1010,34 @@ function ContainerFormSection({
 
       {/* 港口与配送信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={MapPin}>港口与配送信息</SectionTitle>
+        <SectionTitle icon={MapPin}>{t('section.portDeliveryInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label required>卸港</Label>
+            <Label required>{t('field.pod')}</Label>
             <TextInput
               value={form.pod}
               onChange={(v) => onUpdate('pod', v)}
-              placeholder="例如：Hamburg"
+              placeholder={t('placeholder.cityHamburg')}
             />
           </div>
           <div>
-            <Label required>最终目的地</Label>
+            <Label required>{t('field.finalDestination')}</Label>
             <TextInput
               value={form.finalDestination}
               onChange={(v) => onUpdate('finalDestination', v)}
-              placeholder="例如：Munich"
+              placeholder={t('placeholder.cityMunich')}
             />
           </div>
           <div className="sm:col-span-2">
-            <Label required>最终目的地详细地址</Label>
+            <Label required>{t('field.finalDestAddress')}</Label>
             <TextInput
               value={form.finalDestAddress}
               onChange={(v) => onUpdate('finalDestAddress', v)}
-              placeholder="例如：BMW Werk 1, Munich"
+              placeholder={t('placeholder.finalDestAddressEg')}
             />
           </div>
           <div>
-            <Label required>期望送仓时间</Label>
+            <Label required>{t('field.expectedDeliveryDate')}</Label>
             <TextInput
               value={form.expectedDeliveryDate}
               onChange={(v) => onUpdate('expectedDeliveryDate', v)}
@@ -1038,15 +1045,15 @@ function ContainerFormSection({
             />
           </div>
           <div>
-            <Label>联系人</Label>
+            <Label>{t('field.contact')}</Label>
             <TextInput
               value={form.deliveryContact}
               onChange={(v) => onUpdate('deliveryContact', v)}
-              placeholder="收货联系人"
+              placeholder={t('placeholder.consigneeContact')}
             />
           </div>
           <div>
-            <Label>联系电话</Label>
+            <Label>{t('field.phone')}</Label>
             <TextInput
               value={form.deliveryPhone}
               onChange={(v) => onUpdate('deliveryPhone', v)}
@@ -1058,36 +1065,36 @@ function ContainerFormSection({
 
       {/* 放单信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={FileText}>放单信息</SectionTitle>
+        <SectionTitle icon={FileText}>{t('section.releaseInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>放单方式</Label>
+            <Label>{t('field.releaseMethod')}</Label>
             <SelectInput
               value={form.releaseMethod}
               onChange={(v) => onUpdate('releaseMethod', v as ReleaseMethod)}
               options={[
-                { value: 'TELEX', label: '电放 Telex Release' },
-                { value: 'ORIGINAL', label: '正本提单 Original B/L' },
+                { value: 'TELEX', label: t('releaseMethod.TELEX') },
+                { value: 'ORIGINAL', label: t('releaseMethod.ORIGINAL') },
               ]}
             />
           </div>
           <div>
-            <Label>是否需要清关</Label>
+            <Label>{t('field.needsClearance')}</Label>
             <SelectInput
-              value={form.needsClearance ? '是' : '否'}
-              onChange={(v) => onUpdate('needsClearance', v === '是')}
+              value={form.needsClearance ? 'YES' : 'NO'}
+              onChange={(v) => onUpdate('needsClearance', v === 'YES')}
               options={[
-                { value: '是', label: '是' },
-                { value: '否', label: '否' },
+                { value: 'YES', label: t('common.yes') },
+                { value: 'NO', label: t('common.no') },
               ]}
             />
           </div>
           <div className="sm:col-span-2">
-            <Label>备注</Label>
+            <Label>{t('common.remark')}</Label>
             <TextArea
               value={form.remarks}
               onChange={(v) => onUpdate('remarks', v)}
-              placeholder="其他特殊说明..."
+              placeholder={t('placeholder.otherNotes')}
             />
           </div>
         </div>
@@ -1095,19 +1102,19 @@ function ContainerFormSection({
 
       {/* 报价信息 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-        <SectionTitle icon={Euro}>报价信息</SectionTitle>
+        <SectionTitle icon={Euro}>{t('section.pricingInfo')}</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>客户报价</Label>
+            <Label>{t('field.clientPrice')}</Label>
             <TextInput
               value={form.clientPrice}
               onChange={(v) => onUpdate('clientPrice', v)}
               type="number"
-              placeholder="例如：3500"
+              placeholder={t('placeholder.priceEg')}
             />
           </div>
           <div>
-            <Label>币种</Label>
+            <Label>{t('common.currency')}</Label>
             <SelectInput
               value={form.currency}
               onChange={(v) => onUpdate('currency', v)}
@@ -1135,6 +1142,7 @@ function OrderSummary({
   truckForm: TruckForm
   containerForm: ContainerForm
 }) {
+  const { t } = useTranslation()
   // 根据业务类型展示不同摘要（FTL 走集装箱表单，其余走卡车表单）
   const isContainer = businessType === BUSINESS_TYPES.TRUCK_FTL
   const isLocal = businessType === BUSINESS_TYPES.LOCAL_DELIVERY
@@ -1156,25 +1164,25 @@ function OrderSummary({
 
   return (
     <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
-      <h3 className="text-sm font-semibold text-slate-800 mb-4">订单摘要</h3>
+      <h3 className="text-sm font-semibold text-slate-800 mb-4">{t('orderForm.summary')}</h3>
 
       <div className="space-y-4">
         {/* 预估订单号 */}
-        <SummaryItem label="预估订单号" value={estimatedOrderNo} />
+        <SummaryItem label={t('orderForm.estimatedOrderNo')} value={estimatedOrderNo} />
 
         {/* 业务类型 */}
         <SummaryItem
-          label="业务类型"
+          label={t('field.businessType')}
           value={
             <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-medium
               ${isContainer ? 'bg-purple-100 text-purple-700' : isLocal ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
             >
               {isContainer ? (
-                <><Container className="w-3 h-3" /> {BUSINESS_TYPE_LABELS.TRUCK_FTL}</>
+                <><Container className="w-3 h-3" /> {t(businessTypeLabelKey(BUSINESS_TYPES.TRUCK_FTL))}</>
               ) : isLocal ? (
-                <><MapPin className="w-3 h-3" /> {BUSINESS_TYPE_LABELS.LOCAL_DELIVERY}</>
+                <><MapPin className="w-3 h-3" /> {t(businessTypeLabelKey(BUSINESS_TYPES.LOCAL_DELIVERY))}</>
               ) : (
-                <><Truck className="w-3 h-3" /> {BUSINESS_TYPE_LABELS.TRUCK_LTL}</>
+                <><Truck className="w-3 h-3" /> {t(businessTypeLabelKey(BUSINESS_TYPES.TRUCK_LTL))}</>
               )}
             </span>
           }
@@ -1182,18 +1190,18 @@ function OrderSummary({
 
         {/* 客户 */}
         <SummaryItem
-          label="客户"
-          value={clientName || <span className="text-slate-400 italic">未选择</span>}
+          label={t('common.client')}
+          value={clientName || <span className="text-slate-400 italic">{t('common.notSelected')}</span>}
         />
 
         {/* 运输类型（本地派送没有此项） */}
         {!isLocal && (
           <SummaryItem
-            label="运输类型"
+            label={t('field.transportType')}
             value={
               (isContainer ? containerForm.transportType : truckForm.transportType) === 'FTL'
-                ? 'FTL 整车'
-                : 'LTL 拼车'
+                ? t('transportType.FTL')
+                : t('transportType.LTL')
             }
           />
         )}
@@ -1203,7 +1211,7 @@ function OrderSummary({
 
         {/* 路线 */}
         <div>
-          <span className="text-xs text-slate-500">路线</span>
+          <span className="text-xs text-slate-500">{t('common.route')}</span>
           <div className="mt-1 flex items-center gap-2 text-sm">
             <span className="text-slate-800 font-medium">{routeFrom || '—'}</span>
             <span className="text-slate-400">→</span>
@@ -1215,11 +1223,11 @@ function OrderSummary({
         {!isContainer && (
           <>
             <SummaryItem
-              label="重量"
+              label={t('field.weight')}
               value={truckForm.cargoWeightKg ? `${truckForm.cargoWeightKg} kg` : '—'}
             />
             <SummaryItem
-              label="体积"
+              label={t('field.volume')}
               value={truckForm.cargoVolumeM3 ? `${truckForm.cargoVolumeM3} m³` : '—'}
             />
           </>
@@ -1228,9 +1236,9 @@ function OrderSummary({
         {/* 集装箱特有信息 */}
         {isContainer && (
           <>
-            <SummaryItem label="船司" value={containerForm.shippingLine || '—'} />
-            <SummaryItem label="柜型" value={containerForm.containerType || '—'} />
-            <SummaryItem label="柜号" value={containerForm.containerNo || '—'} />
+            <SummaryItem label={t('field.shippingLine')} value={containerForm.shippingLine || '—'} />
+            <SummaryItem label={t('field.containerType')} value={containerForm.containerType || '—'} />
+            <SummaryItem label={t('field.containerNo')} value={containerForm.containerNo || '—'} />
           </>
         )}
 
@@ -1239,12 +1247,12 @@ function OrderSummary({
 
         {/* 报价 */}
         <div>
-          <span className="text-xs text-slate-500">客户报价</span>
+          <span className="text-xs text-slate-500">{t('field.clientPrice')}</span>
           <div className="mt-1 text-lg font-semibold text-slate-900">
             {price ? (
               <>{currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : 'zł'} {Number(price).toLocaleString()}</>
             ) : (
-              <span className="text-slate-400 text-sm font-normal">未填写</span>
+              <span className="text-slate-400 text-sm font-normal">{t('common.notFilled')}</span>
             )}
           </div>
         </div>

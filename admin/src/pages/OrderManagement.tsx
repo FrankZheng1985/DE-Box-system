@@ -21,15 +21,18 @@ import {
   X,
   Calendar,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
+import { formatDate, formatMoney, formatNumber } from '../utils/format'
 import {
   BUSINESS_TYPES,
   type BusinessType,
   TRUCK_STATUS_TABS,
   LOCAL_DELIVERY_STATUS_TABS,
   CONTAINER_DELIVERY_STATUS_TABS,
+  businessTypeLabelKey,
   getStatusLabel,
 } from '../constants/businessTypes'
 
@@ -70,9 +73,9 @@ interface Pagination {
 
 // 业务类型 Tab（枚举值来自共享常量，页面只负责配图标）
 const BUSINESS_TABS = [
-  { key: BUSINESS_TYPES.TRUCK_LTL, label: '卡车派送 LTL', icon: Truck },
-  { key: BUSINESS_TYPES.TRUCK_FTL, label: '卡车运输 FTL', icon: Container },
-  { key: BUSINESS_TYPES.LOCAL_DELIVERY, label: '本地派送', icon: MapPin },
+  { key: BUSINESS_TYPES.TRUCK_LTL, icon: Truck },
+  { key: BUSINESS_TYPES.TRUCK_FTL, icon: Container },
+  { key: BUSINESS_TYPES.LOCAL_DELIVERY, icon: MapPin },
 ] as const
 
 const PAGE_SIZE = 15
@@ -81,6 +84,7 @@ const PAGE_SIZE = 15
 
 export default function OrderManagement() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   // ---------- 状态 ----------
   // 业务类型 Tab
@@ -213,11 +217,11 @@ export default function OrderManagement() {
         { trackingNumber: trackingInput.trim() }
       )
       setTrackingOrder(null)
-      showToast('跟踪号已保存')
+      showToast(t('order.trackingSaved'))
       fetchOrders()
     } catch (error) {
       console.error('[OrderManagement] 保存跟踪号失败:', error)
-      showToast(error instanceof Error ? error.message : '保存跟踪号失败')
+      showToast(error instanceof Error ? error.message : t('order.trackingSaveFailed'))
     } finally {
       setTrackingSaving(false)
     }
@@ -233,10 +237,10 @@ export default function OrderManagement() {
         : TRUCK_STATUS_TABS
   const searchPlaceholder =
     businessType === BUSINESS_TYPES.TRUCK_FTL
-      ? '搜索柜号、提单号、客户...'
+      ? t('order.searchPlaceholderFtl')
       : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
-        ? '搜索订单号、客户、跟踪号...'
-        : '搜索订单号、客户、路线...'
+        ? t('order.searchPlaceholderLocal')
+        : t('order.searchPlaceholderLtl')
 
   // ==================== 渲染 ====================
 
@@ -249,8 +253,8 @@ export default function OrderManagement() {
             <Package className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">订单管理</h1>
-            <p className="text-xs text-slate-500">管理卡车派送 LTL、卡车运输 FTL 和本地派送订单</p>
+            <h1 className="text-xl font-bold text-slate-900">{t('order.pageTitle')}</h1>
+            <p className="text-xs text-slate-500">{t('order.pageSubtitle')}</p>
           </div>
         </div>
         <button
@@ -258,7 +262,7 @@ export default function OrderManagement() {
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          新建订单
+          {t('order.create')}
         </button>
       </div>
 
@@ -282,7 +286,7 @@ export default function OrderManagement() {
                   `}
                 >
                   <Icon className="w-4 h-4" />
-                  {tab.label}
+                  {t(businessTypeLabelKey(tab.key))}
                 </button>
               )
             })}
@@ -322,7 +326,7 @@ export default function OrderManagement() {
               }`}
             >
               <Filter className="w-4 h-4" />
-              筛选
+              {t('order.filter')}
             </button>
 
             {/* 导出按钮 */}
@@ -331,7 +335,7 @@ export default function OrderManagement() {
               className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg text-slate-600 hover:bg-gray-50 transition-all duration-200"
             >
               <Download className="w-4 h-4" />
-              导出
+              {t('common.export')}
             </button>
           </div>
 
@@ -340,7 +344,7 @@ export default function OrderManagement() {
             <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Calendar className="w-4 h-4" />
-                创建日期：
+                {t('order.createdDateRange')}
               </div>
               <input
                 type="date"
@@ -348,7 +352,7 @@ export default function OrderManagement() {
                 onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1) }}
                 className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
               />
-              <span className="text-slate-400 text-sm">至</span>
+              <span className="text-slate-400 text-sm">{t('order.dateRangeTo')}</span>
               <input
                 type="date"
                 value={dateTo}
@@ -360,7 +364,7 @@ export default function OrderManagement() {
                   onClick={() => { setDateFrom(''); setDateTo(''); setCurrentPage(1) }}
                   className="text-xs text-blue-600 hover:text-blue-700"
                 >
-                  清除日期
+                  {t('order.clearDate')}
                 </button>
               )}
             </div>
@@ -383,7 +387,7 @@ export default function OrderManagement() {
                   }
                 `}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             )
           })}
@@ -403,8 +407,9 @@ export default function OrderManagement() {
         {pagination.total > 0 && (
           <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
             <div className="text-xs text-slate-500">
-              共 <span className="font-medium text-slate-700">{pagination.total}</span> 条记录，
-              第 {currentPage} / {totalPages} 页
+              {t('common.totalCount', { count: pagination.total })}
+              <span className="mx-1">·</span>
+              {t('common.page', { page: currentPage, total: totalPages })}
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -430,9 +435,9 @@ export default function OrderManagement() {
         {!loading && orders.length === 0 && (
           <div className="py-20 flex flex-col items-center justify-center text-slate-400">
             <Package className="w-12 h-12 mb-3 text-slate-300" />
-            <p className="text-sm">暂无订单数据</p>
+            <p className="text-sm">{t('order.emptyTitle')}</p>
             <p className="text-xs mt-1">
-              {searchQuery || statusFilter ? '尝试调整筛选条件' : '点击右上角「新建订单」创建'}
+              {searchQuery || statusFilter ? t('order.emptyFiltered') : t('order.emptyHint')}
             </p>
           </div>
         )}
@@ -442,7 +447,7 @@ export default function OrderManagement() {
       <Modal
         isOpen={trackingOrder !== null}
         onClose={() => setTrackingOrder(null)}
-        title={`填写跟踪号 - ${trackingOrder?.order_number || ''}`}
+        title={`${t('order.trackingModalTitle')} - ${trackingOrder?.order_number || ''}`}
         size="sm"
         footer={
           <div className="flex justify-end gap-2">
@@ -450,30 +455,30 @@ export default function OrderManagement() {
               onClick={() => setTrackingOrder(null)}
               className="px-4 py-2 text-sm border border-gray-200 rounded-lg text-slate-600 hover:bg-gray-50 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSaveTracking}
               disabled={trackingSaving}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {trackingSaving ? '保存中...' : '保存'}
+              {trackingSaving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         }
       >
         <div className="space-y-2">
-          <label className="block text-sm text-slate-600">跟踪号</label>
+          <label className="block text-sm text-slate-600">{t('order.trackingNumber')}</label>
           <input
             type="text"
             value={trackingInput}
             onChange={(e) => setTrackingInput(e.target.value)}
             maxLength={100}
-            placeholder="请输入派送跟踪号，保存后客户门户可见"
+            placeholder={t('order.trackingPlaceholder')}
             className="w-full min-w-[320px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             autoFocus
           />
-          <p className="text-xs text-slate-400">留空并保存可清除跟踪号</p>
+          <p className="text-xs text-slate-400">{t('order.trackingClearHint')}</p>
         </div>
       </Modal>
 
@@ -507,31 +512,31 @@ export default function OrderManagement() {
         <thead>
           <tr className="bg-gray-50/80">
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              订单号
+              {t('common.orderNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              客户
+              {t('common.client')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              路线
+              {t('common.route')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              状态
+              {t('common.status')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              类型
+              {t('common.type')}
             </th>
             <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              重量(kg)
+              {t('order.colWeightKg')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              承运商
+              {t('common.carrier')}
             </th>
             <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              报价(EUR)
+              {t('order.colPriceEur')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              操作
+              {t('common.actions')}
             </th>
           </tr>
         </thead>
@@ -583,7 +588,7 @@ export default function OrderManagement() {
               </td>
               {/* 重量 */}
               <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums">
-                {order.cargo_weight_kg != null ? Number(order.cargo_weight_kg).toLocaleString() : '-'}
+                {formatNumber(order.cargo_weight_kg)}
               </td>
               {/* 承运商 */}
               <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.carrier_name || undefined}>
@@ -591,7 +596,7 @@ export default function OrderManagement() {
               </td>
               {/* 报价 */}
               <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums font-medium">
-                {order.client_price != null ? `€${Number(order.client_price).toLocaleString('de-DE', { minimumFractionDigits: 2 })}` : '-'}
+                {formatMoney(order.client_price, order.currency)}
               </td>
               {/* 操作 */}
               <td className="px-4 py-3 text-center">
@@ -599,14 +604,14 @@ export default function OrderManagement() {
                   <button
                     onClick={() => navigate(`/orders/${order.id}`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                    title="查看"
+                    title={t('common.view')}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => navigate(`/orders/${order.id}/edit`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                    title="编辑"
+                    title={t('common.edit')}
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -641,34 +646,34 @@ export default function OrderManagement() {
         <thead>
           <tr className="bg-gray-50/80">
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              订单号
+              {t('common.orderNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              客户
+              {t('common.client')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              船司
+              {t('order.colShippingLine')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              柜号
+              {t('order.colContainerNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              提单号
+              {t('order.colBlNumber')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              目的地
+              {t('order.colDestination')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              派送状态
+              {t('order.colDeliveryStatus')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              放单状态
+              {t('order.colReleaseStatus')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               ETA
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              操作
+              {t('common.actions')}
             </th>
           </tr>
         </thead>
@@ -718,7 +723,7 @@ export default function OrderManagement() {
               </td>
               {/* ETA */}
               <td className="px-4 py-3 text-xs text-slate-600 text-center">
-                {order.eta || '-'}
+                {order.eta ? formatDate(order.eta) : '-'}
               </td>
               {/* 操作 */}
               <td className="px-4 py-3 text-center">
@@ -726,14 +731,14 @@ export default function OrderManagement() {
                   <button
                     onClick={() => navigate(`/orders/${order.id}`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                    title="查看"
+                    title={t('common.view')}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => navigate(`/orders/${order.id}/edit`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                    title="编辑"
+                    title={t('common.edit')}
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -766,28 +771,28 @@ export default function OrderManagement() {
         <thead>
           <tr className="bg-gray-50/80">
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              订单号
+              {t('common.orderNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              客户
+              {t('common.client')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              路线
+              {t('common.route')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              状态
+              {t('common.status')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              跟踪号
+              {t('order.trackingNumber')}
             </th>
             <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              报价(EUR)
+              {t('order.colPriceEur')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              创建日期
+              {t('order.colCreatedDate')}
             </th>
             <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              操作
+              {t('common.actions')}
             </th>
           </tr>
         </thead>
@@ -823,7 +828,7 @@ export default function OrderManagement() {
               <td className="px-4 py-3 text-center">
                 <StatusBadge
                   status={order.status}
-                  label={getStatusLabel(order.business_type, order.status)}
+                  label={getStatusLabel(t, order.business_type, order.status)}
                 />
               </td>
               {/* 跟踪号（点击填写/修改） */}
@@ -832,7 +837,7 @@ export default function OrderManagement() {
                   <button
                     onClick={() => openTrackingModal(order)}
                     className="text-xs font-mono text-slate-700 hover:text-blue-600 hover:underline truncate block max-w-full text-left"
-                    title={`点击修改：${order.tracking_number}`}
+                    title={t('order.trackingEditHint', { value: order.tracking_number })}
                   >
                     {order.tracking_number}
                   </button>
@@ -841,17 +846,17 @@ export default function OrderManagement() {
                     onClick={() => openTrackingModal(order)}
                     className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
                   >
-                    填写跟踪号
+                    {t('order.trackingFill')}
                   </button>
                 )}
               </td>
               {/* 报价 */}
               <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums font-medium">
-                {order.client_price != null ? `€${Number(order.client_price).toLocaleString('de-DE', { minimumFractionDigits: 2 })}` : '-'}
+                {formatMoney(order.client_price, order.currency)}
               </td>
               {/* 创建日期 */}
               <td className="px-4 py-3 text-xs text-slate-600 text-center">
-                {order.created_at ? order.created_at.slice(0, 10) : '-'}
+                {formatDate(order.created_at)}
               </td>
               {/* 操作 */}
               <td className="px-4 py-3 text-center">
@@ -859,14 +864,14 @@ export default function OrderManagement() {
                   <button
                     onClick={() => navigate(`/orders/${order.id}`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                    title="查看"
+                    title={t('common.view')}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => navigate(`/orders/${order.id}/edit`)}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
-                    title="编辑"
+                    title={t('common.edit')}
                   >
                     <Edit className="w-4 h-4" />
                   </button>

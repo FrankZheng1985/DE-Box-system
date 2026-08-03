@@ -20,12 +20,9 @@ export const INQUIRY_STATUS = {
 
 export type InquiryStatus = (typeof INQUIRY_STATUS)[keyof typeof INQUIRY_STATUS]
 
-export const INQUIRY_STATUS_LABELS: Record<string, string> = {
-  PENDING_QUOTE: '待报价',
-  QUOTED: '已报价',
-  ACCEPTED: '已接受',
-  REJECTED: '已拒绝',
-  CANCELLED: '已取消',
+/** 询价状态文案的语言包 key */
+export function inquiryStatusLabelKey(status: string): string {
+  return `inquiryStatus.${status}`
 }
 
 export const INQUIRY_STATUS_STYLES: Record<string, string> = {
@@ -37,11 +34,11 @@ export const INQUIRY_STATUS_STYLES: Record<string, string> = {
 }
 
 export const INQUIRY_STATUS_TABS = [
-  { key: '', label: '全部' },
-  { key: INQUIRY_STATUS.PENDING_QUOTE, label: '待报价' },
-  { key: INQUIRY_STATUS.QUOTED, label: '已报价' },
-  { key: INQUIRY_STATUS.ACCEPTED, label: '已接受' },
-  { key: INQUIRY_STATUS.REJECTED, label: '已拒绝' },
+  { key: '', labelKey: 'common.all' },
+  { key: INQUIRY_STATUS.PENDING_QUOTE, labelKey: 'inquiryStatus.PENDING_QUOTE' },
+  { key: INQUIRY_STATUS.QUOTED, labelKey: 'inquiryStatus.QUOTED' },
+  { key: INQUIRY_STATUS.ACCEPTED, labelKey: 'inquiryStatus.ACCEPTED' },
+  { key: INQUIRY_STATUS.REJECTED, labelKey: 'inquiryStatus.REJECTED' },
 ]
 
 // ==================== 报价单 ====================
@@ -59,25 +56,19 @@ export const QUOTATION_STATUS = {
 
 export type QuotationStatus = (typeof QUOTATION_STATUS)[keyof typeof QUOTATION_STATUS]
 
-export const QUOTATION_STATUS_LABELS: Record<string, string> = {
-  DRAFT: '草稿',
-  SENT: '已发送',
-  PENDING_DECISION: '客户待定',
-  ACCEPTED: '已接受',
-  CONVERTED: '已下单',
-  REJECTED: '已拒绝',
-  EXPIRED: '已过期',
-  CANCELLED: '已作废',
+/** 报价状态文案的语言包 key */
+export function quotationStatusLabelKey(status: string): string {
+  return `quotationStatus.${status}`
 }
 
 export const QUOTATION_STATUS_TABS = [
-  { key: '', label: '全部' },
-  { key: QUOTATION_STATUS.DRAFT, label: '草稿' },
-  { key: QUOTATION_STATUS.SENT, label: '已发送' },
-  { key: QUOTATION_STATUS.PENDING_DECISION, label: '客户待定' },
-  { key: QUOTATION_STATUS.CONVERTED, label: '已下单' },
-  { key: QUOTATION_STATUS.REJECTED, label: '已拒绝' },
-  { key: QUOTATION_STATUS.EXPIRED, label: '已过期' },
+  { key: '', labelKey: 'common.all' },
+  { key: QUOTATION_STATUS.DRAFT, labelKey: 'quotationStatus.DRAFT' },
+  { key: QUOTATION_STATUS.SENT, labelKey: 'quotationStatus.SENT' },
+  { key: QUOTATION_STATUS.PENDING_DECISION, labelKey: 'quotationStatus.PENDING_DECISION' },
+  { key: QUOTATION_STATUS.CONVERTED, labelKey: 'quotationStatus.CONVERTED' },
+  { key: QUOTATION_STATUS.REJECTED, labelKey: 'quotationStatus.REJECTED' },
+  { key: QUOTATION_STATUS.EXPIRED, labelKey: 'quotationStatus.EXPIRED' },
 ]
 
 /** 货物明细单位换算的车厢内宽，和后端 inquiry/service.js 保持一致 */

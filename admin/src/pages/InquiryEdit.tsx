@@ -12,9 +12,10 @@ import {
   ArrowLeft, Save, Plus, Trash2, Loader2, CheckCircle, AlertCircle,
   Package, MapPin, User, FileText,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import {
-  BUSINESS_TYPES, BUSINESS_TYPE_LABELS, type BusinessType,
+  BUSINESS_TYPES, BUSINESS_TYPE_LIST, businessTypeLabelKey, type BusinessType,
 } from '../constants/businessTypes'
 import { calcUnitVolumeM3, calcLineLdm } from '../constants/inquiryQuotation'
 
@@ -81,9 +82,9 @@ const INITIAL_FORM: InquiryForm = {
 }
 
 const TRANSPORT_TYPES = [
-  { value: '', label: '未指定' },
-  { value: 'FTL', label: '整车运输 (FTL)' },
-  { value: 'LTL', label: '零担运输 (LTL)' },
+  { value: '', labelKey: 'common.unspecified' },
+  { value: 'FTL', labelKey: 'transportTypeLong.FTL' },
+  { value: 'LTL', labelKey: 'transportTypeLong.LTL' },
 ]
 
 let rowSeq = 0
@@ -165,27 +166,28 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 }
 
 function AddressFields({ value, onChange }: { value: AddressForm; onChange: (v: AddressForm) => void }) {
+  const { t } = useTranslation()
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <Field label="国家">
+      <Field label={t('common.country')}>
         <input
           type="text"
           value={value.country}
           onChange={(e) => onChange({ ...value, country: e.target.value })}
-          placeholder="如 DE"
+          placeholder={t('placeholder.countryCodeEg')}
           className={inputClass}
         />
       </Field>
-      <Field label="邮编">
+      <Field label={t('field.zipCode')}>
         <input
           type="text"
           value={value.zipCode}
           onChange={(e) => onChange({ ...value, zipCode: e.target.value })}
-          placeholder="如 80331"
+          placeholder={t('placeholder.zipMunich')}
           className={inputClass}
         />
       </Field>
-      <Field label="城市">
+      <Field label={t('common.city')}>
         <input
           type="text"
           value={value.city}
@@ -193,7 +195,7 @@ function AddressFields({ value, onChange }: { value: AddressForm; onChange: (v: 
           className={inputClass}
         />
       </Field>
-      <Field label="详细地址">
+      <Field label={t('field.addressDetail')}>
         <input
           type="text"
           value={value.address}
@@ -208,6 +210,7 @@ function AddressFields({ value, onChange }: { value: AddressForm; onChange: (v: 
 // ==================== 主组件 ====================
 
 export default function InquiryEdit() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
@@ -274,11 +277,11 @@ export default function InquiryEdit() {
         })
         setItems(rows.length > 0 ? rows : [newRow()])
       } else {
-        showToast(res.message || '获取询价失败', 'error')
+        showToast(res.message || t('inquiryEdit.loadFailed'), 'error')
       }
     } catch (err) {
       console.error('获取询价失败:', err)
-      showToast('获取询价失败', 'error')
+      showToast(t('inquiryEdit.loadFailed'), 'error')
     } finally {
       setLoading(false)
     }
@@ -346,8 +349,8 @@ export default function InquiryEdit() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.clientId) { showToast('请选择客户', 'error'); return }
-    if (!form.businessType) { showToast('请选择服务类型', 'error'); return }
+    if (!form.clientId) { showToast(t('placeholder.selectClient'), 'error'); return }
+    if (!form.businessType) { showToast(t('inquiryEdit.errBusinessTypeRequired'), 'error'); return }
 
     setSaving(true)
     try {
@@ -373,16 +376,16 @@ export default function InquiryEdit() {
         : await api.post<ApiResponse<any>>('/inquiries', payload)
 
       if (res.code === 200) {
-        showToast(isEdit ? '询价已更新' : '询价创建成功', 'success')
+        showToast(isEdit ? t('inquiryEdit.updated') : t('inquiryEdit.created'), 'success')
         const targetId = isEdit ? id : res.data?.id
         setTimeout(() => navigate(targetId ? `/inquiries/${targetId}` : '/inquiries'), 700)
       } else {
         // 必须有 else 分支把后端 message 显示出来，否则失败会被伪装成成功（踩坑 011）
-        showToast(res.message || '保存失败', 'error')
+        showToast(res.message || t('common.saveFailed'), 'error')
       }
     } catch (err) {
       console.error('保存询价失败:', err)
-      showToast(err instanceof Error ? err.message : '保存失败', 'error')
+      showToast(err instanceof Error ? err.message : t('common.saveFailed'), 'error')
     } finally {
       setSaving(false)
     }
@@ -410,9 +413,9 @@ export default function InquiryEdit() {
             onClick={() => navigate(isEdit ? `/inquiries/${id}` : '/inquiries')}
             className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-2 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> 返回
+            <ArrowLeft className="w-4 h-4" /> {t('common.back')}
           </button>
-          <h1 className="text-xl font-semibold text-slate-900">{isEdit ? '编辑询价' : '代客户建询价'}</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{isEdit ? t('inquiryEdit.editTitle') : t('inquiry.createForClient')}</h1>
         </div>
         <button
           type="submit"
@@ -420,27 +423,27 @@ export default function InquiryEdit() {
           className="h-9 px-5 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 flex items-center gap-1.5 disabled:opacity-50 transition-all duration-200 ease-in-out"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? '保存中…' : '保存询价'}
+          {saving ? t('common.saving') : t('inquiryEdit.save')}
         </button>
       </div>
 
       {/* 基本信息 */}
-      <Section title="基本信息" icon={FileText}>
+      <Section title={t('section.basicInfo')} icon={FileText}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Field label="客户" required>
+          <Field label={t('common.client')} required>
             <select
               value={form.clientId}
               onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
               disabled={isEdit}
               className={`${inputClass} bg-white disabled:bg-slate-50 disabled:text-slate-400`}
             >
-              <option value="">请选择客户</option>
+              <option value="">{t('placeholder.selectClient')}</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>{c.company_name}</option>
               ))}
             </select>
           </Field>
-          <Field label="客户单号" hint="客户方的参考号，便于对账">
+          <Field label={t('inquiry.customerRef')} hint={t('inquiryEdit.customerRefHint')}>
             <input
               type="text"
               value={form.customerRef}
@@ -448,27 +451,27 @@ export default function InquiryEdit() {
               className={inputClass}
             />
           </Field>
-          <Field label="服务类型" required>
+          <Field label={t('field.businessType')} required>
             <select
               value={form.businessType}
               onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value as BusinessType }))}
               className={`${inputClass} bg-white`}
             >
-              <option value="">请选择</option>
-              {(Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((t) => (
-                <option key={t} value={t}>{BUSINESS_TYPE_LABELS[t]}</option>
+              <option value="">{t('placeholder.pleaseSelect')}</option>
+              {BUSINESS_TYPE_LIST.map((bt) => (
+                <option key={bt} value={bt}>{t(businessTypeLabelKey(bt))}</option>
               ))}
             </select>
           </Field>
           {!isLocalDelivery && (
-            <Field label="运输方式">
+            <Field label={t('field.transportType')}>
               <select
                 value={form.transportType}
                 onChange={(e) => setForm((f) => ({ ...f, transportType: e.target.value }))}
                 className={`${inputClass} bg-white`}
               >
-                {TRANSPORT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                {TRANSPORT_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
                 ))}
               </select>
             </Field>
@@ -478,24 +481,24 @@ export default function InquiryEdit() {
 
       {/* 路线 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section title="起运地" icon={MapPin}>
+        <Section title={t('field.origin')} icon={MapPin}>
           <AddressFields value={form.routeFrom} onChange={(v) => setForm((f) => ({ ...f, routeFrom: v }))} />
         </Section>
-        <Section title="目的地" icon={MapPin}>
+        <Section title={t('field.destination')} icon={MapPin}>
           <AddressFields value={form.routeTo} onChange={(v) => setForm((f) => ({ ...f, routeTo: v }))} />
         </Section>
       </div>
 
       {/* 联系人 */}
-      <Section title="联系人" icon={User}>
+      <Section title={t('section.contact')} icon={User}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label="姓名">
+          <Field label={t('field.name')}>
             <input type="text" value={form.contactName} onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))} className={inputClass} />
           </Field>
-          <Field label="电话">
+          <Field label={t('field.phone')}>
             <input type="tel" value={form.contactPhone} onChange={(e) => setForm((f) => ({ ...f, contactPhone: e.target.value }))} className={inputClass} />
           </Field>
-          <Field label="邮箱" hint="报价邮件将发到这个地址">
+          <Field label={t('field.email')} hint={t('inquiryEdit.emailHint')}>
             <input type="email" value={form.contactEmail} onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))} className={inputClass} />
           </Field>
         </div>
@@ -503,7 +506,7 @@ export default function InquiryEdit() {
 
       {/* 按件货物明细 */}
       <Section
-        title="按件货物明细"
+        title={t('cargo.itemsTitle')}
         icon={Package}
         action={
           <button
@@ -512,7 +515,7 @@ export default function InquiryEdit() {
             className="h-8 px-3 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center gap-1 transition-all duration-200 ease-in-out"
           >
             <Plus className="w-3.5 h-3.5" />
-            添加一行
+            {t('cargo.addRow')}
           </button>
         }
       >
@@ -533,16 +536,16 @@ export default function InquiryEdit() {
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-100">
-                <th className="text-left px-2 py-2.5 font-medium">件号</th>
-                <th className="text-left px-2 py-2.5 font-medium">货物描述</th>
-                <th className="text-right px-2 py-2.5 font-medium">件数</th>
-                <th className="text-right px-2 py-2.5 font-medium">长(cm)</th>
-                <th className="text-right px-2 py-2.5 font-medium">宽(cm)</th>
-                <th className="text-right px-2 py-2.5 font-medium">高(cm)</th>
-                <th className="text-right px-2 py-2.5 font-medium">单件实重(kg)</th>
-                <th className="text-right px-2 py-2.5 font-medium">单件体积(m³)</th>
+                <th className="text-left px-2 py-2.5 font-medium">{t('cargo.colItemNo')}</th>
+                <th className="text-left px-2 py-2.5 font-medium">{t('field.cargoDescription')}</th>
+                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colPieces')}</th>
+                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colLengthCm')}</th>
+                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colWidthCm')}</th>
+                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colHeightCm')}</th>
+                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colUnitWeightKg')}</th>
+                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colUnitVolumeM3')}</th>
                 <th className="text-right px-2 py-2.5 font-medium">LDM</th>
-                <th className="text-center px-2 py-2.5 font-medium">可堆叠</th>
+                <th className="text-center px-2 py-2.5 font-medium">{t('cargo.colStackable')}</th>
                 <th className="text-center px-2 py-2.5 font-medium"></th>
               </tr>
             </thead>
@@ -588,7 +591,7 @@ export default function InquiryEdit() {
                           onChange={(e) => updateItem(it.key, { ldm: e.target.value })}
                           className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
                         />
-                        <label className="flex items-center gap-0.5 text-[10px] text-slate-400 whitespace-nowrap cursor-pointer" title="勾选后可手工填写 LDM">
+                        <label className="flex items-center gap-0.5 text-[10px] text-slate-400 whitespace-nowrap cursor-pointer" title={t('cargo.manualLdmTitle')}>
                           <input
                             type="checkbox"
                             checked={it.ldmManual}
@@ -599,7 +602,7 @@ export default function InquiryEdit() {
                             })}
                             className="rounded border-slate-300"
                           />
-                          手改
+                          {t('cargo.manualAdjusted')}
                         </label>
                       </div>
                     </td>
@@ -610,7 +613,7 @@ export default function InquiryEdit() {
                       <button
                         type="button"
                         onClick={() => setItems((prev) => (prev.length === 1 ? [newRow()] : prev.filter((r) => r.key !== it.key)))}
-                        title="删除此行"
+                        title={t('cargo.deleteRow')}
                         className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 ease-in-out"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -625,18 +628,18 @@ export default function InquiryEdit() {
 
         {/* 实时合计，和保存后后端算出来的表头值一致 */}
         <div className="flex flex-wrap items-center gap-6 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
-          <span>合计件数 <b className="text-slate-900 text-sm">{totals.quantity}</b></span>
-          <span>实重 <b className="text-slate-900 text-sm">{totals.weight.toFixed(2)}</b> kg</span>
-          <span>体积 <b className="text-slate-900 text-sm">{totals.volume.toFixed(3)}</b> m³</span>
+          <span>{t('cargo.totalPieces')} <b className="text-slate-900 text-sm">{totals.quantity}</b></span>
+          <span>{t('cargo.totalWeight')} <b className="text-slate-900 text-sm">{totals.weight.toFixed(2)}</b> kg</span>
+          <span>{t('cargo.totalVolume')} <b className="text-slate-900 text-sm">{totals.volume.toFixed(3)}</b> m³</span>
           <span>LDM <b className="text-slate-900 text-sm">{totals.ldm.toFixed(2)}</b></span>
-          <span className="text-slate-400">LDM = 长m × 宽m ÷ 2.4 × 件数</span>
+          <span className="text-slate-400">{t('cargo.ldmFormula')}</span>
         </div>
       </Section>
 
       {/* 补充说明 */}
-      <Section title="补充说明" icon={FileText}>
+      <Section title={t('section.additionalNotes')} icon={FileText}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Field label="货物描述">
+          <Field label={t('field.cargoDescription')}>
             <textarea
               value={form.cargoDescription}
               onChange={(e) => setForm((f) => ({ ...f, cargoDescription: e.target.value }))}
@@ -644,7 +647,7 @@ export default function InquiryEdit() {
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all duration-200 ease-in-out"
             />
           </Field>
-          <Field label="特殊要求">
+          <Field label={t('field.specialRequirements')}>
             <textarea
               value={form.specialRequirements}
               onChange={(e) => setForm((f) => ({ ...f, specialRequirements: e.target.value }))}
@@ -652,7 +655,7 @@ export default function InquiryEdit() {
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition-all duration-200 ease-in-out"
             />
           </Field>
-          <Field label="备注">
+          <Field label={t('common.remark')}>
             <textarea
               value={form.remarks}
               onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}

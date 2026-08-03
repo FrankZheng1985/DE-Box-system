@@ -32,11 +32,13 @@ import {
   RotateCcw,
   ArrowRightCircle,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
 import OrderFilesSection from '../components/OrderFilesSection'
-import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getStatusLabel } from '../constants/businessTypes'
+import { formatDate, formatDateTime, formatMoney, formatNumber } from '../utils/format'
+import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
@@ -117,7 +119,8 @@ interface OrderDetailResponse {
 
 // 状态操作按钮的定义
 interface StatusAction {
-  label: string
+  /** 语言包 key，渲染时再 t()，这样切语言按钮文案会跟着变 */
+  labelKey: string
   targetStatus: string
   variant: 'primary' | 'danger' | 'navigate' | 'warning'
   // 如果是跳转操作
@@ -133,50 +136,6 @@ interface StatusAction {
 // ==================== 工具函数 ====================
 
 // 格式化日期（中文格式）
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '-'
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-// 格式化日期时间
-function formatDateTime(dateStr: string): string {
-  if (!dateStr) return '-'
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-// 格式化金额
-function formatCurrency(amount: number, currency: string = 'EUR'): string {
-  if (amount == null) return '-'
-  const symbols: Record<string, string> = {
-    EUR: '\u20AC',
-    USD: '$',
-    CNY: '\u00A5',
-    GBP: '\u00A3',
-  }
-  const symbol = symbols[currency] || currency
-  return `${symbol} ${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
 // 解析地址（兼容 JSON 字符串和对象）
 function parseAddress(addr: Address | string | null): Address {
   const empty: Address = { country: '', city: '', zipCode: '', address: '', contact: '', phone: '' }
@@ -191,28 +150,14 @@ function parseAddress(addr: Address | string | null): Address {
   return addr
 }
 
-// 运输类型中文标签
-function getTransportTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    FTL: '整车运输 (FTL)',
-    LTL: '零担运输 (LTL)',
-    ftl: '整车运输 (FTL)',
-    ltl: '零担运输 (LTL)',
-  }
-  return map[type] || type || '-'
+// 运输类型标签的语言包 key（后端值可能大写也可能小写，统一大写后再查）
+function transportTypeLabelKey(type: string): string {
+  return `transportTypeLong.${(type || '').toUpperCase()}`
 }
 
-// 单据类型中文标签
-function getDocTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    quotation: '报价单',
-    cmr: 'CMR运单',
-    invoice: '发票',
-    customs: '清关单',
-    release: '放单',
-    order: '订单',
-  }
-  return map[type] || type
+// 单据类型标签的语言包 key（单据流里的 doc_type 是小写）
+function docTypeLabelKey(type: string): string {
+  return `docType.${(type || '').toLowerCase()}`
 }
 
 // 单据类型对应的颜色
@@ -245,34 +190,34 @@ function getTruckStatusActions(status: string): StatusAction[] {
   switch (s) {
     case 'PENDING_REVIEW':
       return [
-        { label: '审核通过', targetStatus: 'CONFIRMED', variant: 'primary' },
-        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+        { labelKey: 'orderAction.approve', targetStatus: 'CONFIRMED', variant: 'primary' },
+        { labelKey: 'orderAction.cancelOrder', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
       ]
     case 'CONFIRMED':
       return [
-        { label: '进入待派单', targetStatus: 'PENDING_ASSIGN', variant: 'primary' },
+        { labelKey: 'orderAction.toPendingAssign', targetStatus: 'PENDING_ASSIGN', variant: 'primary' },
       ]
     case 'PENDING_ASSIGN':
       return [
-        { label: '去派单', targetStatus: '', variant: 'navigate', navigateTo: 'assign' },
+        { labelKey: 'orderAction.goAssign', targetStatus: '', variant: 'navigate', navigateTo: 'assign' },
       ]
     case 'ASSIGNED':
       return [
-        { label: '确认提货', targetStatus: 'IN_TRANSIT', variant: 'primary' },
+        { labelKey: 'orderAction.confirmPickup', targetStatus: 'IN_TRANSIT', variant: 'primary' },
       ]
     case 'IN_TRANSIT':
       return [
-        { label: '确认到达', targetStatus: 'DELIVERED', variant: 'primary' },
-        { label: '标记异常', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true },
+        { labelKey: 'orderAction.confirmArrival', targetStatus: 'DELIVERED', variant: 'primary' },
+        { labelKey: 'orderAction.markException', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true },
       ]
     case 'DELIVERED':
       return [
-        { label: '确认完成', targetStatus: 'COMPLETED', variant: 'primary' },
+        { labelKey: 'orderAction.confirmComplete', targetStatus: 'COMPLETED', variant: 'primary' },
       ]
     case 'EXCEPTION':
       return [
-        { label: '恢复运输', targetStatus: 'IN_TRANSIT', variant: 'warning' },
-        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+        { labelKey: 'orderAction.resumeTransport', targetStatus: 'IN_TRANSIT', variant: 'warning' },
+        { labelKey: 'orderAction.cancelOrder', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
       ]
     default:
       return []
@@ -285,23 +230,23 @@ function getLocalDeliveryStatusActions(status: string): StatusAction[] {
   switch (s) {
     case 'PENDING_QUOTE':
       return [
-        { label: '完成报价', targetStatus: 'PENDING_DISPATCH', variant: 'primary' },
-        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+        { labelKey: 'orderAction.finishQuote', targetStatus: 'PENDING_DISPATCH', variant: 'primary' },
+        { labelKey: 'orderAction.cancelOrder', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
       ]
     case 'PENDING_DISPATCH':
       return [
-        { label: '开始派送', targetStatus: 'IN_TRANSIT', variant: 'primary' },
-        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+        { labelKey: 'orderAction.startDelivery', targetStatus: 'IN_TRANSIT', variant: 'primary' },
+        { labelKey: 'orderAction.cancelOrder', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
       ]
     case 'IN_TRANSIT':
       return [
-        { label: '确认签收', targetStatus: 'COMPLETED', variant: 'primary' },
-        { label: '标记异常', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true },
+        { labelKey: 'orderAction.confirmSigned', targetStatus: 'COMPLETED', variant: 'primary' },
+        { labelKey: 'orderAction.markException', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true },
       ]
     case 'EXCEPTION':
       return [
-        { label: '恢复派送', targetStatus: 'IN_TRANSIT', variant: 'warning' },
-        { label: '取消订单', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
+        { labelKey: 'orderAction.resumeDelivery', targetStatus: 'IN_TRANSIT', variant: 'warning' },
+        { labelKey: 'orderAction.cancelOrder', targetStatus: 'CANCELLED', variant: 'danger', requireReason: true, isCancel: true },
       ]
     default:
       return []
@@ -314,16 +259,16 @@ function getContainerDeliveryActions(deliveryStatus: string): StatusAction[] {
   switch (s) {
     case 'WAITING_ARRANGE':
       return [
-        { label: '车队确认', targetStatus: 'FLEET_CONFIRMED', variant: 'primary', isDeliveryStatus: true },
+        { labelKey: 'orderAction.fleetConfirm', targetStatus: 'FLEET_CONFIRMED', variant: 'primary', isDeliveryStatus: true },
       ]
     case 'FLEET_CONFIRMED':
       return [
-        { label: '开始运输', targetStatus: 'IN_TRANSIT', variant: 'primary', isDeliveryStatus: true },
+        { labelKey: 'orderAction.startTransport', targetStatus: 'IN_TRANSIT', variant: 'primary', isDeliveryStatus: true },
       ]
     case 'IN_TRANSIT':
       return [
-        { label: '运输完成', targetStatus: 'TRANSPORT_DONE', variant: 'primary', isDeliveryStatus: true },
-        { label: '标记异常', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true, isDeliveryStatus: true },
+        { labelKey: 'orderAction.transportDone', targetStatus: 'TRANSPORT_DONE', variant: 'primary', isDeliveryStatus: true },
+        { labelKey: 'orderAction.markException', targetStatus: 'EXCEPTION', variant: 'danger', requireReason: true, isDeliveryStatus: true },
       ]
     default:
       return []
@@ -437,6 +382,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 export default function OrderDetail() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { t } = useTranslation()
 
   // 状态
   const [order, setOrder] = useState<Order | null>(null)
@@ -469,11 +415,11 @@ export default function OrderDetail() {
         setDocumentFlow(data.documentFlow || { preceding: [], subsequent: [] })
         setStatusLogs(data.statusLogs || [])
       } else {
-        setError(response.message || '获取订单详情失败')
+        setError(response.message || t('orderDetail.loadFailed'))
       }
     } catch (err: any) {
       console.error('[OrderDetail] 获取订单详情失败:', err)
-      setError(err.message || '网络错误，请稍后重试')
+      setError(err.message || t('apiError.networkFailed'))
     } finally {
       setLoading(false)
     }
@@ -508,7 +454,7 @@ export default function OrderDetail() {
 
     // 验证必填理由
     if (action.requireReason && !actionRemarks.trim()) {
-      setToast({ message: action.isCancel ? '请填写取消原因' : '请填写异常描述', type: 'error' })
+      setToast({ message: action.isCancel ? t('orderAction.reasonCancelRequired') : t('orderAction.reasonExceptionRequired'), type: 'error' })
       return
     }
 
@@ -536,16 +482,16 @@ export default function OrderDetail() {
       }
 
       if (response.code === 200) {
-        setToast({ message: `${action.label}操作成功`, type: 'success' })
+        setToast({ message: t('orderAction.done', { action: t(action.labelKey) }), type: 'success' })
         closeActionModal()
         // 重新拉取数据
         await fetchOrderDetail()
       } else {
-        setToast({ message: response.message || '操作失败', type: 'error' })
+        setToast({ message: response.message || t('common.operateFailed'), type: 'error' })
       }
     } catch (err: any) {
       console.error('[OrderDetail] 状态变更失败:', err)
-      setToast({ message: err.message || '操作失败，请稍后重试', type: 'error' })
+      setToast({ message: err.message || t('orderAction.failedRetry'), type: 'error' })
     } finally {
       setActionSubmitting(false)
     }
@@ -567,16 +513,16 @@ export default function OrderDetail() {
           >
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
-          <h1 className="text-xl font-semibold text-slate-900">订单详情</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('orderDetail.pageTitle')}</h1>
         </div>
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
           <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500 text-sm mb-4">{error || '订单不存在'}</p>
+          <p className="text-slate-500 text-sm mb-4">{error || t('orderDetail.notFound')}</p>
           <button
             onClick={() => navigate('/orders')}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-all duration-200"
           >
-            返回订单列表
+            {t('orderAssign.backToList')}
           </button>
         </div>
       </div>
@@ -626,12 +572,12 @@ export default function OrderDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-slate-900">
-                {order.order_number || `订单 #${order.id}`}
+                {order.order_number || t('orderDetail.fallbackOrderNo', { id: order.id })}
               </h1>
-              <StatusBadge status={order.status} type="order" label={getStatusLabel(order.business_type, order.status)} />
+              <StatusBadge status={order.status} type="order" label={getStatusLabel(t, order.business_type, order.status)} />
             </div>
             <p className="text-sm text-slate-400 mt-1">
-              创建于 {formatDateTime(order.created_at)}
+              {t('orderDetail.createdAt', { time: formatDateTime(order.created_at) })}
             </p>
           </div>
         </div>
@@ -643,7 +589,7 @@ export default function OrderDetail() {
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 transition-all duration-200"
             >
               <UserPlus className="w-4 h-4" />
-              分配承运商
+              {t('orderDetail.assignCarrier')}
             </button>
           )}
           <button
@@ -651,7 +597,7 @@ export default function OrderDetail() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200"
           >
             <Edit className="w-4 h-4" />
-            编辑
+            {t('common.edit')}
           </button>
         </div>
       </div>
@@ -664,12 +610,12 @@ export default function OrderDetail() {
             {order.status?.toUpperCase() === 'COMPLETED' ? (
               <>
                 <CheckCircle className="w-5 h-5 text-green-400" />
-                <span className="text-sm font-medium text-green-600">订单已完成</span>
+                <span className="text-sm font-medium text-green-600">{t('orderDetail.orderCompleted')}</span>
               </>
             ) : (
               <>
                 <Ban className="w-5 h-5 text-red-400" />
-                <span className="text-sm font-medium text-red-500">订单已取消</span>
+                <span className="text-sm font-medium text-red-500">{t('orderDetail.orderCancelled')}</span>
               </>
             )}
           </div>
@@ -678,15 +624,15 @@ export default function OrderDetail() {
             {/* 卡车订单状态操作 */}
             {truckActions.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs text-slate-400 font-medium mr-1">订单状态操作：</span>
+                <span className="text-xs text-slate-400 font-medium mr-1">{t('orderDetail.orderStatusActions')}</span>
                 {truckActions.map((action) => (
                   <button
-                    key={action.label}
+                    key={action.labelKey}
                     onClick={() => openActionModal(action)}
                     className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${getActionButtonClass(action.variant)}`}
                   >
                     {getActionIcon(action)}
-                    {action.label}
+                    {t(action.labelKey)}
                   </button>
                 ))}
               </div>
@@ -695,15 +641,15 @@ export default function OrderDetail() {
             {/* 集装箱运输状态操作 */}
             {containerActions.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs text-slate-400 font-medium mr-1">运输状态操作：</span>
+                <span className="text-xs text-slate-400 font-medium mr-1">{t('orderDetail.deliveryStatusActions')}</span>
                 {containerActions.map((action) => (
                   <button
-                    key={action.label}
+                    key={action.labelKey}
                     onClick={() => openActionModal(action)}
                     className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${getActionButtonClass(action.variant)}`}
                   >
                     {getActionIcon(action)}
-                    {action.label}
+                    {t(action.labelKey)}
                   </button>
                 ))}
               </div>
@@ -713,7 +659,7 @@ export default function OrderDetail() {
             {truckActions.length === 0 && containerActions.length === 0 && (
               <div className="flex items-center gap-2 text-slate-400">
                 <Clock className="w-4 h-4" />
-                <span className="text-sm">当前状态暂无可用操作</span>
+                <span className="text-sm">{t('orderDetail.noActions')}</span>
               </div>
             )}
           </div>
@@ -730,35 +676,39 @@ export default function OrderDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <Package className="w-5 h-5 text-blue-600" />
-              基本信息
+              {t('section.basicInfo')}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InfoItem label="客户" value={order.client_name || '-'} />
+              <InfoItem label={t('common.client')} value={order.client_name || '-'} />
               <InfoItem
-                label="业务类型"
-                value={BUSINESS_TYPE_LABELS[order.business_type as keyof typeof BUSINESS_TYPE_LABELS] || order.business_type}
+                label={t('field.businessType')}
+                value={t(businessTypeLabelKey(order.business_type), { defaultValue: order.business_type })}
               />
               {!isLocalDelivery && (
-                <InfoItem label="运输类型" value={getTransportTypeLabel(order.transport_type)} />
+                <InfoItem label={t('field.transportType')} value={t(transportTypeLabelKey(order.transport_type), { defaultValue: order.transport_type || '-' })} />
               )}
               {isLocalDelivery && (
-                <InfoItem label="跟踪号" value={order.tracking_number || '未填写（在订单列表页填写）'} />
+                <InfoItem label={t('order.trackingNumber')} value={order.tracking_number || t('orderDetail.trackingNotSet')} />
               )}
-              <InfoItem label="货物描述" value={order.cargo_description || '-'} fullWidth />
+              <InfoItem label={t('field.cargoDescription')} value={order.cargo_description || '-'} fullWidth />
               <InfoItem
-                label="重量"
+                label={t('field.weight')}
                 value={order.cargo_weight_kg != null ? `${order.cargo_weight_kg} kg` : '-'}
               />
               <InfoItem
-                label="体积"
+                label={t('field.volume')}
                 value={order.cargo_volume_m3 != null ? `${order.cargo_volume_m3} m\u00B3` : '-'}
               />
               <InfoItem
-                label="数量"
-                value={order.cargo_quantity != null ? `${order.cargo_quantity} 件` : '-'}
+                label={t('field.quantity')}
+                value={
+                  order.cargo_quantity != null
+                    ? t('orderDetail.pieceCount', { count: Number(order.cargo_quantity) })
+                    : '-'
+                }
               />
-              <InfoItem label="特殊要求" value={order.special_requirements || '-'} fullWidth />
-              <InfoItem label="备注" value={order.remarks || '-'} fullWidth />
+              <InfoItem label={t('field.specialRequirements')} value={order.special_requirements || '-'} fullWidth />
+              <InfoItem label={t('common.remark')} value={order.remarks || '-'} fullWidth />
             </div>
           </div>
 
@@ -767,18 +717,18 @@ export default function OrderDetail() {
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Ship className="w-5 h-5 text-blue-600" />
-                航运信息
+                {t('section.shippingInfo')}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoItem label="船司" value={order.shipping_line || '-'} />
-                <InfoItem label="柜号" value={order.container_no || '-'} />
-                <InfoItem label="提单号" value={order.bl_number || '-'} />
+                <InfoItem label={t('field.shippingLine')} value={order.shipping_line || '-'} />
+                <InfoItem label={t('field.containerNo')} value={order.container_no || '-'} />
+                <InfoItem label={t('field.blNumber')} value={order.bl_number || '-'} />
                 <InfoItem label="CNEE" value={order.cnee || '-'} />
                 <InfoItem label="ETA" value={order.eta ? formatDate(order.eta) : '-'} />
-                <InfoItem label="目的港" value={order.pod || '-'} />
-                <InfoItem label="最终目的地" value={order.final_destination || '-'} />
+                <InfoItem label={t('field.pod')} value={order.pod || '-'} />
+                <InfoItem label={t('field.finalDestination')} value={order.final_destination || '-'} />
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs text-slate-400 font-medium">放单状态</span>
+                  <span className="text-xs text-slate-400 font-medium">{t('order.colReleaseStatus')}</span>
                   {order.release_status ? (
                     <StatusBadge status={order.release_status} type="release" />
                   ) : (
@@ -786,7 +736,7 @@ export default function OrderDetail() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs text-slate-400 font-medium">清关状态</span>
+                  <span className="text-xs text-slate-400 font-medium">{t('orderDetail.clearanceStatus')}</span>
                   {order.clearance_status ? (
                     <StatusBadge status={order.clearance_status} type="clearance" />
                   ) : (
@@ -810,7 +760,7 @@ export default function OrderDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
               <Truck className="w-5 h-5 text-blue-600" />
-              运输路线
+              {t('orderDetail.route')}
             </h2>
             <div className="flex items-center justify-between gap-4">
               {/* 装货地 */}
@@ -819,7 +769,7 @@ export default function OrderDetail() {
                   <MapPin className="w-6 h-6 text-green-600" />
                 </div>
                 <p className="text-sm font-semibold text-slate-900">
-                  {pickupAddr.city || '装货地'}
+                  {pickupAddr.city || t('orderDetail.pickupPlace')}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {pickupAddr.country || '-'}
@@ -830,7 +780,7 @@ export default function OrderDetail() {
                   </p>
                 )}
                 <p className="text-xs text-blue-600 font-medium mt-2">
-                  {order.pickup_date ? formatDate(order.pickup_date) : '待定'}
+                  {order.pickup_date ? formatDate(order.pickup_date) : t('common.tbd')}
                 </p>
               </div>
 
@@ -842,7 +792,7 @@ export default function OrderDetail() {
                       {order.delivery_status ? (
                         <StatusBadge status={order.delivery_status} type="delivery" />
                       ) : (
-                        '运输中'
+                        t('truckStatus.IN_TRANSIT')
                       )}
                     </span>
                   </div>
@@ -855,7 +805,7 @@ export default function OrderDetail() {
                   <MapPin className="w-6 h-6 text-red-500" />
                 </div>
                 <p className="text-sm font-semibold text-slate-900">
-                  {deliveryAddr.city || '卸货地'}
+                  {deliveryAddr.city || t('orderDetail.deliveryPlace')}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {deliveryAddr.country || '-'}
@@ -866,7 +816,7 @@ export default function OrderDetail() {
                   </p>
                 )}
                 <p className="text-xs text-blue-600 font-medium mt-2">
-                  {order.delivery_date ? formatDate(order.delivery_date) : '待定'}
+                  {order.delivery_date ? formatDate(order.delivery_date) : t('common.tbd')}
                 </p>
               </div>
             </div>
@@ -874,7 +824,7 @@ export default function OrderDetail() {
             {/* 联系人信息 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-100">
               <div>
-                <p className="text-xs text-slate-400 font-medium mb-2">装货联系人</p>
+                <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.pickupContact')}</p>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <User className="w-3.5 h-3.5 text-slate-400" />
                   <span>{pickupAddr.contact || '-'}</span>
@@ -887,7 +837,7 @@ export default function OrderDetail() {
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-400 font-medium mb-2">卸货联系人</p>
+                <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.deliveryContact')}</p>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <User className="w-3.5 h-3.5 text-slate-400" />
                   <span>{deliveryAddr.contact || '-'}</span>
@@ -906,11 +856,11 @@ export default function OrderDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
               <Clock className="w-5 h-5 text-blue-600" />
-              订单时间线
+              {t('orderDetail.timeline')}
             </h2>
 
             {statusLogs.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">暂无状态变更记录</p>
+              <p className="text-sm text-slate-400 text-center py-6">{t('orderDetail.noTimeline')}</p>
             ) : (
               <div className="relative">
                 {statusLogs.map((log, index) => {
@@ -946,7 +896,7 @@ export default function OrderDetail() {
                           {formatDateTime(log.created_at)}
                           {log.changed_by_name && (
                             <span className="ml-2 text-slate-500">
-                              操作人: {log.changed_by_name}
+                              {t('orderDetail.operator')}: {log.changed_by_name}
                             </span>
                           )}
                         </p>
@@ -971,40 +921,40 @@ export default function OrderDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-blue-600" />
-              承运信息
+              {t('orderDetail.carrierInfo')}
             </h2>
 
             {order.carrier_name ? (
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">承运商</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('common.carrier')}</p>
                   <p className="text-sm font-medium text-slate-900 mt-1">{order.carrier_name}</p>
                 </div>
                 {order.carrier_score > 0 && (
                   <div>
-                    <p className="text-xs text-slate-400 font-medium mb-1">绩效评分</p>
+                    <p className="text-xs text-slate-400 font-medium mb-1">{t('orderAssign.performanceScore')}</p>
                     <StarRating score={order.carrier_score} />
                   </div>
                 )}
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">司机信息</p>
-                  <p className="text-sm text-slate-500 mt-1">待分配</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('orderDetail.driverInfo')}</p>
+                  <p className="text-sm text-slate-500 mt-1">{t('orderDetail.notAssignedYet')}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">车辆信息</p>
-                  <p className="text-sm text-slate-500 mt-1">待分配</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('orderDetail.vehicleInfo')}</p>
+                  <p className="text-sm text-slate-500 mt-1">{t('orderDetail.notAssignedYet')}</p>
                 </div>
               </div>
             ) : (
               <div className="text-center py-6">
                 <Truck className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                <p className="text-sm text-slate-400">暂未分配承运商</p>
+                <p className="text-sm text-slate-400">{t('orderDetail.noCarrierAssigned')}</p>
                 {canAssign(order.status) && (
                   <button
                     onClick={() => navigate(`/orders/${id}/assign`)}
                     className="mt-3 px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-xl hover:bg-green-700 transition-all duration-200"
                   >
-                    立即分配
+                    {t('orderDetail.assignNow')}
                   </button>
                 )}
               </div>
@@ -1015,11 +965,11 @@ export default function OrderDetail() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-600" />
-              CMR 运单
+              {t('orderDetail.cmrDocument')}
             </h2>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400 font-medium">CMR 状态</p>
+                <p className="text-xs text-slate-400 font-medium">{t('orderDetail.cmrStatus')}</p>
                 <div className="mt-1">
                   <StatusBadge status={order.delivery_status || 'DRAFT'} type="cmr" />
                 </div>
@@ -1028,7 +978,7 @@ export default function OrderDetail() {
                 onClick={() => navigate(`/cmr?orderId=${id}`)}
                 className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium transition-all duration-200"
               >
-                查看详情
+                {t('orderDetail.viewDetail')}
                 <ExternalLink className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1042,30 +992,30 @@ export default function OrderDetail() {
               ) : (
                 <TrendingDown className="w-5 h-5 text-red-500" />
               )}
-              财务信息
+              {t('orderDetail.financeInfo')}
             </h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">客户报价</span>
+                <span className="text-sm text-slate-500">{t('field.clientPrice')}</span>
                 <span className="text-sm font-medium text-slate-900">
-                  {formatCurrency(clientPrice, order.currency)}
+                  {formatMoney(clientPrice, order.currency)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">承运商成本</span>
+                <span className="text-sm text-slate-500">{t('orderDetail.carrierCost')}</span>
                 <span className="text-sm font-medium text-slate-900">
-                  {formatCurrency(carrierCost, order.currency)}
+                  {formatMoney(carrierCost, order.currency)}
                 </span>
               </div>
               <div className="border-t border-slate-100 pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">毛利润</span>
+                  <span className="text-sm font-medium text-slate-700">{t('orderDetail.grossProfit')}</span>
                   <span className={`text-sm font-semibold ${isProfitable ? 'text-green-600' : 'text-red-500'}`}>
-                    {isProfitable ? '+' : ''}{formatCurrency(grossProfit, order.currency)}
+                    {isProfitable ? '+' : ''}{formatMoney(grossProfit, order.currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-sm font-medium text-slate-700">毛利率</span>
+                  <span className="text-sm font-medium text-slate-700">{t('orderDetail.grossMargin')}</span>
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold ${
                       isProfitable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -1083,13 +1033,13 @@ export default function OrderDetail() {
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-blue-600" />
-                关联单据
+                {t('orderDetail.relatedDocs')}
               </h2>
               <div className="space-y-3">
                 {/* 前置单据 */}
                 {documentFlow.preceding?.length > 0 && (
                   <div>
-                    <p className="text-xs text-slate-400 font-medium mb-2">前置单据</p>
+                    <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.precedingDocs')}</p>
                     {documentFlow.preceding.map((doc) => (
                       <DocFlowItem key={doc.id} doc={doc} />
                     ))}
@@ -1098,7 +1048,7 @@ export default function OrderDetail() {
                 {/* 后续单据 */}
                 {documentFlow.subsequent?.length > 0 && (
                   <div>
-                    <p className="text-xs text-slate-400 font-medium mb-2">后续单据</p>
+                    <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.followingDocs')}</p>
                     {documentFlow.subsequent.map((doc) => (
                       <DocFlowItem key={doc.id} doc={doc} />
                     ))}
@@ -1114,7 +1064,7 @@ export default function OrderDetail() {
       <Modal
         isOpen={actionModal.open}
         onClose={closeActionModal}
-        title={actionModal.action?.label || '确认操作'}
+        title={actionModal.action ? t(actionModal.action.labelKey) : t('orderAction.confirmTitle')}
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -1122,7 +1072,7 @@ export default function OrderDetail() {
               onClick={closeActionModal}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleStatusAction}
@@ -1133,7 +1083,7 @@ export default function OrderDetail() {
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {actionSubmitting ? '处理中...' : '确认'}
+              {actionSubmitting ? t('confirmDialog.processing') : t('common.confirm')}
             </button>
           </div>
         }
@@ -1141,17 +1091,19 @@ export default function OrderDetail() {
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
             {actionModal.action?.isCancel
-              ? `确定要取消订单 ${order.order_number} 吗？此操作不可撤销。`
+              ? t('orderAction.confirmCancel', { orderNo: order.order_number })
               : actionModal.action?.requireReason
-                ? `确定要将订单标记为异常吗？请填写异常描述。`
-                : `确定要执行「${actionModal.action?.label}」操作吗？`
+                ? t('orderAction.confirmException')
+                : t('orderAction.confirmGeneric', {
+                    action: actionModal.action ? t(actionModal.action.labelKey) : '',
+                  })
             }
           </p>
 
           {/* 备注/理由输入框 */}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1.5">
-              {actionModal.action?.isCancel ? '取消原因' : actionModal.action?.requireReason ? '异常描述' : '备注'}
+              {actionModal.action?.isCancel ? t('orderAction.reasonCancel') : actionModal.action?.requireReason ? t('orderAction.reasonException') : t('common.remark')}
               {actionModal.action?.requireReason && (
                 <span className="text-red-500 ml-0.5">*</span>
               )}
@@ -1161,10 +1113,10 @@ export default function OrderDetail() {
               onChange={(e) => setActionRemarks(e.target.value)}
               placeholder={
                 actionModal.action?.isCancel
-                  ? '请输入取消原因...'
+                  ? t('orderAction.reasonCancelPlaceholder')
                   : actionModal.action?.requireReason
-                    ? '请描述异常情况...'
-                    : '可选，添加备注...'
+                    ? t('orderAction.reasonExceptionPlaceholder')
+                    : t('orderAction.remarksPlaceholder')
               }
               rows={3}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
@@ -1197,6 +1149,7 @@ function InfoItem({ label, value, fullWidth }: InfoItemProps) {
 
 function DocFlowItem({ doc }: { doc: LinkedDocument }) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   // 根据单据类型跳转到对应页面
   function handleClick() {
@@ -1221,7 +1174,7 @@ function DocFlowItem({ doc }: { doc: LinkedDocument }) {
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${getDocTypeBadgeClass(doc.type)}`}
         >
-          {getDocTypeLabel(doc.type)}
+          {t(docTypeLabelKey(doc.type), { defaultValue: doc.type })}
         </span>
         <span className="text-sm text-slate-700">{doc.doc_number}</span>
       </div>

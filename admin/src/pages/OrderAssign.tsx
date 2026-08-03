@@ -19,7 +19,9 @@ import {
   Clock,
   BarChart3,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { formatMoney, formatNumber } from '../utils/format'
 
 // ==================== 类型定义 ====================
 
@@ -52,9 +54,10 @@ interface MatchedCarrier {
   country: string
   performance_score: number
   vehicle_types: string[]
-  available_vehicles: number
-  on_time_rate: number
-  covered_routes: string[]
+  available_vehicles: number | string
+  /** ⚠️ 后端 /carriers/match 目前不返回这两个字段，界面上永远是 "-" / 不显示 */
+  on_time_rate?: number | null
+  covered_routes?: string[] | null
 }
 
 // ==================== 工具函数 ====================
@@ -73,15 +76,9 @@ function parseAddress(addr: Address | string | null): Address {
   return addr
 }
 
-// 运输类型标签
-function getTransportLabel(type: string): string {
-  const map: Record<string, string> = {
-    FTL: '整车 (FTL)',
-    LTL: '零担 (LTL)',
-    ftl: '整车 (FTL)',
-    ltl: '零担 (LTL)',
-  }
-  return map[type] || type || '-'
+// 运输类型标签的语言包 key（值可能是大写也可能是小写，统一大写后再查）
+function transportLabelKey(type: string): string {
+  return `transportType.${(type || '').toUpperCase()}`
 }
 
 // ==================== 骨架屏组件 ====================
@@ -146,6 +143,7 @@ interface ConfirmDialogProps {
 }
 
 function ConfirmDialog({ visible, carrierName, price, onConfirm, onCancel, loading }: ConfirmDialogProps) {
+  const { t } = useTranslation()
   if (!visible) return null
 
   return (
@@ -155,22 +153,22 @@ function ConfirmDialog({ visible, carrierName, price, onConfirm, onCancel, loadi
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
             <Truck className="w-5 h-5 text-blue-600" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900">确认指派承运商</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{t('orderAssign.confirmTitle')}</h3>
         </div>
 
         <div className="bg-slate-50 rounded-xl p-4 mb-6 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-500">承运商</span>
+            <span className="text-sm text-slate-500">{t('common.carrier')}</span>
             <span className="text-sm font-medium text-slate-900">{carrierName}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-500">承运费用</span>
-            <span className="text-sm font-semibold text-blue-600">€ {price.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+            <span className="text-sm text-slate-500">{t('orderAssign.carrierCost')}</span>
+            <span className="text-sm font-semibold text-blue-600">{formatMoney(price)}</span>
           </div>
         </div>
 
         <p className="text-sm text-slate-500 mb-6">
-          确认后将向该承运商发送派单通知，承运费用将记录到订单成本中。
+          {t('orderAssign.confirmHint')}
         </p>
 
         <div className="flex items-center gap-3">
@@ -179,7 +177,7 @@ function ConfirmDialog({ visible, carrierName, price, onConfirm, onCancel, loadi
             disabled={loading}
             className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 transition-all duration-200 disabled:opacity-50"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -189,10 +187,10 @@ function ConfirmDialog({ visible, carrierName, price, onConfirm, onCancel, loadi
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                指派中...
+                {t('orderAssign.assigning')}
               </>
             ) : (
-              '确认指派'
+              t('orderAssign.confirmAssign')
             )}
           </button>
         </div>
@@ -206,6 +204,7 @@ function ConfirmDialog({ visible, carrierName, price, onConfirm, onCancel, loadi
 export default function OrderAssign() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { t } = useTranslation()
 
   // 状态
   const [order, setOrder] = useState<Order | null>(null)
@@ -244,7 +243,7 @@ export default function OrderAssign() {
         if (orderRes.code === 200 && orderRes.data) {
           setOrder(orderRes.data.order || orderRes.data as unknown as Order)
         } else {
-          setError(orderRes.message || '获取订单信息失败')
+          setError(orderRes.message || t('orderAssign.loadOrderFailed'))
           return
         }
 
@@ -261,7 +260,7 @@ export default function OrderAssign() {
       } catch (err: any) {
         if (cancelled) return
         console.error('[OrderAssign] 获取数据失败:', err)
-        setError(err.message || '网络错误，请稍后重试')
+        setError(err.message || t('apiError.networkFailed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -281,7 +280,7 @@ export default function OrderAssign() {
   function handleAssignClick(carrier: MatchedCarrier) {
     const price = carrierPrices[carrier.id] || 0
     if (price <= 0) {
-      setError('请先输入报价金额')
+      setError(t('orderAssign.priceRequired'))
       setTimeout(() => setError(null), 3000)
       return
     }
@@ -303,18 +302,18 @@ export default function OrderAssign() {
 
       if (res.code === 200) {
         setConfirmVisible(false)
-        setSuccessMsg(`已成功指派给 ${selectedCarrier.company_name}`)
+        setSuccessMsg(t('orderAssign.assignSuccess', { carrier: selectedCarrier.company_name }))
         // 2 秒后跳转回订单详情
         setTimeout(() => {
           navigate(`/orders/${id}`)
         }, 2000)
       } else {
-        setError(res.message || '指派失败')
+        setError(res.message || t('orderAssign.assignFailed'))
         setConfirmVisible(false)
       }
     } catch (err: any) {
       console.error('[OrderAssign] 指派失败:', err)
-      setError(err.message || '指派失败，请稍后重试')
+      setError(err.message || t('orderAssign.assignFailedRetry'))
       setConfirmVisible(false)
     } finally {
       setAssigning(false)
@@ -335,7 +334,7 @@ export default function OrderAssign() {
           >
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
-          <h1 className="text-xl font-semibold text-slate-900">派单</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('orderAssign.pageTitle')}</h1>
         </div>
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
           <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -344,7 +343,7 @@ export default function OrderAssign() {
             onClick={() => navigate('/orders')}
             className="px-4 py-2 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 transition-all duration-200"
           >
-            返回订单列表
+            {t('orderAssign.backToList')}
           </button>
         </div>
       </div>
@@ -387,9 +386,9 @@ export default function OrderAssign() {
           <ArrowLeft className="w-5 h-5 text-slate-600" />
         </button>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">派单</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('orderAssign.pageTitle')}</h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            订单号: {order.order_number || order.id}
+            {t('common.orderNo')}: {order.order_number || order.id}
           </p>
         </div>
       </div>
@@ -401,12 +400,12 @@ export default function OrderAssign() {
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-green-600" />
             <span className="text-sm text-slate-700 font-medium">
-              {pickupAddr.city || pickupAddr.country || '起点'}
+              {pickupAddr.city || pickupAddr.country || t('orderAssign.origin')}
             </span>
             <span className="text-slate-300 mx-1">&rarr;</span>
             <MapPin className="w-4 h-4 text-red-500" />
             <span className="text-sm text-slate-700 font-medium">
-              {deliveryAddr.city || deliveryAddr.country || '终点'}
+              {deliveryAddr.city || deliveryAddr.country || t('orderAssign.destination')}
             </span>
           </div>
 
@@ -415,7 +414,9 @@ export default function OrderAssign() {
           {/* 类型 */}
           <div className="flex items-center gap-2">
             <Package className="w-4 h-4 text-blue-600" />
-            <span className="text-sm text-slate-600">{getTransportLabel(order.transport_type)}</span>
+            <span className="text-sm text-slate-600">
+              {t(transportLabelKey(order.transport_type), { defaultValue: order.transport_type || '-' })}
+            </span>
           </div>
 
           <div className="w-px h-6 bg-slate-200" />
@@ -424,7 +425,7 @@ export default function OrderAssign() {
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-slate-500" />
             <span className="text-sm text-slate-600">
-              {order.cargo_weight_kg ? `${order.cargo_weight_kg} kg` : '-'}
+              {order.cargo_weight_kg ? `${formatNumber(order.cargo_weight_kg)} kg` : '-'}
             </span>
           </div>
         </div>
@@ -435,7 +436,7 @@ export default function OrderAssign() {
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 mb-6">
           <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-blue-600" />
-            承运商报价对比
+            {t('orderAssign.compareTitle')}
           </h2>
 
           <div className="overflow-x-auto">
@@ -448,7 +449,7 @@ export default function OrderAssign() {
               </colgroup>
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left py-3 px-3 text-xs font-medium text-slate-500">对比项</th>
+                  <th className="text-left py-3 px-3 text-xs font-medium text-slate-500">{t('orderAssign.compareItem')}</th>
                   {compareCarriers.map((c) => (
                     <th key={c.id} className="text-center py-3 px-3 text-xs font-medium text-slate-700">
                       {c.company_name}
@@ -459,7 +460,7 @@ export default function OrderAssign() {
               <tbody>
                 {/* 报价金额 */}
                 <tr className="border-b border-slate-50">
-                  <td className="py-3 px-3 text-xs text-slate-500">报价金额 (€)</td>
+                  <td className="py-3 px-3 text-xs text-slate-500">{t('orderAssign.quoteAmountEur')}</td>
                   {compareCarriers.map((c) => (
                     <td key={c.id} className="py-3 px-3 text-center">
                       <input
@@ -468,7 +469,7 @@ export default function OrderAssign() {
                         step="100"
                         value={carrierPrices[c.id] || ''}
                         onChange={(e) => handlePriceChange(c.id, e.target.value)}
-                        placeholder="输入报价"
+                        placeholder={t('orderAssign.enterQuote')}
                         className="w-full max-w-[120px] mx-auto px-3 py-1.5 text-sm text-center border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       />
                     </td>
@@ -476,7 +477,7 @@ export default function OrderAssign() {
                 </tr>
                 {/* 综合评分 */}
                 <tr className="border-b border-slate-50">
-                  <td className="py-3 px-3 text-xs text-slate-500">综合评分</td>
+                  <td className="py-3 px-3 text-xs text-slate-500">{t('orderAssign.overallScore')}</td>
                   {compareCarriers.map((c) => (
                     <td key={c.id} className="py-3 px-3 text-center">
                       <span className="text-sm font-medium text-slate-700">
@@ -487,7 +488,7 @@ export default function OrderAssign() {
                 </tr>
                 {/* 历史准时率 */}
                 <tr className="border-b border-slate-50">
-                  <td className="py-3 px-3 text-xs text-slate-500">历史准时率</td>
+                  <td className="py-3 px-3 text-xs text-slate-500">{t('orderAssign.onTimeRate')}</td>
                   {compareCarriers.map((c) => (
                     <td key={c.id} className="py-3 px-3 text-center">
                       <span
@@ -506,11 +507,11 @@ export default function OrderAssign() {
                 </tr>
                 {/* 可用车辆 */}
                 <tr>
-                  <td className="py-3 px-3 text-xs text-slate-500">可用车辆</td>
+                  <td className="py-3 px-3 text-xs text-slate-500">{t('orderAssign.availableVehicles')}</td>
                   {compareCarriers.map((c) => (
                     <td key={c.id} className="py-3 px-3 text-center">
                       <span className="text-sm font-medium text-slate-700">
-                        {c.available_vehicles ?? '-'} 辆
+                        {t('orderAssign.vehicleCount', { count: Number(c.available_vehicles) || 0 })}
                       </span>
                     </td>
                   ))}
@@ -525,9 +526,9 @@ export default function OrderAssign() {
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
           <Truck className="w-5 h-5 text-blue-600" />
-          推荐承运商
+          {t('orderAssign.recommendedTitle')}
           <span className="text-sm font-normal text-slate-400 ml-1">
-            ({carriers.length} 家可用)
+            {t('orderAssign.availableCarrierCount', { count: carriers.length })}
           </span>
         </h2>
       </div>
@@ -535,7 +536,7 @@ export default function OrderAssign() {
       {carriers.length === 0 ? (
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
           <Truck className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">暂无匹配的承运商</p>
+          <p className="text-slate-500 text-sm">{t('orderAssign.noCarriers')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -562,10 +563,10 @@ export default function OrderAssign() {
                 <div className="bg-slate-50 rounded-xl p-3">
                   <div className="flex items-center gap-1.5 mb-1">
                     <Truck className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs text-slate-500">可用车辆</span>
+                    <span className="text-xs text-slate-500">{t('orderAssign.availableVehicles')}</span>
                   </div>
                   <p className="text-sm font-semibold text-slate-900">
-                    {carrier.available_vehicles ?? '-'} 辆
+                    {t('orderAssign.vehicleCount', { count: Number(carrier.available_vehicles) || 0 })}
                   </p>
                 </div>
 
@@ -573,7 +574,7 @@ export default function OrderAssign() {
                 <div className="bg-slate-50 rounded-xl p-3">
                   <div className="flex items-center gap-1.5 mb-1">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs text-slate-500">准时率</span>
+                    <span className="text-xs text-slate-500">{t('orderAssign.onTimeRateShort')}</span>
                   </div>
                   <p
                     className={`text-sm font-semibold ${
@@ -591,14 +592,14 @@ export default function OrderAssign() {
 
               {/* 评分 */}
               <div className="mb-3">
-                <span className="text-xs text-slate-500 block mb-1">绩效评分</span>
+                <span className="text-xs text-slate-500 block mb-1">{t('orderAssign.performanceScore')}</span>
                 <ScoreStars score={carrier.performance_score || 0} />
               </div>
 
               {/* 覆盖路线 */}
               {carrier.covered_routes && carrier.covered_routes.length > 0 && (
                 <div className="mb-4">
-                  <span className="text-xs text-slate-500 block mb-1.5">覆盖路线</span>
+                  <span className="text-xs text-slate-500 block mb-1.5">{t('orderAssign.coveredRoutes')}</span>
                   <div className="flex flex-wrap gap-1.5">
                     {carrier.covered_routes.slice(0, 4).map((route, i) => (
                       <span
@@ -620,14 +621,14 @@ export default function OrderAssign() {
               {/* 报价输入 + 指派按钮 */}
               <div className="mt-auto pt-4 border-t border-slate-100">
                 <div className="mb-3">
-                  <label className="text-xs text-slate-500 block mb-1">承运费用 (€)</label>
+                  <label className="text-xs text-slate-500 block mb-1">{t('orderAssign.carrierCostEur')}</label>
                   <input
                     type="number"
                     min="0"
                     step="100"
                     value={carrierPrices[carrier.id] || ''}
                     onChange={(e) => handlePriceChange(carrier.id, e.target.value)}
-                    placeholder="请输入报价金额"
+                    placeholder={t('orderAssign.enterQuoteAmount')}
                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   />
                 </div>
@@ -636,7 +637,7 @@ export default function OrderAssign() {
                   className="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   <Truck className="w-4 h-4" />
-                  指派
+                  {t('orderAssign.assign')}
                 </button>
               </div>
             </div>

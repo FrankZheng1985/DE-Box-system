@@ -12,10 +12,12 @@ import {
   FileText,
   ChevronRight,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import StatCard from '../components/StatCard'
 import StatusBadge from '../components/StatusBadge'
 import api from '../utils/api'
-import { BUSINESS_TYPE_LABELS, getStatusLabel } from '../constants/businessTypes'
+import { formatMoney } from '../utils/format'
+import { getBusinessTypeLabel, getStatusLabel } from '../constants/businessTypes'
 
 // Dashboard API 返回的数据结构
 interface DashboardData {
@@ -27,7 +29,7 @@ interface DashboardData {
     monthRevenue: number
     profitMargin: number
   }
-  statusDistribution: Array<{ status: string; count: number }>
+  statusDistribution: Array<{ status: string; count: number | string }>
   pendingItems: {
     pendingReview: number
     pendingAssign: number
@@ -48,29 +50,12 @@ interface DashboardData {
   }>
 }
 
-// 格式化金额
-function formatCurrency(amount: number | null | undefined, currency = 'EUR'): string {
-  if (amount === null || amount === undefined) return '-'
-  const num = Number(amount)
-  if (isNaN(num)) return '-'
-  if (currency === 'EUR' || currency === 'eur') {
-    return `€${num.toLocaleString('de-DE')}`
-  }
-  return `${num.toLocaleString()} ${currency}`
-}
-
-// 格式化日期
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-// 业务类型中文名统一用共享常量（旧版这里放的是 FTL/LTL 运输类型值，
+// 业务类型名统一用共享常量（旧版这里放的是 FTL/LTL 运输类型值，
 // 拿去匹配 business_type 永远对不上，列表一直显示原始英文）
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -88,7 +73,7 @@ export default function Dashboard() {
       }
     } catch (err: any) {
       console.error('获取仪表板数据失败:', err)
-      setError(err.message || '获取数据失败')
+      setError(err.message || t('common.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -109,7 +94,7 @@ export default function Dashboard() {
             onClick={fetchDashboard}
             className="ml-3 underline hover:no-underline"
           >
-            重试
+            {t('dashboard.retry')}
           </button>
         </div>
       </div>
@@ -123,31 +108,32 @@ export default function Dashboard() {
   // 待处理事项列表
   const todoItems = [
     {
-      text: `${pending?.pendingReview || 0} 个订单待审核`,
+      text: t('dashboard.todoPendingReview', { count: pending?.pendingReview || 0 }),
       icon: Clock,
       color: '#F59E0B',
       onClick: () => navigate('/orders?status=PENDING_REVIEW'),
     },
     {
-      text: `${pending?.pendingAssign || 0} 个订单待派单`,
+      text: t('dashboard.todoPendingAssign', { count: pending?.pendingAssign || 0 }),
       icon: Send,
       color: '#F97316',
       onClick: () => navigate('/orders?status=PENDING_ASSIGN'),
     },
     {
-      text: `${pending?.exceptions || 0} 个异常需处理`,
+      text: t('dashboard.todoExceptions', { count: pending?.exceptions || 0 }),
       icon: AlertTriangle,
       color: '#EF4444',
       onClick: () => navigate('/orders?status=EXCEPTION'),
     },
+    // ⚠️ 下面两条的数字是写死的假数据（本次 P9 只做翻译，没有对应接口，未改行为）
     {
-      text: '2 个账单待确认',
+      text: t('dashboard.todoBillsToConfirm', { count: 2 }),
       icon: CreditCard,
       color: '#8B5CF6',
       onClick: () => navigate('/finance'),
     },
     {
-      text: '1 个运输公司资质到期',
+      text: t('dashboard.todoCarrierExpiring', { count: 1 }),
       icon: FileText,
       color: '#3B82F6',
       onClick: () => navigate('/carriers'),
@@ -158,47 +144,49 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* 页面标题 */}
       <div>
-        <h1 className="text-xl font-bold text-slate-900">运营仪表板</h1>
+        <h1 className="text-xl font-bold text-slate-900">{t('dashboard.pageTitle')}</h1>
       </div>
 
       {/* 统计卡片 - 5个一行 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          title="今日新订单"
+          title={t('dashboard.cardTodayNew')}
           value={stats?.todayNew ?? 0}
-          subtitle="+3 vs 昨日"
+          subtitle={t('dashboard.cardTodayNewSub', { delta: 3 })}
           icon={Package}
           iconColor="#4472C4"
           iconBg="rgba(68,114,196,0.1)"
         />
         <StatCard
-          title="运输中"
+          title={t('dashboard.cardInTransit')}
           value={stats?.inTransit ?? 0}
-          subtitle="8 即将到达"
+          subtitle={t('dashboard.cardInTransitSub', { count: 8 })}
           icon={Truck}
           iconColor="#F97316"
           iconBg="rgba(249,115,22,0.1)"
         />
         <StatCard
-          title="本月完成"
+          title={t('dashboard.cardMonthCompleted')}
           value={stats?.monthCompleted ?? 0}
-          subtitle={`完成率 ${stats?.profitMargin ? (94.2).toFixed(1) : '0'}%`}
+          subtitle={t('dashboard.cardMonthCompletedSub', {
+            rate: stats?.profitMargin ? (94.2).toFixed(1) : '0',
+          })}
           icon={CheckCircle}
           iconColor="#10B981"
           iconBg="rgba(16,185,129,0.1)"
         />
         <StatCard
-          title="异常订单"
+          title={t('dashboard.cardExceptions')}
           value={stats?.exceptions ?? 0}
-          subtitle="需要处理"
+          subtitle={t('dashboard.cardExceptionsSub')}
           icon={AlertTriangle}
           iconColor="#EF4444"
           iconBg="rgba(239,68,68,0.1)"
         />
         <StatCard
-          title="本月营收"
+          title={t('dashboard.cardMonthRevenue')}
           value={stats?.monthRevenue ? `€${Math.round(stats.monthRevenue / 1000)}K` : '€0'}
-          subtitle={`毛利率 ${stats?.profitMargin ?? 0}%`}
+          subtitle={t('dashboard.cardMonthRevenueSub', { rate: stats?.profitMargin ?? 0 })}
           icon={DollarSign}
           iconColor="#1F4E79"
           iconBg="rgba(31,78,121,0.1)"
@@ -209,21 +197,17 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* 左侧：订单状态分布（占2列） */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 p-5">
-          <div className="text-sm font-semibold text-slate-900 mb-4">订单状态分布</div>
+          <div className="text-sm font-semibold text-slate-900 mb-4">{t('dashboard.statusChartTitle')}</div>
           <div className="flex items-end justify-around gap-4 h-48">
             {(data?.statusDistribution || []).map((item, idx) => {
-              const maxCount = Math.max(...(data?.statusDistribution || []).map(s => s.count), 1)
-              const heightPercent = (item.count / maxCount) * 100
+              // count 是 BIGINT，后端返回字符串（踩坑 002），先转数字再算高度
+              const maxCount = Math.max(
+                ...(data?.statusDistribution || []).map((s) => Number(s.count) || 0),
+                1
+              )
+              const heightPercent = (Number(item.count) || 0) / maxCount * 100
               const colors = ['#F59E0B', '#3B82F6', '#F97316', '#8B5CF6', '#4472C4', '#10B981']
               const color = colors[idx % colors.length]
-              const STATUS_LABELS: Record<string, string> = {
-                pending_review: '待审核',
-                confirmed: '已确认',
-                pending_assign: '待派单',
-                assigned: '已派单',
-                in_transit: '运输中',
-                delivered: '已到达',
-              }
               return (
                 <div key={item.status} className="flex flex-col items-center gap-2 flex-1">
                   <div className="w-full flex flex-col items-center justify-end h-28">
@@ -235,8 +219,10 @@ export default function Dashboard() {
                       }}
                     />
                   </div>
-                  <div className="text-base font-bold" style={{ color }}>{item.count}</div>
-                  <div className="text-xs text-slate-500">{STATUS_LABELS[item.status] || item.status}</div>
+                  <div className="text-base font-bold" style={{ color }}>{Number(item.count) || 0}</div>
+                  <div className="text-xs text-slate-500">
+                    {t(`truckStatus.${item.status}`, { defaultValue: item.status })}
+                  </div>
                 </div>
               )
             })}
@@ -245,7 +231,7 @@ export default function Dashboard() {
 
         {/* 右侧：待处理事项 */}
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          <div className="text-sm font-semibold text-slate-900 mb-4">待处理事项</div>
+          <div className="text-sm font-semibold text-slate-900 mb-4">{t('dashboard.todoTitle')}</div>
           <div className="space-y-0">
             {todoItems.map((item, idx) => (
               <div
@@ -265,12 +251,12 @@ export default function Dashboard() {
       {/* 最近订单表格 */}
       <div className="bg-white rounded-xl border border-gray-100">
         <div className="flex items-center justify-between px-5 py-4">
-          <span className="text-sm font-semibold text-slate-900">最近订单</span>
+          <span className="text-sm font-semibold text-slate-900">{t('dashboard.recentOrders')}</span>
           <button
             onClick={() => navigate('/orders')}
             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            查看全部
+            {t('common.viewAll')}
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -287,22 +273,22 @@ export default function Dashboard() {
             <thead>
               <tr className="bg-gray-50/80">
                 <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
-                  订单号
+                  {t('common.orderNo')}
                 </th>
                 <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
-                  客户
+                  {t('common.client')}
                 </th>
                 <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
-                  路线
+                  {t('common.route')}
                 </th>
                 <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
-                  状态
+                  {t('common.status')}
                 </th>
                 <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
-                  类型
+                  {t('common.type')}
                 </th>
                 <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider border-b-2 border-gray-200">
-                  金额
+                  {t('common.amount')}
                 </th>
               </tr>
             </thead>
@@ -328,20 +314,20 @@ export default function Dashboard() {
                     {order.from_city} → {order.to_city}
                   </td>
                   <td className="px-3 py-2.5 text-center border-b border-gray-50">
-                    <StatusBadge status={order.status} label={getStatusLabel(order.business_type, order.status)} />
+                    <StatusBadge status={order.status} label={getStatusLabel(t, order.business_type, order.status)} />
                   </td>
                   <td className="px-3 py-2.5 text-xs text-center text-slate-600 border-b border-gray-50">
-                    {(BUSINESS_TYPE_LABELS as Record<string, string>)[order.business_type] || order.business_type}
+                    {getBusinessTypeLabel(t, order.business_type)}
                   </td>
                   <td className="px-3 py-2.5 text-sm text-right font-medium text-slate-900 border-b border-gray-50">
-                    {formatCurrency(order.client_price, order.currency)}
+                    {formatMoney(order.client_price, order.currency)}
                   </td>
                 </tr>
               ))}
               {recentOrders.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-sm text-slate-400">
-                    暂无订单数据
+                    {t('order.emptyTitle')}
                   </td>
                 </tr>
               )}

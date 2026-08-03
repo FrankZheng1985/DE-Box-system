@@ -25,7 +25,9 @@ import {
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
-import { BUSINESS_TYPE_LABELS, type BusinessType } from '../constants/businessTypes'
+import { useTranslation } from 'react-i18next'
+import { BUSINESS_TYPE_LIST, businessTypeLabelKey } from '../constants/businessTypes'
+import { formatMoney } from '../utils/format'
 import {
   CARRIER_INQUIRY_PERMISSIONS, CARRIER_INQUIRY_STATUS, type CarrierInquiry,
 } from '../constants/carrierInquiry'
@@ -57,14 +59,14 @@ interface QuotationFormData {
 // ==================== 常量 ====================
 
 // 业务类型下拉选项（三分类，来自共享常量）
-const BUSINESS_TYPE_OPTIONS = (Object.keys(BUSINESS_TYPE_LABELS) as BusinessType[]).map((value) => ({
+const BUSINESS_TYPE_OPTIONS = BUSINESS_TYPE_LIST.map((value) => ({
   value,
-  label: BUSINESS_TYPE_LABELS[value],
+  labelKey: businessTypeLabelKey(value),
 }))
 
 const TRANSPORT_TYPES = [
-  { value: 'FTL', label: '整车运输 (FTL)' },
-  { value: 'LTL', label: '零担运输 (LTL)' },
+  { value: 'FTL', labelKey: 'transportTypeLong.FTL' },
+  { value: 'LTL', labelKey: 'transportTypeLong.LTL' },
 ]
 
 const INITIAL_FORM: QuotationFormData = {
@@ -133,6 +135,7 @@ function FormField({ label, required, children, error }: FieldProps) {
 // ==================== 主组件 ====================
 
 export default function QuotationCreate() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   // 从询价列表点「由此报价」跳过来时带的 ?inquiryId=xxx
   // 后端 POST /quotations 一直支持 inquiryId 字段，只是前端此前从没传过
@@ -203,7 +206,7 @@ export default function QuotationCreate() {
         const res = await api.get<ApiResponse<any>>(`/inquiries/${inquiryId}`)
         if (cancelled) return
         if (res.code !== 200 || !res.data) {
-          setGlobalError(res.message || '来源询价加载失败，请手工填写')
+          setGlobalError(res.message || t('quotationCreate.sourceLoadFailed'))
           return
         }
         const d = res.data
@@ -229,7 +232,7 @@ export default function QuotationCreate() {
       } catch (err) {
         if (cancelled) return
         console.error('[QuotationCreate] 获取来源询价失败:', err)
-        setGlobalError('来源询价加载失败，请手工填写')
+        setGlobalError(t('quotationCreate.sourceLoadFailed'))
       }
     })()
 
@@ -286,8 +289,9 @@ export default function QuotationCreate() {
 
   // 获取业务类型标签
   const businessTypeLabel = useMemo(() => {
-    return BUSINESS_TYPE_OPTIONS.find((t) => t.value === form.businessType)?.label || ''
-  }, [form.businessType])
+    if (!form.businessType) return ''
+    return t(businessTypeLabelKey(form.businessType), { defaultValue: form.businessType })
+  }, [t, form.businessType])
 
   // 更新表单字段
   function updateField(field: keyof QuotationFormData, value: string | number) {
@@ -305,7 +309,7 @@ export default function QuotationCreate() {
   // 自动定价
   async function handleAutoPrice() {
     if (!form.businessType) {
-      setGlobalError('请先选择业务类型')
+      setGlobalError(t('quotationCreate.pickBusinessTypeFirst'))
       return
     }
     setCalculatingPrice(true)
@@ -338,14 +342,14 @@ export default function QuotationCreate() {
           surcharge: surchargeItem ? Number(surchargeItem.amount) : prev.surcharge,
           insuranceFee: insuranceItem ? Number(insuranceItem.amount) : prev.insuranceFee,
         }))
-        setSuccessMsg('定价引擎计算完成')
+        setSuccessMsg(t('quotationCreate.pricingDone'))
         setTimeout(() => setSuccessMsg(''), 2000)
       } else {
-        setGlobalError(res.message || '定价计算失败')
+        setGlobalError(res.message || t('quotationCreate.pricingFailed'))
       }
     } catch (err: any) {
       console.error('[QuotationCreate] 自动定价失败:', err)
-      setGlobalError(err.message || '定价计算失败，请稍后重试')
+      setGlobalError(err.message || t('quotationCreate.pricingFailedRetry'))
     } finally {
       setCalculatingPrice(false)
     }
@@ -355,11 +359,11 @@ export default function QuotationCreate() {
   function validate(): boolean {
     const newErrors: Record<string, string> = {}
 
-    if (!form.clientId) newErrors.clientId = '请选择客户'
-    if (!form.businessType) newErrors.businessType = '请选择业务类型'
-    if (!form.transportType) newErrors.transportType = '请选择运输类型'
-    if (!form.validUntil) newErrors.validUntil = '请选择有效期'
-    if (!form.baseFreight || form.baseFreight <= 0) newErrors.baseFreight = '请输入基础运费'
+    if (!form.clientId) newErrors.clientId = t('placeholder.selectClient')
+    if (!form.businessType) newErrors.businessType = t('quotationCreate.errBusinessType')
+    if (!form.transportType) newErrors.transportType = t('quotationCreate.errTransportType')
+    if (!form.validUntil) newErrors.validUntil = t('quotationCreate.errValidUntil')
+    if (!form.baseFreight || form.baseFreight <= 0) newErrors.baseFreight = t('quotationCreate.errBaseFreight')
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -398,7 +402,7 @@ export default function QuotationCreate() {
       const createRes = await api.post<ApiResponse<{ id: string }>>('/quotations', payload)
 
       if (createRes.code !== 200 && createRes.code !== 201) {
-        setGlobalError(createRes.message || '创建报价失败')
+        setGlobalError(createRes.message || t('quotationCreate.createFailed'))
         return
       }
 
@@ -406,12 +410,12 @@ export default function QuotationCreate() {
       if (type === 'send' && createRes.data?.id) {
         const sendRes = await api.post<ApiResponse<any>>(`/quotations/${createRes.data.id}/send`)
         if (sendRes.code !== 200) {
-          setGlobalError(sendRes.message || '报价已保存但发送失败')
+          setGlobalError(sendRes.message || t('quotationCreate.savedButSendFailed'))
           return
         }
       }
 
-      const msg = type === 'draft' ? '报价已保存为草稿' : '报价已成功发送'
+      const msg = type === 'draft' ? t('quotationCreate.savedAsDraft') : t('quotationCreate.sentOk')
       setSuccessMsg(msg)
       setTimeout(() => {
         // 从询价来的就回询价详情，方便继续看这张单
@@ -419,7 +423,7 @@ export default function QuotationCreate() {
       }, 1500)
     } catch (err: any) {
       console.error('[QuotationCreate] 提交失败:', err)
-      setGlobalError(err.message || '提交失败，请稍后重试')
+      setGlobalError(err.message || t('quotationCreate.submitFailedRetry'))
     } finally {
       setSubmitting(false)
       setSubmitType(null)
@@ -465,7 +469,7 @@ export default function QuotationCreate() {
         </button>
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-blue-600" />
-          <h1 className="text-xl font-semibold text-slate-900">创建报价</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('quotationCreate.pageTitle')}</h1>
         </div>
       </div>
 
@@ -475,7 +479,7 @@ export default function QuotationCreate() {
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-blue-600" />
             <span className="text-sm text-slate-700">
-              由询价单
+              {t('quotationCreate.fromInquiry')}
               <button
                 type="button"
                 onClick={() => navigate(`/inquiries/${sourceInquiry.id}`)}
@@ -483,13 +487,19 @@ export default function QuotationCreate() {
               >
                 {sourceInquiry.inquiry_number}
               </button>
-              发起，客户、服务类型、路线已自动带入
+              {t('quotationCreate.fromInquiryHint')}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-            {sourceInquiry.cargo_description && <span>货物：{sourceInquiry.cargo_description}</span>}
-            {sourceInquiry.cargo_quantity !== null && <span>件数：{sourceInquiry.cargo_quantity}</span>}
-            {sourceInquiry.cargo_weight_kg !== null && <span>实重：{Number(sourceInquiry.cargo_weight_kg).toFixed(2)} kg</span>}
+            {sourceInquiry.cargo_description && (
+              <span>{t('field.cargoDescription')}: {sourceInquiry.cargo_description}</span>
+            )}
+            {sourceInquiry.cargo_quantity !== null && (
+              <span>{t('cargo.colPieces')}: {sourceInquiry.cargo_quantity}</span>
+            )}
+            {sourceInquiry.cargo_weight_kg !== null && (
+              <span>{t('cargo.totalWeight')} {Number(sourceInquiry.cargo_weight_kg).toFixed(2)} kg</span>
+            )}
             {sourceInquiry.ldm !== null && <span>LDM：{Number(sourceInquiry.ldm).toFixed(2)}</span>}
           </div>
         </div>
@@ -501,28 +511,27 @@ export default function QuotationCreate() {
           <div className="flex items-center gap-2">
             <Truck className="w-4 h-4 text-slate-500" />
             <span className="text-sm text-slate-700">
-              服务商成本参考：
+              {t('quotationCreate.costRefTitle')}
               <b className="mx-1 text-slate-900">{costRef.carrier_name || '-'}</b>
-              {costRef.status === CARRIER_INQUIRY_STATUS.SELECTED ? '（已选用）' : '（最低回价，尚未选用）'}
+              {costRef.status === CARRIER_INQUIRY_STATUS.SELECTED ? t('quotationCreate.costRefSelected') : t('quotationCreate.costRefLowest')}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
             <span>
-              成本：
+              {t('carrierInquiry.colCost')}:
               <b className="text-slate-900">
-                {new Intl.NumberFormat('de-DE', {
-                  style: 'currency',
-                  currency: costRef.currency || 'EUR',
-                }).format(Number(costRef.quoted_cost))}
+                {formatMoney(costRef.quoted_cost, costRef.currency || 'EUR')}
               </b>
             </span>
-            {costRef.transit_days !== null && <span>时效：{costRef.transit_days} 天</span>}
+            {costRef.transit_days !== null && (
+              <span>{t('carrierInquiry.transitDaysValue', { count: costRef.transit_days })}</span>
+            )}
             {/* 币种不同不算毛利：乱换算会给出错误的利润数字 */}
             {costRef.currency === form.currency && (
               <span>
-                预估毛利：
+                {t('quotationCreate.estimatedProfit')}:
                 <b className={totalPrice - Number(costRef.quoted_cost) >= 0 ? 'text-green-700' : 'text-red-600'}>
-                  {currencySymbol} {(totalPrice - Number(costRef.quoted_cost)).toFixed(2)}
+                  {formatMoney(totalPrice - Number(costRef.quoted_cost), form.currency)}
                 </b>
               </span>
             )}
@@ -540,18 +549,18 @@ export default function QuotationCreate() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-blue-600" />
-              基本信息
+              {t('section.basicInfo')}
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* 客户 */}
-              <FormField label="客户" required error={errors.clientId}>
+              <FormField label={t('common.client')} required error={errors.clientId}>
                 <select
                   value={form.clientId}
                   onChange={(e) => updateField('clientId', e.target.value)}
                   className={errors.clientId ? inputErrorClass : inputClass}
                 >
-                  <option value="">请选择客户</option>
+                  <option value="">{t('placeholder.selectClient')}</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.company_name}
@@ -561,39 +570,39 @@ export default function QuotationCreate() {
               </FormField>
 
               {/* 业务类型 */}
-              <FormField label="业务类型" required error={errors.businessType}>
+              <FormField label={t('field.businessType')} required error={errors.businessType}>
                 <select
                   value={form.businessType}
                   onChange={(e) => updateField('businessType', e.target.value)}
                   className={errors.businessType ? inputErrorClass : inputClass}
                 >
-                  <option value="">请选择业务类型</option>
-                  {BUSINESS_TYPE_OPTIONS.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                  <option value="">{t('quotationCreate.errBusinessType')}</option>
+                  {BUSINESS_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {t(opt.labelKey)}
                     </option>
                   ))}
                 </select>
               </FormField>
 
               {/* 运输类型 */}
-              <FormField label="运输类型" required error={errors.transportType}>
+              <FormField label={t('field.transportType')} required error={errors.transportType}>
                 <select
                   value={form.transportType}
                   onChange={(e) => updateField('transportType', e.target.value)}
                   className={errors.transportType ? inputErrorClass : inputClass}
                 >
-                  <option value="">请选择运输类型</option>
-                  {TRANSPORT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                  <option value="">{t('quotationCreate.errTransportType')}</option>
+                  {TRANSPORT_TYPES.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {t(opt.labelKey)}
                     </option>
                   ))}
                 </select>
               </FormField>
 
               {/* 有效期 */}
-              <FormField label="有效期" required error={errors.validUntil}>
+              <FormField label={t('quotation.colValidity')} required error={errors.validUntil}>
                 <input
                   type="date"
                   value={form.validUntil}
@@ -608,46 +617,46 @@ export default function QuotationCreate() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-blue-600" />
-              路线信息
+              {t('quotationDetail.routeInfo')}
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="起点国家">
+              <FormField label={t('quotationCreate.originCountry')}>
                 <input
                   type="text"
                   value={form.originCountry}
                   onChange={(e) => updateField('originCountry', e.target.value)}
-                  placeholder="例如: Germany"
+                  placeholder={t('placeholder.countryGermany')}
                   className={inputClass}
                 />
               </FormField>
 
-              <FormField label="起点城市">
+              <FormField label={t('quotationCreate.originCity')}>
                 <input
                   type="text"
                   value={form.originCity}
                   onChange={(e) => updateField('originCity', e.target.value)}
-                  placeholder="例如: Munich"
+                  placeholder={t('placeholder.cityMunich')}
                   className={inputClass}
                 />
               </FormField>
 
-              <FormField label="终点国家">
+              <FormField label={t('quotationCreate.destCountry')}>
                 <input
                   type="text"
                   value={form.destCountry}
                   onChange={(e) => updateField('destCountry', e.target.value)}
-                  placeholder="例如: Poland"
+                  placeholder={t('placeholder.countryPoland')}
                   className={inputClass}
                 />
               </FormField>
 
-              <FormField label="终点城市">
+              <FormField label={t('quotationCreate.destCity')}>
                 <input
                   type="text"
                   value={form.destCity}
                   onChange={(e) => updateField('destCity', e.target.value)}
-                  placeholder="例如: Warsaw"
+                  placeholder={t('placeholder.cityWarsaw')}
                   className={inputClass}
                 />
               </FormField>
@@ -659,7 +668,7 @@ export default function QuotationCreate() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                 <Banknote className="w-5 h-5 text-blue-600" />
-                价格明细
+                {t('quotationDetail.priceBreakdown')}
               </h2>
               <button
                 onClick={handleAutoPrice}
@@ -671,13 +680,13 @@ export default function QuotationCreate() {
                 ) : (
                   <Calculator className="w-3.5 h-3.5" />
                 )}
-                自动定价
+                {t('quotationCreate.autoPricing')}
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* 基础运费 */}
-              <FormField label="基础运费" required error={errors.baseFreight}>
+              <FormField label={t('quotationDetail.baseFreight')} required error={errors.baseFreight}>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
                     {currencySymbol}
@@ -695,7 +704,7 @@ export default function QuotationCreate() {
               </FormField>
 
               {/* 附加费 */}
-              <FormField label="附加费">
+              <FormField label={t('quotationDetail.surcharge')}>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
                     {currencySymbol}
@@ -713,7 +722,7 @@ export default function QuotationCreate() {
               </FormField>
 
               {/* 保险费 */}
-              <FormField label="保险费">
+              <FormField label={t('quotationDetail.insuranceFee')}>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
                     {currencySymbol}
@@ -731,7 +740,7 @@ export default function QuotationCreate() {
               </FormField>
 
               {/* 币种 */}
-              <FormField label="币种">
+              <FormField label={t('common.currency')}>
                 <select
                   value={form.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
@@ -749,9 +758,9 @@ export default function QuotationCreate() {
             {/* 报价合计 */}
             <div className="mt-6 pt-4 border-t border-slate-100">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700">报价合计</span>
+                <span className="text-sm font-medium text-slate-700">{t('quotationCreate.totalQuote')}</span>
                 <span className="text-2xl font-bold text-blue-600">
-                  {currencySymbol} {totalPrice.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatMoney(totalPrice, form.currency)}
                 </span>
               </div>
             </div>
@@ -761,12 +770,12 @@ export default function QuotationCreate() {
           <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <FileText className="w-5 h-5 text-blue-600" />
-              备注说明
+              {t('quotationCreate.remarksSection')}
             </h2>
             <textarea
               value={form.remarks}
               onChange={(e) => updateField('remarks', e.target.value)}
-              placeholder="请输入报价相关的备注信息..."
+              placeholder={t('quotationCreate.remarksPlaceholder')}
               rows={4}
               className={`${inputClass} resize-none`}
             />
@@ -784,7 +793,7 @@ export default function QuotationCreate() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              保存草稿
+              {t('quotationCreate.saveDraft')}
             </button>
             <button
               onClick={() => handleSubmit('send')}
@@ -796,7 +805,7 @@ export default function QuotationCreate() {
               ) : (
                 <Send className="w-4 h-4" />
               )}
-              发送报价
+              {t('quotationCreate.sendQuote')}
             </button>
           </div>
         </div>
@@ -808,13 +817,13 @@ export default function QuotationCreate() {
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Package className="w-5 h-5 text-blue-600" />
-                报价摘要
+                {t('quotationCreate.summary')}
               </h2>
 
               <div className="space-y-4">
                 {/* 客户 */}
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">客户</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('common.client')}</p>
                   <p className="text-sm text-slate-900 mt-1 font-medium">
                     {selectedClientName || '-'}
                   </p>
@@ -822,7 +831,7 @@ export default function QuotationCreate() {
 
                 {/* 业务类型 */}
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">业务类型</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('field.businessType')}</p>
                   <p className="text-sm text-slate-900 mt-1">
                     {businessTypeLabel || '-'}
                   </p>
@@ -830,7 +839,7 @@ export default function QuotationCreate() {
 
                 {/* 路线 */}
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">运输路线</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('orderDetail.route')}</p>
                   <div className="flex items-center gap-2 mt-1">
                     {form.originCity || form.originCountry ? (
                       <>
@@ -852,15 +861,15 @@ export default function QuotationCreate() {
 
                 {/* 总价 */}
                 <div className="pt-4 border-t border-slate-100">
-                  <p className="text-xs text-slate-400 font-medium">报价总价</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('quotationCreate.totalPrice')}</p>
                   <p className="text-2xl font-bold text-blue-600 mt-1">
-                    {currencySymbol} {totalPrice.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatMoney(totalPrice, form.currency)}
                   </p>
                 </div>
 
                 {/* 有效期 */}
                 <div>
-                  <p className="text-xs text-slate-400 font-medium">有效期至</p>
+                  <p className="text-xs text-slate-400 font-medium">{t('quotation.colValidUntil')}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-sm text-slate-700">
@@ -875,32 +884,32 @@ export default function QuotationCreate() {
             <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
               <h2 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
                 <Banknote className="w-4 h-4 text-blue-600" />
-                费用明细
+                {t('quotationCreate.costBreakdown')}
               </h2>
 
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">基础运费</span>
+                  <span className="text-sm text-slate-500">{t('quotationDetail.baseFreight')}</span>
                   <span className="text-sm text-slate-700">
-                    {currencySymbol} {(form.baseFreight || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                    {formatMoney(form.baseFreight, form.currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">附加费</span>
+                  <span className="text-sm text-slate-500">{t('quotationDetail.surcharge')}</span>
                   <span className="text-sm text-slate-700">
-                    {currencySymbol} {(form.surcharge || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                    {formatMoney(form.surcharge, form.currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500">保险费</span>
+                  <span className="text-sm text-slate-500">{t('quotationDetail.insuranceFee')}</span>
                   <span className="text-sm text-slate-700">
-                    {currencySymbol} {(form.insuranceFee || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                    {formatMoney(form.insuranceFee, form.currency)}
                   </span>
                 </div>
                 <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-slate-900">合计</span>
+                  <span className="text-sm font-semibold text-slate-900">{t('quotationDetail.total')}</span>
                   <span className="text-sm font-bold text-blue-600">
-                    {currencySymbol} {totalPrice.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                    {formatMoney(totalPrice, form.currency)}
                   </span>
                 </div>
               </div>

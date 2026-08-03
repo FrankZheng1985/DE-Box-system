@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { MessageSquare, Tag } from 'lucide-react'
 
 /**
@@ -8,13 +9,14 @@ import { MessageSquare, Tag } from 'lucide-react'
  * 进来之后靠这个切换在两张列表之间走，保持"一个模块两个视图"的感觉。
  */
 const TABS = [
-  { path: '/inquiries', label: '询价单', icon: MessageSquare },
-  { path: '/quotes', label: '报价单', icon: Tag },
+  { path: '/inquiries', labelKey: 'inquiry.tabTitle', icon: MessageSquare },
+  { path: '/quotes', labelKey: 'quotation.tabTitle', icon: Tag },
 ]
 
 export default function InquiryQuotationTabs() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
 
   return (
     <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
@@ -32,7 +34,7 @@ export default function InquiryQuotationTabs() {
             }`}
           >
             <Icon className="w-4 h-4" />
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         )
       })}

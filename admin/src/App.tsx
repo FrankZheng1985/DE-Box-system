@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 import Layout from './components/Layout'
@@ -75,10 +76,11 @@ const OpenApiManagement = lazy(() => import('./pages/OpenApiManagement'))
 // ==================== 加载组件 ====================
 
 function PageLoading() {
+  const { t } = useTranslation()
   return (
     <div className="h-full flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      <span className="ml-2 text-slate-500 text-sm">加载中...</span>
+      <span className="ml-2 text-slate-500 text-sm">{t('common.loading')}</span>
     </div>
   )
 }
@@ -86,10 +88,11 @@ function PageLoading() {
 // ==================== 全屏加载（初始化） ====================
 
 function FullScreenLoading() {
+  const { t } = useTranslation()
   return (
     <div className="h-screen flex items-center justify-center bg-gray-50">
       <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      <span className="ml-2 text-slate-500">系统加载中...</span>
+      <span className="ml-2 text-slate-500">{t('app.booting')}</span>
     </div>
   )
 }

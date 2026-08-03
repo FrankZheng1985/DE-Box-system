@@ -15,9 +15,10 @@ import {
 import api, { type ApiResponse, getApiBaseUrl } from '../utils/api'
 import StatCard from '../components/StatCard'
 import InquiryQuotationTabs from '../components/InquiryQuotationTabs'
-import { BUSINESS_TYPE_LABELS } from '../constants/businessTypes'
+import { useTranslation } from 'react-i18next'
+import { businessTypeLabelKey } from '../constants/businessTypes'
 import {
-  INQUIRY_STATUS, INQUIRY_STATUS_LABELS, INQUIRY_STATUS_STYLES, INQUIRY_STATUS_TABS,
+  INQUIRY_STATUS, inquiryStatusLabelKey, INQUIRY_STATUS_STYLES, INQUIRY_STATUS_TABS,
 } from '../constants/inquiryQuotation'
 
 // ==================== 类型定义 ====================
@@ -105,13 +106,14 @@ function SummaryModal({
   onClose: () => void
   onToast: (m: string, t: 'success' | 'error') => void
 }) {
+  const { t } = useTranslation()
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text)
-      onToast(`已复制 ${count} 张询价单的摘要`, 'success')
+      onToast(t('inquiry.copied', { count }), 'success')
       onClose()
     } catch {
-      onToast('浏览器不允许自动复制，请手动全选复制下方文本', 'error')
+      onToast(t('inquiry.copyBlocked'), 'error')
     }
   }
 
@@ -119,7 +121,7 @@ function SummaryModal({
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="text-lg font-semibold text-slate-900">询价摘要（{count} 张）</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{t('inquiry.summaryTitle', { count })}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">✕</button>
         </div>
         <div className="p-6 overflow-y-auto">
@@ -130,15 +132,15 @@ function SummaryModal({
             className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 bg-slate-50 outline-none resize-none"
             onFocus={(e) => e.currentTarget.select()}
           />
-          <p className="text-xs text-slate-400 mt-2">粘贴给服务商即可，格式固定不用再整理。</p>
+          <p className="text-xs text-slate-400 mt-2">{t('inquiry.summaryHint')}</p>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-100">
           <button onClick={onClose} className="h-9 px-4 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 ease-in-out">
-            关闭
+            {t('common.close')}
           </button>
           <button onClick={handleCopy} className="h-9 px-4 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center gap-1.5 transition-all duration-200 ease-in-out">
             <Copy className="w-4 h-4" />
-            复制到剪贴板
+            {t('inquiry.copyToClipboard')}
           </button>
         </div>
       </div>
@@ -149,6 +151,7 @@ function SummaryModal({
 // ==================== 主组件 ====================
 
 export default function InquiryManagement() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
@@ -188,11 +191,11 @@ export default function InquiryManagement() {
         setInquiries(res.data || [])
         setTotal(res.pagination?.total || 0)
       } else {
-        showToast(res.message || '获取询价列表失败', 'error')
+        showToast(res.message || t('inquiry.loadFailed'), 'error')
       }
     } catch (err) {
       console.error('获取询价列表失败:', err)
-      showToast('获取询价列表失败', 'error')
+      showToast(t('inquiry.loadFailed'), 'error')
     } finally {
       setLoading(false)
     }
@@ -215,7 +218,7 @@ export default function InquiryManagement() {
   /** 复制摘要：勾了就复制勾选的，没勾就提示先勾选 */
   const handleCopySummary = async () => {
     if (selectedIds.length === 0) {
-      showToast('请先勾选要复制的询价单', 'error')
+      showToast(t('inquiry.selectFirst'), 'error')
       return
     }
     try {
@@ -223,11 +226,11 @@ export default function InquiryManagement() {
       if (res.code === 200 && res.data) {
         setSummary(res.data)
       } else {
-        showToast(res.message || '生成摘要失败', 'error')
+        showToast(res.message || t('inquiry.summaryFailed'), 'error')
       }
     } catch (err) {
       console.error('生成摘要失败:', err)
-      showToast('生成摘要失败', 'error')
+      showToast(t('inquiry.summaryFailed'), 'error')
     }
   }
 
@@ -251,19 +254,19 @@ export default function InquiryManagement() {
       const res = await fetch(`${getApiBaseUrl()}/api/v1/inquiries/export?${params.toString()}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!res.ok) throw new Error(`导出失败（${res.status}）`)
+      if (!res.ok) throw new Error(t('common.exportFailedWithCode', { code: res.status }))
 
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `询价单_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `${t('inquiry.exportFileName')}_${new Date().toISOString().slice(0, 10)}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
-      showToast('导出成功', 'success')
+      showToast(t('common.exportSuccess'), 'success')
     } catch (err) {
       console.error('导出失败:', err)
-      showToast(err instanceof Error ? err.message : '导出失败', 'error')
+      showToast(err instanceof Error ? err.message : t('common.exportFailed'), 'error')
     }
   }
 
@@ -290,7 +293,7 @@ export default function InquiryManagement() {
       {/* 页头 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-3">
-          <h1 className="text-xl font-semibold text-slate-900">询价报价</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('inquiry.pageTitle')}</h1>
           <InquiryQuotationTabs />
         </div>
         <button
@@ -298,16 +301,16 @@ export default function InquiryManagement() {
           className="h-9 px-4 bg-blue-600 text-white text-sm rounded-xl hover:bg-blue-700 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
         >
           <Plus className="w-4 h-4" />
-          代客户建询价
+          {t('inquiry.createForClient')}
         </button>
       </div>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="本月询价" value={stats.month_total} icon={<MessageSquare className="w-5 h-5" />} color="blue" />
-        <StatCard title="待报价" value={stats.pending_quote} icon={<Clock className="w-5 h-5" />} color="yellow" />
-        <StatCard title="已报价" value={stats.quoted} icon={<Tag className="w-5 h-5" />} color="purple" />
-        <StatCard title="已接受" value={stats.accepted} icon={<CheckCircle className="w-5 h-5" />} color="green" />
+        <StatCard title={t('inquiry.statMonthTotal')} value={stats.month_total} icon={<MessageSquare className="w-5 h-5" />} color="blue" />
+        <StatCard title={t('inquiryStatus.PENDING_QUOTE')} value={stats.pending_quote} icon={<Clock className="w-5 h-5" />} color="yellow" />
+        <StatCard title={t('inquiryStatus.QUOTED')} value={stats.quoted} icon={<Tag className="w-5 h-5" />} color="purple" />
+        <StatCard title={t('inquiryStatus.ACCEPTED')} value={stats.accepted} icon={<CheckCircle className="w-5 h-5" />} color="green" />
       </div>
 
       {/* 筛选 + 批量操作 */}
@@ -324,7 +327,7 @@ export default function InquiryManagement() {
                     : 'text-slate-500 hover:bg-slate-50'
                 }`}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
@@ -336,7 +339,7 @@ export default function InquiryManagement() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="搜索询价编号 / 客户单号 / 客户名称"
+                placeholder={t('inquiry.searchPlaceholder')}
                 className="w-full h-9 pl-9 pr-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
               />
             </div>
@@ -349,7 +352,9 @@ export default function InquiryManagement() {
         {/* 批量操作条 */}
         <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-100 bg-slate-50/50">
           <span className="text-xs text-slate-500">
-            {selectedIds.length > 0 ? `已勾选 ${selectedIds.length} 张` : '勾选后可批量复制摘要 / 导出'}
+            {selectedIds.length > 0
+              ? t('inquiry.selectedCount', { count: selectedIds.length })
+              : t('inquiry.selectHint')}
           </span>
           <div className="flex-1" />
           <button
@@ -357,14 +362,14 @@ export default function InquiryManagement() {
             className="h-8 px-3 text-xs text-slate-700 border border-slate-200 bg-white rounded-lg hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
           >
             <Copy className="w-3.5 h-3.5" />
-            复制摘要
+            {t('inquiry.copySummary')}
           </button>
           <button
             onClick={handleExport}
             className="h-8 px-3 text-xs text-slate-700 border border-slate-200 bg-white rounded-lg hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            {selectedIds.length > 0 ? '导出勾选' : '导出当前筛选'}
+            {selectedIds.length > 0 ? t('inquiry.exportSelected') : t('inquiry.exportFiltered')}
           </button>
         </div>
 
@@ -388,15 +393,15 @@ export default function InquiryManagement() {
                 <th className="text-center px-3 py-3 font-medium">
                   <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded border-slate-300" />
                 </th>
-                <th className="text-left px-3 py-3 font-medium">询价编号</th>
-                <th className="text-left px-3 py-3 font-medium">客户</th>
-                <th className="text-left px-3 py-3 font-medium">服务类型</th>
-                <th className="text-left px-3 py-3 font-medium">路线</th>
-                <th className="text-right px-3 py-3 font-medium">件数</th>
-                <th className="text-right px-3 py-3 font-medium">实重(kg)</th>
+                <th className="text-left px-3 py-3 font-medium">{t('inquiry.colNumber')}</th>
+                <th className="text-left px-3 py-3 font-medium">{t('common.client')}</th>
+                <th className="text-left px-3 py-3 font-medium">{t('field.businessType')}</th>
+                <th className="text-left px-3 py-3 font-medium">{t('common.route')}</th>
+                <th className="text-right px-3 py-3 font-medium">{t('inquiry.colPieces')}</th>
+                <th className="text-right px-3 py-3 font-medium">{t('inquiry.colWeightKg')}</th>
                 <th className="text-right px-3 py-3 font-medium">LDM</th>
-                <th className="text-center px-3 py-3 font-medium">状态</th>
-                <th className="text-center px-3 py-3 font-medium">操作</th>
+                <th className="text-center px-3 py-3 font-medium">{t('common.status')}</th>
+                <th className="text-center px-3 py-3 font-medium">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -410,7 +415,7 @@ export default function InquiryManagement() {
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-sm text-slate-400">暂无询价单</td>
+                  <td colSpan={10} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item) => (
@@ -431,12 +436,14 @@ export default function InquiryManagement() {
                         {item.inquiry_number}
                       </button>
                       {item.customer_ref && (
-                        <span className="text-[10px] text-slate-400">客户单号 {item.customer_ref}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {t('inquiry.customerRef')} {item.customer_ref}
+                        </span>
                       )}
                     </td>
                     <td className="text-left px-3 py-3.5 text-xs text-slate-600 truncate">{item.client_name || '-'}</td>
                     <td className="text-left px-3 py-3.5 text-xs text-slate-600">
-                      {BUSINESS_TYPE_LABELS[item.business_type as keyof typeof BUSINESS_TYPE_LABELS] || item.business_type}
+                      {t(businessTypeLabelKey(item.business_type), { defaultValue: item.business_type })}
                     </td>
                     <td className="text-left px-3 py-3.5 text-xs text-slate-600 truncate">
                       {routeText(item.route_from)} → {routeText(item.route_to)}
@@ -448,14 +455,14 @@ export default function InquiryManagement() {
                       <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${
                         INQUIRY_STATUS_STYLES[item.status] || 'bg-gray-100 text-gray-600'
                       }`}>
-                        {INQUIRY_STATUS_LABELS[item.status] || item.status}
+                        {t(inquiryStatusLabelKey(item.status), { defaultValue: item.status })}
                       </span>
                     </td>
                     <td className="text-center px-3 py-3.5">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => navigate(`/inquiries/${item.id}`)}
-                          title="查看详情"
+                          title={t('orderDetail.viewDetail')}
                           className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ease-in-out"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -463,11 +470,11 @@ export default function InquiryManagement() {
                         {item.status === INQUIRY_STATUS.PENDING_QUOTE && (
                           <button
                             onClick={() => handleQuote(item)}
-                            title="由此报价"
+                            title={t('inquiry.quoteFromThis')}
                             className="h-7 px-2 flex items-center gap-1 text-[11px] text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 ease-in-out"
                           >
                             <Tag className="w-3.5 h-3.5" />
-                            报价
+                            {t('inquiry.quote')}
                           </button>
                         )}
                       </div>
@@ -482,7 +489,11 @@ export default function InquiryManagement() {
         {/* 分页 */}
         {total > pageSize && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <span className="text-xs text-slate-500">共 {total} 条，第 {page} / {totalPages} 页</span>
+            <span className="text-xs text-slate-500">
+              {t('common.totalCount', { count: total })}
+              <span className="mx-1">·</span>
+              {t('common.page', { page, total: totalPages })}
+            </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}

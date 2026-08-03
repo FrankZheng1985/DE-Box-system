@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 
 // ==================== 类型定义 ====================
@@ -24,6 +25,7 @@ const sizeMap: Record<string, string> = {
 
 export default function Modal({ isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const { t } = useTranslation()
 
   // ESC 键关闭
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', f
           <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <button
             onClick={onClose}
+            aria-label={t('common.close')}
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200"
           >
             <X className="w-5 h-5" />
