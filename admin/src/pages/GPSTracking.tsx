@@ -12,6 +12,7 @@ import {
   Search,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -50,6 +51,7 @@ declare global {
 // ==================== 组件 ====================
 
 export default function GPSTracking() {
+  const { t } = useTranslation()
   const [vehicles, setVehicles] = useState<ActiveVehicle[]>([])
   const [alerts, setAlerts] = useState<GpsAlert[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,10 +207,10 @@ export default function GPSTracking() {
             ${v.from_city} → ${v.to_city}
           </div>
           <div style="font-size: 11px; color: #94a3b8; margin-bottom: 2px;">
-            ${v.city || '未知'}, ${v.country || ''}
+            ${v.city || t('common.unknown')}, ${v.country || ''}
           </div>
           <div style="font-size: 11px; color: #94a3b8;">
-            更新: ${v.recorded_at ? formatDateTime(v.recorded_at) : '未知'}
+            ${t('common.updatedAt')}: ${v.recorded_at ? (formatMapDateTime(v.recorded_at) || t('common.unknown')) : t('common.unknown')}
           </div>
         </div>
       `
@@ -259,13 +261,13 @@ export default function GPSTracking() {
 
   // 格式化时间差
   const formatTimeAgo = (dateStr: string) => {
-    if (!dateStr) return '未知'
+    if (!dateStr) return t('common.unknown')
     const diff = Date.now() - new Date(dateStr).getTime()
     const minutes = Math.floor(diff / 60000)
-    if (minutes < 60) return `${minutes} 分钟前`
+    if (minutes < 60) return t('gps.minutesAgo', { count: minutes })
     const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours} 小时前`
-    return `${Math.floor(hours / 24)} 天前`
+    if (hours < 24) return t('gps.hoursAgo', { count: hours })
+    return t('gps.daysAgo', { count: Math.floor(hours / 24) })
   }
 
   // 搜索过滤
@@ -288,9 +290,9 @@ export default function GPSTracking() {
             <MapPin className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">GPS 追踪</h1>
+            <h1 className="text-xl font-semibold text-slate-900">{t('gps.pageTitle')}</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              在途车辆 {vehicles.length} 辆 / 异常预警 {alerts.length} 条
+              {t('gps.summary', { vehicles: vehicles.length, alerts: alerts.length })}
             </p>
           </div>
         </div>
@@ -299,7 +301,7 @@ export default function GPSTracking() {
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-all duration-200 ease-in-out"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          刷新
+          {t('common.refresh')}
         </button>
       </div>
 
@@ -308,10 +310,10 @@ export default function GPSTracking() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-slate-700">实时地图</span>
+            <span className="text-sm font-medium text-slate-700">{t('gps.liveMap')}</span>
           </div>
           <span className="text-xs text-slate-400">
-            {vehicles.filter((v) => v.latitude != null).length} 辆车有定位
+            {t('gps.locatedCount', { count: vehicles.filter((v) => v.latitude != null).length })}
           </span>
         </div>
         <div className="relative" style={{ height: '55vh' }}>
@@ -325,7 +327,7 @@ export default function GPSTracking() {
           {!mapReady && (
             <div className="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center gap-3 z-10">
               <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-              <p className="text-sm text-slate-500">地图加载中...</p>
+              <p className="text-sm text-slate-500">{t('gps.mapLoading')}</p>
             </div>
           )}
         </div>
@@ -339,16 +341,16 @@ export default function GPSTracking() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-slate-900">在途车辆</span>
+                <span className="text-sm font-medium text-slate-900">{t('gps.vehiclesInTransit')}</span>
               </div>
-              <span className="text-xs text-slate-400">{filteredVehicles.length} 辆</span>
+              <span className="text-xs text-slate-400">{t('gps.vehicleUnit', { count: filteredVehicles.length })}</span>
             </div>
             {/* 搜索框 */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="搜索订单号/承运商/城市..."
+                placeholder={t('gps.searchPlaceholder')}
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
@@ -370,7 +372,7 @@ export default function GPSTracking() {
             ) : filteredVehicles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                 <Truck className="w-8 h-8 mb-2" />
-                <p className="text-xs">暂无在途车辆</p>
+                <p className="text-xs">{t('gps.noVehicles')}</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-50">
@@ -393,12 +395,12 @@ export default function GPSTracking() {
                         {hasLocation ? (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
                             <Signal className="w-2.5 h-2.5" />
-                            有信号
+                            {t('gps.hasSignal')}
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
                             <SignalZero className="w-2.5 h-2.5" />
-                            无信号
+                            {t('gps.noSignal')}
                           </span>
                         )}
                       </div>
@@ -427,7 +429,7 @@ export default function GPSTracking() {
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-blue-500" />
                           <span className="text-[10px] text-slate-500">
-                            {vehicle.city || '未知'}{vehicle.country ? `, ${vehicle.country}` : ''}
+                            {vehicle.city || t('common.unknown')}{vehicle.country ? `, ${vehicle.country}` : ''}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -451,12 +453,12 @@ export default function GPSTracking() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500" />
-                <span className="text-sm font-medium text-red-700">异常预警</span>
+                <span className="text-sm font-medium text-red-700">{t('gps.alerts')}</span>
               </div>
-              <span className="text-xs text-red-400">{alerts.length} 条</span>
+              <span className="text-xs text-red-400">{t('gps.alertUnit', { count: alerts.length })}</span>
             </div>
             <p className="text-[10px] text-red-400 mt-0.5">
-              GPS 信号超过 6 小时未更新的车辆
+              {t('gps.alertsHint')}
             </p>
           </div>
 
@@ -473,7 +475,7 @@ export default function GPSTracking() {
             ) : alerts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-400">
                 <AlertTriangle className="w-6 h-6 mb-2" />
-                <p className="text-xs">暂无异常预警</p>
+                <p className="text-xs">{t('gps.noAlerts')}</p>
               </div>
             ) : (
               <div className="divide-y divide-red-50">
@@ -488,7 +490,7 @@ export default function GPSTracking() {
                         {alert.order_number}
                       </span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
-                        {alert.hours_since_update}h 未更新
+                        {t('gps.staleHours', { hours: alert.hours_since_update })}
                       </span>
                     </div>
 
@@ -516,7 +518,7 @@ export default function GPSTracking() {
                       <div className="flex items-center gap-1">
                         <SignalZero className="w-3 h-3 text-red-400" />
                         <span className="text-[10px] text-slate-500">
-                          {alert.last_city || '未知'}
+                          {alert.last_city || t('common.unknown')}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -539,17 +541,21 @@ export default function GPSTracking() {
 
 // ==================== 辅助函数 ====================
 
-// 格式化日期时间（用于弹出窗口）
-function formatDateTime(dateStr: string): string {
-  if (!dateStr) return '未知'
+/**
+  * 地图弹窗里的日期时间（月-日 时:分）
+  * 这是模块级函数，拿不到 t()，解析失败返回空串，由调用方套 t('common.unknown')
+  */
+function formatMapDateTime(dateStr: string): string {
+  if (!dateStr) return ''
   try {
     const d = new Date(dateStr)
+    if (Number.isNaN(d.getTime())) return ''
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
     const hours = String(d.getHours()).padStart(2, '0')
     const minutes = String(d.getMinutes()).padStart(2, '0')
     return `${month}-${day} ${hours}:${minutes}`
   } catch {
-    return '未知'
+    return ''
   }
 }

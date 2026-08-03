@@ -3,23 +3,32 @@ import {
   FileCheck, Search, Eye, Download, ChevronLeft, ChevronRight,
   ClipboardList, CheckCircle, Clock, AlertTriangle, Plus, Pen, ShieldAlert,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { formatDate } from '../utils/format'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+
+/** 路线由后端的 from_city / to_city 拼出来（没有现成的 route 字段） */
+function routeText(cmr: { from_city: string | null; to_city: string | null }): string {
+  const parts = [cmr.from_city, cmr.to_city].filter(Boolean)
+  return parts.length ? parts.join(' → ') : '-'
+}
 
 // ==================== 类型定义 ====================
 
 interface CMR {
   id: string
   cmr_number: string
-  order_no: string
+  order_number: string
   client_name: string
-  route: string
+  from_city: string | null
+  to_city: string | null
   sign_status: string
-  has_damage: boolean
+  has_damage_note: boolean
   damage_note: string
-  upload_time: string
+  uploaded_at: string
 }
 
 interface CMRStats {
@@ -34,22 +43,22 @@ interface CMRStats {
 // ==================== 常量 ====================
 
 const STATUS_TABS = [
-  { key: '', label: '全部' },
-  { key: 'pending', label: '待签署' },
-  { key: 'completed', label: '已完成' },
-  { key: 'exception', label: '有异常' },
+  { key: '', labelKey: 'common.all' },
+  { key: 'pending', labelKey: 'cmr.tabPending' },
+  { key: 'COMPLETED', labelKey: 'status.COMPLETED' },
+  { key: 'exception', labelKey: 'cmr.tabException' },
 ]
 
 const SIGN_STATUS_OPTIONS = [
-  { value: 'UNSIGNED', label: '未签署' },
-  { value: 'SENDER_SIGNED', label: '发件方已签' },
-  { value: 'RECEIVER_SIGNED', label: '收件方已签' },
-  { value: 'COMPLETED', label: '签署完成' },
+  { value: 'UNSIGNED', labelKey: 'status.UNSIGNED' },
+  { value: 'SENDER_SIGNED', labelKey: 'status.SENDER_SIGNED' },
+  { value: 'RECEIVER_SIGNED', labelKey: 'status.RECEIVER_SIGNED' },
+  { value: 'COMPLETED', labelKey: 'statusByType.cmr.COMPLETED' },
 ]
 
 const FILE_TYPE_OPTIONS = [
-  { value: 'PDF', label: 'PDF' },
-  { value: 'IMAGE', label: '图片' },
+  { value: 'PDF', labelKey: 'cmr.fileTypePdf' },
+  { value: 'IMAGE', labelKey: 'cmr.fileTypeImage' },
 ]
 
 // ==================== Toast 组件 ====================
@@ -72,6 +81,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 // ==================== 组件 ====================
 
 export default function CMRManagement() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [cmrList, setCmrList] = useState<CMR[]>([])
   const [stats, setStats] = useState<CMRStats>({ total: 0, completed: 0, pending: 0, damaged: 0 })
@@ -216,7 +226,7 @@ export default function CMRManagement() {
       const res = await response.json()
 
       if (res.code === 200) {
-        setToast('CMR 上传成功')
+        setToast(t('cmr.uploaded'))
         closeUploadModal()
         refreshAll()
       }
@@ -240,7 +250,7 @@ export default function CMRManagement() {
     try {
       const res = await api.put<ApiResponse<unknown>>(`/cmr/${signTarget.id}/sign-status`, { signStatus })
       if (res.code === 200) {
-        setToast('签署状态已更新')
+        setToast(t('cmr.signUpdated'))
         setSignModalOpen(false)
         setSignTarget(null)
         refreshAll()
@@ -265,7 +275,7 @@ export default function CMRManagement() {
     try {
       const res = await api.put<ApiResponse<unknown>>(`/cmr/${damageTarget.id}/damage`, { damageNote: damageNote.trim() })
       if (res.code === 200) {
-        setToast('货损信息已记录')
+        setToast(t('cmr.damageRecorded'))
         setDamageModalOpen(false)
         setDamageTarget(null)
         setDamageNote('')
@@ -291,23 +301,23 @@ export default function CMRManagement() {
           <div className="p-2 bg-green-50 rounded-xl">
             <FileCheck className="w-5 h-5 text-green-600" />
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">CMR 运单管理</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('cmr.pageTitle')}</h1>
         </div>
         <button
           onClick={() => setUploadModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          上传 CMR
+          {t('cmr.upload')}
         </button>
       </div>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="CMR总数" value={stats.total} icon={<ClipboardList className="w-5 h-5" />} color="blue" />
-        <StatCard title="已签署完成" value={stats.completed} icon={<CheckCircle className="w-5 h-5" />} color="green" />
-        <StatCard title="待签署" value={stats.pending} icon={<Clock className="w-5 h-5" />} color="yellow" />
-        <StatCard title="有货损" value={stats.damaged} icon={<AlertTriangle className="w-5 h-5" />} color="red" />
+        <StatCard title={t('cmr.statTotal')} value={stats.total} icon={<ClipboardList className="w-5 h-5" />} color="blue" />
+        <StatCard title={t('cmr.statCompleted')} value={stats.completed} icon={<CheckCircle className="w-5 h-5" />} color="green" />
+        <StatCard title={t('cmr.tabPending')} value={stats.pending} icon={<Clock className="w-5 h-5" />} color="yellow" />
+        <StatCard title={t('cmr.statDamaged')} value={stats.damaged} icon={<AlertTriangle className="w-5 h-5" />} color="red" />
       </div>
 
       {/* 搜索栏 */}
@@ -315,7 +325,7 @@ export default function CMRManagement() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
-          placeholder="搜索CMR编号、订单号..."
+          placeholder={t('cmr.searchPlaceholder')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -335,7 +345,7 @@ export default function CMRManagement() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -351,14 +361,14 @@ export default function CMRManagement() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">CMR编号</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">关联订单</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">客户</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">路线</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">签署状态</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">货损</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">上传时间</th>
-                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">操作</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.colNumber')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.relatedOrder')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.client')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.colSignStatus')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.colDamage')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.colUploadedAt')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -374,52 +384,52 @@ export default function CMRManagement() {
                 <tr>
                   <td colSpan={8} className="px-4 py-16 text-center">
                     <FileCheck className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm text-slate-500">暂无CMR数据</p>
+                    <p className="text-sm text-slate-500">{t('cmr.empty')}</p>
                   </td>
                 </tr>
               ) : (
                 cmrList.map(cmr => (
                   <tr key={cmr.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium">{cmr.cmr_number}</td>
-                    <td className="px-4 py-3 text-xs text-blue-600">{cmr.order_no || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-blue-600">{cmr.order_number || '-'}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{cmr.client_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 truncate">{cmr.route || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 truncate">{routeText(cmr)}</td>
                     <td className="px-4 py-3 text-center"><StatusBadge status={cmr.sign_status} type="cmr" /></td>
                     <td className="px-4 py-3 text-center">
-                      {cmr.has_damage ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-700">有货损</span>
+                      {cmr.has_damage_note ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-red-100 text-red-700">{t('cmr.statDamaged')}</span>
                       ) : (
-                        <span className="text-xs text-slate-400">无</span>
+                        <span className="text-xs text-slate-400">{t('common.none')}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-500 text-center">{cmr.upload_time?.split('T')[0] || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDate(cmr.uploaded_at)}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => { setViewTarget(cmr); setViewModalOpen(true) }}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                          title="查看"
+                          title={t('common.view')}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => window.open(`/api/v1/cmr/${cmr.id}/download`, '_blank')}
                           className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
-                          title="下载"
+                          title={t('common.download')}
                         >
                           <Download className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => openSignModal(cmr)}
                           className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-                          title="更新签署状态"
+                          title={t('cmr.updateSignStatus')}
                         >
                           <Pen className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => openDamageModal(cmr)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                          title="标记货损"
+                          title={t('cmr.markDamage')}
                         >
                           <ShieldAlert className="w-4 h-4" />
                         </button>
@@ -435,7 +445,7 @@ export default function CMRManagement() {
         {/* 分页 */}
         {total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">共 {total} 条记录</p>
+            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
             <div className="flex items-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
@@ -455,7 +465,7 @@ export default function CMRManagement() {
       <Modal
         isOpen={uploadModalOpen}
         onClose={closeUploadModal}
-        title="上传 CMR"
+        title={t('cmr.upload')}
         size="lg"
         footer={
           <div className="flex justify-end gap-3">
@@ -463,14 +473,14 @@ export default function CMRManagement() {
               onClick={closeUploadModal}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleUploadSubmit}
               disabled={uploadSubmitting || !uploadForm.orderId.trim()}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {uploadSubmitting ? '提交中...' : '提交'}
+              {uploadSubmitting ? t('common.submitting') : t('common.submit')}
             </button>
           </div>
         }
@@ -479,7 +489,7 @@ export default function CMRManagement() {
           {/* 关联订单（搜索选择，替代手粘 UUID） */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              关联订单 <span className="text-red-500">*</span>
+              {t('common.relatedOrder')} <span className="text-red-500">*</span>
             </label>
             {uploadForm.orderId ? (
               <div className="flex items-center justify-between px-4 py-2.5 border border-blue-200 bg-blue-50/50 rounded-xl">
@@ -488,7 +498,7 @@ export default function CMRManagement() {
                   onClick={() => { setUploadForm(prev => ({ ...prev, orderId: '' })); setSelectedOrderLabel(''); setOrderSearch('') }}
                   className="text-xs text-blue-600 hover:text-blue-700"
                 >
-                  重新选择
+                  {t('cmr.reselect')}
                 </button>
               </div>
             ) : (
@@ -497,15 +507,15 @@ export default function CMRManagement() {
                   type="text"
                   value={orderSearch}
                   onChange={e => setOrderSearch(e.target.value)}
-                  placeholder="输入订单号、柜号或提单号搜索订单"
+                  placeholder={t('cmr.orderSearchPlaceholder')}
                   className="w-full min-w-[320px] px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
                 />
                 {orderSearch.trim() && (
                   <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
                     {orderSearching ? (
-                      <div className="px-4 py-3 text-xs text-slate-400">搜索中...</div>
+                      <div className="px-4 py-3 text-xs text-slate-400">{t('cmr.searching')}</div>
                     ) : orderOptions.length === 0 ? (
-                      <div className="px-4 py-3 text-xs text-slate-400">没有匹配的订单</div>
+                      <div className="px-4 py-3 text-xs text-slate-400">{t('cmr.noMatchingOrder')}</div>
                     ) : (
                       orderOptions.map(o => (
                         <button
@@ -530,26 +540,26 @@ export default function CMRManagement() {
 
           {/* CMR 编号 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">CMR 编号</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('cmr.colNumber')}</label>
             <input
               type="text"
               value={uploadForm.cmrNumber}
               onChange={e => setUploadForm(prev => ({ ...prev, cmrNumber: e.target.value }))}
-              placeholder="输入CMR编号"
+              placeholder={t('cmr.numberPlaceholder')}
               className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
 
           {/* 文件类型 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">文件类型</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('cmr.fileType')}</label>
             <select
               value={uploadForm.fileType}
               onChange={e => setUploadForm(prev => ({ ...prev, fileType: e.target.value }))}
               className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             >
               {FILE_TYPE_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
               ))}
             </select>
           </div>
@@ -557,7 +567,7 @@ export default function CMRManagement() {
           {/* 文件上传 */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              上传文件 <span className="text-slate-400 font-normal">(PDF/JPG/PNG, 最大20MB)</span>
+              {t('common.upload')} <span className="text-slate-400 font-normal">{t('cmr.uploadHint')}</span>
             </label>
             <div className="relative">
               <input
@@ -568,7 +578,7 @@ export default function CMRManagement() {
               />
               {uploadFile && (
                 <p className="mt-1.5 text-xs text-green-600">
-                  已选择: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(0)} KB)
+                  {t('cmr.selectedFile')}: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(0)} KB)
                 </p>
               )}
             </div>
@@ -576,11 +586,11 @@ export default function CMRManagement() {
 
           {/* 备注 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">备注</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('common.remark')}</label>
             <textarea
               value={uploadForm.remark}
               onChange={e => setUploadForm(prev => ({ ...prev, remark: e.target.value }))}
-              placeholder="输入备注信息..."
+              placeholder={t('cmr.remarksPlaceholder')}
               rows={3}
               className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
             />
@@ -592,7 +602,7 @@ export default function CMRManagement() {
       <Modal
         isOpen={signModalOpen}
         onClose={() => { setSignModalOpen(false); setSignTarget(null) }}
-        title="更新签署状态"
+        title={t('cmr.updateSignStatus')}
         size="sm"
         footer={
           <div className="flex justify-end gap-3">
@@ -600,14 +610,14 @@ export default function CMRManagement() {
               onClick={() => { setSignModalOpen(false); setSignTarget(null) }}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleSignSubmit}
               disabled={signSubmitting}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {signSubmitting ? '更新中...' : '确认更新'}
+              {signSubmitting ? t('common.updating') : t('common.confirmUpdate')}
             </button>
           </div>
         }
@@ -616,18 +626,18 @@ export default function CMRManagement() {
           {signTarget && (
             <div className="px-3 py-2 bg-slate-50 rounded-xl text-xs text-slate-600">
               CMR: <span className="font-medium text-slate-900">{signTarget.cmr_number}</span>
-              {signTarget.order_no && <> | 订单: <span className="font-medium text-slate-900">{signTarget.order_no}</span></>}
+              {signTarget.order_number && <> | {t('docType.order')}: <span className="font-medium text-slate-900">{signTarget.order_number}</span></>}
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">签署状态</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('cmr.colSignStatus')}</label>
             <select
               value={signStatus}
               onChange={e => setSignStatus(e.target.value)}
               className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             >
               {SIGN_STATUS_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
               ))}
             </select>
           </div>
@@ -638,7 +648,7 @@ export default function CMRManagement() {
       <Modal
         isOpen={damageModalOpen}
         onClose={() => { setDamageModalOpen(false); setDamageTarget(null); setDamageNote('') }}
-        title="标记货损"
+        title={t('cmr.markDamage')}
         size="md"
         footer={
           <div className="flex justify-end gap-3">
@@ -646,14 +656,14 @@ export default function CMRManagement() {
               onClick={() => { setDamageModalOpen(false); setDamageTarget(null); setDamageNote('') }}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleDamageSubmit}
               disabled={damageSubmitting || !damageNote.trim()}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {damageSubmitting ? '提交中...' : '确认标记'}
+              {damageSubmitting ? t('common.submitting') : t('cmr.confirmMark')}
             </button>
           </div>
         }
@@ -662,17 +672,17 @@ export default function CMRManagement() {
           {damageTarget && (
             <div className="px-3 py-2 bg-slate-50 rounded-xl text-xs text-slate-600">
               CMR: <span className="font-medium text-slate-900">{damageTarget.cmr_number}</span>
-              {damageTarget.order_no && <> | 订单: <span className="font-medium text-slate-900">{damageTarget.order_no}</span></>}
+              {damageTarget.order_number && <> | {t('docType.order')}: <span className="font-medium text-slate-900">{damageTarget.order_number}</span></>}
             </div>
           )}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              货损说明 <span className="text-red-500">*</span>
+              {t('cmr.damageNote')} <span className="text-red-500">*</span>
             </label>
             <textarea
               value={damageNote}
               onChange={e => setDamageNote(e.target.value)}
-              placeholder="请描述货损情况..."
+              placeholder={t('cmr.damagePlaceholder')}
               rows={4}
               className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
             />
@@ -684,7 +694,7 @@ export default function CMRManagement() {
       <Modal
         isOpen={viewModalOpen}
         onClose={() => { setViewModalOpen(false); setViewTarget(null) }}
-        title="CMR 详情"
+        title={t('cmr.detailTitle')}
         size="md"
         footer={
           <div className="flex justify-end">
@@ -692,7 +702,7 @@ export default function CMRManagement() {
               onClick={() => { setViewModalOpen(false); setViewTarget(null) }}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              关闭
+              {t('common.close')}
             </button>
           </div>
         }
@@ -701,34 +711,34 @@ export default function CMRManagement() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-xs text-slate-500">CMR 编号</span>
+                <span className="text-xs text-slate-500">{t('cmr.colNumber')}</span>
                 <p className="text-sm font-medium text-slate-900">{viewTarget.cmr_number}</p>
               </div>
               <div>
-                <span className="text-xs text-slate-500">关联订单</span>
-                <p className="text-sm font-medium text-slate-900">{viewTarget.order_no || '-'}</p>
+                <span className="text-xs text-slate-500">{t('common.relatedOrder')}</span>
+                <p className="text-sm font-medium text-slate-900">{viewTarget.order_number || '-'}</p>
               </div>
               <div>
-                <span className="text-xs text-slate-500">客户</span>
+                <span className="text-xs text-slate-500">{t('common.client')}</span>
                 <p className="text-sm font-medium text-slate-900">{viewTarget.client_name}</p>
               </div>
               <div>
-                <span className="text-xs text-slate-500">路线</span>
-                <p className="text-sm font-medium text-slate-900">{viewTarget.route || '-'}</p>
+                <span className="text-xs text-slate-500">{t('common.route')}</span>
+                <p className="text-sm font-medium text-slate-900">{routeText(viewTarget)}</p>
               </div>
               <div>
-                <span className="text-xs text-slate-500">签署状态</span>
+                <span className="text-xs text-slate-500">{t('cmr.colSignStatus')}</span>
                 <p className="text-sm"><StatusBadge status={viewTarget.sign_status} type="cmr" /></p>
               </div>
               <div>
-                <span className="text-xs text-slate-500">上传时间</span>
-                <p className="text-sm font-medium text-slate-900">{viewTarget.upload_time?.split('T')[0] || '-'}</p>
+                <span className="text-xs text-slate-500">{t('cmr.colUploadedAt')}</span>
+                <p className="text-sm font-medium text-slate-900">{formatDate(viewTarget.uploaded_at)}</p>
               </div>
             </div>
-            {viewTarget.has_damage && (
+            {viewTarget.has_damage_note && (
               <div className="mt-2 p-3 bg-red-50 rounded-xl">
-                <span className="text-xs font-medium text-red-700">货损说明：</span>
-                <p className="text-sm text-red-600 mt-1">{viewTarget.damage_note || '无详细说明'}</p>
+                <span className="text-xs font-medium text-red-700">{t('cmr.damageNoteLabel')}</span>
+                <p className="text-sm text-red-600 mt-1">{viewTarget.damage_note || t('cmr.noDamageDetail')}</p>
               </div>
             )}
           </div>
