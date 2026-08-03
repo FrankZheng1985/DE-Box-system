@@ -746,11 +746,11 @@
     "pageTitle": "Operations dashboard",
     "retry": "Retry",
     "cardTodayNew": "New today",
-    "cardTodayNewSub": "+{{delta}} vs yesterday",
+    "cardTodayNewSub": "{{delta}} vs yesterday",
     "cardInTransit": "In transit",
     "cardInTransitSub": "{{count}} arriving soon",
     "cardMonthCompleted": "Completed this month",
-    "cardMonthCompletedSub": "Completion rate {{rate}}%",
+    "cardMonthCompletedSub": "Completion rate {{rate}}% (completed / created this month)",
     "cardExceptions": "Exceptions",
     "cardExceptionsSub": "Need attention",
     "cardMonthRevenue": "Revenue this month",
@@ -760,9 +760,9 @@
     "todoPendingReview": "{{count}} orders pending review",
     "todoPendingAssign": "{{count}} orders pending dispatch",
     "todoExceptions": "{{count}} exceptions to handle",
-    "todoBillsToConfirm": "{{count}} invoices to confirm",
     "todoCarrierExpiring": "{{count}} carrier certificates expiring",
-    "recentOrders": "Recent orders"
+    "recentOrders": "Recent orders",
+    "todoUnpaidReceivables": "{{count}} receivables outstanding"
   },
   "cargo": {
     "itemsTitle": "Cargo items",

@@ -746,11 +746,11 @@
     "pageTitle": "Betriebs-Dashboard",
     "retry": "Erneut versuchen",
     "cardTodayNew": "Heute neu",
-    "cardTodayNewSub": "+{{delta}} ggü. gestern",
+    "cardTodayNewSub": "{{delta}} ggü. gestern",
     "cardInTransit": "Unterwegs",
     "cardInTransitSub": "{{count}} treffen bald ein",
     "cardMonthCompleted": "Diesen Monat abgeschlossen",
-    "cardMonthCompletedSub": "Abschlussquote {{rate}}%",
+    "cardMonthCompletedSub": "Abschlussquote {{rate}}% (abgeschlossen / angelegt, laufender Monat)",
     "cardExceptions": "Störungen",
     "cardExceptionsSub": "Bearbeitung nötig",
     "cardMonthRevenue": "Umsatz laufender Monat",
@@ -760,9 +760,9 @@
     "todoPendingReview": "{{count}} Aufträge in Prüfung",
     "todoPendingAssign": "{{count}} Aufträge zur Disposition",
     "todoExceptions": "{{count}} Störungen zu bearbeiten",
-    "todoBillsToConfirm": "{{count}} Rechnungen zu bestätigen",
     "todoCarrierExpiring": "{{count}} Frachtführer-Nachweise laufen aus",
-    "recentOrders": "Letzte Aufträge"
+    "recentOrders": "Letzte Aufträge",
+    "todoUnpaidReceivables": "{{count}} offene Forderungen"
   },
   "cargo": {
     "itemsTitle": "Positionsliste",

@@ -22,8 +22,17 @@ router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboar
     const orderStats = await query(`
       SELECT
         COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) as today_new,
+        -- 昨日新增，用来算「今日 vs 昨日」的差值（原来这个差值写死是 +3）
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '1 day'
+                           AND created_at <  CURRENT_DATE) as yesterday_new,
         COUNT(*) FILTER (WHERE status = 'IN_TRANSIT' OR delivery_status = 'IN_TRANSIT') as in_transit,
+        -- 在途且 3 天内预计到达（ETA 优先，没有 ETA 用计划送达日）
+        COUNT(*) FILTER (WHERE (status = 'IN_TRANSIT' OR delivery_status = 'IN_TRANSIT')
+                           AND COALESCE(eta, delivery_date) IS NOT NULL
+                           AND COALESCE(eta, delivery_date) <= CURRENT_DATE + INTERVAL '3 days') as arriving_soon,
         COUNT(*) FILTER (WHERE status = 'COMPLETED' AND created_at >= date_trunc('month', CURRENT_DATE)) as month_completed,
+        -- 本月新建总数，用来算完成率（原来完成率写死是 94.2%）
+        COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month_created,
         COUNT(*) FILTER (WHERE status = 'EXCEPTION' OR delivery_status = 'EXCEPTION') as exceptions,
         COALESCE(SUM(client_price) FILTER (WHERE status = 'COMPLETED' AND created_at >= date_trunc('month', CURRENT_DATE)), 0) as month_revenue,
         COALESCE(SUM(carrier_cost) FILTER (WHERE status = 'COMPLETED' AND created_at >= date_trunc('month', CURRENT_DATE)), 0) as month_cost
@@ -41,6 +50,25 @@ router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboar
     const pendingReview = await query(`SELECT COUNT(*) as cnt FROM orders WHERE status = 'PENDING_REVIEW'`)
     const pendingAssign = await query(`SELECT COUNT(*) as cnt FROM orders WHERE status = 'PENDING_ASSIGN'`)
     const exceptions = await query(`SELECT COUNT(*) as cnt FROM orders WHERE status = 'EXCEPTION'`)
+
+    /**
+     * 另外两条待办（原来数字是写死的假数据）
+     *
+     * ⚠️ 原来第一条叫「账单待确认」，但 financial_records.payment_status
+     *    只有 UNPAID / PARTIAL / PAID / OVERDUE / VOID，**没有「待确认」这个状态**。
+     *    改成统计真实存在的「未结清应收」，前端文案也跟着改了。
+     */
+    const unpaidReceivables = await query(
+      `SELECT COUNT(*) as cnt FROM financial_records
+       WHERE type = 'RECEIVABLE' AND payment_status IN ('UNPAID','PARTIAL','OVERDUE')`
+    )
+    // 资质到期口径和 utils/cron-jobs.js 的资质到期提醒保持一致（30 天内）
+    const expiringCarriers = await query(
+      `SELECT COUNT(*) as cnt FROM carriers
+       WHERE status = 'ACTIVE'
+         AND ((license_expiry   IS NOT NULL AND license_expiry   <= CURRENT_DATE + INTERVAL '30 days')
+           OR (insurance_expiry IS NOT NULL AND insurance_expiry <= CURRENT_DATE + INTERVAL '30 days'))`
+    )
 
     // 最近订单
     const recentOrders = await query(`
@@ -63,8 +91,15 @@ router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboar
       data: {
         stats: {
           todayNew: parseInt(stats.today_new),
+          // 今日新增 - 昨日新增；可能是负数，前端按正负加号显示
+          todayVsYesterday: parseInt(stats.today_new) - parseInt(stats.yesterday_new),
           inTransit: parseInt(stats.in_transit),
+          arrivingSoon: parseInt(stats.arriving_soon),
           monthCompleted: parseInt(stats.month_completed),
+          // 本月完成 / 本月新建；本月还没建过单时给 0，别除出 NaN
+          monthCompletionRate: parseInt(stats.month_created) > 0
+            ? Number((parseInt(stats.month_completed) / parseInt(stats.month_created) * 100).toFixed(1))
+            : 0,
           exceptions: parseInt(stats.exceptions),
           monthRevenue: revenue,
           profitMargin: revenue > 0 ? ((revenue - cost) / revenue * 100).toFixed(1) : 0
@@ -73,7 +108,9 @@ router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboar
         pendingItems: {
           pendingReview: parseInt(pendingReview.rows[0].cnt),
           pendingAssign: parseInt(pendingAssign.rows[0].cnt),
-          exceptions: parseInt(exceptions.rows[0].cnt)
+          exceptions: parseInt(exceptions.rows[0].cnt),
+          unpaidReceivables: parseInt(unpaidReceivables.rows[0].cnt),
+          expiringCarriers: parseInt(expiringCarriers.rows[0].cnt)
         },
         recentOrders: recentOrders.rows
       }

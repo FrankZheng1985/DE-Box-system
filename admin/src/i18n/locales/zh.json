@@ -746,11 +746,11 @@
     "pageTitle": "运营仪表板",
     "retry": "重试",
     "cardTodayNew": "今日新订单",
-    "cardTodayNewSub": "+{{delta}} vs 昨日",
+    "cardTodayNewSub": "{{delta}} vs 昨日",
     "cardInTransit": "运输中",
     "cardInTransitSub": "{{count}} 即将到达",
     "cardMonthCompleted": "本月完成",
-    "cardMonthCompletedSub": "完成率 {{rate}}%",
+    "cardMonthCompletedSub": "完成率 {{rate}}%（本月完成 / 本月新建）",
     "cardExceptions": "异常订单",
     "cardExceptionsSub": "需要处理",
     "cardMonthRevenue": "本月营收",
@@ -760,9 +760,9 @@
     "todoPendingReview": "{{count}} 个订单待审核",
     "todoPendingAssign": "{{count}} 个订单待派单",
     "todoExceptions": "{{count}} 个异常需处理",
-    "todoBillsToConfirm": "{{count}} 个账单待确认",
     "todoCarrierExpiring": "{{count}} 个运输公司资质到期",
-    "recentOrders": "最近订单"
+    "recentOrders": "最近订单",
+    "todoUnpaidReceivables": "{{count}} 笔应收未结清"
   },
   "cargo": {
     "itemsTitle": "按件货物明细",

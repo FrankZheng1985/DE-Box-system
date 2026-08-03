@@ -23,8 +23,14 @@ import { getBusinessTypeLabel, getStatusLabel } from '../constants/businessTypes
 interface DashboardData {
   stats: {
     todayNew: number
+    /** 今日新增 - 昨日新增，可能为负 */
+    todayVsYesterday: number
     inTransit: number
+    /** 在途且 3 天内预计到达 */
+    arrivingSoon: number
     monthCompleted: number
+    /** 本月完成 / 本月新建，百分比 */
+    monthCompletionRate: number
     exceptions: number
     monthRevenue: number
     profitMargin: number
@@ -34,6 +40,10 @@ interface DashboardData {
     pendingReview: number
     pendingAssign: number
     exceptions: number
+    /** 未结清应收笔数（原来这里显示的是写死的「2 个账单待确认」） */
+    unpaidReceivables: number
+    /** 30 天内资质到期的承运商数，口径同 cron 的资质到期提醒 */
+    expiringCarriers: number
   }
   recentOrders: Array<{
     id: string
@@ -48,6 +58,11 @@ interface DashboardData {
     currency: string
     created_at: string
   }>
+}
+
+/** 带正负号的差值，0 和正数显示 +N，负数显示 -N */
+function formatSignedDelta(value: number): string {
+  return value >= 0 ? `+${value}` : String(value)
 }
 
 // 业务类型名统一用共享常量（旧版这里放的是 FTL/LTL 运输类型值，
@@ -125,15 +140,14 @@ export default function Dashboard() {
       color: '#EF4444',
       onClick: () => navigate('/orders?status=EXCEPTION'),
     },
-    // ⚠️ 下面两条的数字是写死的假数据（本次 P9 只做翻译，没有对应接口，未改行为）
     {
-      text: t('dashboard.todoBillsToConfirm', { count: 2 }),
+      text: t('dashboard.todoUnpaidReceivables', { count: pending?.unpaidReceivables || 0 }),
       icon: CreditCard,
       color: '#8B5CF6',
       onClick: () => navigate('/finance'),
     },
     {
-      text: t('dashboard.todoCarrierExpiring', { count: 1 }),
+      text: t('dashboard.todoCarrierExpiring', { count: pending?.expiringCarriers || 0 }),
       icon: FileText,
       color: '#3B82F6',
       onClick: () => navigate('/carriers'),
@@ -152,7 +166,9 @@ export default function Dashboard() {
         <StatCard
           title={t('dashboard.cardTodayNew')}
           value={stats?.todayNew ?? 0}
-          subtitle={t('dashboard.cardTodayNewSub', { delta: 3 })}
+          subtitle={t('dashboard.cardTodayNewSub', {
+            delta: formatSignedDelta(stats?.todayVsYesterday ?? 0),
+          })}
           icon={Package}
           iconColor="#4472C4"
           iconBg="rgba(68,114,196,0.1)"
@@ -160,7 +176,7 @@ export default function Dashboard() {
         <StatCard
           title={t('dashboard.cardInTransit')}
           value={stats?.inTransit ?? 0}
-          subtitle={t('dashboard.cardInTransitSub', { count: 8 })}
+          subtitle={t('dashboard.cardInTransitSub', { count: stats?.arrivingSoon ?? 0 })}
           icon={Truck}
           iconColor="#F97316"
           iconBg="rgba(249,115,22,0.1)"
@@ -169,7 +185,7 @@ export default function Dashboard() {
           title={t('dashboard.cardMonthCompleted')}
           value={stats?.monthCompleted ?? 0}
           subtitle={t('dashboard.cardMonthCompletedSub', {
-            rate: stats?.profitMargin ? (94.2).toFixed(1) : '0',
+            rate: Number(stats?.monthCompletionRate ?? 0).toFixed(1),
           })}
           icon={CheckCircle}
           iconColor="#10B981"

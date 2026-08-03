@@ -42,7 +42,7 @@ const upload = multer({
  */
 router.get('/', requirePermission('cmr:view', 'portal:file_download', 'carrier_portal:task_view'), async (req, res) => {
   try {
-    const { signStatus, orderId, search, page = 1, pageSize = 20 } = req.query
+    const { signStatus, hasDamage, orderId, search, page = 1, pageSize = 20 } = req.query
     let sql = `
       SELECT cmr.*, o.order_number, c.company_name as client_name,
              o.pickup_address->>'city' as from_city, o.delivery_address->>'city' as to_city,
@@ -54,7 +54,24 @@ router.get('/', requirePermission('cmr:view', 'portal:file_download', 'carrier_p
       WHERE 1=1`
     const params = []; let idx = 0
 
-    if (signStatus) { params.push(signStatus); sql += ` AND cmr.sign_status = $${++idx}` }
+    /**
+     * 签署状态筛选（P9 踩坑 036 收尾）
+     *
+     * 前端的「待签署」Tab 覆盖三个状态（未签 / 只有发货方签 / 只有收货方签），
+     * 所以这里支持逗号分隔的多值：signStatus=UNSIGNED,SENDER_SIGNED,RECEIVER_SIGNED。
+     * 单值照旧能用，老调用方不受影响。
+     */
+    if (signStatus) {
+      const wanted = String(signStatus).split(',').map((v) => v.trim().toUpperCase()).filter(Boolean)
+      if (wanted.length === 1) {
+        params.push(wanted[0]); sql += ` AND cmr.sign_status = $${++idx}`
+      } else if (wanted.length > 1) {
+        params.push(wanted); sql += ` AND cmr.sign_status = ANY($${++idx})`
+      }
+    }
+    // 「有异常」Tab 筛的是货损标记，不是签署状态 —— 原来前端往 signStatus 里
+    // 塞 'exception'，后端拿去和签署状态比，永远查不到
+    if (hasDamage === 'true') { sql += ` AND cmr.has_damage_note = true` }
     if (orderId) { params.push(orderId); sql += ` AND cmr.order_id = $${++idx}` }
     if (search) { params.push(`%${search}%`); sql += ` AND (cmr.cmr_number ILIKE $${++idx} OR o.order_number ILIKE $${idx})` }
 

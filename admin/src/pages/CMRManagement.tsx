@@ -42,12 +42,23 @@ interface CMRStats {
 
 // ==================== 常量 ====================
 
+/**
+ * 状态筛选 Tab（P9 踩坑 036 收尾）
+ *
+ * key 就是发给后端的查询值，必须能在数据库里原样搜到：
+ * - 「待签署」覆盖三个真实状态，逗号分隔多值，后端用 = ANY() 匹配
+ * - 「有异常」筛的是货损标记 has_damage_note，不是签署状态，
+ *   所以单独走 hasDamage 参数（原来往 signStatus 里塞 'exception'，永远查不到）
+ */
 const STATUS_TABS = [
   { key: '', labelKey: 'common.all' },
-  { key: 'pending', labelKey: 'cmr.tabPending' },
+  { key: 'UNSIGNED,SENDER_SIGNED,RECEIVER_SIGNED', labelKey: 'cmr.tabPending' },
   { key: 'COMPLETED', labelKey: 'status.COMPLETED' },
-  { key: 'exception', labelKey: 'cmr.tabException' },
+  { key: 'DAMAGE', labelKey: 'cmr.tabException' },
 ]
+
+/** 「有异常」不是签署状态，用这个哨兵值切到 hasDamage 参数 */
+const DAMAGE_TAB_KEY = 'DAMAGE'
 
 const SIGN_STATUS_OPTIONS = [
   { value: 'UNSIGNED', labelKey: 'status.UNSIGNED' },
@@ -173,7 +184,8 @@ export default function CMRManagement() {
     setLoading(true)
     try {
       const res = await api.get<ApiResponse<CMR[]>>(
-        `/cmr?signStatus=${statusFilter}&search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
+        `/cmr?${statusFilter === DAMAGE_TAB_KEY ? 'hasDamage=true' : `signStatus=${statusFilter}`}` +
+        `&search=${encodeURIComponent(search)}&page=${page}&pageSize=${pageSize}`
       )
       if (res.code === 200) {
         const list = Array.isArray(res.data) ? res.data : ((res.data as any)?.items || [])
