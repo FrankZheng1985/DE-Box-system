@@ -762,7 +762,8 @@
     "todoExceptions": "{{count}} exceptions to handle",
     "todoCarrierExpiring": "{{count}} carrier certificates expiring",
     "recentOrders": "Recent orders",
-    "todoUnpaidReceivables": "{{count}} receivables outstanding"
+    "todoUnpaidReceivables": "{{count}} receivables outstanding",
+    "cardInTransitOverdue": "{{count}} past their ETA"
   },
   "cargo": {
     "itemsTitle": "Cargo items",

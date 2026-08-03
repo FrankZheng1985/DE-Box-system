@@ -27,9 +27,16 @@ router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboar
                            AND created_at <  CURRENT_DATE) as yesterday_new,
         COUNT(*) FILTER (WHERE status = 'IN_TRANSIT' OR delivery_status = 'IN_TRANSIT') as in_transit,
         -- 在途且 3 天内预计到达（ETA 优先，没有 ETA 用计划送达日）
+        -- ⚠️ 必须带下界 >= CURRENT_DATE：只写上界的话，ETA 已经过期的在途单
+        --    也会被算成「即将到达」（生产实测 26 条在途全被算进来了）
         COUNT(*) FILTER (WHERE (status = 'IN_TRANSIT' OR delivery_status = 'IN_TRANSIT')
                            AND COALESCE(eta, delivery_date) IS NOT NULL
+                           AND COALESCE(eta, delivery_date) >= CURRENT_DATE
                            AND COALESCE(eta, delivery_date) <= CURRENT_DATE + INTERVAL '3 days') as arriving_soon,
+        -- 在途但预计到达日已经过去的（逾期未到），单独给一个数
+        COUNT(*) FILTER (WHERE (status = 'IN_TRANSIT' OR delivery_status = 'IN_TRANSIT')
+                           AND COALESCE(eta, delivery_date) IS NOT NULL
+                           AND COALESCE(eta, delivery_date) < CURRENT_DATE) as overdue_in_transit,
         COUNT(*) FILTER (WHERE status = 'COMPLETED' AND created_at >= date_trunc('month', CURRENT_DATE)) as month_completed,
         -- 本月新建总数，用来算完成率（原来完成率写死是 94.2%）
         COUNT(*) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE)) as month_created,
@@ -95,6 +102,7 @@ router.get('/operator', requireUserType('OPERATOR'), requirePermission('dashboar
           todayVsYesterday: parseInt(stats.today_new) - parseInt(stats.yesterday_new),
           inTransit: parseInt(stats.in_transit),
           arrivingSoon: parseInt(stats.arriving_soon),
+          overdueInTransit: parseInt(stats.overdue_in_transit),
           monthCompleted: parseInt(stats.month_completed),
           // 本月完成 / 本月新建；本月还没建过单时给 0，别除出 NaN
           monthCompletionRate: parseInt(stats.month_created) > 0

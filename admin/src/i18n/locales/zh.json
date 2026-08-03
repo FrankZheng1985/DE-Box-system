@@ -762,7 +762,8 @@
     "todoExceptions": "{{count}} 个异常需处理",
     "todoCarrierExpiring": "{{count}} 个运输公司资质到期",
     "recentOrders": "最近订单",
-    "todoUnpaidReceivables": "{{count}} 笔应收未结清"
+    "todoUnpaidReceivables": "{{count}} 笔应收未结清",
+    "cardInTransitOverdue": "{{count}} 单已逾期未到"
   },
   "cargo": {
     "itemsTitle": "按件货物明细",

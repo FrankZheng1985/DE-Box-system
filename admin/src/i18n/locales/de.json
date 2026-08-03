@@ -762,7 +762,8 @@
     "todoExceptions": "{{count}} Störungen zu bearbeiten",
     "todoCarrierExpiring": "{{count}} Frachtführer-Nachweise laufen aus",
     "recentOrders": "Letzte Aufträge",
-    "todoUnpaidReceivables": "{{count}} offene Forderungen"
+    "todoUnpaidReceivables": "{{count}} offene Forderungen",
+    "cardInTransitOverdue": "{{count}} über ETA hinaus"
   },
   "cargo": {
     "itemsTitle": "Positionsliste",

@@ -28,6 +28,8 @@ interface DashboardData {
     inTransit: number
     /** 在途且 3 天内预计到达 */
     arrivingSoon: number
+    /** 在途但已超过预计到达日 */
+    overdueInTransit: number
     monthCompleted: number
     /** 本月完成 / 本月新建，百分比 */
     monthCompletionRate: number
@@ -176,7 +178,12 @@ export default function Dashboard() {
         <StatCard
           title={t('dashboard.cardInTransit')}
           value={stats?.inTransit ?? 0}
-          subtitle={t('dashboard.cardInTransitSub', { count: stats?.arrivingSoon ?? 0 })}
+          // 有逾期未到的就先报这个 —— 比「即将到达」更需要人立刻处理
+          subtitle={
+            (stats?.overdueInTransit ?? 0) > 0
+              ? t('dashboard.cardInTransitOverdue', { count: stats?.overdueInTransit ?? 0 })
+              : t('dashboard.cardInTransitSub', { count: stats?.arrivingSoon ?? 0 })
+          }
           icon={Truck}
           iconColor="#F97316"
           iconBg="rgba(249,115,22,0.1)"
