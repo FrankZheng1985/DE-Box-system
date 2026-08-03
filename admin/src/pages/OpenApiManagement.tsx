@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plug, Plus, KeyRound } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import { type ApiKeyRow } from '../types/openApi'
 import ApiKeysPanel from '../components/openapi/ApiKeysPanel'
@@ -17,12 +18,13 @@ import WebhookDeliveriesPanel from '../components/openapi/WebhookDeliveriesPanel
 type TabKey = 'keys' | 'logs' | 'webhooks'
 
 const TABS: Array<[TabKey, string]> = [
-  ['keys', '密钥管理'],
-  ['logs', '请求日志'],
-  ['webhooks', 'Webhook 投递'],
+  ['keys', 'openApi.tabKeys'],
+  ['logs', 'openApi.tabLogs'],
+  ['webhooks', 'openApi.tabWebhooks'],
 ]
 
 export default function OpenApiManagement() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<TabKey>('keys')
   const [toast, setToast] = useState<string | null>(null)
@@ -81,14 +83,14 @@ export default function OpenApiManagement() {
           <Plug className="w-5 h-5 text-cyan-600" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">开放 API 对接管理</h1>
-          <p className="text-xs text-slate-500 mt-0.5">合作方密钥签发与请求日志（易抵达 / 傲翼 / 翼能等系统直推单据）</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t('openApi.pageTitle')}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{t('openApi.pageSubtitle')}</p>
         </div>
       </div>
 
       {/* Tab 切换 */}
       <div className="flex items-center gap-2 mb-4">
-        {TABS.map(([key, label]) => (
+        {TABS.map(([key, labelKey]) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
@@ -96,7 +98,7 @@ export default function OpenApiManagement() {
               activeTab === key ? 'bg-slate-900 text-white' : 'bg-white/80 text-slate-600 hover:bg-slate-100'
             }`}
           >
-            {label}
+            {t(labelKey)}
           </button>
         ))}
         {activeTab === 'keys' && (
@@ -105,7 +107,7 @@ export default function OpenApiManagement() {
             className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
-            签发新密钥
+            {t('openApi.issueKey')}
           </button>
         )}
       </div>

@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Users, Plus, Pencil, KeyRound, UserX, UserCheck, Search } from 'lucide-react'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useTranslation } from 'react-i18next'
 import { getAuthHeaders } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -39,15 +40,16 @@ interface RoleOption {
 }
 
 // 用户类型显示
-const USER_TYPE_MAP: Record<string, { label: string; color: string }> = {
-  OPERATOR: { label: '操作员', color: 'bg-blue-100 text-blue-700' },
-  CLIENT: { label: '客户', color: 'bg-green-100 text-green-700' },
-  CARRIER: { label: '承运商', color: 'bg-amber-100 text-amber-700' },
+const USER_TYPE_MAP: Record<string, { labelKey: string; color: string }> = {
+  OPERATOR: { labelKey: 'userRole.OPERATOR', color: 'bg-blue-100 text-blue-700' },
+  CLIENT: { labelKey: 'common.client', color: 'bg-green-100 text-green-700' },
+  CARRIER: { labelKey: 'common.carrier', color: 'bg-amber-100 text-amber-700' },
 }
 
 // ==================== 组件 ====================
 
 export default function UserManagement() {
+  const { t } = useTranslation()
   // 列表状态
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -187,11 +189,11 @@ export default function UserManagement() {
         resetForm()
         fetchUsers()
       } else {
-        alert(json.message || '创建失败')
+        alert(json.message || t('user.createFailed'))
       }
     } catch (error) {
       console.error('创建用户失败:', error)
-      alert('创建用户失败')
+      alert(t('user.createFailedRetry'))
     } finally {
       setSubmitting(false)
     }
@@ -222,11 +224,11 @@ export default function UserManagement() {
         resetForm()
         fetchUsers()
       } else {
-        alert(json.message || '更新失败')
+        alert(json.message || t('orderForm.updateFailed'))
       }
     } catch (error) {
       console.error('更新用户失败:', error)
-      alert('更新用户失败')
+      alert(t('user.updateFailedRetry'))
     } finally {
       setSubmitting(false)
     }
@@ -246,13 +248,13 @@ export default function UserManagement() {
         setShowPasswordModal(false)
         setEditingUser(null)
         setNewPassword('')
-        alert('密码重置成功')
+        alert(t('user.passwordReset'))
       } else {
-        alert(json.message || '重置失败')
+        alert(json.message || t('user.resetFailed'))
       }
     } catch (error) {
       console.error('重置密码失败:', error)
-      alert('重置密码失败')
+      alert(t('user.resetFailedRetry'))
     } finally {
       setSubmitting(false)
     }
@@ -273,7 +275,7 @@ export default function UserManagement() {
       setToggleTarget(null)
       fetchUsers()
     } else {
-      throw new Error(json.message || '操作失败')
+      throw new Error(json.message || t('common.operateFailed'))
     }
   }
 
@@ -315,8 +317,8 @@ export default function UserManagement() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">用户管理</h1>
-          <p className="text-sm text-slate-500 mt-0.5">管理系统用户账户和权限分配</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t('user.pageTitle')}</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{t('user.pageSubtitle')}</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowCreateModal(true) }}
@@ -324,7 +326,7 @@ export default function UserManagement() {
             hover:bg-blue-700 transition-all duration-200 shadow-sm"
         >
           <Plus className="w-4 h-4" />
-          添加用户
+          {t('user.add')}
         </button>
       </div>
 
@@ -335,7 +337,7 @@ export default function UserManagement() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="搜索用户名、显示名称、邮箱..."
+              placeholder={t('user.searchPlaceholder')}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-xl
@@ -348,7 +350,7 @@ export default function UserManagement() {
             className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-xl
               hover:bg-blue-100 transition-all duration-200"
           >
-            搜索
+            {t('common.search')}
           </button>
         </div>
       </div>
@@ -357,8 +359,8 @@ export default function UserManagement() {
       <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
           <Users className="w-4 h-4 text-blue-500" />
-          <h3 className="text-sm font-semibold text-slate-800">系统用户</h3>
-          <span className="ml-auto text-xs text-slate-400">{users.length} 个用户</span>
+          <h3 className="text-sm font-semibold text-slate-800">{t('user.systemUsers')}</h3>
+          <span className="ml-auto text-xs text-slate-400">{t('user.userCount', { count: users.length })}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -381,20 +383,20 @@ export default function UserManagement() {
               </colgroup>
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">用户名</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">显示名称</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">邮箱</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">用户类型</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">角色</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">状态</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">操作</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t('user.colUsername')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t('user.colDisplayName')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">{t('field.email')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('user.colUserType')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('role.roleColumn')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('common.status')}</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-500">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {users.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-400">
-                      暂无用户数据
+                      {t('user.empty')}
                     </td>
                   </tr>
                 ) : (
@@ -412,7 +414,7 @@ export default function UserManagement() {
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                           ${USER_TYPE_MAP[user.user_type]?.color || 'bg-gray-100 text-gray-600'}`}>
-                          {USER_TYPE_MAP[user.user_type]?.label || user.user_type}
+                          {t(USER_TYPE_MAP[user.user_type]?.labelKey || '', { defaultValue: user.user_type })}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center text-xs text-slate-600">
@@ -421,7 +423,7 @@ export default function UserManagement() {
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                           ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {user.is_active ? '启用' : '停用'}
+                          {user.is_active ? t('status.ACTIVE') : t('status.INACTIVE')}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -429,14 +431,14 @@ export default function UserManagement() {
                           <button
                             onClick={() => openEditModal(user)}
                             className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                            title="编辑"
+                            title={t('common.edit')}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => openPasswordModal(user)}
                             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-                            title="重置密码"
+                            title={t('user.resetPassword')}
                           >
                             <KeyRound className="w-3.5 h-3.5" />
                           </button>
@@ -447,7 +449,7 @@ export default function UserManagement() {
                                 ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
                                 : 'text-slate-400 hover:text-green-600 hover:bg-green-50'
                             }`}
-                            title={user.is_active ? '停用' : '启用'}
+                            title={user.is_active ? t('status.INACTIVE') : t('status.ACTIVE')}
                           >
                             {user.is_active ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
                           </button>
@@ -466,7 +468,7 @@ export default function UserManagement() {
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="添加用户"
+        title={t('user.add')}
         size="md"
         footer={
           <div className="flex justify-end gap-3">
@@ -474,7 +476,7 @@ export default function UserManagement() {
               onClick={() => setShowCreateModal(false)}
               className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleCreate}
@@ -482,7 +484,7 @@ export default function UserManagement() {
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl
                 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {submitting ? '创建中...' : '创建'}
+              {submitting ? t('user.creating') : t('user.create')}
             </button>
           </div>
         }
@@ -500,7 +502,7 @@ export default function UserManagement() {
       <Modal
         isOpen={showEditModal}
         onClose={() => { setShowEditModal(false); setEditingUser(null) }}
-        title={`编辑用户 - ${editingUser?.username || ''}`}
+        title={`${t('user.editTitle')} - ${editingUser?.username || ''}`}
         size="md"
         footer={
           <div className="flex justify-end gap-3">
@@ -508,7 +510,7 @@ export default function UserManagement() {
               onClick={() => { setShowEditModal(false); setEditingUser(null) }}
               className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleEdit}
@@ -516,7 +518,7 @@ export default function UserManagement() {
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl
                 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {submitting ? '保存中...' : '保存'}
+              {submitting ? t('common.saving') : t('common.save')}
             </button>
           </div>
         }
@@ -534,7 +536,7 @@ export default function UserManagement() {
       <Modal
         isOpen={showPasswordModal}
         onClose={() => { setShowPasswordModal(false); setEditingUser(null) }}
-        title={`重置密码 - ${editingUser?.display_name || ''}`}
+        title={`${t('user.resetPassword')} - ${editingUser?.display_name || ''}`}
         size="sm"
         footer={
           <div className="flex justify-end gap-3">
@@ -542,7 +544,7 @@ export default function UserManagement() {
               onClick={() => { setShowPasswordModal(false); setEditingUser(null) }}
               className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleResetPassword}
@@ -550,22 +552,22 @@ export default function UserManagement() {
               className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-xl
                 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {submitting ? '重置中...' : '确认重置'}
+              {submitting ? t('user.resetting') : t('user.confirmReset')}
             </button>
           </div>
         }
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
-            为用户「{editingUser?.display_name}」设置新密码，密码长度至少 6 位。
+            {t('user.resetHint', { name: editingUser?.display_name || '' })}
           </p>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">新密码 *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('user.newPasswordRequired')}</label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="请输入新密码（至少 6 位）"
+              placeholder={t('user.newPasswordPlaceholder')}
               className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl
                 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
                 transition-all duration-200"
@@ -579,14 +581,14 @@ export default function UserManagement() {
         isOpen={toggleTarget !== null}
         onClose={() => setToggleTarget(null)}
         onConfirm={confirmToggleActive}
-        title={toggleTarget?.is_active ? '停用用户' : '启用用户'}
+        title={toggleTarget?.is_active ? t('user.disableTitle') : t('user.enableTitle')}
         message={toggleTarget?.is_active
-          ? '停用后，该用户将无法登录系统。历史数据保留，可随时重新启用。'
-          : '启用后，该用户将恢复登录权限。'
+          ? t('user.disableMessage')
+          : t('user.enableMessage')
         }
         targetLabel={toggleTarget ? `${toggleTarget.display_name || toggleTarget.username} (${toggleTarget.username})` : undefined}
         variant={toggleTarget?.is_active ? 'warning' : 'primary'}
-        confirmText={toggleTarget?.is_active ? '确认停用' : '确认启用'}
+        confirmText={toggleTarget?.is_active ? t('masterData.confirmDisable') : t('masterData.confirmEnable')}
       />
     </div>
   )
@@ -612,6 +614,7 @@ interface UserFormProps {
 }
 
 function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserFormProps) {
+  const { t } = useTranslation()
   const updateField = (field: string, value: string) => {
     setForm((prev: typeof form) => ({ ...prev, [field]: value }))
   }
@@ -626,12 +629,12 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
       {/* 用户名 */}
       {isCreate && (
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">用户名 *</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('user.usernameRequired')}</label>
           <input
             type="text"
             value={form.username}
             onChange={(e) => updateField('username', e.target.value)}
-            placeholder="请输入用户名（用于登录）"
+            placeholder={t('user.usernamePlaceholder')}
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl
               focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
               transition-all duration-200"
@@ -642,12 +645,12 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
       {/* 密码 */}
       {isCreate && (
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">密码 *</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('user.passwordRequired')}</label>
           <input
             type="password"
             value={form.password}
             onChange={(e) => updateField('password', e.target.value)}
-            placeholder="请输入密码（至少 6 位）"
+            placeholder={t('user.passwordPlaceholder')}
             className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl
               focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
               transition-all duration-200"
@@ -657,12 +660,12 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
 
       {/* 显示名称 */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">显示名称 *</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('user.displayNameRequired')}</label>
         <input
           type="text"
           value={form.display_name}
           onChange={(e) => updateField('display_name', e.target.value)}
-          placeholder="请输入显示名称"
+          placeholder={t('user.displayNamePlaceholder')}
           className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl
             focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
             transition-all duration-200"
@@ -672,7 +675,7 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
       {/* 邮箱 & 电话 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">邮箱</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('field.email')}</label>
           <input
             type="email"
             value={form.email}
@@ -684,7 +687,7 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">电话</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">{t('field.phone')}</label>
           <input
             type="text"
             value={form.phone}
@@ -699,7 +702,7 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
 
       {/* 用户类型 */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">用户类型</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('user.colUserType')}</label>
         <select
           value={form.user_type}
           onChange={(e) => handleTypeChange(e.target.value)}
@@ -707,15 +710,15 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
             focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
             transition-all duration-200"
         >
-          <option value="OPERATOR">操作员（内部人员）</option>
-          <option value="CLIENT">客户</option>
-          <option value="CARRIER">承运商</option>
+          <option value="OPERATOR">{t('user.typeOperatorLong')}</option>
+          <option value="CLIENT">{t('common.client')}</option>
+          <option value="CARRIER">{t('common.carrier')}</option>
         </select>
       </div>
 
       {/* 角色 */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">角色</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">{t('role.roleColumn')}</label>
         <select
           value={form.role_id}
           onChange={(e) => updateField('role_id', e.target.value)}
@@ -723,7 +726,7 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
             focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
             transition-all duration-200"
         >
-          <option value="">请选择角色</option>
+          <option value="">{t('user.selectRole')}</option>
           {roleOptions.map(role => (
             <option key={role.id} value={role.id}>{role.role_name}（{role.role_code}）</option>
           ))}
@@ -734,7 +737,9 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
       {(form.user_type === 'CLIENT' || form.user_type === 'CARRIER') && (
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            关联{form.user_type === 'CLIENT' ? '客户' : '承运商'}
+            {t('user.linkedEntityLabel', {
+              type: form.user_type === 'CLIENT' ? t('common.client') : t('common.carrier'),
+            })}
           </label>
           <select
             value={form.linked_entity_id}
@@ -743,7 +748,7 @@ function UserForm({ form, setForm, entityOptions, roleOptions, isCreate }: UserF
               focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
               transition-all duration-200"
           >
-            <option value="">请选择关联实体</option>
+            <option value="">{t('user.selectEntity')}</option>
             {entityOptions.map(opt => (
               <option key={opt.id} value={opt.id}>{opt.name}</option>
             ))}

@@ -6,12 +6,14 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { RefreshCcw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../../utils/api'
 import {
   type WebhookDeliveryRow, DELIVERY_BADGES, EVENT_LABELS, formatTime,
 } from '../../types/openApi'
 
 export default function WebhookDeliveriesPanel() {
+  const { t } = useTranslation()
   const [deliveries, setDeliveries] = useState<WebhookDeliveryRow[]>([])
   const [deliveriesLoading, setDeliveriesLoading] = useState(false)
   const [deliveryStatus, setDeliveryStatus] = useState('')
@@ -40,9 +42,9 @@ export default function WebhookDeliveriesPanel() {
             onChange={(e) => setDeliveryStatus(e.target.value)}
             className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           >
-            <option value="">全部状态</option>
-            {Object.entries(DELIVERY_BADGES).map(([code, { label }]) => (
-              <option key={code} value={code}>{label}</option>
+            <option value="">{t('master.allStatus')}</option>
+            {Object.entries(DELIVERY_BADGES).map(([code, { labelKey }]) => (
+              <option key={code} value={code}>{t(labelKey)}</option>
             ))}
           </select>
           <button
@@ -50,9 +52,9 @@ export default function WebhookDeliveriesPanel() {
             className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all duration-200"
           >
             <RefreshCcw className="w-4 h-4" />
-            刷新
+            {t('common.refresh')}
           </button>
-          <span className="ml-auto text-xs text-slate-400">推送任务每分钟自动扫描一次</span>
+          <span className="ml-auto text-xs text-slate-400">{t('openApi.pushScanHint')}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -68,13 +70,13 @@ export default function WebhookDeliveriesPanel() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">时间</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">合作方</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">事件</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">对方单号</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">状态</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">尝试</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">结果 / 错误</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('openApi.colTime')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colPartner')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colEvent')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colExternalNo')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('common.status')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">{t('openApi.colAttempts')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colResultOrError')}</th>
               </tr>
             </thead>
             <tbody>
@@ -84,29 +86,32 @@ export default function WebhookDeliveriesPanel() {
               {!deliveriesLoading && deliveries.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-400">
-                    还没有投递记录。给合作方配上「Webhook 接收地址」后，订单和报价的状态变化会自动推送
+                    {t('openApi.noDeliveries')}
                   </td>
                 </tr>
               )}
               {!deliveriesLoading && deliveries.map((d) => {
-                const badge = DELIVERY_BADGES[d.status] || { label: d.status, cls: 'bg-gray-100 text-gray-600' }
+                const badge = DELIVERY_BADGES[d.status] || { labelKey: '', cls: 'bg-gray-100 text-gray-600' }
                 return (
                   <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatTime(d.created_at)}</td>
                     <td className="px-4 py-3 text-xs font-mono text-slate-600">{d.partner_code}</td>
-                    <td className="px-4 py-3 text-xs text-slate-700">{EVENT_LABELS[d.event_type] || d.event_type}</td>
+                    <td className="px-4 py-3 text-xs text-slate-700">{t(EVENT_LABELS[d.event_type] || '', { defaultValue: d.event_type })}</td>
                     <td className="px-4 py-3 text-xs font-mono text-slate-600 truncate" title={d.external_ref || ''}>
                       {d.external_ref || '-'}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${badge.cls}`}>{badge.label}</span>
+                      <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${badge.cls}`}>{t(badge.labelKey, { defaultValue: d.status })}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 text-right">{d.attempts}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 truncate" title={d.last_error || ''}>
                       {d.status === 'SENT'
                         ? `HTTP ${d.last_status_code} · ${formatTime(d.sent_at)}`
                         : d.status === 'PENDING' && d.attempts > 0
-                          ? `${d.last_error || '失败'} · 将于 ${formatTime(d.next_attempt_at)} 重试`
+                          ? t('openApi.willRetryAt', {
+                              error: d.last_error || t('openApi.failed'),
+                              time: formatTime(d.next_attempt_at),
+                            })
                           : d.last_error || '-'}
                     </td>
                   </tr>
@@ -116,7 +121,7 @@ export default function WebhookDeliveriesPanel() {
           </table>
         </div>
         <div className="px-4 py-3 border-t border-slate-100">
-          <span className="text-xs text-slate-500">显示最近 {deliveries.length} 条</span>
+          <span className="text-xs text-slate-500">{t('openApi.showingRecent', { count: deliveries.length })}</span>
         </div>
       </div>
   )

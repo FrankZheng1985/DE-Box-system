@@ -1,3 +1,5 @@
+import { formatDateTime } from '../utils/format'
+
 /**
  * 开放 API 管理页的共享类型与展示常量（P8）
  *
@@ -72,33 +74,34 @@ export const EMPTY_KEY_FORM: KeyFormData = {
   ipWhitelist: '', remarks: '', webhookUrl: '',
 }
 
-/** 请求日志结果 → 徽章样式与中文名 */
-export const RESULT_BADGES: Record<string, { label: string; cls: string }> = {
-  SUCCESS: { label: '成功', cls: 'bg-green-100 text-green-700' },
-  DUPLICATE: { label: '重复推送', cls: 'bg-blue-100 text-blue-700' },
-  VALIDATION_ERROR: { label: '校验不过', cls: 'bg-amber-100 text-amber-700' },
-  AUTH_ERROR: { label: '认证失败', cls: 'bg-amber-100 text-amber-700' },
-  FORBIDDEN: { label: '被拒绝', cls: 'bg-amber-100 text-amber-700' },
-  RATE_LIMITED: { label: '超限速', cls: 'bg-amber-100 text-amber-700' },
-  BUSINESS_ERROR: { label: '业务拦截', cls: 'bg-amber-100 text-amber-700' },
-  NOT_FOUND: { label: '回查未命中', cls: 'bg-gray-100 text-gray-600' },
-  SERVER_ERROR: { label: '服务器错误', cls: 'bg-red-100 text-red-700' },
+/** 请求日志结果 → 徽章样式与语言包 key */
+export const RESULT_BADGES: Record<string, { labelKey: string; cls: string }> = {
+  SUCCESS: { labelKey: 'apiResult.SUCCESS', cls: 'bg-green-100 text-green-700' },
+  DUPLICATE: { labelKey: 'apiResult.DUPLICATE', cls: 'bg-blue-100 text-blue-700' },
+  VALIDATION_ERROR: { labelKey: 'apiResult.VALIDATION_ERROR', cls: 'bg-amber-100 text-amber-700' },
+  AUTH_ERROR: { labelKey: 'apiResult.AUTH_ERROR', cls: 'bg-amber-100 text-amber-700' },
+  FORBIDDEN: { labelKey: 'apiResult.FORBIDDEN', cls: 'bg-amber-100 text-amber-700' },
+  RATE_LIMITED: { labelKey: 'apiResult.RATE_LIMITED', cls: 'bg-amber-100 text-amber-700' },
+  BUSINESS_ERROR: { labelKey: 'apiResult.BUSINESS_ERROR', cls: 'bg-amber-100 text-amber-700' },
+  NOT_FOUND: { labelKey: 'apiResult.NOT_FOUND', cls: 'bg-gray-100 text-gray-600' },
+  SERVER_ERROR: { labelKey: 'apiResult.SERVER_ERROR', cls: 'bg-red-100 text-red-700' },
 }
 
 /** Webhook 投递状态徽章 */
-export const DELIVERY_BADGES: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: '待投递', cls: 'bg-blue-100 text-blue-700' },
-  SENDING: { label: '投递中', cls: 'bg-blue-100 text-blue-700' },
-  SENT: { label: '成功', cls: 'bg-green-100 text-green-700' },
-  FAILED: { label: '重试耗尽', cls: 'bg-red-100 text-red-700' },
+export const DELIVERY_BADGES: Record<string, { labelKey: string; cls: string }> = {
+  PENDING: { labelKey: 'webhookStatus.PENDING', cls: 'bg-blue-100 text-blue-700' },
+  SENDING: { labelKey: 'webhookStatus.SENDING', cls: 'bg-blue-100 text-blue-700' },
+  SENT: { labelKey: 'webhookStatus.SENT', cls: 'bg-green-100 text-green-700' },
+  FAILED: { labelKey: 'webhookStatus.FAILED', cls: 'bg-red-100 text-red-700' },
 }
 
-/** Webhook 事件中文名 */
+/** Webhook 事件名的语言包 key */
 export const EVENT_LABELS: Record<string, string> = {
-  ORDER_STATUS_CHANGED: '订单状态变更',
-  INQUIRY_QUOTED: '询价已报价',
-  QUOTATION_DECISION: '报价决策结果',
-  WEBHOOK_TEST: '联调测试事件',
+  ORDER_STATUS_CHANGED: 'webhookEvent.ORDER_STATUS_CHANGED',
+  INQUIRY_QUOTED: 'webhookEvent.INQUIRY_QUOTED',
+  QUOTATION_DECISION: 'webhookEvent.QUOTATION_DECISION',
+  WEBHOOK_TEST: 'webhookEvent.WEBHOOK_TEST',
 }
 
-export const formatTime = (v: string | null) => (v ? new Date(v).toLocaleString('zh-CN') : '-')
+/** 时间戳按当前界面语言格式化（原来写死 zh-CN） */
+export const formatTime = (v: string | null) => formatDateTime(v)

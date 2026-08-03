@@ -27,6 +27,7 @@ import {
   Stamp,
   Plug,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -40,7 +41,7 @@ interface AccountInfo {
 
 interface NotificationPreference {
   key: string
-  label: string
+  labelKey: string
   icon: typeof Bell
   iconBg: string
   iconColor: string
@@ -61,18 +62,18 @@ interface NotificationPreferenceRow {
  *    否则存进库的偏好匹配不到任何实际通知（踩坑 004）
  */
 const NOTIFICATION_EVENTS: Omit<NotificationPreference, 'email' | 'system'>[] = [
-  { key: 'ORDER_CONFIRMED', label: '订单已确认', icon: CheckCircle, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
-  { key: 'CARRIER_ACCEPTED', label: '承运商接单', icon: Truck, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
-  { key: 'PICKED_UP', label: '货物已提货', icon: Package, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
-  { key: 'STATUS_UPDATE', label: '订单状态变更', icon: RefreshCw, iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
-  { key: 'DELIVERED', label: '货物已送达', icon: PackageCheck, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
-  { key: 'CMR_UPLOADED', label: 'CMR 单据上传', icon: FileText, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
-  { key: 'EXCEPTION', label: '订单异常预警', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
-  { key: 'CLEARANCE_RELEASED', label: '清关放行', icon: Stamp, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
-  { key: 'RELEASE_STATUS_CHANGED', label: '船司放单状态变更', icon: Ship, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
-  { key: 'QUALIFICATION_EXPIRING', label: '承运商资质到期', icon: ShieldAlert, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
-  { key: 'INVOICE_DUE', label: '账单到期 / 逾期', icon: DollarSign, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
-  { key: 'CREDIT_ALERT', label: '客户信用超额预警', icon: ShieldAlert, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
+  { key: 'ORDER_CONFIRMED', labelKey: 'notifyEvent.ORDER_CONFIRMED', icon: CheckCircle, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+  { key: 'CARRIER_ACCEPTED', labelKey: 'notifyEvent.CARRIER_ACCEPTED', icon: Truck, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
+  { key: 'PICKED_UP', labelKey: 'notifyEvent.PICKED_UP', icon: Package, iconBg: 'bg-blue-50', iconColor: 'text-blue-600' },
+  { key: 'STATUS_UPDATE', labelKey: 'notifyEvent.STATUS_UPDATE', icon: RefreshCw, iconBg: 'bg-slate-100', iconColor: 'text-slate-600' },
+  { key: 'DELIVERED', labelKey: 'notifyEvent.DELIVERED', icon: PackageCheck, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+  { key: 'CMR_UPLOADED', labelKey: 'notifyEvent.CMR_UPLOADED', icon: FileText, iconBg: 'bg-green-50', iconColor: 'text-green-600' },
+  { key: 'EXCEPTION', labelKey: 'notifyEvent.EXCEPTION', icon: AlertTriangle, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
+  { key: 'CLEARANCE_RELEASED', labelKey: 'notifyEvent.CLEARANCE_RELEASED', icon: Stamp, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
+  { key: 'RELEASE_STATUS_CHANGED', labelKey: 'notifyEvent.RELEASE_STATUS_CHANGED', icon: Ship, iconBg: 'bg-purple-50', iconColor: 'text-purple-600' },
+  { key: 'QUALIFICATION_EXPIRING', labelKey: 'notifyEvent.QUALIFICATION_EXPIRING', icon: ShieldAlert, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+  { key: 'INVOICE_DUE', labelKey: 'notifyEvent.INVOICE_DUE', icon: DollarSign, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+  { key: 'CREDIT_ALERT', labelKey: 'notifyEvent.CREDIT_ALERT', icon: ShieldAlert, iconBg: 'bg-red-50', iconColor: 'text-red-600' },
 ]
 
 /** 提醒配置，key 必须与 system_settings 的 setting_key 完全一致 */
@@ -111,40 +112,40 @@ const ERP_ADMIN_LINKS = [
     icon: CalendarDays,
     iconBg: 'bg-blue-50',
     iconColor: 'text-blue-600',
-    title: '过账期间管理',
-    description: '管理财年各月过账期间的开放与关闭状态',
+    titleKey: 'postingPeriod.pageTitle',
+    descriptionKey: 'settings.erpPostingPeriodDesc',
     path: '/settings/posting-periods',
   },
   {
     icon: BookOpen,
     iconBg: 'bg-green-50',
     iconColor: 'text-green-600',
-    title: '会计科目表',
-    description: '查看公司科目层级结构与类型配置',
+    titleKey: 'coa.pageTitle',
+    descriptionKey: 'settings.erpCoaDesc',
     path: '/settings/chart-of-accounts',
   },
   {
     icon: Hash,
     iconBg: 'bg-purple-50',
     iconColor: 'text-purple-600',
-    title: '编号范围管理',
-    description: '管理各业务对象的自动编号规则',
+    titleKey: 'numberRange.pageTitle',
+    descriptionKey: 'settings.erpNumberRangeDesc',
     path: '/settings/number-ranges',
   },
   {
     icon: Database,
     iconBg: 'bg-orange-50',
     iconColor: 'text-orange-600',
-    title: '基础数据维护',
-    description: '管理船司、箱型、币种、国家、港口、车型等基础配置数据',
+    titleKey: 'masterData.pageTitle',
+    descriptionKey: 'settings.erpMasterDataDesc',
     path: '/settings/master-data',
   },
   {
     icon: Plug,
     iconBg: 'bg-cyan-50',
     iconColor: 'text-cyan-600',
-    title: '开放 API 对接',
-    description: '合作方密钥签发/停用与推送请求日志（易抵达/傲翼/翼能）',
+    titleKey: 'settings.erpOpenApi',
+    descriptionKey: 'settings.erpOpenApiDesc',
     path: '/settings/open-api',
   },
 ]
@@ -213,6 +214,7 @@ function ReminderNumberRow({ label, hint, value, min, max, unit, onChange }: {
 }
 
 export default function Settings() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   // 基本信息
@@ -288,18 +290,18 @@ export default function Settings() {
   // 保存账户信息
   const handleSaveAccount = async () => {
     if (!accountInfo.company_name.trim()) {
-      showToastMessage('请填写公司名称')
+      showToastMessage(t('master.errCompanyName'))
       return
     }
     setSavingAccount(true)
     try {
       const res = await api.put<ApiResponse<null>>('/system/settings/account', accountInfo)
       if (res.code === 200) {
-        showToastMessage('保存成功')
+        showToastMessage(t('common.saveSuccess'))
       }
     } catch (err) {
       console.error('[Settings] 保存失败:', err)
-      showToastMessage('保存失败，请重试')
+      showToastMessage(t('settings.saveFailedRetry'))
     } finally {
       setSavingAccount(false)
     }
@@ -354,11 +356,11 @@ export default function Settings() {
     const days = Number(reminderCfg.payment_reminder_days_before)
     const validDays = Number(reminderCfg.quotation_token_valid_days)
     if (!Number.isInteger(days) || days < 0 || days > 90) {
-      showToastMessage('提前提醒天数必须是 0-90 之间的整数')
+      showToastMessage(t('settings.errReminderDays'))
       return
     }
     if (!Number.isInteger(validDays) || validDays < 1 || validDays > 90) {
-      showToastMessage('报价链接有效天数必须是 1-90 之间的整数')
+      showToastMessage(t('settings.errQuoteLinkDays'))
       return
     }
 
@@ -366,13 +368,13 @@ export default function Settings() {
     try {
       const res = await api.put<ApiResponse<null>>('/system/settings', reminderCfg)
       if (res.code === 200) {
-        showToastMessage('提醒配置已保存')
+        showToastMessage(t('settings.reminderSaved'))
       } else {
-        showToastMessage(res.message || '保存失败，请重试')
+        showToastMessage(res.message || t('settings.saveFailedRetry'))
       }
     } catch (err) {
       console.error('[Settings] 保存提醒配置失败:', err)
-      showToastMessage('保存失败，请重试')
+      showToastMessage(t('settings.saveFailedRetry'))
     } finally {
       setSavingReminder(false)
     }
@@ -389,13 +391,13 @@ export default function Settings() {
       }))
       const res = await api.put<ApiResponse<null>>('/notifications/preferences', { preferences })
       if (res.code === 200) {
-        showToastMessage('通知偏好已保存')
+        showToastMessage(t('settings.notifySaved'))
       } else {
-        showToastMessage(res.message || '保存失败，请重试')
+        showToastMessage(res.message || t('settings.saveFailedRetry'))
       }
     } catch (err) {
       console.error('[Settings] 保存通知偏好失败:', err)
-      showToastMessage('保存失败，请重试')
+      showToastMessage(t('settings.saveFailedRetry'))
     } finally {
       setSavingNotifications(false)
     }
@@ -409,8 +411,8 @@ export default function Settings() {
           <SettingsIcon className="w-5 h-5 text-slate-600" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">系统设置</h1>
-          <p className="text-xs text-slate-500 mt-0.5">管理账户信息和通知偏好</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t('settings.pageTitle')}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{t('settings.pageSubtitle')}</p>
         </div>
       </div>
 
@@ -420,9 +422,9 @@ export default function Settings() {
           <div className="px-6 py-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Building className="w-4 h-4 text-slate-500" />
-              <h2 className="text-sm font-semibold text-slate-900">基本信息</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{t('section.basicInfo')}</h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">公司基础资料设置</p>
+            <p className="text-xs text-slate-500 mt-1">{t('settings.companyInfoDesc')}</p>
           </div>
 
           <div className="p-6">
@@ -441,7 +443,7 @@ export default function Settings() {
                 <div className="sm:col-span-2">
                   <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
                     <Building className="w-3.5 h-3.5 text-slate-400" />
-                    公司名称
+                    {t('master.companyName')}
                   </label>
                   <input
                     type="text"
@@ -449,7 +451,7 @@ export default function Settings() {
                     onChange={(e) =>
                       setAccountInfo((prev) => ({ ...prev, company_name: e.target.value }))
                     }
-                    placeholder="请输入公司名称"
+                    placeholder={t('settings.companyNamePlaceholder')}
                     className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
                   />
                 </div>
@@ -458,7 +460,7 @@ export default function Settings() {
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
                     <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    邮箱
+                    {t('field.email')}
                   </label>
                   <input
                     type="email"
@@ -475,7 +477,7 @@ export default function Settings() {
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
                     <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    电话
+                    {t('field.phone')}
                   </label>
                   <input
                     type="tel"
@@ -492,7 +494,7 @@ export default function Settings() {
                 <div className="sm:col-span-2">
                   <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    地址
+                    {t('master.address')}
                   </label>
                   <input
                     type="text"
@@ -500,7 +502,7 @@ export default function Settings() {
                     onChange={(e) =>
                       setAccountInfo((prev) => ({ ...prev, address: e.target.value }))
                     }
-                    placeholder="请输入公司地址"
+                    placeholder={t('settings.companyAddressPlaceholder')}
                     className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
                   />
                 </div>
@@ -517,7 +519,7 @@ export default function Settings() {
                     ) : (
                       <Save className="w-4 h-4" />
                     )}
-                    保存设置
+                    {t('settings.saveSettings')}
                   </button>
                 </div>
               </div>
@@ -530,9 +532,9 @@ export default function Settings() {
           <div className="px-6 py-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Mail className="w-4 h-4 text-slate-500" />
-              <h2 className="text-sm font-semibold text-slate-900">报价与账单提醒</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{t('settings.reminderSection')}</h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">控制发给客户的报价确认邮件和账单提醒</p>
+            <p className="text-xs text-slate-500 mt-1">{t('settings.reminderSectionDesc')}</p>
           </div>
 
           <div className="p-6">
@@ -545,42 +547,42 @@ export default function Settings() {
             ) : (
               <div className="space-y-2">
                 <ReminderToggleRow
-                  label="发送报价时给客户发确认邮件"
-                  hint="邮件内含同意 / 待定 / 拒绝三个一次性确认链接"
+                  label={t('settings.sendQuoteEmail')}
+                  hint={t('settings.sendQuoteEmailHint')}
                   checked={reminderCfg.quotation_email_enabled}
                   onChange={(v) => setReminderCfg((c) => ({ ...c, quotation_email_enabled: v }))}
                 />
                 <ReminderNumberRow
-                  label="报价确认链接有效天数"
-                  hint="报价本身填了有效期时以有效期为准"
+                  label={t('settings.quoteLinkDays')}
+                  hint={t('settings.quoteLinkDaysHint')}
                   value={reminderCfg.quotation_token_valid_days}
                   min={1}
                   max={90}
-                  unit="天"
+                  unit={t('settings.unitDays')}
                   onChange={(v) => setReminderCfg((c) => ({ ...c, quotation_token_valid_days: v }))}
                 />
                 <ReminderToggleRow
-                  label="账单到期前提醒客户"
+                  label={t('settings.remindBeforeDue')}
                   checked={reminderCfg.payment_reminder_enabled}
                   onChange={(v) => setReminderCfg((c) => ({ ...c, payment_reminder_enabled: v }))}
                 />
                 <ReminderNumberRow
-                  label="提前几天提醒"
-                  hint="每天 9:00 检查一次"
+                  label={t('settings.remindDaysBefore')}
+                  hint={t('settings.remindDaysBeforeHint')}
                   value={reminderCfg.payment_reminder_days_before}
                   min={0}
                   max={90}
-                  unit="天"
+                  unit={t('settings.unitDays')}
                   onChange={(v) => setReminderCfg((c) => ({ ...c, payment_reminder_days_before: v }))}
                 />
                 <ReminderToggleRow
-                  label="逾期后向客户催款"
+                  label={t('settings.chaseOverdue')}
                   checked={reminderCfg.overdue_reminder_enabled}
                   onChange={(v) => setReminderCfg((c) => ({ ...c, overdue_reminder_enabled: v }))}
                 />
                 <ReminderToggleRow
-                  label="自动把逾期账单标记为「已逾期」"
-                  hint="关闭后逾期账单会一直显示为未付款"
+                  label={t('settings.autoMarkOverdue')}
+                  hint={t('settings.autoMarkOverdueHint')}
                   checked={reminderCfg.overdue_auto_flag_enabled}
                   onChange={(v) => setReminderCfg((c) => ({ ...c, overdue_auto_flag_enabled: v }))}
                 />
@@ -594,7 +596,7 @@ export default function Settings() {
                 className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-all duration-200 ease-in-out"
               >
                 {savingReminder ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                保存提醒配置
+                {t('settings.saveReminders')}
               </button>
             </div>
           </div>
@@ -605,9 +607,9 @@ export default function Settings() {
           <div className="px-6 py-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Bell className="w-4 h-4 text-slate-500" />
-              <h2 className="text-sm font-semibold text-slate-900">通知偏好</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{t('settings.notifySection')}</h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">选择接收通知的方式</p>
+            <p className="text-xs text-slate-500 mt-1">{t('settings.notifySectionDesc')}</p>
           </div>
 
           <div className="p-6">
@@ -615,11 +617,11 @@ export default function Settings() {
             <div className="flex items-center justify-end gap-8 mb-4 pr-1">
               <div className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500">邮件</span>
+                <span className="text-xs font-medium text-slate-500">{t('settings.channelEmail')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Bell className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500">系统</span>
+                <span className="text-xs font-medium text-slate-500">{t('settings.channelSystem')}</span>
               </div>
             </div>
 
@@ -646,7 +648,7 @@ export default function Settings() {
                       >
                         <IconComp className={`w-4 h-4 ${pref.iconColor}`} />
                       </div>
-                      <span className="text-sm text-slate-700">{pref.label}</span>
+                      <span className="text-sm text-slate-700">{t(pref.labelKey)}</span>
                     </div>
 
                     {/* 右侧：两个开关 */}
@@ -699,7 +701,7 @@ export default function Settings() {
                 ) : (
                   <Save className="w-4 h-4" />
                 )}
-                保存通知设置
+                {t('settings.saveNotify')}
               </button>
             </div>
           </div>
@@ -710,9 +712,9 @@ export default function Settings() {
           <div className="px-6 py-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <SettingsIcon className="w-4 h-4 text-slate-500" />
-              <h2 className="text-sm font-semibold text-slate-900">ERP 管理</h2>
+              <h2 className="text-sm font-semibold text-slate-900">{t('settings.erpSection')}</h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">系统核心配置与财务管理设置</p>
+            <p className="text-xs text-slate-500 mt-1">{t('settings.erpSectionDesc')}</p>
           </div>
 
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -729,10 +731,10 @@ export default function Settings() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-sm font-medium text-slate-900">{link.title}</span>
+                      <span className="text-sm font-medium text-slate-900">{t(link.titleKey)}</span>
                       <ChevronRight className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">{link.description}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t(link.descriptionKey)}</p>
                   </div>
                 </button>
               )

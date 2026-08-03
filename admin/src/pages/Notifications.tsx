@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -47,6 +48,7 @@ const typeConfig: Record<string, { icon: typeof Bell; bg: string; iconColor: str
 // ==================== 组件 ====================
 
 export default function Notifications() {
+  const { t } = useTranslation()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [markingAllRead, setMarkingAllRead] = useState(false)
@@ -119,12 +121,12 @@ export default function Notifications() {
     const diff = now.getTime() - date.getTime()
     const minutes = Math.floor(diff / 60000)
 
-    if (minutes < 1) return '刚刚'
-    if (minutes < 60) return `${minutes} 分钟前`
+    if (minutes < 1) return t('notification.justNow')
+    if (minutes < 60) return t('gps.minutesAgo', { count: minutes })
     const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours} 小时前`
+    if (hours < 24) return t('gps.hoursAgo', { count: hours })
     const days = Math.floor(hours / 24)
-    if (days < 7) return `${days} 天前`
+    if (days < 7) return t('gps.daysAgo', { count: days })
 
     // 超过 7 天显示具体日期
     const y = date.getFullYear()
@@ -147,9 +149,9 @@ export default function Notifications() {
             <Bell className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">通知中心</h1>
+            <h1 className="text-xl font-semibold text-slate-900">{t('notification.pageTitle')}</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              共 {total} 条通知，{unreadCount} 条未读
+              {t('notification.summary', { total, unread: unreadCount })}
             </p>
           </div>
         </div>
@@ -169,7 +171,7 @@ export default function Notifications() {
           ) : (
             <CheckCheck className="w-4 h-4" />
           )}
-          全部已读
+          {t('notification.markAllRead')}
         </button>
       </div>
 
@@ -191,7 +193,7 @@ export default function Notifications() {
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <Bell className="w-12 h-12 mb-3" />
-            <p className="text-sm">暂无通知</p>
+            <p className="text-sm">{t('notification.empty')}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -260,7 +262,9 @@ export default function Notifications() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
             <span className="text-xs text-slate-500">
-              第 {page} / {totalPages} 页，共 {total} 条
+              {t('common.page', { page, total: totalPages })}
+              <span className="mx-1">·</span>
+              {t('common.totalCount', { count: total })}
             </span>
             <div className="flex items-center gap-2">
               <button

@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ShieldCheck, Save, Lock, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getAuthHeaders } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 import { SUPER_ROLE_CODE } from '../constants/permissions'
@@ -37,15 +38,16 @@ interface PermissionGroup {
   items: Permission[]
 }
 
-const ROLE_TYPE_MAP: Record<string, { label: string; color: string }> = {
-  OPERATOR: { label: '运营端', color: 'bg-blue-100 text-blue-700' },
-  CLIENT: { label: '客户端', color: 'bg-green-100 text-green-700' },
-  CARRIER: { label: '承运商', color: 'bg-amber-100 text-amber-700' },
+const ROLE_TYPE_MAP: Record<string, { labelKey: string; color: string }> = {
+  OPERATOR: { labelKey: 'userType.OPERATOR', color: 'bg-blue-100 text-blue-700' },
+  CLIENT: { labelKey: 'userType.CLIENT', color: 'bg-green-100 text-green-700' },
+  CARRIER: { labelKey: 'userType.CARRIER', color: 'bg-amber-100 text-amber-700' },
 }
 
 // ==================== 组件 ====================
 
 export default function RoleManagement() {
+  const { t } = useTranslation()
   const { refreshPermissions } = useAuth()
 
   const [roles, setRoles] = useState<Role[]>([])
@@ -83,7 +85,7 @@ export default function RoleManagement() {
         }
       } catch (error) {
         console.error('加载角色权限失败:', error)
-        showToast('加载失败，请刷新重试', false)
+        showToast(t('role.loadFailed'), false)
       } finally {
         setLoading(false)
       }
@@ -108,7 +110,7 @@ export default function RoleManagement() {
         }
       } catch (error) {
         console.error('加载角色权限失败:', error)
-        showToast('加载角色权限失败', false)
+        showToast(t('role.loadPermissionsFailed'), false)
       } finally {
         setLoadingRolePerms(false)
       }
@@ -174,15 +176,18 @@ export default function RoleManagement() {
       const json = await res.json()
       if (json.code === 200) {
         setOriginalChecked(new Set(checked))
-        showToast(`已保存，${selectedRole.role_name} 现有 ${checked.size} 项权限`, true)
+        showToast(
+          t('role.saved', { role: selectedRole.role_name, count: checked.size }),
+          true
+        )
         // 万一改的是自己所属角色，顺手把本人权限刷新一下
         await refreshPermissions()
       } else {
-        showToast(json.message || '保存失败', false)
+        showToast(json.message || t('common.saveFailed'), false)
       }
     } catch (error) {
       console.error('保存角色权限失败:', error)
-      showToast('保存失败，请稍后重试', false)
+      showToast(t('role.saveFailedRetry'), false)
     } finally {
       setSaving(false)
     }
@@ -205,9 +210,9 @@ export default function RoleManagement() {
       {/* 页头 */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">角色权限</h1>
+          <h1 className="text-xl font-bold text-slate-900">{t('role.pageTitle')}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            给角色勾选权限，保存后该角色下所有账号立即生效（最迟 1 分钟）
+            {t('role.pageSubtitle')}
           </p>
         </div>
         <button
@@ -218,7 +223,7 @@ export default function RoleManagement() {
             transition-all duration-200 ease-in-out shadow-sm"
         >
           <Save className="w-4 h-4" />
-          {saving ? '保存中...' : '保存权限'}
+          {saving ? t('common.saving') : t('role.savePermissions')}
         </button>
       </div>
 
@@ -227,7 +232,7 @@ export default function RoleManagement() {
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-blue-500" />
-            <h3 className="text-sm font-semibold text-slate-800">角色</h3>
+            <h3 className="text-sm font-semibold text-slate-800">{t('role.roleColumn')}</h3>
             <span className="ml-auto text-xs text-slate-400">{roles.length}</span>
           </div>
           <div className="p-2 space-y-1">
@@ -251,7 +256,7 @@ export default function RoleManagement() {
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                       ${ROLE_TYPE_MAP[role.role_type]?.color || 'bg-gray-100 text-gray-600'}`}>
-                      {ROLE_TYPE_MAP[role.role_type]?.label || role.role_type}
+                      {t(ROLE_TYPE_MAP[role.role_type]?.labelKey || '', { defaultValue: role.role_type })}
                     </span>
                     <span className="text-xs text-slate-400 truncate">{role.role_code}</span>
                   </div>
@@ -267,7 +272,7 @@ export default function RoleManagement() {
             <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
               <Lock className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-sm text-amber-800">
-                系统管理员拥有全部权限，且不可修改 —— 这是防止把自己锁在系统外面的最后一道保险。
+                {t('role.adminLocked')}
               </p>
             </div>
           )}
@@ -298,7 +303,7 @@ export default function RoleManagement() {
                         onClick={() => toggleGroup(group, !allChecked)}
                         className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors duration-200"
                       >
-                        {allChecked ? '全不选' : '全选'}
+                        {allChecked ? t('role.deselectAll') : t('role.selectAll')}
                       </button>
                     )}
                   </div>

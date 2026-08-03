@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../../utils/api'
 import { type ApiKeyRow, type ApiLogRow, RESULT_BADGES, formatTime } from '../../types/openApi'
 
@@ -16,6 +17,7 @@ interface ApiLogsPanelProps {
 }
 
 export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
+  const { t } = useTranslation()
   const [logs, setLogs] = useState<ApiLogRow[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [logTotal, setLogTotal] = useState(0)
@@ -56,7 +58,7 @@ export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
             onChange={(e) => { setLogFilter((f) => ({ ...f, partnerCode: e.target.value })); setLogPage(1) }}
             className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           >
-            <option value="">全部合作方</option>
+            <option value="">{t('openApi.allPartners')}</option>
             {keys.map((k) => (
               <option key={k.id} value={k.partner_code}>{k.partner_name}（{k.partner_code}）</option>
             ))}
@@ -66,15 +68,15 @@ export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
             onChange={(e) => { setLogFilter((f) => ({ ...f, result: e.target.value })); setLogPage(1) }}
             className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           >
-            <option value="">全部结果</option>
-            {Object.entries(RESULT_BADGES).map(([code, { label }]) => (
-              <option key={code} value={code}>{label}（{code}）</option>
+            <option value="">{t('credit.allResults')}</option>
+            {Object.entries(RESULT_BADGES).map(([code, { labelKey }]) => (
+              <option key={code} value={code}>{t(labelKey)}（{code}）</option>
             ))}
           </select>
           <input
             value={logFilter.externalRef}
             onChange={(e) => { setLogFilter((f) => ({ ...f, externalRef: e.target.value })); setLogPage(1) }}
-            placeholder="按对方单号搜索"
+            placeholder={t('openApi.searchByExternalNo')}
             className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white min-w-[180px] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           />
         </div>
@@ -93,14 +95,14 @@ export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">时间</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">合作方</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">请求</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">对方单号</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">结果</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">耗时</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">来源 IP</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">错误信息</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('openApi.colTime')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colPartner')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colRequest')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colExternalNo')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('credit.colResult')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">{t('openApi.colDuration')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colSourceIp')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('openApi.colError')}</th>
               </tr>
             </thead>
             <tbody>
@@ -108,10 +110,10 @@ export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
                 <tr><td colSpan={8} className="px-4 py-8"><div className="h-24 bg-slate-100 rounded-xl animate-pulse" /></td></tr>
               )}
               {!logsLoading && logs.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">没有符合条件的请求记录</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-slate-400">{t('openApi.noLogs')}</td></tr>
               )}
               {!logsLoading && logs.map((l) => {
-                const badge = RESULT_BADGES[l.result] || { label: l.result, cls: 'bg-gray-100 text-gray-600' }
+                const badge = RESULT_BADGES[l.result] || { labelKey: '', cls: 'bg-gray-100 text-gray-600' }
                 return (
                   <tr key={l.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatTime(l.created_at)}</td>
@@ -126,7 +128,7 @@ export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
                       {l.external_ref || '-'}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${badge.cls}`}>{badge.label}</span>
+                      <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${badge.cls}`}>{t(badge.labelKey, { defaultValue: l.result })}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 text-right">{l.duration_ms} ms</td>
                     <td className="px-4 py-3 text-xs font-mono text-slate-500 truncate" title={l.ip}>{l.ip}</td>
@@ -142,7 +144,11 @@ export default function ApiLogsPanel({ keys }: ApiLogsPanelProps) {
 
         {/* 分页 */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-          <span className="text-xs text-slate-500">共 {logTotal} 条 · 第 {logPage}/{totalPages} 页</span>
+          <span className="text-xs text-slate-500">
+            {t('common.totalCount', { count: logTotal })}
+            <span className="mx-1">·</span>
+            {t('common.page', { page: logPage, total: totalPages })}
+          </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setLogPage((p) => Math.max(1, p - 1))}
