@@ -669,7 +669,8 @@
     "loadOrderFailed": "获取订单信息失败",
     "assignSuccess": "已成功指派给 {{carrier}}",
     "assignFailed": "指派失败",
-    "assignFailedRetry": "指派失败，请稍后重试"
+    "assignFailedRetry": "指派失败，请稍后重试",
+    "onTimeWithSample": "{{rate}}%（{{count}} 单）"
   },
   "orderAction": {
     "approve": "审核通过",

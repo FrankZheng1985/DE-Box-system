@@ -669,7 +669,8 @@
     "loadOrderFailed": "Auftrag konnte nicht geladen werden",
     "assignSuccess": "An {{carrier}} vergeben",
     "assignFailed": "Beauftragung fehlgeschlagen",
-    "assignFailedRetry": "Beauftragung fehlgeschlagen, bitte erneut versuchen"
+    "assignFailedRetry": "Beauftragung fehlgeschlagen, bitte erneut versuchen",
+    "onTimeWithSample": "{{rate}}% ({{count}} Aufträge)"
   },
   "orderAction": {
     "approve": "Freigeben",

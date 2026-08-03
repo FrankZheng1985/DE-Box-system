@@ -669,7 +669,8 @@
     "loadOrderFailed": "Could not load the order",
     "assignSuccess": "Assigned to {{carrier}}",
     "assignFailed": "Assignment failed",
-    "assignFailedRetry": "Assignment failed, please try again"
+    "assignFailedRetry": "Assignment failed, please try again",
+    "onTimeWithSample": "{{rate}}% ({{count}} orders)"
   },
   "orderAction": {
     "approve": "Approve",

@@ -88,11 +88,64 @@ router.get('/', requirePermission('carrier:view'), async (req, res) => {
 router.get('/match', requirePermission('carrier:view'), async (req, res) => {
   try {
     const { routeFrom, routeTo, vehicleType } = req.query
+    /**
+     * 派单页的承运商匹配
+     *
+     * 准时率和覆盖路线原来根本没查 —— 前端 interface 里写着这两个字段，
+     * 接口不返回，于是「历史准时率」永远显示 "-"、「覆盖路线」区块永远不渲染。
+     * 现在都从真实订单数据算出来：
+     *
+     * - 准时率：该承运商已送达/已完成、且填了计划送达日的单里，
+     *   实际送达（order_status_logs 里 DELIVERED/COMPLETED 那条的日期）
+     *   不晚于计划日的占比。同时返回样本量，样本为 0 时前端显示 "-"，
+     *   不拿一两单算出来的 100% 骗人。
+     * - 覆盖路线：跑过的真实线路（装货城市 → 卸货城市）按次数取前 5 条，
+     *   比让运营手工维护一张路线表实在。
+     */
     const result = await query(
-      `SELECT cr.id, cr.carrier_code, cr.company_name, cr.country,
+      `WITH delivered AS (
+         -- 每单第一次进入 DELIVERED/COMPLETED 的时间，就是实际送达时间
+         SELECT o.id, o.carrier_id, o.delivery_date,
+                MIN(l.created_at)::date AS actual_date
+         FROM orders o
+         JOIN order_status_logs l ON l.order_id = o.id
+                                 AND l.to_status IN ('DELIVERED', 'COMPLETED')
+         WHERE o.carrier_id IS NOT NULL AND o.delivery_date IS NOT NULL
+         GROUP BY o.id, o.carrier_id, o.delivery_date
+       ),
+       ontime AS (
+         SELECT carrier_id,
+                COUNT(*) AS sample,
+                COUNT(*) FILTER (WHERE actual_date <= delivery_date) AS on_time
+         FROM delivered GROUP BY carrier_id
+       ),
+       routes AS (
+         SELECT carrier_id, ARRAY_AGG(route ORDER BY cnt DESC) AS covered_routes
+         FROM (
+           SELECT o.carrier_id,
+                  (o.pickup_address->>'city') || ' → ' || (o.delivery_address->>'city') AS route,
+                  COUNT(*) AS cnt,
+                  ROW_NUMBER() OVER (PARTITION BY o.carrier_id ORDER BY COUNT(*) DESC) AS rn
+           FROM orders o
+           WHERE o.carrier_id IS NOT NULL
+             AND o.pickup_address->>'city' IS NOT NULL
+             AND o.delivery_address->>'city' IS NOT NULL
+           GROUP BY o.carrier_id, 2
+         ) t WHERE rn <= 5
+         GROUP BY carrier_id
+       )
+       SELECT cr.id, cr.carrier_code, cr.company_name, cr.country,
               cr.performance_score, cr.vehicle_types,
-              (SELECT COUNT(*) FROM carrier_vehicles cv WHERE cv.carrier_id = cr.id AND cv.status = 'IDLE') as available_vehicles
+              (SELECT COUNT(*) FROM carrier_vehicles cv WHERE cv.carrier_id = cr.id AND cv.status = 'IDLE') as available_vehicles,
+              -- 样本为 0 时给 null，前端显示 "-"；不给 0% 造成"这家很差"的错觉
+              CASE WHEN ot.sample > 0
+                   THEN ROUND(ot.on_time::numeric * 100 / ot.sample, 1)
+                   END AS on_time_rate,
+              COALESCE(ot.sample, 0)::int AS on_time_sample,
+              COALESCE(r.covered_routes, ARRAY[]::text[]) AS covered_routes
        FROM carriers cr
+       LEFT JOIN ontime ot ON ot.carrier_id = cr.id
+       LEFT JOIN routes r  ON r.carrier_id  = cr.id
        WHERE cr.status = 'ACTIVE'
        ORDER BY cr.performance_score DESC
        LIMIT 10`

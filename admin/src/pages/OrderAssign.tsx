@@ -55,8 +55,11 @@ interface MatchedCarrier {
   performance_score: number
   vehicle_types: string[]
   available_vehicles: number | string
-  /** ⚠️ 后端 /carriers/match 目前不返回这两个字段，界面上永远是 "-" / 不显示 */
-  on_time_rate?: number | null
+  /** 准时率（百分比）。样本为 0 时后端给 null，界面显示 "-" */
+  on_time_rate?: number | string | null
+  /** 准时率是基于几单算的，用来提示样本量，别让 1 单的 100% 显得很权威 */
+  on_time_sample?: number
+  /** 跑过的真实线路（装货城市 → 卸货城市），按次数取前 5 条 */
   covered_routes?: string[] | null
 }
 
@@ -493,14 +496,19 @@ export default function OrderAssign() {
                     <td key={c.id} className="py-3 px-3 text-center">
                       <span
                         className={`text-sm font-medium ${
-                          (c.on_time_rate || 0) >= 90
+                          (Number(c.on_time_rate) || 0) >= 90
                             ? 'text-green-600'
-                            : (c.on_time_rate || 0) >= 70
+                            : (Number(c.on_time_rate) || 0) >= 70
                             ? 'text-amber-600'
                             : 'text-red-500'
                         }`}
                       >
-                        {c.on_time_rate != null ? `${c.on_time_rate}%` : '-'}
+                        {c.on_time_rate != null
+                          ? t('orderAssign.onTimeWithSample', {
+                              rate: c.on_time_rate,
+                              count: c.on_time_sample ?? 0,
+                            })
+                          : '-'}
                       </span>
                     </td>
                   ))}
@@ -578,14 +586,19 @@ export default function OrderAssign() {
                   </div>
                   <p
                     className={`text-sm font-semibold ${
-                      (carrier.on_time_rate || 0) >= 90
+                      (Number(carrier.on_time_rate) || 0) >= 90
                         ? 'text-green-600'
-                        : (carrier.on_time_rate || 0) >= 70
+                        : (Number(carrier.on_time_rate) || 0) >= 70
                         ? 'text-amber-600'
                         : 'text-red-500'
                     }`}
                   >
-                    {carrier.on_time_rate != null ? `${carrier.on_time_rate}%` : '-'}
+                    {carrier.on_time_rate != null
+                      ? t('orderAssign.onTimeWithSample', {
+                          rate: carrier.on_time_rate,
+                          count: carrier.on_time_sample ?? 0,
+                        })
+                      : '-'}
                   </p>
                 </div>
               </div>
