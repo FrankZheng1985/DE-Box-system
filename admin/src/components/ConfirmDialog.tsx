@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, X } from 'lucide-react'
 
 interface ConfirmDialogProps {
@@ -28,12 +29,13 @@ export default function ConfirmDialog({
   title,
   message,
   requireReason = false,
-  reasonPlaceholder = '请填写原因（必填）',
-  confirmText = '确认',
+  reasonPlaceholder,
+  confirmText,
   variant = 'danger',
   targetLabel,
   warningText,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation()
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -66,7 +68,7 @@ export default function ConfirmDialog({
 
   const handleConfirm = async () => {
     if (requireReason && !reason.trim()) {
-      setError('请填写原因')
+      setError(t('confirmDialog.errorReasonRequired'))
       return
     }
     setSubmitting(true)
@@ -74,7 +76,7 @@ export default function ConfirmDialog({
     try {
       await onConfirm(requireReason ? reason.trim() : undefined)
     } catch (err: any) {
-      setError(err?.message || '操作失败')
+      setError(err?.message || t('common.operateFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -138,7 +140,7 @@ export default function ConfirmDialog({
           {requireReason && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                原因 <span className="text-red-500">*</span>
+                {t('confirmDialog.reasonLabel')} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={reason}
@@ -146,7 +148,7 @@ export default function ConfirmDialog({
                   setReason(e.target.value)
                   if (error) setError('')
                 }}
-                placeholder={reasonPlaceholder}
+                placeholder={reasonPlaceholder || t('confirmDialog.reasonPlaceholder')}
                 rows={3}
                 autoFocus
                 className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 resize-none"
@@ -168,7 +170,7 @@ export default function ConfirmDialog({
             disabled={submitting}
             className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-all duration-200 disabled:opacity-50"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleConfirm}
@@ -176,7 +178,7 @@ export default function ConfirmDialog({
             className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white rounded-xl transition-all duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles.button}`}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitting ? '处理中...' : confirmText}
+            {submitting ? t('confirmDialog.processing') : (confirmText || t('common.confirm'))}
           </button>
         </div>
       </div>

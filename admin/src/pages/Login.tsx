@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 import BrandMark from '../components/BrandMark'
 
 export default function Login() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
 
@@ -26,7 +28,7 @@ export default function Login() {
     e.preventDefault()
 
     if (!username || !password) {
-      setError('请输入邮箱/用户名和密码')
+      setError(t('loginError.MISSING_CREDENTIALS'))
       return
     }
 
@@ -42,7 +44,7 @@ export default function Login() {
         setError(result.message)
       }
     } catch (err: any) {
-      setError(err.message || '登录失败，请稍后重试')
+      setError(err.message || t('loginError.LOGIN_ERROR'))
     } finally {
       setLoading(false)
     }
@@ -66,7 +68,7 @@ export default function Login() {
             <span className="text-2xl font-bold" style={{ color: '#1C1C1E' }}>KALUNA SPED</span>
           </div>
           <div className="text-sm text-slate-500">
-            欧洲运输管理系统
+            {t('login.title')}
           </div>
           <div className="text-xs text-slate-400 mt-1">
             European Transport Management System
@@ -85,7 +87,7 @@ export default function Login() {
           {/* 邮箱/用户名 */}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
-              邮箱/用户名
+              {t('login.username')}
             </label>
             <input
               type="text"
@@ -100,14 +102,14 @@ export default function Login() {
           {/* 密码 */}
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
-              密码
+              {t('login.password')}
             </label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="输入密码"
+                placeholder={t('login.passwordPlaceholder')}
                 className="w-full h-10 px-3 pr-10 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                 disabled={loading}
               />
@@ -130,10 +132,10 @@ export default function Login() {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="rounded border-gray-300"
               />
-              记住我
+              {t('login.remember')}
             </label>
-            <a href="mailto:info@kalunasped.com?subject=密码重置请求" className="text-xs" style={{ color: '#4472C4' }}>
-              忘记密码?
+            <a href={`mailto:info@kalunasped.com?subject=${encodeURIComponent(t('login.placeholderPasswordResetSubject'))}`} className="text-xs" style={{ color: '#4472C4' }}>
+              {t('login.forgot')}
             </a>
           </div>
 
@@ -149,17 +151,23 @@ export default function Login() {
             {loading ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                登录中...
+                {t('login.submitting')}
               </>
             ) : (
-              '登 录'
+              t('login.submit')
             )}
           </button>
         </form>
 
         {/* 底部提示 */}
         <div className="text-center mt-4 text-xs text-slate-400">
-          还没有账号? <a href="mailto:info@kalunasped.com?subject=账号申请" style={{ color: '#4472C4' }}>联系管理员</a>
+          {t('login.noAccount')}{' '}
+          <a
+            href={`mailto:info@kalunasped.com?subject=${encodeURIComponent(t('login.placeholderAccountSubject'))}`}
+            style={{ color: '#4472C4' }}
+          >
+            {t('login.contactAdmin')}
+          </a>
         </div>
       </div>
     </div>

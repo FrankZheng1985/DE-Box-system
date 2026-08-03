@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   BarChart3,
   Package,
@@ -30,30 +31,32 @@ interface SidebarProps {
 
 interface MenuItem {
   path: string
-  label: string
+  /** 语言包 key，真正的文案渲染时才翻译（P9） */
+  labelKey: string
   icon: React.ComponentType<{ className?: string }>
 }
 
 // EU-TMS V2 菜单项
 const menuItems: MenuItem[] = [
-  { path: '/dashboard', label: '仪表板', icon: BarChart3 },
-  { path: '/orders', label: '订单管理', icon: Package },
-  { path: '/inquiries', label: '询价报价', icon: Tag },
-  { path: '/cmr', label: 'CMR 管理', icon: FileText },
-  { path: '/shipping-release', label: '船司放单', icon: Anchor },
-  { path: '/customs', label: '清关管理', icon: Shield },
-  { path: '/gps', label: 'GPS 追踪', icon: MapPin },
-  { path: '/finance', label: '财务管理', icon: DollarSign },
-  { path: '/invoice-templates', label: '发票模板', icon: Receipt },
-  { path: '/clients', label: '客户管理', icon: Users },
-  { path: '/carriers', label: '运输公司', icon: Building },
-  { path: '/notifications', label: '通知中心', icon: Bell },
-  { path: '/settings', label: '系统设置', icon: Settings },
-  { path: '/system/users', label: '用户管理', icon: UserCog },
-  { path: '/system/roles', label: '角色权限', icon: ShieldCheck },
+  { path: '/dashboard', labelKey: 'nav.dashboard', icon: BarChart3 },
+  { path: '/orders', labelKey: 'nav.orders', icon: Package },
+  { path: '/inquiries', labelKey: 'nav.inquiries', icon: Tag },
+  { path: '/cmr', labelKey: 'nav.cmr', icon: FileText },
+  { path: '/shipping-release', labelKey: 'nav.shippingRelease', icon: Anchor },
+  { path: '/customs', labelKey: 'nav.customs', icon: Shield },
+  { path: '/gps', labelKey: 'nav.gps', icon: MapPin },
+  { path: '/finance', labelKey: 'nav.finance', icon: DollarSign },
+  { path: '/invoice-templates', labelKey: 'nav.invoiceTemplates', icon: Receipt },
+  { path: '/clients', labelKey: 'nav.clients', icon: Users },
+  { path: '/carriers', labelKey: 'nav.carriers', icon: Building },
+  { path: '/notifications', labelKey: 'nav.notifications', icon: Bell },
+  { path: '/settings', labelKey: 'nav.settings', icon: Settings },
+  { path: '/system/users', labelKey: 'nav.users', icon: UserCog },
+  { path: '/system/roles', labelKey: 'nav.roles', icon: ShieldCheck },
 ]
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
   const { hasAnyPermission } = useAuth()
@@ -95,7 +98,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {!collapsed && (
             <div className="whitespace-nowrap">
               <h1 className="text-sm font-bold text-slate-900">KALUNA SPED</h1>
-              <p className="text-xs text-slate-400">运输管理系统 V2</p>
+              <p className="text-xs text-slate-400">{t('app.systemName')} {t('app.version')}</p>
             </div>
           )}
         </div>
@@ -109,7 +112,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? t(item.labelKey) : undefined}
               className={clsx(
                 'w-full flex items-center gap-3 rounded-xl transition-all duration-200 ease-in-out',
                 collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5',
@@ -125,7 +128,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
               />
               {!collapsed && (
-                <span className="text-sm truncate">{item.label}</span>
+                <span className="text-sm truncate">{t(item.labelKey)}</span>
               )}
               {/* 激活指示条 */}
               {active && !collapsed && (
@@ -147,7 +150,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           ) : (
             <>
               <ChevronLeft className="w-4 h-4" />
-              <span className="text-xs">收起菜单</span>
+              <span className="text-xs">{t('nav.collapse')}</span>
             </>
           )}
         </button>

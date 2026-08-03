@@ -34,6 +34,8 @@ const API_BASE_URL = getApiBaseUrl()
 const API_PREFIX = '/api/v1'
 
 // 认证存储键
+import i18n from '../i18n'
+
 const AUTH_STORAGE_KEY = 'eu_tms_auth'
 
 // 请求配置
@@ -170,19 +172,19 @@ async function request<T>(
         if (response.status === 401) {
           // Token 过期，清除认证信息
           localStorage.removeItem(AUTH_STORAGE_KEY)
-          throw new ApiError('登录已过期，请重新登录', 401, 'UNAUTHORIZED')
+          throw new ApiError(i18n.t('apiError.sessionExpired'), 401, 'UNAUTHORIZED')
         }
 
         if (response.status === 403) {
-          throw new ApiError('没有权限访问此资源', 403, 'FORBIDDEN')
+          throw new ApiError(i18n.t('apiError.forbidden'), 403, 'FORBIDDEN')
         }
 
         if (response.status === 404) {
-          throw new ApiError('请求的资源不存在', 404, 'NOT_FOUND')
+          throw new ApiError(i18n.t('apiError.notFound'), 404, 'NOT_FOUND')
         }
 
         if (response.status >= 500) {
-          throw new ApiError(errorMsg || '服务器错误，请稍后重试', response.status, 'SERVER_ERROR')
+          throw new ApiError(errorMsg || i18n.t('apiError.serverError'), response.status, 'SERVER_ERROR')
         }
 
         throw new ApiError(errorMsg, response.status, errorCode)
@@ -196,7 +198,7 @@ async function request<T>(
         const isTimeoutError = !fetchOptions.signal?.aborted
         if (isTimeoutError) {
           const timeoutError = new ApiError(
-            `请求超时（${timeout / 1000}秒），请检查网络连接`,
+            i18n.t('apiError.timeoutSeconds', { seconds: timeout / 1000 }),
             0,
             'TIMEOUT',
             true
@@ -210,12 +212,12 @@ async function request<T>(
 
           throw timeoutError
         }
-        throw new ApiError('请求已取消', 0, 'CANCELLED')
+        throw new ApiError(i18n.t('apiError.cancelled'), 0, 'CANCELLED')
       }
 
       if (error instanceof TypeError && error.message.includes('fetch')) {
         const networkError = new ApiError(
-          '网络连接失败，请检查网络设置',
+          i18n.t('apiError.networkFailed'),
           0,
           'NETWORK_ERROR',
           false,
@@ -235,7 +237,7 @@ async function request<T>(
         throw error
       }
 
-      throw new ApiError(error.message || '请求失败', 0, 'UNKNOWN_ERROR')
+      throw new ApiError(error.message || i18n.t('apiError.requestFailed'), 0, 'UNKNOWN_ERROR')
     }
   }
 

@@ -1,49 +1,53 @@
 import { Bell, LogOut, User, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
+import LanguageSwitcher from './LanguageSwitcher'
 
-// 路由 -> 页面标题映射
-const routeTitleMap: Record<string, string> = {
-  '/dashboard': '仪表板',
-  '/orders': '订单管理',
-  '/inquiries': '询价报价',
-  '/quotes': '询价报价',
-  '/cmr': 'CMR 管理',
-  '/shipping-release': '船司放单',
-  '/customs': '清关管理',
-  '/gps': 'GPS 追踪',
-  '/finance': '财务管理',
-  '/invoice-templates': '发票模板',
-  '/clients': '客户管理',
-  '/carriers': '运输公司',
-  '/notifications': '通知中心',
-  '/settings': '系统设置',
-  '/settings/open-api': '开放 API 对接管理',
-  '/system/users': '用户管理',
-  '/system/roles': '角色权限',
+// 路由 -> 页面标题的语言包 key（P9：文案不再写死在这里）
+// ⚠️ 新增菜单时这里和 Sidebar 的 menuItems 要一起改（导航同步规范）
+const routeTitleKeyMap: Record<string, string> = {
+  '/dashboard': 'nav.dashboard',
+  '/orders': 'nav.orders',
+  '/inquiries': 'nav.inquiries',
+  '/quotes': 'nav.inquiries',
+  '/cmr': 'nav.cmr',
+  '/shipping-release': 'nav.shippingRelease',
+  '/customs': 'nav.customs',
+  '/gps': 'nav.gps',
+  '/finance': 'nav.finance',
+  '/invoice-templates': 'nav.invoiceTemplates',
+  '/clients': 'nav.clients',
+  '/carriers': 'nav.carriers',
+  '/notifications': 'nav.notifications',
+  // 更长的路径必须排在 /settings 前面，否则前缀匹配会先命中 /settings
+  '/settings/open-api': 'nav.openApi',
+  '/settings': 'nav.settings',
+  '/system/users': 'nav.users',
+  '/system/roles': 'nav.roles',
 }
 
-// 根据当前路径获取页面标题
-function getPageTitle(pathname: string): string {
-  // 精确匹配
-  if (routeTitleMap[pathname]) {
-    return routeTitleMap[pathname]
+// 根据当前路径取页面标题的语言包 key
+function getPageTitleKey(pathname: string): string {
+  if (routeTitleKeyMap[pathname]) {
+    return routeTitleKeyMap[pathname]
   }
   // 前缀匹配（支持子路由）
-  const matchedKey = Object.keys(routeTitleMap).find((key) =>
+  const matchedKey = Object.keys(routeTitleKeyMap).find((key) =>
     pathname.startsWith(key)
   )
-  return matchedKey ? routeTitleMap[matchedKey] : '仪表板'
+  return matchedKey ? routeTitleKeyMap[matchedKey] : 'nav.dashboard'
 }
 
 export default function Header() {
+  const { t } = useTranslation()
   const { user, logout } = useAuth()
   const location = useLocation()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const pageTitle = getPageTitle(location.pathname)
+  const pageTitle = t(getPageTitleKey(location.pathname))
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -72,6 +76,9 @@ export default function Header() {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
         </button>
 
+        {/* 语言切换（P9） */}
+        <LanguageSwitcher className="w-32" />
+
         {/* 分隔线 */}
         <div className="w-px h-8 bg-slate-200" />
 
@@ -90,10 +97,10 @@ export default function Header() {
             {/* 用户名和角色 */}
             <div className="hidden md:block text-left">
               <p className="text-sm font-medium text-slate-900 leading-tight">
-                {user?.displayName || '用户'}
+                {user?.displayName || t('header.defaultUser')}
               </p>
               <p className="text-xs text-slate-400 leading-tight">
-                {user?.roleName || '操作员'}
+                {user?.roleName || t('header.defaultRole')}
               </p>
             </div>
             <ChevronDown className="w-4 h-4 text-slate-300 hidden md:block" />
@@ -115,7 +122,7 @@ export default function Header() {
               {/* 个人设置 */}
               <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-all duration-200 ease-in-out">
                 <User className="w-4 h-4 text-slate-400" />
-                个人设置
+                {t('nav.profile')}
               </button>
 
               {/* 退出登录 */}
@@ -124,7 +131,7 @@ export default function Header() {
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-all duration-200 ease-in-out"
               >
                 <LogOut className="w-4 h-4" />
-                退出登录
+                {t('nav.logout')}
               </button>
             </div>
           )}

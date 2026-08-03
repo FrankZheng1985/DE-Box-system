@@ -1,7 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
+import './i18n'
 import './index.css'
+
+// ⚠️ 下面两处崩溃兜底屏刻意保留中文，不走 i18n（P9）：
+//    它们要在「i18n 自己也挂了」的情况下仍能显示，
+//    如果这里依赖 t()，i18n 初始化失败时用户会看到一片空白而不是错误提示。
 
 // 添加全局错误处理
 window.addEventListener('error', (event) => {

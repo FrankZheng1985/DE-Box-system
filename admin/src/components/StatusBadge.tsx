@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 
 interface StatusBadgeProps {
   status: string
@@ -96,99 +97,45 @@ const colorStyles: Record<ColorGroup, string> = {
   gray: 'bg-gray-100 text-gray-600',
 }
 
-// 状态中文标签映射
-const statusLabelMap: Record<string, string> = {
-  // 大写枚举值
-  COMPLETED: '已完成',
-  PAID: '已付款',
-  RELEASED: '已放单',
-  CLEARED: '已清关',
-  ACCEPTED: '已接受',
-  TRANSPORT_DONE: '运输完成',
-  CONFIRMED: '已确认',
-  IN_TRANSIT: '在途中',
-  DELIVERED: '已送达',
-  PENDING_DISPATCH: '待派送',
-  FLEET_CONFIRMED: '车队确认',
-  SENT: '已发送',
-  IN_PROGRESS: '进行中',
-  PENDING_REVIEW: '待审核',
-  WAITING_ARRANGE: '等待安排',
-  PENDING_QUOTE: '待报价',
-  UNPAID: '未付款',
-  PARTIAL: '部分完成',
-  ORIGINAL_PENDING: '原件待寄',
-  PENDING_ASSIGN: '待分配',
-  ORIGINAL_SENT: '原件已寄',
-  OVERDUE: '已逾期',
-  ASSIGNED: '已分配',
-  PENDING_RELEASE: '待放单',
-  EXCEPTION: '异常',
-  CANCELLED: '已取消',
-  REJECTED: '已驳回',
-  BLOCKED: '已冻结',
-  VOID: '已作废',
-  NOT_REQUIRED: '无需处理',
-  DRAFT: '草稿',
-  EXPIRED: '已过期',
-  PENDING_DECISION: '客户待定',
-  CONVERTED: '已下单',
-  QUOTED: '已报价',
-  // 主数据启停用（carriers.status / clients.status）——
-  // 长期漏收录，承运商和客户列表的状态列一直在显示原始英文 ACTIVE/INACTIVE
-  ACTIVE: '启用',
-  INACTIVE: '已停用',
-  // CMR 签署状态（cmr_documents.sign_status）——同样长期漏收录
-  UNSIGNED: '未签署',
-  SENDER_SIGNED: '发货方已签',
-  RECEIVER_SIGNED: '收货方已签',
-  // 清关待处理（customs 的 clearance_status 起始值）
-  PENDING: '待处理',
-  // 小写兼容值（保留原有映射）
-  pending_review: '待审核',
-  confirmed: '已确认',
-  pending_dispatch: '待派单',
-  pending_assign: '待派单',
-  assigned: '已派单',
-  in_transit: '运输中',
-  delivered: '已到达',
-  arrived: '已到达',
-  completed: '已完成',
-  cancelled: '已取消',
-  exception: '异常',
-  abnormal: '异常',
-  draft: '草稿',
-  waiting: '等待安排',
-  fleet_confirmed: '车队已确认',
-  transport_completed: '运输完成',
-  not_required: '无需放单',
-  pending_release: '待放单',
-  released: '已放单',
-  pending_mail: '正本待邮寄',
-  mailed: '正本已邮寄',
+/**
+ * 同一个状态码在不同业务里叫法不同，按 type 指向不同的语言包 key。
+ * 例如 CMR 的 COMPLETED 要显示「签署完成」而不是「已完成」。
+ */
+const typeLabelKeyOverrides: Record<string, Record<string, string>> = {
+  cmr: { COMPLETED: 'statusByType.cmr.COMPLETED' },
+  payment: { PARTIAL: 'statusByType.payment.PARTIAL' },
 }
 
 /**
- * 同一个状态码在不同业务里叫法不同，按 type 覆盖文案。
- * 以前 type 这个 prop 是收下但完全不用的，所以 CMR 的 COMPLETED
- * 会显示成"已完成"而不是"签署完成"。
+ * 历史遗留的小写状态值里，有 6 个大写化之后在语言包里找不到同名 key，
+ * 单独做个别名映射。其余 15 个（pending_review、confirmed 等）
+ * 大写化后就能直接命中，不用列在这里。
  */
-const typeLabelOverrides: Record<string, Record<string, string>> = {
-  cmr: {
-    COMPLETED: '签署完成',
-  },
-  payment: {
-    PARTIAL: '部分付款',
-  },
+const LEGACY_ALIASES: Record<string, string> = {
+  ARRIVED: 'DELIVERED',
+  ABNORMAL: 'EXCEPTION',
+  WAITING: 'WAITING_ARRANGE',
+  TRANSPORT_COMPLETED: 'TRANSPORT_DONE',
+  PENDING_MAIL: 'ORIGINAL_PENDING',
+  MAILED: 'ORIGINAL_SENT',
 }
 
 export default function StatusBadge({ status, type, label: labelOverride }: StatusBadgeProps) {
-  const colorGroup = statusColorMap[status] || 'gray'
+  const { t } = useTranslation()
+
+  // 库里存的是大写（踩坑 004），但历史数据和少数接口还会回小写，统一大写化后再查
+  const raw = status || ''
+  const upper = raw.toUpperCase()
+  const key = LEGACY_ALIASES[upper] || upper
+
+  const colorGroup = statusColorMap[raw] || statusColorMap[key] || 'gray'
+  const typeKey = type ? typeLabelKeyOverrides[type]?.[key] : undefined
+
+  // 语言包里没有的状态就原样显示后端值，别吞成空白
   const label =
     labelOverride ||
-    (type ? typeLabelOverrides[type]?.[status] : undefined) ||
-    statusLabelMap[status] ||
-    status
+    (typeKey ? t(typeKey, { defaultValue: t(`status.${key}`, { defaultValue: raw }) })
+             : t(`status.${key}`, { defaultValue: raw }))
 
   return (
     <span

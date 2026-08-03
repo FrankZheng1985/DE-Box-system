@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import i18n from '../i18n'
 import type { User, UserType, Organization, AuthObject } from '../types'
 import { SUPER_ROLE_CODE } from '../constants/permissions'
 
@@ -8,8 +9,8 @@ const AUTH_STORAGE_KEY = 'eu_tms_auth'
 
 // 非运营账号登录管理端时的引导文案（nginx 路由：/customer/、/carrier/）
 const PORTAL_LOGIN_HINT: Partial<Record<UserType, string>> = {
-  CLIENT: '这是运营管理端，客户账号请前往客户门户 /customer/ 登录',
-  CARRIER: '这是运营管理端，承运商账号请前往承运商门户 /carrier/ 登录',
+  CLIENT: 'portalHint.CLIENT',
+  CARRIER: 'portalHint.CARRIER',
 }
 
 // ==================== 类型定义 ====================
@@ -103,7 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 管理端只允许运营账号登录，客户/承运商各走自己的门户
         if (user?.userType !== 'OPERATOR') {
-          return { success: false, message: PORTAL_LOGIN_HINT[user?.userType as UserType] || '该账号无权访问运营管理端' }
+          {
+          const hintKey = PORTAL_LOGIN_HINT[user?.userType as UserType]
+          return { success: false, message: hintKey ? i18n.t(hintKey) : i18n.t('portalHint.OTHER') }
+        }
         }
 
         // 保存到 localStorage
@@ -122,13 +126,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isLoading: false,
         })
 
-        return { success: true, message: '登录成功' }
+        return { success: true, message: '' }
       } else {
-        return { success: false, message: data.message || '登录失败' }
+        return {
+          success: false,
+          message: data.messageCode
+            ? i18n.t(`loginError.${data.messageCode}`, { defaultValue: data.message || i18n.t('loginError.LOGIN_ERROR') })
+            : data.message || i18n.t('loginError.LOGIN_ERROR'),
+        }
       }
     } catch (error: any) {
       console.error('登录失败:', error)
-      return { success: false, message: error.message || '登录失败，请稍后重试' }
+      return { success: false, message: error.message || i18n.t('loginError.LOGIN_ERROR') }
     }
   }, [])
 
