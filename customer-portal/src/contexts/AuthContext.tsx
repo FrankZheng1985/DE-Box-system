@@ -89,7 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true, message: i18n.t('login.success') }
       }
 
-      return { success: false, message: data.message || i18n.t('login.errorWrong') }
+      // 后端会带 messageCode（P9），按码查本端语言包；
+      // 查不到才退回后端 message —— 否则德语界面上会冒出中文报错
+      return {
+        success: false,
+        message: data.messageCode
+          ? i18n.t(`loginError.${data.messageCode}`, { defaultValue: data.message || i18n.t('login.errorWrong') })
+          : data.message || i18n.t('login.errorWrong'),
+      }
     } catch (error: any) {
       console.error('登录失败:', error)
       return { success: false, message: i18n.t('login.errorNetwork') }

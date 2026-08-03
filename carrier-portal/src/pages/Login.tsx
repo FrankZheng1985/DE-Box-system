@@ -27,11 +27,16 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const success = await login(username.trim(), password)
-      if (success) {
+      const result = await login(username.trim(), password)
+      if (result.success) {
         navigate('/')
       } else {
-        setError(t('login.errorWrong'))
+        // 按后端 messageCode 查语言包（P9），拿不到码就退回通用文案
+        setError(
+          result.messageCode
+            ? t(`loginError.${result.messageCode}`, { defaultValue: t('login.errorWrong') })
+            : t('login.errorWrong')
+        )
       }
     } catch {
       setError(t('login.errorFailed'))

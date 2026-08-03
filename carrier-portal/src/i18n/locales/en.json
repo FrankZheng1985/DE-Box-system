@@ -195,5 +195,11 @@
     "TRUCK_LTL": "Truck LTL",
     "TRUCK_FTL": "Truck FTL",
     "LOCAL_DELIVERY": "Local delivery"
+  },
+  "loginError": {
+    "MISSING_CREDENTIALS": "Please enter your username and password",
+    "INVALID_CREDENTIALS": "Incorrect username or password",
+    "ACCOUNT_DISABLED": "This account is disabled, please contact your administrator",
+    "LOGIN_ERROR": "Login failed, please try again later"
   }
 }

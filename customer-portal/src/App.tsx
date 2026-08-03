@@ -72,8 +72,10 @@ function AppRoutes() {
 }
 
 function App() {
+  // basename 必须和 vite.config 的 base 一致，否则 navigate('/login') 会跳到根路径，
+  // 刷新后被 nginx 交给管理端 SPA（P9 修复）
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/customer">
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>

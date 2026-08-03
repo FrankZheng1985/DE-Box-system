@@ -404,5 +404,11 @@
     "QUALIFICATION_EXPIRING": "Carrier certificate expiring",
     "INVOICE_DUE": "Invoice due / overdue",
     "CREDIT_ALERT": "Client credit limit alert"
+  },
+  "loginError": {
+    "MISSING_CREDENTIALS": "Please enter your username and password",
+    "INVALID_CREDENTIALS": "Incorrect username or password",
+    "ACCOUNT_DISABLED": "This account is disabled, please contact your administrator",
+    "LOGIN_ERROR": "Login failed, please try again later"
   }
 }

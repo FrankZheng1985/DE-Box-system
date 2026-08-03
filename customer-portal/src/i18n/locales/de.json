@@ -404,5 +404,11 @@
     "QUALIFICATION_EXPIRING": "Nachweis des Frachtführers läuft ab",
     "INVOICE_DUE": "Rechnung fällig / überfällig",
     "CREDIT_ALERT": "Warnung Kreditlimit"
+  },
+  "loginError": {
+    "MISSING_CREDENTIALS": "Bitte Benutzername und Passwort eingeben",
+    "INVALID_CREDENTIALS": "Benutzername oder Passwort ist falsch",
+    "ACCOUNT_DISABLED": "Dieses Konto ist deaktiviert, bitte den Administrator kontaktieren",
+    "LOGIN_ERROR": "Anmeldung fehlgeschlagen, bitte später erneut versuchen"
   }
 }

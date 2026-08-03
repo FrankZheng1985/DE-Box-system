@@ -15,13 +15,24 @@ const router = Router()
 /**
  * 用户登录
  * POST /api/v1/auth/login
+ *
+ * P9：失败响应除 message（中文）外，additive 地带一个 messageCode。
+ * 前端按码查自己的语言包显示，查不到再退回后端 message，
+ * 这样德语/英语界面上不会再冒出中文报错。
+ * 后端消息整体 i18n 是 P9 第 4 批，这里先把登录这条链路铺好。
+ *
+ * 已定义的码：
+ *   MISSING_CREDENTIALS  用户名和密码不能为空
+ *   INVALID_CREDENTIALS  用户名或密码错误
+ *   ACCOUNT_DISABLED     账号已停用，请联系管理员
+ *   LOGIN_ERROR          服务端异常
  */
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body
 
     if (!username || !password) {
-      return res.json({ code: 400, message: '用户名和密码不能为空', data: null })
+      return res.json({ code: 400, message: '用户名和密码不能为空', messageCode: 'MISSING_CREDENTIALS', data: null })
     }
 
     // 查询用户（关联角色和组织）
@@ -36,19 +47,19 @@ router.post('/login', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.json({ code: 401, message: '用户名或密码错误', data: null })
+      return res.json({ code: 401, message: '用户名或密码错误', messageCode: 'INVALID_CREDENTIALS', data: null })
     }
 
     const user = result.rows[0]
 
     if (!user.is_active) {
-      return res.json({ code: 401, message: '账号已停用，请联系管理员', data: null })
+      return res.json({ code: 401, message: '账号已停用，请联系管理员', messageCode: 'ACCOUNT_DISABLED', data: null })
     }
 
     // 验证密码
     const validPassword = await bcrypt.compare(password, user.password_hash)
     if (!validPassword) {
-      return res.json({ code: 401, message: '用户名或密码错误', data: null })
+      return res.json({ code: 401, message: '用户名或密码错误', messageCode: 'INVALID_CREDENTIALS', data: null })
     }
 
     // 获取用户组织分配
@@ -116,7 +127,7 @@ router.post('/login', async (req, res) => {
     })
   } catch (error) {
     console.error('登录失败:', error)
-    res.status(500).json({ code: 500, message: '登录失败，请稍后重试', data: null })
+    res.status(500).json({ code: 500, message: '登录失败，请稍后重试', messageCode: 'LOGIN_ERROR', data: null })
   }
 })
 

@@ -195,5 +195,11 @@
     "TRUCK_LTL": "LKW-Teilladung (LTL)",
     "TRUCK_FTL": "LKW-Komplettladung (FTL)",
     "LOCAL_DELIVERY": "Nahverkehr"
+  },
+  "loginError": {
+    "MISSING_CREDENTIALS": "Bitte Benutzername und Passwort eingeben",
+    "INVALID_CREDENTIALS": "Benutzername oder Passwort ist falsch",
+    "ACCOUNT_DISABLED": "Dieses Konto ist deaktiviert, bitte den Administrator kontaktieren",
+    "LOGIN_ERROR": "Anmeldung fehlgeschlagen, bitte später erneut versuchen"
   }
 }

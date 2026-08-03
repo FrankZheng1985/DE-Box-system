@@ -22,7 +22,7 @@ interface AuthContextType {
   permissions: string[]
   /** 是否拥有某个权限码 */
   hasPermission: (code: string) => boolean
-  login: (username: string, password: string) => Promise<boolean>
+  login: (username: string, password: string) => Promise<{ success: boolean; messageCode?: string }>
   logout: () => void
 }
 
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; messageCode?: string }> => {
     try {
       const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
@@ -86,12 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPermissions(authData.permissions)
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData))
         applyAccountLanguage(authData.user.language)
-        return true
+        return { success: true }
       }
-      return false
+      // 带出后端的 messageCode（P9），让登录页能显示「账号已停用」这类具体原因
+      return { success: false, messageCode: data.messageCode }
     } catch (error) {
       console.error('登录失败:', error)
-      return false
+      return { success: false }
     }
   }
 
