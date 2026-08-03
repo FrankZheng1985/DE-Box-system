@@ -24,13 +24,20 @@ function askHidden(prompt) {
       output: process.stdout,
       terminal: true
     })
-    process.stdout.write(prompt)
-    rl._writeToOutput = () => {}
-    rl.question('', (answer) => {
+    // 提示行必须交给 readline 自己输出：question() 会重绘当前行，
+    // 若先手写提示、再无条件屏蔽全部输出，重绘会把提示一起擦掉——
+    // 终端上看不到任何字，只剩一个光标（实际仍在等输入）。
+    // 正确顺序：先放行提示输出，question() 调用之后再静音，只挡击键回显。
+    let muted = false
+    rl._writeToOutput = (str) => {
+      if (!muted) rl.output.write(str)
+    }
+    rl.question(prompt, (answer) => {
       rl.close()
       process.stdout.write('\n')
       resolve(answer)
     })
+    muted = true
   })
 }
 
@@ -50,6 +57,16 @@ async function main() {
   if (!clientCode || !username || !email || !displayName) {
     process.stderr.write(
       '用法: node scripts/create-client-portal-user.js <客户编码> <登录用户名> <邮箱> <显示名>\n'
+    )
+    process.exit(1)
+  }
+
+  // 没有终端就隐藏不了输入（ssh host "cmd" 默认不分配 TTY），直接挡下并给出正确命令
+  if (!process.stdin.isTTY) {
+    process.stderr.write(
+      '当前没有终端，密码输入无法隐藏，已中止。\n' +
+        '请加 -t 重跑: ssh -t <主机> "cd /var/www/germany-box-system/server && ' +
+        `node scripts/create-client-portal-user.js ${clientCode} ${username} ${email} '${displayName}'"\n`
     )
     process.exit(1)
   }
