@@ -49,7 +49,9 @@ router.get('/', async (req, res) => {
       page_size = 50,
       user_type,
       is_active,
-      keyword
+      keyword,
+      // 按关联公司筛选：客户详情 / 承运商详情的「账号」区块用（P9 配套）
+      linked_entity_id
     } = req.query
 
     const pageNum = Number(page)
@@ -64,6 +66,11 @@ router.get('/', async (req, res) => {
     if (user_type) {
       conditions.push(`u.user_type = $${paramIdx++}`)
       params.push(user_type)
+    }
+
+    if (linked_entity_id) {
+      conditions.push(`u.linked_entity_id = $${paramIdx++}`)
+      params.push(linked_entity_id)
     }
 
     if (is_active !== undefined && is_active !== '') {
@@ -331,7 +338,8 @@ router.delete('/:id', async (req, res) => {
     res.json({
       code: 200,
       message: newActive ? '用户已启用' : '用户已停用',
-      data: { id: Number(id), is_active: newActive }
+      // ⚠️ 主键是 UUID，Number(id) 得 NaN、JSON 序列化成 null（CLAUDE.md 第 6 条）
+      data: { id, is_active: newActive }
     })
   } catch (error) {
     console.error('更新用户状态失败:', error)

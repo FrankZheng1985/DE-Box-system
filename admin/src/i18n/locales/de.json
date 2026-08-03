@@ -210,5 +210,49 @@
     "CLIENT": "Dies ist die Betriebskonsole. Kundenkonten melden sich im Kundenportal /customer/ an",
     "CARRIER": "Dies ist die Betriebskonsole. Frachtführerkonten melden sich im Frachtführer-Portal /carrier/ an",
     "OTHER": "Dieses Konto darf nicht auf die Betriebskonsole zugreifen"
+  },
+  "accounts": {
+    "title": "Verknüpfte Konten",
+    "add": "Konto hinzufügen",
+    "empty": "Für dieses Unternehmen gibt es noch keine Konten",
+    "emptyHint": "Nach dem Anlegen kann sich der Kontakt im passenden Portal anmelden",
+    "username": "Anmeldename",
+    "displayName": "Name",
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "role": "Rolle",
+    "selectRole": "Rolle wählen",
+    "initialPassword": "Initialpasswort",
+    "newPassword": "Neues Passwort",
+    "create": "Anlegen",
+    "resetPassword": "Passwort zurücksetzen",
+    "resetTitle": "Passwort für {{name}} zurücksetzen",
+    "confirmReset": "Zurücksetzen bestätigen",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "statusUpdated": "Kontostatus aktualisiert",
+    "createSuccess": "Konto angelegt — bitte Anmeldename und Initialpasswort weitergeben",
+    "createFailed": "Anlegen fehlgeschlagen",
+    "resetSuccess": "Passwort zurückgesetzt — bitte den Benutzer über das neue Passwort informieren",
+    "resetFailed": "Zurücksetzen fehlgeschlagen",
+    "errorRequired": "Anmeldename, Name und Initialpasswort sind Pflichtfelder",
+    "errorPasswordShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
+    "phUsername": "Anmeldename, später nicht mehr änderbar",
+    "phDisplayName": "Echter Name, wird im System angezeigt",
+    "phPassword": "Mindestens 6 Zeichen, bitte zeitnah ändern lassen",
+    "phNewPassword": "Mindestens 6 Zeichen, persönlich oder telefonisch weitergeben"
+  },
+  "role": {
+    "client_admin": "Kundenadministrator",
+    "client_user": "Kundenbenutzer",
+    "carrier_admin": "Frachtführer-Administrator",
+    "carrier_driver": "Fahrer",
+    "sys_admin": "Systemadministrator",
+    "op_manager": "Betriebsleiter",
+    "op_staff": "Sachbearbeiter Betrieb",
+    "finance": "Buchhaltung"
+  },
+  "tabs": {
+    "accounts": "Konten"
   }
 }

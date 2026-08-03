@@ -210,5 +210,49 @@
     "CLIENT": "This is the operations console. Client accounts should log in at the client portal /customer/",
     "CARRIER": "This is the operations console. Carrier accounts should log in at the carrier portal /carrier/",
     "OTHER": "This account is not allowed to access the operations console"
+  },
+  "accounts": {
+    "title": "Linked accounts",
+    "add": "Add account",
+    "empty": "This company has no login accounts yet",
+    "emptyHint": "Once added, they can log in to the matching portal",
+    "username": "Login name",
+    "displayName": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "role": "Role",
+    "selectRole": "Select a role",
+    "initialPassword": "Initial password",
+    "newPassword": "New password",
+    "create": "Create",
+    "resetPassword": "Reset password",
+    "resetTitle": "Reset password for {{name}}",
+    "confirmReset": "Confirm reset",
+    "enable": "Enable",
+    "disable": "Disable",
+    "statusUpdated": "Account status updated",
+    "createSuccess": "Account created — pass the login name and initial password on to them",
+    "createFailed": "Creation failed",
+    "resetSuccess": "Password reset — tell the user to log in with the new password",
+    "resetFailed": "Reset failed",
+    "errorRequired": "Login name, name and initial password are required",
+    "errorPasswordShort": "The password must be at least 6 characters",
+    "phUsername": "Login name, cannot be changed later",
+    "phDisplayName": "Real name, shown across the system",
+    "phPassword": "At least 6 characters, ask the user to change it soon",
+    "phNewPassword": "At least 6 characters, pass it on in person or by phone"
+  },
+  "role": {
+    "client_admin": "Client administrator",
+    "client_user": "Client user",
+    "carrier_admin": "Carrier administrator",
+    "carrier_driver": "Driver",
+    "sys_admin": "System administrator",
+    "op_manager": "Operations manager",
+    "op_staff": "Operations specialist",
+    "finance": "Finance"
+  },
+  "tabs": {
+    "accounts": "Accounts"
   }
 }

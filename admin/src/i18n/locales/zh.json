@@ -210,5 +210,49 @@
     "CLIENT": "这是运营管理端，客户账号请前往客户门户 /customer/ 登录",
     "CARRIER": "这是运营管理端，承运商账号请前往承运商门户 /carrier/ 登录",
     "OTHER": "该账号无权访问运营管理端"
+  },
+  "accounts": {
+    "title": "关联账号",
+    "add": "添加账号",
+    "empty": "该公司还没有登录账号",
+    "emptyHint": "添加后对方即可登录对应门户",
+    "username": "登录名",
+    "displayName": "姓名",
+    "email": "邮箱",
+    "phone": "电话",
+    "role": "角色",
+    "selectRole": "请选择角色",
+    "initialPassword": "初始密码",
+    "newPassword": "新密码",
+    "create": "创建",
+    "resetPassword": "重置密码",
+    "resetTitle": "重置 {{name}} 的密码",
+    "confirmReset": "确认重置",
+    "enable": "启用",
+    "disable": "停用",
+    "statusUpdated": "账号状态已更新",
+    "createSuccess": "账号创建成功，请把登录名和初始密码转告对方",
+    "createFailed": "创建失败",
+    "resetSuccess": "密码已重置，请通知本人使用新密码登录",
+    "resetFailed": "重置失败",
+    "errorRequired": "登录名、姓名、初始密码为必填项",
+    "errorPasswordShort": "密码长度至少 6 位",
+    "phUsername": "用于登录的账号名，创建后不可修改",
+    "phDisplayName": "真实姓名，用于系统内显示",
+    "phPassword": "至少 6 位，创建后请转告本人尽快修改",
+    "phNewPassword": "至少 6 位，重置后请当面或电话转告本人"
+  },
+  "role": {
+    "client_admin": "客户管理员",
+    "client_user": "客户用户",
+    "carrier_admin": "承运商管理员",
+    "carrier_driver": "司机",
+    "sys_admin": "系统管理员",
+    "op_manager": "运营经理",
+    "op_staff": "运营专员",
+    "finance": "财务"
+  },
+  "tabs": {
+    "accounts": "账号"
   }
 }

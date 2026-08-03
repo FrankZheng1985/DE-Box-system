@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+import EntityAccountsPanel from '../components/EntityAccountsPanel'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Edit, Truck, Phone, Mail, MapPin, Globe,
@@ -138,6 +140,8 @@ const tabs = [
   { key: 'routes', label: '覆盖路线' },
   { key: 'performance', label: '绩效统计' },
   { key: 'finance', label: '财务概览' },
+  // 2026-08-03 新增：该承运商公司下的登录账号
+  { key: 'accounts', labelKey: 'tabs.accounts', label: '账号', permission: 'system:user' },
 ]
 
 // ==================== 骨架屏 ====================
@@ -187,7 +191,11 @@ export default function CarrierDetail() {
 
   const [loading, setLoading] = useState(true)
   const [carrier, setCarrier] = useState<CarrierInfo | null>(null)
+  const { hasPermission } = useAuth()
   const [activeTab, setActiveTab] = useState('info')
+
+  // 只显示当前角色有权限的 tab（与 ClientDetail 保持一致）
+  const visibleTabs = tabs.filter(tab => !tab.permission || hasPermission(tab.permission))
 
   // 车队数据
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -612,6 +620,8 @@ export default function CarrierDetail() {
       case 'routes': return renderRoutes()
       case 'performance': return renderPerformance()
       case 'finance': return renderFinance()
+      case 'accounts':
+        return id ? <EntityAccountsPanel entityType="CARRIER" entityId={id} /> : null
       default: return null
     }
   }
@@ -684,7 +694,7 @@ export default function CarrierDetail() {
 
       {/* Tab 导航 */}
       <div className="flex gap-1 bg-white/80 backdrop-blur-md rounded-xl p-1 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}

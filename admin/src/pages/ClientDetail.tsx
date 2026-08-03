@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import EntityAccountsPanel from '../components/EntityAccountsPanel'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Edit, Building2, Mail, Phone, Globe, MapPin,
@@ -118,6 +119,8 @@ const tabs = [
   { key: 'pricing', label: '价格体系' },
   { key: 'orders', label: '订单历史' },
   { key: 'finance', label: '财务概览' },
+  // 2026-08-03 新增：该客户公司下的登录账号（用户管理里仍有全量列表，两个入口并存）
+  { key: 'accounts', labelKey: 'tabs.accounts', label: '账号', permission: 'system:user' },
 ]
 
 // ==================== 骨架屏 ====================
@@ -572,6 +575,8 @@ export default function ClientDetail() {
       case 'pricing': return renderPricing()
       case 'orders': return renderOrders()
       case 'finance': return renderFinance()
+      case 'accounts':
+        return id ? <EntityAccountsPanel entityType="CLIENT" entityId={id} /> : null
       default: return null
     }
   }
