@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays, ArrowLeft, Lock, Unlock, CheckCircle, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import ConfirmDialog from '../components/ConfirmDialog'
 
@@ -19,6 +20,7 @@ interface PostingPeriod {
 // ==================== 组件 ====================
 
 export default function PostingPeriods() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [periods, setPeriods] = useState<PostingPeriod[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,11 +61,11 @@ export default function PostingPeriods() {
     try {
       const res = await api.put<ApiResponse<null>>(`/system/posting-periods/${confirmTarget.id}/toggle`)
       if (res.code === 200) {
-        showToast(res.message || '操作成功')
+        showToast(res.message || t('common.operateSuccess'))
         setConfirmTarget(null)
         await fetchPeriods()
       } else {
-        throw new Error(res.message || '操作失败')
+        throw new Error(res.message || t('common.operateFailed'))
       }
     } finally {
       setToggling(null)
@@ -97,8 +99,8 @@ export default function PostingPeriods() {
           <CalendarDays className="w-5 h-5 text-blue-600" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">过账期间管理</h1>
-          <p className="text-xs text-slate-500 mt-0.5">管理 2026 财年各月过账期间的开放与关闭</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t('postingPeriod.pageTitle')}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{t('postingPeriod.pageSubtitle')}</p>
         </div>
       </div>
 
@@ -117,13 +119,13 @@ export default function PostingPeriods() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">月份</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">状态</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">开放人</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">开放时间</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">关闭人</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">关闭时间</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">操作</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('postingPeriod.colMonth')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('common.status')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('postingPeriod.colOpenedBy')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('postingPeriod.colOpenedAt')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('postingPeriod.colClosedBy')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('postingPeriod.colClosedAt')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -133,16 +135,16 @@ export default function PostingPeriods() {
                   className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200"
                 >
                   <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                    2026年{Number(p.period_month)}月
+                    {t('postingPeriod.monthLabel', { year: 2026, month: Number(p.period_month) })}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {p.is_open ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                        <Unlock className="w-3 h-3" /> 开放
+                        <Unlock className="w-3 h-3" /> {t('postingPeriod.open')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                        <Lock className="w-3 h-3" /> 关闭
+                        <Lock className="w-3 h-3" /> {t('postingPeriod.closed')}
                       </span>
                     )}
                   </td>
@@ -167,9 +169,9 @@ export default function PostingPeriods() {
                       {toggling === p.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : p.is_open ? (
-                        <><Lock className="w-3.5 h-3.5" /> 关闭期间</>
+                        <><Lock className="w-3.5 h-3.5" /> {t('postingPeriod.closePeriod')}</>
                       ) : (
-                        <><Unlock className="w-3.5 h-3.5" /> 开放期间</>
+                        <><Unlock className="w-3.5 h-3.5" /> {t('postingPeriod.openPeriod')}</>
                       )}
                     </button>
                   </td>
@@ -193,15 +195,19 @@ export default function PostingPeriods() {
         isOpen={confirmTarget !== null}
         onClose={() => setConfirmTarget(null)}
         onConfirm={confirmToggle}
-        title={confirmTarget?.is_open ? '关闭过账期间' : '开放过账期间'}
+        title={confirmTarget?.is_open ? t('postingPeriod.closeTitle') : t('postingPeriod.openTitle')}
         message={confirmTarget?.is_open
-          ? '关闭后，该期间将不能再过账任何凭证。已过账的凭证不受影响。确认继续？'
-          : '开放后，该期间将可以过账新凭证。确认继续？'
+          ? t('postingPeriod.closeMessage')
+          : t('postingPeriod.openMessage')
         }
-        targetLabel={confirmTarget ? `2026年 ${confirmTarget.period_month} 月` : undefined}
+        targetLabel={
+          confirmTarget
+            ? t('postingPeriod.monthLabel', { year: 2026, month: Number(confirmTarget.period_month) })
+            : undefined
+        }
         variant={confirmTarget?.is_open ? 'warning' : 'primary'}
-        confirmText={confirmTarget?.is_open ? '确认关闭' : '确认开放'}
-        warningText={confirmTarget?.is_open ? '期间关闭后无法创建新的财务凭证' : undefined}
+        confirmText={confirmTarget?.is_open ? t('postingPeriod.confirmClose') : t('postingPeriod.confirmOpen')}
+        warningText={confirmTarget?.is_open ? t('postingPeriod.closeWarning') : undefined}
       />
     </div>
   )

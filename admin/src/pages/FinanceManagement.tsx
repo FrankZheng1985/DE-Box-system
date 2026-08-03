@@ -4,6 +4,7 @@ import {
   Wallet, DollarSign, CreditCard, TrendingUp, Percent, Eye, ChevronLeft, ChevronRight,
   Plus, CheckCircle, AlertCircle, Ban, Banknote, BarChart3, Download, FileText, Calendar,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
@@ -73,11 +74,11 @@ interface VoidForm {
 // ==================== 常量 ====================
 
 const TABS = [
-  { key: 'receivable', label: '应收账款' },
-  { key: 'payable', label: '应付账款' },
-  { key: 'profit', label: '利润分析' },
-  { key: 'aging', label: '账龄分析' },
-  { key: 'report', label: '报表' },
+  { key: 'receivable', labelKey: 'finance.receivable' },
+  { key: 'payable', labelKey: 'finance.payable' },
+  { key: 'profit', labelKey: 'finance.profitAnalysis' },
+  { key: 'aging', labelKey: 'finance.agingAnalysis' },
+  { key: 'report', labelKey: 'finance.reports' },
 ]
 
 const INITIAL_PAYMENT_FORM: PaymentForm = { amount: '', paymentDate: '', remarks: '' }
@@ -104,6 +105,7 @@ function BillTable({
   onVoid: (row: BillRow) => void
   onView: (row: BillRow) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="overflow-x-auto">
       <table className="w-full table-fixed">
@@ -113,7 +115,7 @@ function BillTable({
         </colgroup>
         <thead>
           <tr className="border-b border-slate-100">
-            {['账单号', nameLabel, '关联订单', '金额', '状态', '到期日', '操作'].map((h, i) => (
+            {[t('finance.colBillNo'), nameLabel, t('common.relatedOrder'), t('common.amount'), t('common.status'), t('finance.colDueDate'), t('common.actions')].map((h, i) => (
               <th key={i} className={`text-xs font-medium text-slate-500 px-4 py-3 ${i === 3 ? 'text-right' : i >= 4 ? 'text-center' : 'text-left'}`}>{h}</th>
             ))}
           </tr>
@@ -126,7 +128,7 @@ function BillTable({
               ))}
             </tr>
           )) : rows.length === 0 ? (
-            <tr><td colSpan={7} className="px-4 py-16 text-center text-sm text-slate-500">暂无数据</td></tr>
+            <tr><td colSpan={7} className="px-4 py-16 text-center text-sm text-slate-500">{t('common.noData')}</td></tr>
           ) : rows.map(r => (
             <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
               <td className="px-4 py-3 text-xs text-slate-900 font-medium">{r.record_number || '-'}</td>
@@ -140,7 +142,7 @@ function BillTable({
                   <button
                     onClick={() => onView(r)}
                     className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                    title="查看"
+                    title={t('common.view')}
                   >
                     <Eye className="w-4 h-4" />
                   </button>
@@ -149,10 +151,10 @@ function BillTable({
                     <button
                       onClick={() => onPayment(r)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-all duration-200"
-                      title={nameLabel === '客户' ? '记录收款' : '审核付款'}
+                      title={nameLabel === t('common.client') ? t('finance.recordReceipt') : t('finance.approvePayment')}
                     >
                       <Banknote className="w-3.5 h-3.5" />
-                      {nameLabel === '客户' ? '收款' : '付款'}
+                      {nameLabel === t('common.client') ? t('finance.receipt') : t('finance.payment')}
                     </button>
                   )}
                   {/* 作废按钮 - 仅未付款状态显示 */}
@@ -160,10 +162,10 @@ function BillTable({
                     <button
                       onClick={() => onVoid(r)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-all duration-200"
-                      title="作废"
+                      title={t('master.void')}
                     >
                       <Ban className="w-3.5 h-3.5" />
-                      作废
+                      {t('master.void')}
                     </button>
                   )}
                 </div>
@@ -179,6 +181,7 @@ function BillTable({
 // ==================== 报表 Tab ====================
 
 function ReportTab() {
+  const { t } = useTranslation()
   const [reportType, setReportType] = useState('revenue')
   const [timeRange, setTimeRange] = useState('month')
   const [monthlyData, setMonthlyData] = useState<{month: string; revenue: number}[]>([])
@@ -194,7 +197,7 @@ function ReportTab() {
         const now = new Date()
         for (let i = 5; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-          const monthLabel = `${d.getMonth() + 1}月`
+          const monthLabel = t('finance.monthShort', { month: d.getMonth() + 1 })
           const from = d.toISOString().slice(0, 10)
           const to = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10)
           try {
@@ -220,43 +223,43 @@ function ReportTab() {
         <div className="flex-1 min-w-0">
           <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
             <BarChart3 className="w-3.5 h-3.5 text-slate-400" />
-            报表类型
+            {t('finance.reportType')}
           </label>
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value)}
             className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           >
-            <option value="revenue">运营收入</option>
-            <option value="cost">运输成本</option>
-            <option value="profit">利润分析</option>
+            <option value="revenue">{t('finance.reportRevenue')}</option>
+            <option value="cost">{t('finance.reportCost')}</option>
+            <option value="profit">{t('finance.profitAnalysis')}</option>
           </select>
         </div>
         <div className="flex-1 min-w-0">
           <label className="flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1.5">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            时间范围
+            {t('finance.dateRange')}
           </label>
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
             className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           >
-            <option value="month">本月</option>
-            <option value="last_month">上月</option>
-            <option value="quarter">本季</option>
-            <option value="year">本年</option>
+            <option value="month">{t('finance.rangeThisMonth')}</option>
+            <option value="last_month">{t('finance.rangeLastMonth')}</option>
+            <option value="quarter">{t('finance.rangeThisQuarter')}</option>
+            <option value="year">{t('finance.rangeThisYear')}</option>
           </select>
         </div>
         <button className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all duration-200">
           <BarChart3 className="w-4 h-4" />
-          生成报表
+          {t('finance.generateReport')}
         </button>
       </div>
 
       {/* 简易柱状图：近6个月收入 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 mb-4">近 6 个月营收趋势（基于已完成订单）</h3>
+        <h3 className="text-sm font-semibold text-slate-900 mb-4">{t('finance.revenueTrendTitle')}</h3>
         {loadingReport ? (
           <div className="flex items-end gap-3 h-48 px-2">
             {Array.from({length: 6}).map((_, i) => (
@@ -298,7 +301,7 @@ function ReportTab() {
 
       {/* 最近报表 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 mb-3">最近生成的报表</h3>
+        <h3 className="text-sm font-semibold text-slate-900 mb-3">{t('finance.recentReports')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <colgroup>
@@ -310,17 +313,17 @@ function ReportTab() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-left">报表名称</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-left">类型</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">生成日期</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">状态</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">操作</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-left">{t('finance.colReportName')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-left">{t('common.type')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">{t('finance.colGeneratedAt')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">{t('common.status')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-2.5 text-center">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                  暂无报表记录，点击"生成报表"创建
+                  {t('finance.noReports')}
                 </td>
               </tr>
             </tbody>
@@ -334,6 +337,7 @@ function ReportTab() {
 // ==================== 主组件 ====================
 
 export default function FinanceManagement() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('receivable')
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('')
@@ -404,10 +408,10 @@ export default function FinanceManagement() {
             setAging(d)
           } else {
             setAging([
-              { range: '0-30天', amount: parseFloat(d['0_30']) || 0, count: 0 },
-              { range: '31-60天', amount: parseFloat(d['31_60']) || 0, count: 0 },
-              { range: '61-90天', amount: parseFloat(d['61_90']) || 0, count: 0 },
-              { range: '90天以上', amount: parseFloat(d['90_plus']) || 0, count: 0 },
+              { range: '0-30', amount: parseFloat(d['0_30']) || 0, count: 0 },
+              { range: '31-60', amount: parseFloat(d['31_60']) || 0, count: 0 },
+              { range: '61-90', amount: parseFloat(d['61_90']) || 0, count: 0 },
+              { range: '90+', amount: parseFloat(d['90_plus']) || 0, count: 0 },
             ].filter(a => a.amount > 0 || true)) // 保留所有
           }
         }
@@ -434,21 +438,21 @@ export default function FinanceManagement() {
     if (!paymentModal.row) return
     const amount = Number(paymentForm.amount)
     if (!amount || amount <= 0) {
-      setToast({ type: 'error', message: '收款金额必须大于 0' })
+      setToast({ type: 'error', message: t('finance.errReceiptAmount') })
       return
     }
 
     setPaymentSubmitting(true)
     try {
       await api.put<ApiResponse<unknown>>(`/finance/${paymentModal.row.id}/payment`, { amount })
-      setToast({ type: 'success', message: '收款记录已保存' })
+      setToast({ type: 'success', message: t('finance.receiptSaved') })
       setPaymentModal({ open: false, row: null })
       loadData()
       // 刷新汇总
       api.get<ApiResponse<FinanceSummary>>('/finance/summary')
         .then(res => { if (res.code === 200) setSummary(res.data) })
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.message || '操作失败' })
+      setToast({ type: 'error', message: err?.message || t('common.operateFailed') })
     } finally {
       setPaymentSubmitting(false)
     }
@@ -463,11 +467,11 @@ export default function FinanceManagement() {
 
   const handleCreateRecord = async () => {
     if (!createForm.amount || Number(createForm.amount) <= 0) {
-      setToast({ type: 'error', message: '金额必须大于 0' })
+      setToast({ type: 'error', message: t('finance.errAmount') })
       return
     }
     if (!createForm.dueDate) {
-      setToast({ type: 'error', message: '请选择到期日' })
+      setToast({ type: 'error', message: t('finance.errDueDate') })
       return
     }
 
@@ -484,14 +488,19 @@ export default function FinanceManagement() {
         remarks: createForm.remarks.trim() || undefined,
       }
       await api.post<ApiResponse<unknown>>('/finance/records', payload)
-      setToast({ type: 'success', message: `${createForm.type === 'RECEIVABLE' ? '应收' : '应付'}记录创建成功` })
+      setToast({
+        type: 'success',
+        message: t('finance.recordCreated', {
+          type: createForm.type === 'RECEIVABLE' ? t('finance.arShort') : t('finance.apShort'),
+        }),
+      })
       setCreateModal(false)
       loadData()
       // 刷新汇总
       api.get<ApiResponse<FinanceSummary>>('/finance/summary')
         .then(res => { if (res.code === 200) setSummary(res.data) })
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.message || '创建失败' })
+      setToast({ type: 'error', message: err?.message || t('finance.createFailed') })
     } finally {
       setCreateSubmitting(false)
     }
@@ -507,18 +516,18 @@ export default function FinanceManagement() {
   const handleVoid = async () => {
     if (!voidModal.row) return
     if (!voidForm.reason.trim()) {
-      setToast({ type: 'error', message: '请输入作废原因' })
+      setToast({ type: 'error', message: t('finance.errVoidReason') })
       return
     }
 
     setVoidSubmitting(true)
     try {
       await api.put<ApiResponse<unknown>>(`/finance/${voidModal.row.id}/void`, { reason: voidForm.reason.trim() })
-      setToast({ type: 'success', message: '账单已作废' })
+      setToast({ type: 'success', message: t('finance.voided') })
       setVoidModal({ open: false, row: null })
       loadData()
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.message || '作废失败' })
+      setToast({ type: 'error', message: err?.message || t('quotation.voidFailed') })
     } finally {
       setVoidSubmitting(false)
     }
@@ -543,7 +552,7 @@ export default function FinanceManagement() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-2 bg-green-50 rounded-xl"><Wallet className="w-5 h-5 text-green-600" /></div>
-          <h1 className="text-xl font-semibold text-slate-900">财务管理</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{t('finance.pageTitle')}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -551,24 +560,24 @@ export default function FinanceManagement() {
             className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
-            创建应收
+            {t('finance.createReceivable')}
           </button>
           <button
             onClick={() => openCreateModal('PAYABLE')}
             className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-xl transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
-            创建应付
+            {t('finance.createPayable')}
           </button>
         </div>
       </div>
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="本月营收" value={summary ? fmt(summary.monthRevenue) : '-'} icon={<DollarSign className="w-5 h-5" />} color="green" />
-        <StatCard title="应收余额" value={summary ? fmt(summary.arOutstanding) : '-'} icon={<CreditCard className="w-5 h-5" />} color="blue" />
-        <StatCard title="应付余额" value={summary ? fmt(summary.apOutstanding) : '-'} icon={<TrendingUp className="w-5 h-5" />} color="yellow" />
-        <StatCard title="平均毛利率" value={summary ? `${Number(summary.marginPct || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
+        <StatCard title={t('finance.statMonthRevenue')} value={summary ? fmt(summary.monthRevenue) : '-'} icon={<DollarSign className="w-5 h-5" />} color="green" />
+        <StatCard title={t('finance.statArOutstanding')} value={summary ? fmt(summary.arOutstanding) : '-'} icon={<CreditCard className="w-5 h-5" />} color="blue" />
+        <StatCard title={t('finance.statApOutstanding')} value={summary ? fmt(summary.apOutstanding) : '-'} icon={<TrendingUp className="w-5 h-5" />} color="yellow" />
+        <StatCard title={t('finance.statAvgMargin')} value={summary ? `${Number(summary.marginPct || 0).toFixed(1)}%` : '-'} icon={<Percent className="w-5 h-5" />} color="purple" />
       </div>
 
       {/* Tab 标签栏 */}
@@ -577,7 +586,7 @@ export default function FinanceManagement() {
           <button key={tab.key} onClick={() => { setActiveTab(tab.key); setPage(1) }}
             className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all duration-200 ${
               activeTab === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}>{tab.label}</button>
+            }`}>{t(tab.labelKey)}</button>
         ))}
       </div>
 
@@ -589,11 +598,11 @@ export default function FinanceManagement() {
             {/* 状态子 Tab */}
             <div className="flex gap-1 bg-slate-50 rounded-lg p-0.5">
               {[
-                { key: '', label: '全部' },
-                { key: 'UNPAID', label: '未付款' },
-                { key: 'PARTIAL', label: '部分付款' },
-                { key: 'PAID', label: '已付款' },
-                { key: 'VOID', label: '已作废' },
+                { key: '', labelKey: 'common.all' },
+                { key: 'UNPAID', labelKey: 'status.UNPAID' },
+                { key: 'PARTIAL', labelKey: 'statusByType.payment.PARTIAL' },
+                { key: 'PAID', labelKey: 'status.PAID' },
+                { key: 'VOID', labelKey: 'status.VOID' },
               ].map(s => (
                 <button
                   key={s.key}
@@ -603,7 +612,7 @@ export default function FinanceManagement() {
                       ? 'bg-white text-slate-900 shadow-sm'
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
-                >{s.label}</button>
+                >{t(s.labelKey)}</button>
               ))}
             </div>
             <button
@@ -611,7 +620,7 @@ export default function FinanceManagement() {
               className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-all duration-200"
             >
               <Download className="w-3.5 h-3.5" />
-              导出
+              {t('common.export')}
             </button>
           </div>
         )}
@@ -619,7 +628,7 @@ export default function FinanceManagement() {
           <BillTable
             rows={billRows}
             loading={loading}
-            nameLabel={activeTab === 'receivable' ? '客户' : '承运商'}
+            nameLabel={activeTab === 'receivable' ? t('common.client') : t('common.carrier')}
             onPayment={openPaymentModal}
             onVoid={openVoidModal}
             onView={(row) => navigate(`/finance/${row.id}`)}
@@ -634,19 +643,19 @@ export default function FinanceManagement() {
                 {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-32 bg-slate-100 rounded-xl animate-pulse" />)}
               </div>
             ) : profits.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-16">暂无利润数据</p>
+              <p className="text-sm text-slate-500 text-center py-16">{t('finance.noProfitData')}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {profits.map(p => (
                   <div key={p.id} className="border border-slate-100 rounded-xl p-4 hover:shadow-md transition-all duration-200">
                     <h3 className="text-sm font-semibold text-slate-900 mb-3">{p.company_name}</h3>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-slate-500">营收:</span> <span className="text-slate-900 font-medium">{fmt(Number(p.total_revenue))}</span></div>
-                      <div><span className="text-slate-500">成本:</span> <span className="text-slate-900 font-medium">{fmt(Number(p.total_cost))}</span></div>
-                      <div><span className="text-slate-500">利润:</span> <span className="text-green-600 font-medium">{fmt(Number(p.gross_profit))}</span></div>
-                      <div><span className="text-slate-500">毛利率:</span> <span className="text-purple-600 font-medium">{Number(p.margin_pct ?? 0).toFixed(1)}%</span></div>
+                      <div><span className="text-slate-500">{t('finance.revenueLabel')}</span> <span className="text-slate-900 font-medium">{fmt(Number(p.total_revenue))}</span></div>
+                      <div><span className="text-slate-500">{t('finance.costLabel')}</span> <span className="text-slate-900 font-medium">{fmt(Number(p.total_cost))}</span></div>
+                      <div><span className="text-slate-500">{t('finance.profitLabel')}</span> <span className="text-green-600 font-medium">{fmt(Number(p.gross_profit))}</span></div>
+                      <div><span className="text-slate-500">{t('finance.marginLabel')}</span> <span className="text-purple-600 font-medium">{Number(p.margin_pct ?? 0).toFixed(1)}%</span></div>
                     </div>
-                    <p className="text-xs text-slate-400 mt-2">订单数: {p.order_count}</p>
+                    <p className="text-xs text-slate-400 mt-2">{t('finance.orderCountLabel')}: {p.order_count}</p>
                   </div>
                 ))}
               </div>
@@ -660,12 +669,12 @@ export default function FinanceManagement() {
             {loading ? (
               <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}</div>
             ) : aging.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-16">暂无账龄数据</p>
+              <p className="text-sm text-slate-500 text-center py-16">{t('finance.noAgingData')}</p>
             ) : (
               <div className="space-y-4">
                 {aging.map(a => (
                   <div key={a.range} className="flex items-center gap-4">
-                    <span className="text-xs text-slate-600 w-20 shrink-0">{a.range}天</span>
+                    <span className="text-xs text-slate-600 w-20 shrink-0">{t('finance.agingDays', { range: a.range })}</span>
                     <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
                       <div className={`h-full rounded-full transition-all duration-500 ${
                         a.range === '90+' ? 'bg-red-400' : a.range === '61-90' ? 'bg-orange-400' : a.range === '31-60' ? 'bg-amber-400' : 'bg-green-400'
@@ -673,7 +682,7 @@ export default function FinanceManagement() {
                     </div>
                     <div className="text-right w-32 shrink-0">
                       <span className="text-xs font-medium text-slate-900">{fmt(a.amount)}</span>
-                      <span className="text-xs text-slate-400 ml-2">({a.count}笔)</span>
+                      <span className="text-xs text-slate-400 ml-2">{t('finance.entryCount', { count: a.count })}</span>
                     </div>
                   </div>
                 ))}
@@ -688,7 +697,7 @@ export default function FinanceManagement() {
         {/* 分页（仅应收/应付 Tab） */}
         {(activeTab === 'receivable' || activeTab === 'payable') && total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">共 {total} 条记录</p>
+            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
             <div className="flex items-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
@@ -708,7 +717,7 @@ export default function FinanceManagement() {
       <Modal
         isOpen={paymentModal.open}
         onClose={() => setPaymentModal({ open: false, row: null })}
-        title={activeTab === 'receivable' ? '记录收款' : '审核付款'}
+        title={activeTab === 'receivable' ? t('finance.recordReceipt') : t('finance.approvePayment')}
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -716,14 +725,14 @@ export default function FinanceManagement() {
               onClick={() => setPaymentModal({ open: false, row: null })}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handlePayment}
               disabled={paymentSubmitting}
               className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {paymentSubmitting ? '提交中...' : '确认'}
+              {paymentSubmitting ? t('common.submitting') : t('common.confirm')}
             </button>
           </div>
         }
@@ -732,14 +741,15 @@ export default function FinanceManagement() {
           <div className="space-y-4">
             {/* 账单信息概览 */}
             <div className="bg-slate-50 rounded-xl p-3 space-y-1">
-              <p className="text-xs text-slate-500">账单号: <span className="text-slate-900 font-medium">{paymentModal.row.bill_no}</span></p>
-              <p className="text-xs text-slate-500">账单金额: <span className="text-slate-900 font-medium">{fmt(paymentModal.row.amount)}</span></p>
+              <p className="text-xs text-slate-500">{t('finance.colBillNo')}: <span className="text-slate-900 font-medium">{paymentModal.row.bill_no}</span></p>
+              <p className="text-xs text-slate-500">{t('financeDetail.billAmount')}: <span className="text-slate-900 font-medium">{fmt(paymentModal.row.amount)}</span></p>
             </div>
 
             {/* 收款金额 */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                {activeTab === 'receivable' ? '收款金额' : '付款金额'} (EUR) <span className="text-red-500">*</span>
+                {activeTab === 'receivable' ? t('finance.receiptAmount') : t('finance.paymentAmount')} (EUR){' '}
+                <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -753,7 +763,7 @@ export default function FinanceManagement() {
             {/* 收款日期 */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                {activeTab === 'receivable' ? '收款日期' : '付款日期'}
+                {activeTab === 'receivable' ? t('finance.receiptDate') : t('financeDetail.paidDate')}
               </label>
               <input
                 type="date"
@@ -765,11 +775,11 @@ export default function FinanceManagement() {
 
             {/* 备注 */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">备注</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('common.remark')}</label>
               <textarea
                 value={paymentForm.remarks}
                 onChange={e => setPaymentForm(prev => ({ ...prev, remarks: e.target.value }))}
-                placeholder="可选备注信息"
+                placeholder={t('finance.remarksPlaceholder')}
                 rows={3}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none transition-all duration-200"
               />
@@ -782,7 +792,9 @@ export default function FinanceManagement() {
       <Modal
         isOpen={createModal}
         onClose={() => setCreateModal(false)}
-        title={`创建${createForm.type === 'RECEIVABLE' ? '应收' : '应付'}记录`}
+        title={t('finance.createRecordTitle', {
+          type: createForm.type === 'RECEIVABLE' ? t('finance.arShort') : t('finance.apShort'),
+        })}
         size="md"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -790,14 +802,14 @@ export default function FinanceManagement() {
               onClick={() => setCreateModal(false)}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleCreateRecord}
               disabled={createSubmitting}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {createSubmitting ? '提交中...' : '确认创建'}
+              {createSubmitting ? t('common.submitting') : t('finance.confirmCreate')}
             </button>
           </div>
         }
@@ -805,7 +817,7 @@ export default function FinanceManagement() {
         <div className="space-y-4">
           {/* 类型切换 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">类型</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('common.type')}</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -813,7 +825,7 @@ export default function FinanceManagement() {
                   checked={createForm.type === 'RECEIVABLE'}
                   onChange={() => setCreateForm(prev => ({ ...prev, type: 'RECEIVABLE' }))}
                 />
-                <span className="text-sm text-slate-700">应收账款</span>
+                <span className="text-sm text-slate-700">{t('finance.receivable')}</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -821,19 +833,19 @@ export default function FinanceManagement() {
                   checked={createForm.type === 'PAYABLE'}
                   onChange={() => setCreateForm(prev => ({ ...prev, type: 'PAYABLE' }))}
                 />
-                <span className="text-sm text-slate-700">应付账款</span>
+                <span className="text-sm text-slate-700">{t('finance.payable')}</span>
               </label>
             </div>
           </div>
 
           {/* 关联订单 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">关联订单号</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('finance.orderNoLabel')}</label>
             <input
               type="text"
               value={createForm.orderId}
               onChange={e => setCreateForm(prev => ({ ...prev, orderId: e.target.value }))}
-              placeholder="输入订单编号"
+              placeholder={t('finance.orderNoPlaceholder')}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
           </div>
@@ -842,7 +854,7 @@ export default function FinanceManagement() {
             {/* 金额 */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                金额 <span className="text-red-500">*</span>
+                {t('common.amount')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -855,7 +867,7 @@ export default function FinanceManagement() {
 
             {/* 币种 */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">币种</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('common.currency')}</label>
               <select
                 value={createForm.currency}
                 onChange={e => setCreateForm(prev => ({ ...prev, currency: e.target.value }))}
@@ -872,7 +884,7 @@ export default function FinanceManagement() {
           {/* 到期日 */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              到期日 <span className="text-red-500">*</span>
+              {t('finance.colDueDate')} <span className="text-red-500">*</span>
             </label>
             <input
               type="date"
@@ -884,11 +896,11 @@ export default function FinanceManagement() {
 
           {/* 备注 */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">备注</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('common.remark')}</label>
             <textarea
               value={createForm.remarks}
               onChange={e => setCreateForm(prev => ({ ...prev, remarks: e.target.value }))}
-              placeholder="可选备注信息"
+              placeholder={t('finance.remarksPlaceholder')}
               rows={3}
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none transition-all duration-200"
             />
@@ -900,7 +912,7 @@ export default function FinanceManagement() {
       <Modal
         isOpen={voidModal.open}
         onClose={() => setVoidModal({ open: false, row: null })}
-        title="作废账单"
+        title={t('finance.voidTitle')}
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-3">
@@ -908,14 +920,14 @@ export default function FinanceManagement() {
               onClick={() => setVoidModal({ open: false, row: null })}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleVoid}
               disabled={voidSubmitting}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {voidSubmitting ? '处理中...' : '确认作废'}
+              {voidSubmitting ? t('confirmDialog.processing') : t('quotation.voidConfirm')}
             </button>
           </div>
         }
@@ -924,18 +936,20 @@ export default function FinanceManagement() {
           <div className="space-y-4">
             <div className="bg-red-50 rounded-xl p-3 border border-red-100">
               <p className="text-sm text-red-700">
-                即将作废账单 <span className="font-semibold">{voidModal.row.bill_no}</span>，金额 <span className="font-semibold">{fmt(voidModal.row.amount)}</span>。此操作不可撤销。
+                {t('finance.voidAboutTo')} <span className="font-semibold">{voidModal.row.bill_no}</span>
+                {t('finance.voidAmountPart')} <span className="font-semibold">{fmt(voidModal.row.amount)}</span>
+                {t('finance.voidIrreversible')}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                作废原因 <span className="text-red-500">*</span>
+                {t('finance.voidReason')} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={voidForm.reason}
                 onChange={e => setVoidForm({ reason: e.target.value })}
-                placeholder="请输入作废原因"
+                placeholder={t('finance.errVoidReason')}
                 rows={3}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 resize-none transition-all duration-200"
               />

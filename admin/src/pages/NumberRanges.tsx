@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Hash, ArrowLeft, RotateCcw, CheckCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -19,6 +20,7 @@ interface NumberRange {
 // ==================== 组件 ====================
 
 export default function NumberRanges() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [ranges, setRanges] = useState<NumberRange[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,7 +55,7 @@ export default function NumberRanges() {
   }, [])
 
   const handleReset = (label: string) => {
-    showToast(`${label} 编号重置功能对接中`)
+    showToast(t('numberRange.resetPending', { label }))
   }
 
   // 骨架屏
@@ -83,8 +85,8 @@ export default function NumberRanges() {
           <Hash className="w-5 h-5 text-purple-600" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">编号范围管理</h1>
-          <p className="text-xs text-slate-500 mt-0.5">管理各业务对象的自动编号规则（公司代码 DE01 / 财年 2026）</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t('numberRange.pageTitle')}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{t('numberRange.pageSubtitle')}</p>
         </div>
       </div>
 
@@ -103,13 +105,13 @@ export default function NumberRanges() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">对象类型</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">前缀</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">当前编号</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">起始</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">结束</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">编号格式</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">操作</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('numberRange.colObjectType')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('numberRange.colPrefix')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">{t('numberRange.colCurrent')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">{t('numberRange.colFrom')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-right">{t('numberRange.colTo')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('numberRange.colFormat')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -148,10 +150,10 @@ export default function NumberRanges() {
                       onClick={() => handleReset(r.object_label)}
                       disabled
                       className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-400 bg-slate-50 rounded-lg cursor-not-allowed"
-                      title="重置功能暂未开放"
+                      title={t('numberRange.resetDisabled')}
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      重置
+                      {t('numberRange.reset')}
                     </button>
                   </td>
                 </tr>
@@ -162,7 +164,7 @@ export default function NumberRanges() {
 
         {/* 底部统计 */}
         <div className="px-4 py-3 border-t border-slate-100">
-          <span className="text-xs text-slate-500">共 {ranges.length} 个编号范围</span>
+          <span className="text-xs text-slate-500">{t('numberRange.totalRanges', { count: ranges.length })}</span>
         </div>
       </div>
 

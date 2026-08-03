@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BookOpen, ArrowLeft, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 
 // ==================== 类型定义 ====================
@@ -16,16 +17,17 @@ interface Account {
 }
 
 // 类型颜色映射
-const TYPE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  ASSET:     { bg: 'bg-blue-100', text: 'text-blue-700', label: '资产' },
-  LIABILITY: { bg: 'bg-red-100', text: 'text-red-700', label: '负债' },
-  REVENUE:   { bg: 'bg-green-100', text: 'text-green-700', label: '收入' },
-  EXPENSE:   { bg: 'bg-orange-100', text: 'text-orange-700', label: '费用' },
+const TYPE_STYLES: Record<string, { bg: string; text: string; labelKey: string }> = {
+  ASSET:     { bg: 'bg-blue-100', text: 'text-blue-700', labelKey: 'accountType.ASSET' },
+  LIABILITY: { bg: 'bg-red-100', text: 'text-red-700', labelKey: 'accountType.LIABILITY' },
+  REVENUE:   { bg: 'bg-green-100', text: 'text-green-700', labelKey: 'accountType.REVENUE' },
+  EXPENSE:   { bg: 'bg-orange-100', text: 'text-orange-700', labelKey: 'accountType.EXPENSE' },
 }
 
 // ==================== 组件 ====================
 
 export default function ChartOfAccounts() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -95,8 +97,8 @@ export default function ChartOfAccounts() {
           <BookOpen className="w-5 h-5 text-green-600" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">会计科目表</h1>
-          <p className="text-xs text-slate-500 mt-0.5">公司代码 DE01 的科目层级结构</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t('coa.pageTitle')}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{t('coa.pageSubtitle')}</p>
         </div>
       </div>
 
@@ -108,7 +110,7 @@ export default function ChartOfAccounts() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索科目代码或名称..."
+            placeholder={t('coa.searchPlaceholder')}
             className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
           />
         </div>
@@ -128,12 +130,12 @@ export default function ChartOfAccounts() {
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">科目代码</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">科目名称</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">科目类型</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">调节科目</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">可过账</th>
-                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">层级</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('coa.colCode')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-left">{t('coa.colName')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('coa.colType')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('coa.colReconciliation')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('coa.colPostable')}</th>
+                <th className="text-xs font-medium text-slate-500 px-4 py-3 text-center">{t('coa.colLevel')}</th>
               </tr>
             </thead>
             <tbody>
@@ -154,25 +156,25 @@ export default function ChartOfAccounts() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${style.bg} ${style.text}`}>
-                        {style.label}
+                        {t(style.labelKey)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       {a.is_reconciliation ? (
-                        <span className="inline-block w-2 h-2 rounded-full bg-blue-500" title="调节科目" />
+                        <span className="inline-block w-2 h-2 rounded-full bg-blue-500" title={t('coa.colReconciliation')} />
                       ) : (
                         <span className="text-xs text-slate-300">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {a.is_postable ? (
-                        <span className="text-xs text-green-600 font-medium">是</span>
+                        <span className="text-xs text-green-600 font-medium">{t('common.yes')}</span>
                       ) : (
-                        <span className="text-xs text-slate-400">否</span>
+                        <span className="text-xs text-slate-400">{t('common.no')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="text-xs text-slate-500">{isChild ? '子科目' : '汇总科目'}</span>
+                      <span className="text-xs text-slate-500">{isChild ? t('coa.childAccount') : t('coa.summaryAccount')}</span>
                     </td>
                   </tr>
                 )
@@ -183,12 +185,12 @@ export default function ChartOfAccounts() {
 
         {/* 底部统计 */}
         <div className="px-4 py-3 border-t border-slate-100 flex items-center gap-6">
-          <span className="text-xs text-slate-500">共 {filtered.length} 个科目</span>
+          <span className="text-xs text-slate-500">{t('coa.totalAccounts', { count: filtered.length })}</span>
           <div className="flex items-center gap-4">
             {Object.entries(TYPE_STYLES).map(([key, style]) => (
               <span key={key} className="flex items-center gap-1.5 text-xs text-slate-500">
                 <span className={`w-2 h-2 rounded-full ${style.bg.replace('100', '500')}`} />
-                {style.label} {typeCounts[key] || 0}
+                {t(style.labelKey)} {typeCounts[key] || 0}
               </span>
             ))}
           </div>
