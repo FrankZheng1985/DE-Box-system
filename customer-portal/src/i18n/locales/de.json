@@ -633,6 +633,11 @@
     "WEBHOOK_URL_NOT_SET": "Für diesen Partner ist noch keine Webhook-URL hinterlegt",
     "WEBHOOK_TEST_EVENT": "Dies ist ein Testereignis von EU-TMS – der Empfang bestätigt, dass Endpunkt und Signaturprüfung korrekt konfiguriert sind",
     "DASHBOARD_LOAD_FAILED": "Dashboard-Daten konnten nicht geladen werden",
-    "STATS_LOAD_FAILED": "Statistik konnte nicht geladen werden"
+    "STATS_LOAD_FAILED": "Statistik konnte nicht geladen werden",
+    "NO_TOKEN": "Kein Authentifizierungstoken übermittelt",
+    "TOKEN_EXPIRED": "Ihre Sitzung ist abgelaufen, bitte erneut anmelden",
+    "INVALID_TOKEN": "Ungültiges Authentifizierungstoken",
+    "RATE_LIMITED": "Zu viele Anfragen, bitte kurz warten",
+    "ACCESS_DENIED": "Zugriff verweigert"
   }
 }

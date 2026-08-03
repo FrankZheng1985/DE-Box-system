@@ -28,6 +28,13 @@ export const MESSAGE_CODES = {
   '参数错误：没有可更新的字段': 'NO_FIELDS_TO_UPDATE',
 
   // ── 认证与权限 ────────────────────────────────────────────────────────
+  // ⚠️ 下面 5 条走的是 { errCode, msg } 的老响应格式（认证/限流中间件），
+  //    不是标准的 { code, message }。中间件对两种字段名都查表。
+  '未提供认证令牌': 'NO_TOKEN',
+  '认证令牌已过期，请重新登录': 'TOKEN_EXPIRED',
+  '无效的认证令牌': 'INVALID_TOKEN',
+  '请求过于频繁，请稍后再试': 'RATE_LIMITED',
+  '访问被拒绝': 'ACCESS_DENIED',
   '请先登录': 'LOGIN_REQUIRED',
   '登录成功': 'LOGIN_SUCCESS',
   '用户名和密码不能为空': 'MISSING_CREDENTIALS',

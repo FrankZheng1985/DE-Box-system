@@ -12,10 +12,14 @@ import i18n from '../i18n'
  * 这里按码查语言包 `apiMessage.<CODE>`，查不到就原样用后端给的中文 message ——
  * 所以后端漏映射、或者语言包漏一条，只是那条不翻译，不会显示成空白或 key。
  */
-function translateByCode(body: { message?: string; messageCode?: string } | null | undefined): string | undefined {
+function translateByCode(
+  body: { message?: string; msg?: string; messageCode?: string } | null | undefined
+): string | undefined {
   if (!body) return undefined
-  if (!body.messageCode) return body.message
-  return i18n.t(`apiMessage.${body.messageCode}`, { defaultValue: body.message || '' }) || body.message
+  // 认证/限流中间件走的是 { errCode, msg } 老格式，所以两个字段名都兜一下
+  const raw = body.message || body.msg
+  if (!body.messageCode) return raw
+  return i18n.t(`apiMessage.${body.messageCode}`, { defaultValue: raw || '' }) || raw
 }
 
 export interface ApiResponse<T = any> {

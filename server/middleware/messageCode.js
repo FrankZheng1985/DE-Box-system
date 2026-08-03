@@ -22,9 +22,13 @@ export function attachMessageCode(req, res, next) {
   res.json = (body) => {
     // 只处理普通对象；数组、字符串、null 一律原样放行
     if (body && typeof body === 'object' && !Array.isArray(body)) {
-      // 已经有码就尊重业务代码自己写的，不覆盖
-      if (!body.messageCode && typeof body.message === 'string') {
-        const code = codeForMessage(body.message)
+      // 已经有码就尊重业务代码自己写的，不覆盖。
+      // 认证/限流中间件用的是 { errCode, msg } 的老格式，所以两种字段名都查。
+      if (!body.messageCode) {
+        const text = typeof body.message === 'string' ? body.message
+          : typeof body.msg === 'string' ? body.msg
+          : null
+        const code = text ? codeForMessage(text) : undefined
         if (code) body.messageCode = code
       }
     }

@@ -633,6 +633,11 @@
     "WEBHOOK_URL_NOT_SET": "This partner has no webhook URL configured yet",
     "WEBHOOK_TEST_EVENT": "This is a test event from EU-TMS — receiving it confirms the endpoint and signature check are configured correctly",
     "DASHBOARD_LOAD_FAILED": "Could not load the dashboard data",
-    "STATS_LOAD_FAILED": "Could not load the statistics"
+    "STATS_LOAD_FAILED": "Could not load the statistics",
+    "NO_TOKEN": "No authentication token provided",
+    "TOKEN_EXPIRED": "Your session has expired, please sign in again",
+    "INVALID_TOKEN": "Invalid authentication token",
+    "RATE_LIMITED": "Too many requests, please try again shortly",
+    "ACCESS_DENIED": "Access denied"
   }
 }
