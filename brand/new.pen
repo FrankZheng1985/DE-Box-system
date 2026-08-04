@@ -1,5 +1,5 @@
 {
-  "version": "2.14",
+  "version": "2.10",
   "children": [
     {
       "type": "frame",
@@ -47,13 +47,13 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "icon",
+              "type": "icon_font",
               "id": "mm5C3",
               "name": "truck1",
               "width": 48,
               "height": 48,
-              "icon": "truck",
-              "library": "lucide",
+              "iconFontName": "truck",
+              "iconFontFamily": "lucide",
               "fill": "#FFFFFF"
             }
           ]
@@ -163,8 +163,7 @@
               "fill": "#718096",
               "content": "Service GmbH",
               "fontFamily": "Inter",
-              "fontSize": 14,
-              "fontWeight": "normal"
+              "fontSize": 14
             },
             {
               "type": "rectangle",
@@ -212,13 +211,13 @@
               "fontWeight": "800"
             },
             {
-              "type": "icon",
+              "type": "icon_font",
               "id": "0D5IX",
               "name": "arrow3",
               "width": 36,
               "height": 36,
-              "icon": "arrow-right",
-              "library": "lucide",
+              "iconFontName": "arrow-right",
+              "iconFontFamily": "lucide",
               "fill": "#F6AD55"
             },
             {
@@ -294,9 +293,11 @@
           "fill": "#1A365D",
           "width": 120,
           "height": 120,
-          "stroke": "#2B6CB0",
-          "strokeWidth": 3,
-          "strokeAlignment": "outer"
+          "stroke": {
+            "align": "outside",
+            "thickness": 3,
+            "fill": "#2B6CB0"
+          }
         },
         {
           "type": "frame",
@@ -352,8 +353,7 @@
           "fill": "#718096",
           "content": "Service GmbH  ·  European Logistics",
           "fontFamily": "Inter",
-          "fontSize": 10,
-          "fontWeight": "normal"
+          "fontSize": 10
         }
       ]
     },
@@ -381,13 +381,13 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "icon",
+              "type": "icon_font",
               "id": "Os4Ng",
               "name": "container5",
               "width": 40,
               "height": 40,
-              "icon": "container",
-              "library": "lucide",
+              "iconFontName": "container",
+              "iconFontFamily": "lucide",
               "fill": "#F6AD55"
             },
             {
@@ -437,8 +437,7 @@
           "fill": "#ffffff99",
           "content": "Ihre Logistiklösung für Europa",
           "fontFamily": "Inter",
-          "fontSize": 11,
-          "fontWeight": "normal"
+          "fontSize": 11
         }
       ]
     },
@@ -461,13 +460,13 @@
       "alignItems": "center",
       "children": [
         {
-          "type": "icon",
+          "type": "icon_font",
           "id": "XP0Et",
           "name": "icon5a",
           "width": 44,
           "height": 44,
-          "icon": "container",
-          "library": "lucide",
+          "iconFontName": "container",
+          "iconFontFamily": "lucide",
           "fill": "#F6AD55"
         },
         {
@@ -570,7 +569,6 @@
           "content": "S E R V I C E   G M B H",
           "fontFamily": "Inter",
           "fontSize": 10,
-          "fontWeight": "normal",
           "letterSpacing": 3
         },
         {
@@ -621,13 +619,13 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "icon",
+              "type": "icon_font",
               "id": "97RWK",
               "name": "truck5c",
               "width": 36,
               "height": 36,
-              "icon": "truck",
-              "library": "lucide",
+              "iconFontName": "truck",
+              "iconFontFamily": "lucide",
               "fill": "#F6AD55"
             },
             {
@@ -655,7 +653,6 @@
                   "content": "SERVICE GMBH",
                   "fontFamily": "Inter",
                   "fontSize": 10,
-                  "fontWeight": "normal",
                   "letterSpacing": 5
                 }
               ]
@@ -811,13 +808,13 @@
           "alignItems": "center",
           "children": [
             {
-              "type": "icon",
+              "type": "icon_font",
               "id": "QurLT",
               "name": "globe5e",
               "width": 38,
               "height": 38,
-              "icon": "globe",
-              "library": "lucide",
+              "iconFontName": "globe",
+              "iconFontFamily": "lucide",
               "fill": "#F6AD55"
             },
             {
@@ -964,6 +961,5 @@
         }
       ]
     }
-  ],
-  "fileToken": "7d31dfda-4260-4b43-bfe1-02b92158995f"
+  ]
 }
