@@ -62,4 +62,46 @@ router.post('/', requirePermission('invoice_template:manage'), async (req, res) 
   }
 })
 
+// 更新模板。前端编辑弹窗一直在调这条，但此前后端根本没有 PUT，
+// 404 被前端的空 catch 吞掉、界面照样显示"保存成功"，刷新即丢
+router.put('/:id', requirePermission('invoice_template:manage'), async (req, res) => {
+  try {
+    const { templateName, clientId, currency, taxRate, autoTrigger, headerInfo, footerInfo } = req.body
+
+    // 只更新请求里显式给出的字段，避免把没传的字段刷成 null
+    const sets = []
+    const params = []
+    let idx = 0
+    const push = (col, val) => { params.push(val); sets.push(`${col} = $${++idx}`) }
+
+    if (templateName !== undefined) push('template_name', templateName)
+    if (clientId !== undefined) push('client_id', clientId || null)
+    if (currency !== undefined) push('currency', currency)
+    if (taxRate !== undefined) push('tax_rate', taxRate)
+    if (autoTrigger !== undefined) push('auto_trigger', autoTrigger)
+    // header_info 是 jsonb、footer_info 是 text，两列处理方式不同：
+    // jsonb 不接受裸文本，纯字符串也要 stringify 成合法 JSON 字面量
+    if (headerInfo !== undefined) push('header_info', JSON.stringify(headerInfo ?? null))
+    if (footerInfo !== undefined) push('footer_info', footerInfo)
+
+    if (sets.length === 0) {
+      return res.status(400).json({ code: 400, message: '没有可更新的字段', data: null })
+    }
+
+    params.push(req.params.id)
+    const result = await query(
+      `UPDATE invoice_templates SET ${sets.join(', ')}, updated_at = NOW()
+       WHERE id = $${++idx} RETURNING *`,
+      params
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '模板不存在', data: null })
+    }
+    res.json({ code: 200, message: '模板已保存', data: result.rows[0] })
+  } catch (error) {
+    console.error('更新发票模板失败:', error)
+    res.status(500).json({ code: 500, message: error.message, data: null })
+  }
+})
+
 export default router

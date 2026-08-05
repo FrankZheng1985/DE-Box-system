@@ -1470,6 +1470,9 @@
     "paidDate": "付款日期"
   },
   "invoiceTemplate": {
+    "empty": "还没有发票模板",
+    "loadFailed": "发票模板加载失败",
+    "saveFailed": "模板保存失败",
     "pageTitle": "发票模板管理",
     "pageSubtitle": "管理发票模板和自动开票规则",
     "sampleStandard": "标准运输发票",

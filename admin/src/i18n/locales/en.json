@@ -1470,6 +1470,9 @@
     "paidDate": "Payment date"
   },
   "invoiceTemplate": {
+    "empty": "No invoice templates yet",
+    "loadFailed": "Failed to load invoice templates",
+    "saveFailed": "Failed to save the template",
     "pageTitle": "Invoice templates",
     "pageSubtitle": "Manage invoice templates and automatic invoicing rules",
     "sampleStandard": "Standard transport invoice",

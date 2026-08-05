@@ -20,18 +20,27 @@ interface FinanceSummary {
   marginPct: string | number
 }
 
+// 对应 GET /finance/receivables|payables 返回行，字段名与 financial_records 一致。
+// 不要加 [key: string]: any —— 正是它让 row.bill_no 这种查无此字段的写法
+// 通过了类型检查，弹窗里的单号一直是空白（踩坑 033）
 interface BillRow {
   id: string
   record_number: string
-  name: string
-  order_number: string
-  order_id: string
+  order_id: string | null
+  order_number: string | null
+  type: 'RECEIVABLE' | 'PAYABLE'
+  counterparty_type: string | null
+  counterparty_id: string | null
+  counterparty_name: string | null
   amount: string | number
+  currency: string
   payment_status: string
-  due_date: string
-  paid_amount: string | number
-  counterparty_name: string
-  [key: string]: any
+  due_date: string | null
+  paid_date: string | null
+  paid_amount: string | number | null
+  auto_generated?: boolean
+  remarks: string | null
+  created_at?: string
 }
 
 // 对应 GET /finance/profit/by-client 返回行；NUMERIC/COUNT 字段是字符串（踩坑 002）
@@ -132,10 +141,10 @@ function BillTable({
           ) : rows.map(r => (
             <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
               <td className="px-4 py-3 text-xs text-slate-900 font-medium">{r.record_number || '-'}</td>
-              <td className="px-4 py-3 text-xs text-slate-600 truncate">{r.name || r.counterparty_name || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-600 truncate">{r.counterparty_name || '-'}</td>
               <td className="px-4 py-3 text-xs text-blue-600 cursor-pointer hover:underline" onClick={() => r.order_id && onView(r)}>{r.order_number || '-'}</td>
               <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{fmt(r.amount)}</td>
-              <td className="px-4 py-3 text-center"><StatusBadge status={r.payment_status || r.status} type="payment" /></td>
+              <td className="px-4 py-3 text-center"><StatusBadge status={r.payment_status} type="payment" /></td>
               <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDate(r.due_date)}</td>
               <td className="px-4 py-3 text-center">
                 <div className="flex items-center justify-center gap-1">
@@ -147,7 +156,7 @@ function BillTable({
                     <Eye className="w-4 h-4" />
                   </button>
                   {/* 记录收款/审核付款 按钮 - 仅未付或部分付款状态显示 */}
-                  {((r.payment_status || r.status) === 'UNPAID' || (r.payment_status || r.status) === 'PARTIAL') && (
+                  {(r.payment_status === 'UNPAID' || r.payment_status === 'PARTIAL') && (
                     <button
                       onClick={() => onPayment(r)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-all duration-200"
@@ -158,7 +167,7 @@ function BillTable({
                     </button>
                   )}
                   {/* 作废按钮 - 仅未付款状态显示 */}
-                  {(r.payment_status || r.status) === 'UNPAID' && (
+                  {r.payment_status === 'UNPAID' && (
                     <button
                       onClick={() => onVoid(r)}
                       className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-all duration-200"
@@ -793,7 +802,7 @@ export default function FinanceManagement() {
           <div className="space-y-4">
             {/* 账单信息概览 */}
             <div className="bg-slate-50 rounded-xl p-3 space-y-1">
-              <p className="text-xs text-slate-500">{t('finance.colBillNo')}: <span className="text-slate-900 font-medium">{paymentModal.row.bill_no}</span></p>
+              <p className="text-xs text-slate-500">{t('finance.colBillNo')}: <span className="text-slate-900 font-medium">{paymentModal.row.record_number}</span></p>
               <p className="text-xs text-slate-500">{t('financeDetail.billAmount')}: <span className="text-slate-900 font-medium">{fmt(paymentModal.row.amount)}</span></p>
             </div>
 
@@ -1041,7 +1050,7 @@ export default function FinanceManagement() {
           <div className="space-y-4">
             <div className="bg-red-50 rounded-xl p-3 border border-red-100">
               <p className="text-sm text-red-700">
-                {t('finance.voidAboutTo')} <span className="font-semibold">{voidModal.row.bill_no}</span>
+                {t('finance.voidAboutTo')} <span className="font-semibold">{voidModal.row.record_number}</span>
                 {t('finance.voidAmountPart')} <span className="font-semibold">{fmt(voidModal.row.amount)}</span>
                 {t('finance.voidIrreversible')}
               </p>

@@ -1470,6 +1470,9 @@
     "paidDate": "Zahlungsdatum"
   },
   "invoiceTemplate": {
+    "empty": "Noch keine Rechnungsvorlagen",
+    "loadFailed": "Rechnungsvorlagen konnten nicht geladen werden",
+    "saveFailed": "Vorlage konnte nicht gespeichert werden",
     "pageTitle": "Rechnungsvorlagen",
     "pageSubtitle": "Rechnungsvorlagen und automatische Fakturierungsregeln verwalten",
     "sampleStandard": "Standard-Transportrechnung",
