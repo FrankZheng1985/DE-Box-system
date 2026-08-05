@@ -15,12 +15,86 @@
  */
 
 import crypto from 'node:crypto'
+import dns from 'node:dns/promises'
+import net from 'node:net'
 import { query } from '../../core/db.js'
 import { getStatusLabel } from '../order/service.js'
 import { getNumberSetting } from '../../utils/settings.js'
 
 // 单轮最多入队/投递多少条，防止一次拉太多
 const BATCH_SIZE = 50
+
+/**
+ * 判断一个 IP 是不是内网/保留地址。
+ * webhook 目标由运营在后台自己填，不加这道校验就等于把「服务器视角的
+ * 任意 HTTP 请求」开放出去：既能探测内网服务，在云上还能读实例元数据
+ * （169.254.169.254），属于 SSRF。
+ */
+function isPrivateAddress(ip) {
+  if (net.isIPv4(ip)) {
+    const p = ip.split('.').map(Number)
+    if (p[0] === 10) return true                              // 10.0.0.0/8
+    if (p[0] === 127) return true                             // 环回
+    if (p[0] === 0) return true                               // 0.0.0.0/8
+    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true // 172.16.0.0/12
+    if (p[0] === 192 && p[1] === 168) return true             // 192.168.0.0/16
+    if (p[0] === 169 && p[1] === 254) return true             // 链路本地 + 云元数据
+    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true // CGNAT 100.64.0.0/10
+    if (p[0] >= 224) return true                              // 组播 / 保留
+    return false
+  }
+  if (net.isIPv6(ip)) {
+    const v = ip.toLowerCase()
+    if (v === '::1' || v === '::') return true
+    if (v.startsWith('fc') || v.startsWith('fd')) return true // 唯一本地地址
+    if (v.startsWith('fe80')) return true                     // 链路本地
+    // IPv4-mapped（::ffff:127.0.0.1 这类）拆出 v4 部分再判一次
+    const m = v.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+    if (m) return isPrivateAddress(m[1])
+    return false
+  }
+  return true // 认不出来的一律当内网拒绝
+}
+
+/**
+ * 校验 webhook 目标地址是否允许出站。
+ * 域名要真解析一次再判，否则攻击者用一个解析到 127.0.0.1 的域名就能绕过。
+ * @returns {Promise<{ok: boolean, reason?: string}>}
+ */
+export async function assertWebhookTargetAllowed(rawUrl) {
+  let url
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    return { ok: false, reason: '地址格式不合法' }
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return { ok: false, reason: '只允许 http/https 地址' }
+  }
+  // 生产强制 https：测试事件带签名密钥信息，明文出站没有意义
+  if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+    return { ok: false, reason: '生产环境的 Webhook 地址必须是 https' }
+  }
+
+  const host = url.hostname.replace(/^\[|\]$/g, '')
+  if (net.isIP(host)) {
+    return isPrivateAddress(host)
+      ? { ok: false, reason: '不允许指向内网或保留地址' }
+      : { ok: true }
+  }
+  // 域名：解析出的每个地址都必须是公网
+  let addrs
+  try {
+    addrs = await dns.lookup(host, { all: true })
+  } catch {
+    return { ok: false, reason: '域名解析失败' }
+  }
+  if (!addrs.length) return { ok: false, reason: '域名解析不到地址' }
+  if (addrs.some((a) => isPrivateAddress(a.address))) {
+    return { ok: false, reason: '该域名解析到内网地址，不允许' }
+  }
+  return { ok: true }
+}
 // 失败退避（分钟）：第 1 次失败后 1 分钟重试，以此类推；数组耗尽即 FAILED
 const RETRY_DELAYS_MIN = [1, 5, 30, 120, 360]
 // 单次 HTTP 投递超时（毫秒）
@@ -206,6 +280,19 @@ export async function sendTestEvent(apiKey) {
   })
 
   const startedAt = Date.now()
+
+  // 出站前先过地址白名单：不校验的话这个接口等于一个 SSRF 探针
+  const allowed = await assertWebhookTargetAllowed(apiKey.webhook_url)
+  if (!allowed.ok) {
+    return {
+      ok: false,
+      statusCode: null,
+      durationMs: Date.now() - startedAt,
+      responseSnippet: null,
+      error: `目标地址不允许：${allowed.reason}`,
+    }
+  }
+
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), DELIVER_TIMEOUT_MS)
@@ -221,13 +308,13 @@ export async function sendTestEvent(apiKey) {
       signal: controller.signal,
     })
     clearTimeout(timer)
-    // 只留一小段应答，够运营判断对方是不是自己的服务即可
-    const text = await res.text().catch(() => '')
+    // 不回显对方响应体：一旦地址被填成内网服务，这段 body 就是把内网
+    // 接口的返回内容读回给调用方（full-read SSRF）。状态码足够判断连通性
     return {
       ok: res.ok,
       statusCode: res.status,
       durationMs: Date.now() - startedAt,
-      responseSnippet: text ? text.slice(0, 200) : null,
+      responseSnippet: null,
       error: res.ok ? null : `对方返回 HTTP ${res.status}`,
     }
   } catch (err) {
@@ -255,6 +342,20 @@ async function deliverOne(row) {
 
   let statusCode = null
   let errMsg = null
+
+  // 正式投递同样要过白名单：地址可能是在这道校验加上之前就存进库的。
+  // 地址本身不合法，重试多少次都一样，直接判 FAILED 不进退避队列
+  const allowed = await assertWebhookTargetAllowed(row.webhook_url)
+  if (!allowed.ok) {
+    await query(
+      `UPDATE api_webhook_deliveries
+       SET status = 'FAILED', attempts = $1, last_status_code = NULL, last_error = $2
+       WHERE id = $3`,
+      [row.attempts + 1, `目标地址不允许：${allowed.reason}`, row.id]
+    )
+    return false
+  }
+
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), DELIVER_TIMEOUT_MS)

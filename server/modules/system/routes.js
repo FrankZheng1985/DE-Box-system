@@ -130,7 +130,12 @@ function resolveCompanyScope(req) {
   return { ...cfg, id: req.user.linkedEntityId }
 }
 
-router.get('/settings/company', async (req, res) => {
+// 公司资料含承运商的 bank_name / bank_account（结算打款字段），
+// 此前只挂 authenticate，任何绑定了公司的门户账号都能改，权限码形同虚设。
+// 挂上后 carrier_driver 这类低权限角色被挡在外面（见迁移 121）
+const COMPANY_SETTINGS_PERMS = ['system:settings', 'portal:company_settings', 'carrier_portal:company_settings']
+
+router.get('/settings/company', requirePermission(...COMPANY_SETTINGS_PERMS), async (req, res) => {
   try {
     const scope = resolveCompanyScope(req)
     if (!scope) {
@@ -149,7 +154,7 @@ router.get('/settings/company', async (req, res) => {
   }
 })
 
-router.put('/settings/company', async (req, res) => {
+router.put('/settings/company', requirePermission(...COMPANY_SETTINGS_PERMS), async (req, res) => {
   try {
     const scope = resolveCompanyScope(req)
     if (!scope) {

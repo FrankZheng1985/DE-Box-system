@@ -6,20 +6,50 @@
 import { Router } from 'express'
 import { query } from '../../core/db.js'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
+import { rateLimiter } from '../../middleware/security.js'
 import { sendEmail } from '../../utils/email-service.js'
 
 const router = Router()
 
 /**
+ * HTML 实体转义。
+ *
+ * 通知邮件模板把 name / email / message 直接内插进 HTML，全都是访客可控的
+ * 免登录输入。尤其 email 落在 href="mailto:${email}" 里，一个 `">` 就能闭合
+ * 属性注入任意标签，运营打开邮件时由其邮件客户端渲染（钓鱼链接、追踪像素）。
+ */
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// 免登录写入，给个上限防止有人拿超长正文灌库
+const MAX_LEN = { name: 100, email: 200, phone: 50, message: 5000 }
+
+/**
  * 提交咨询（公开接口，不需要登录）
  * POST /api/v1/contact
  */
-router.post('/', async (req, res) => {
+// 只给这条免登录写入限流：同前缀下的管理端查询是运营在用，限了会误伤翻页
+router.post('/', rateLimiter(5, 60000), async (req, res) => {
   try {
     const { name, email, phone, message } = req.body
 
     if (!name || !email || !message) {
       return res.status(400).json({ code: 400, message: '姓名、邮箱和留言不能为空', data: null })
+    }
+    for (const [field, max] of Object.entries(MAX_LEN)) {
+      if (req.body[field] && String(req.body[field]).length > max) {
+        return res.status(400).json({ code: 400, message: `${field} 超出长度上限（${max}）`, data: null })
+      }
+    }
+    // 邮箱要能进 mailto:，格式先卡一道
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return res.status(400).json({ code: 400, message: '邮箱格式不正确', data: null })
     }
 
     // 存入数据库
@@ -43,10 +73,10 @@ router.post('/', async (req, res) => {
             </div>
             <div style="background:#fff;padding:30px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px">
               <table style="width:100%;border-collapse:collapse;font-size:14px">
-                <tr><td style="padding:8px 0;color:#718096;width:80px">姓名</td><td style="padding:8px 0;font-weight:600">${name}</td></tr>
-                <tr><td style="padding:8px 0;color:#718096">邮箱</td><td style="padding:8px 0"><a href="mailto:${email}" style="color:#2B6CB0">${email}</a></td></tr>
-                ${phone ? `<tr><td style="padding:8px 0;color:#718096">电话</td><td style="padding:8px 0">${phone}</td></tr>` : ''}
-                <tr><td style="padding:8px 0;color:#718096;vertical-align:top">留言</td><td style="padding:8px 0">${message.replace(/\n/g, '<br>')}</td></tr>
+                <tr><td style="padding:8px 0;color:#718096;width:80px">姓名</td><td style="padding:8px 0;font-weight:600">${escapeHtml(name)}</td></tr>
+                <tr><td style="padding:8px 0;color:#718096">邮箱</td><td style="padding:8px 0"><a href="mailto:${encodeURIComponent(email)}" style="color:#2B6CB0">${escapeHtml(email)}</a></td></tr>
+                ${phone ? `<tr><td style="padding:8px 0;color:#718096">电话</td><td style="padding:8px 0">${escapeHtml(phone)}</td></tr>` : ''}
+                <tr><td style="padding:8px 0;color:#718096;vertical-align:top">留言</td><td style="padding:8px 0">${escapeHtml(message).replace(/\n/g, '<br>')}</td></tr>
               </table>
               <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#a0aec0">
                 提交时间：${new Date().toLocaleString('zh-CN', { timeZone: 'Europe/Berlin' })}<br>

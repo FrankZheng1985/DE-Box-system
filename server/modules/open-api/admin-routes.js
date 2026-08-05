@@ -16,7 +16,7 @@ import { authenticateToken, requireUserType, requirePermission } from '../../mid
 import { query } from '../../core/db.js'
 import crypto from 'node:crypto'
 import { generateKey, hashKey } from './service.js'
-import { sendTestEvent } from './webhook-service.js'
+import { sendTestEvent, assertWebhookTargetAllowed } from './webhook-service.js'
 
 const router = Router()
 router.use(authenticateToken)
@@ -226,7 +226,16 @@ router.put('/keys/:id', async (req, res) => {
         if (!/^https?:\/\/.+/.test(url) || url.length > 500) {
           return res.status(400).json({ code: 400, message: 'Webhook 地址必须是 http(s) URL 且不超过 500 字符', data: null })
         }
-        // 生产合作方务必用 https，本地联调允许 http
+        // 存之前就挡掉内网/元数据地址（生产还要求 https），别等到投递时才发现
+        const allowed = await assertWebhookTargetAllowed(url)
+        if (!allowed.ok) {
+          return res.status(400).json({
+            code: 400,
+            message: `Webhook 地址不可用：${allowed.reason}`,
+            messageCode: 'WEBHOOK_URL_NOT_ALLOWED',
+            data: null,
+          })
+        }
         params.push(url)
         needSecret = true
       } else {

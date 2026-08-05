@@ -246,7 +246,9 @@ router.delete('/files/:fileId', requireUserType('OPERATOR'), requirePermission('
 router.get('/stats', requireUserType('OPERATOR'), requirePermission('order:view'), orderController.getStats)
 
 // Excel 导出（放在 /:id 前面，避免被匹配为 id）
-router.get('/export', requirePermission('order:export'), async (req, res) => {
+// 导出走的是全量 SQL（含 client_price / carrier_cost），且不按登录方收窄，
+// 所以必须和 /stats 一样先挡住门户身份，不能只靠"门户角色恰好没配这个权限码"
+router.get('/export', requireUserType('OPERATOR'), requirePermission('order:export'), async (req, res) => {
   // Excel 表头按请求语言渲染（P9）
   const lang = resolveLang(req)
   try {
