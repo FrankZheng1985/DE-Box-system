@@ -17,14 +17,21 @@ import {
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
-import { formatMoney } from '../utils/format'
+import { formatMoney, formatDate, formatDateTime } from '../utils/format'
+import { getBusinessTypeLabel } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
 interface PricingItem {
-  name: string
+  description: string
   amount: number
   currency: string
+}
+
+/** 路线是 JSONB，存 { country, city } */
+interface RouteAddress {
+  country?: string
+  city?: string
 }
 
 interface Quotation {
@@ -34,8 +41,8 @@ interface Quotation {
   status: string
   business_type: string
   transport_type: string
-  route_from: string
-  route_to: string
+  route_from: RouteAddress | null
+  route_to: RouteAddress | null
   base_freight: number
   surcharge: number
   insurance_fee: number
@@ -47,6 +54,12 @@ interface Quotation {
   pricingItems?: PricingItem[]
   created_at?: string
   updated_at?: string
+}
+
+/** 把 JSONB 地址拼成 "DE München"，与 QuotationManagement 的 routeText 口径一致 */
+function addressText(a: RouteAddress | null): string {
+  if (!a) return '-'
+  return [a.country, a.city].filter(Boolean).join(' ') || '-'
 }
 
 // ==================== 骨架屏 ====================
@@ -168,9 +181,9 @@ export default function QuotationDetail() {
             </h2>
             <div className="space-y-0">
               <InfoRow label={t('common.client')} value={quotation.client_name} />
-              <InfoRow label={t('field.businessType')} value={quotation.business_type} />
+              <InfoRow label={t('field.businessType')} value={getBusinessTypeLabel(t, quotation.business_type)} />
               <InfoRow label={t('field.transportType')} value={quotation.transport_type} />
-              <InfoRow label={t('quotation.colValidUntil')} value={quotation.valid_until} />
+              <InfoRow label={t('quotation.colValidUntil')} value={formatDate(quotation.valid_until)} />
               <InfoRow label={t('quotation.colVersion')} value={`V${quotation.version || 1}`} />
             </div>
           </div>
@@ -184,12 +197,12 @@ export default function QuotationDetail() {
             <div className="flex items-center gap-4">
               <div className="flex-1 bg-green-50 rounded-xl px-4 py-3 text-center">
                 <p className="text-xs text-green-600 mb-1">{t('orderAssign.origin')}</p>
-                <p className="text-sm font-medium text-slate-800">{quotation.route_from || '-'}</p>
+                <p className="text-sm font-medium text-slate-800">{addressText(quotation.route_from)}</p>
               </div>
               <span className="text-slate-300 text-lg">&rarr;</span>
               <div className="flex-1 bg-red-50 rounded-xl px-4 py-3 text-center">
                 <p className="text-xs text-red-500 mb-1">{t('orderAssign.destination')}</p>
-                <p className="text-sm font-medium text-slate-800">{quotation.route_to || '-'}</p>
+                <p className="text-sm font-medium text-slate-800">{addressText(quotation.route_to)}</p>
               </div>
             </div>
           </div>
@@ -216,7 +229,7 @@ export default function QuotationDetail() {
               {/* 自定义定价项 */}
               {quotation.pricingItems?.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between py-2">
-                  <span className="text-sm text-slate-500">{item.name}</span>
+                  <span className="text-sm text-slate-500">{item.description}</span>
                   <span className="text-sm text-slate-700">{formatMoney(item.amount, quotation.currency)}</span>
                 </div>
               ))}
@@ -260,13 +273,13 @@ export default function QuotationDetail() {
                   <p className="text-xs text-slate-400">{t('quotation.colValidity')}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-sm text-slate-700">{quotation.valid_until || '-'}</span>
+                    <span className="text-sm text-slate-700">{formatDate(quotation.valid_until)}</span>
                   </div>
                 </div>
                 {quotation.created_at && (
                   <div>
                     <p className="text-xs text-slate-400">{t('common.createdAt')}</p>
-                    <p className="text-sm text-slate-700 mt-1">{quotation.created_at}</p>
+                    <p className="text-sm text-slate-700 mt-1">{formatDateTime(quotation.created_at)}</p>
                   </div>
                 )}
               </div>
