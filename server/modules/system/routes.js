@@ -131,11 +131,16 @@ function resolveCompanyScope(req) {
 }
 
 // 公司资料含承运商的 bank_name / bank_account（结算打款字段），
-// 此前只挂 authenticate，任何绑定了公司的门户账号都能改，权限码形同虚设。
-// 挂上后 carrier_driver 这类低权限角色被挡在外面（见迁移 121）
+// 此前 GET/PUT 都只挂 authenticate，任何绑定了公司的门户账号都能改，权限码形同虚设。
+//
+// 只给 PUT 挂权限码，GET 不挂：
+//   - 读本公司资料本来就是员工的正常需求（客户门户设置页对全员可见，
+//     普通成员 client_user 没有这个权限码，GET 一挂上公司名/地址就会变空白），
+//     而且 resolveCompanyScope 只认 JWT 的 linkedEntityId，读也只能读到自己公司
+//   - 写才是风险面：carrier_driver 这类低权限角色不该能改银行账号（见迁移 121）
 const COMPANY_SETTINGS_PERMS = ['system:settings', 'portal:company_settings', 'carrier_portal:company_settings']
 
-router.get('/settings/company', requirePermission(...COMPANY_SETTINGS_PERMS), async (req, res) => {
+router.get('/settings/company', async (req, res) => {
   try {
     const scope = resolveCompanyScope(req)
     if (!scope) {
