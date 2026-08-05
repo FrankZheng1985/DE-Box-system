@@ -222,7 +222,8 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
 router.post('/records', requireUserType('OPERATOR'), requirePermission('finance:create'), async (req, res) => {
   try {
     const record = await withTransaction(async (client) => {
-      const { type, counterpartyType, counterpartyId, orderId, amount, currency, dueDate, remarks } = req.body
+      const { type, orderId, amount, currency, dueDate, remarks } = req.body
+      let { counterpartyType, counterpartyId } = req.body
       const docType = type === 'RECEIVABLE' ? 'FI_AR' : 'FI_AP'
       const companyCode = 'DE01'
 
@@ -233,15 +234,40 @@ router.post('/records', requireUserType('OPERATOR'), requirePermission('finance:
 
       let businessType = 'ALL'
       if (orderId) {
-        const order = await client.query(`SELECT business_type, document_id FROM orders WHERE id = $1`, [orderId])
+        const order = await client.query(
+          `SELECT business_type, document_id, client_id, carrier_id FROM orders WHERE id = $1`, [orderId])
         if (order.rows[0]) {
-          businessType = order.rows[0].business_type
+          const o = order.rows[0]
+          businessType = o.business_type
+          // 对手方没显式传就按订单推：应收对客户、应付对承运商。
+          // 这两列是 financial_records 的非空列，缺了会在 INSERT 时炸成 500
+          if (!counterpartyId) {
+            if (type === 'RECEIVABLE') {
+              counterpartyType = 'CLIENT'
+              counterpartyId = o.client_id
+            } else {
+              counterpartyType = 'CARRIER'
+              counterpartyId = o.carrier_id
+            }
+          }
           await documentFlow.createFlowLink(client, {
-            precedingDocType: 'ORD', precedingDocId: order.rows[0].document_id,
+            precedingDocType: 'ORD', precedingDocId: o.document_id,
             subsequentDocType: docType, subsequentDocId: doc.id,
             flowType: `ORDER_TO_${docType}`, amount, currency
           })
         }
+      }
+
+      // 推导不出来就明确告诉调用方缺什么，别让它撞非空约束报一句看不懂的 500
+      if (!counterpartyId) {
+        const err = new Error(
+          type === 'PAYABLE'
+            ? '缺少对手方：该订单还没有指派承运商，无法创建应付'
+            : '缺少对手方：请选择关联订单，或直接指定 counterpartyType 与 counterpartyId'
+        )
+        err.statusCode = 400
+        err.messageCode = 'FI_COUNTERPARTY_REQUIRED'
+        throw err
       }
 
       await accountDetermination.createJournalEntries(client, {
@@ -264,7 +290,8 @@ router.post('/records', requireUserType('OPERATOR'), requirePermission('finance:
     res.json({ code: 200, message: '财务记录创建成功', data: record })
   } catch (error) {
     console.error('创建财务记录失败:', error)
-    res.status(500).json({ code: 500, message: error.message, data: null })
+    const status = error.statusCode || 500
+    res.status(status).json({ code: status, message: error.message, messageCode: error.messageCode, data: null })
   }
 })
 

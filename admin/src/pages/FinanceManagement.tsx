@@ -58,12 +58,11 @@ interface PaymentForm {
 // 创建财务记录表单
 interface CreateRecordForm {
   type: 'RECEIVABLE' | 'PAYABLE'
+  // 存订单 UUID（order_id 是 uuid 列），界面上显示的是订单号
   orderId: string
   amount: string
   currency: string
   dueDate: string
-  counterpartyType: string
-  counterpartyId: string
   remarks: string
 }
 
@@ -85,7 +84,7 @@ const TABS = [
 const INITIAL_PAYMENT_FORM: PaymentForm = { amount: '', paymentDate: '', remarks: '' }
 const INITIAL_CREATE_FORM: CreateRecordForm = {
   type: 'RECEIVABLE', orderId: '', amount: '', currency: 'EUR',
-  dueDate: '', counterpartyType: '', counterpartyId: '', remarks: '',
+  dueDate: '', remarks: '',
 }
 const INITIAL_VOID_FORM: VoidForm = { reason: '' }
 
@@ -363,6 +362,37 @@ export default function FinanceManagement() {
   const [createModal, setCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState<CreateRecordForm>(INITIAL_CREATE_FORM)
   const [createSubmitting, setCreateSubmitting] = useState(false)
+  // 提交失败就地显示在弹窗里：只发会自动消失的 toast 的话，
+  // 用户看到的就是"点了没反应"（弹窗不关、列表不变）
+  const [createError, setCreateError] = useState('')
+  // 关联订单搜索选择器（同 CMR 上传弹窗的做法）
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderOptions, setOrderOptions] = useState<{ id: string; order_number: string; client_name: string }[]>([])
+  const [orderSearching, setOrderSearching] = useState(false)
+  const [selectedOrderLabel, setSelectedOrderLabel] = useState('')
+
+  // 订单搜索防抖
+  useEffect(() => {
+    if (!orderSearch.trim() || createForm.orderId) {
+      setOrderOptions([])
+      return
+    }
+    const timer = setTimeout(async () => {
+      setOrderSearching(true)
+      try {
+        const res = await api.get<ApiResponse<{ id: string; order_number: string; client_name: string }[]>>(
+          `/orders?search=${encodeURIComponent(orderSearch.trim())}&pageSize=8`
+        )
+        setOrderOptions(res.data || [])
+      } catch (err) {
+        console.error('搜索订单失败:', err)
+        setOrderOptions([])
+      } finally {
+        setOrderSearching(false)
+      }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [orderSearch, createForm.orderId])
 
   // 作废弹窗
   const [voidModal, setVoidModal] = useState<{ open: boolean; row: BillRow | null }>({ open: false, row: null })
@@ -463,16 +493,34 @@ export default function FinanceManagement() {
 
   const openCreateModal = (type: 'RECEIVABLE' | 'PAYABLE') => {
     setCreateForm({ ...INITIAL_CREATE_FORM, type })
+    setCreateError('')
+    setOrderSearch('')
+    setOrderOptions([])
+    setSelectedOrderLabel('')
     setCreateModal(true)
   }
 
+  const closeCreateModal = () => {
+    setCreateModal(false)
+    setCreateError('')
+    setOrderSearch('')
+    setOrderOptions([])
+    setSelectedOrderLabel('')
+  }
+
   const handleCreateRecord = async () => {
+    setCreateError('')
+    // 对手方由后端按订单推导（应收对客户、应付对承运商），所以订单是必填的
+    if (!createForm.orderId) {
+      setCreateError(t('finance.errOrderRequired'))
+      return
+    }
     if (!createForm.amount || Number(createForm.amount) <= 0) {
-      setToast({ type: 'error', message: t('finance.errAmount') })
+      setCreateError(t('finance.errAmount'))
       return
     }
     if (!createForm.dueDate) {
-      setToast({ type: 'error', message: t('finance.errDueDate') })
+      setCreateError(t('finance.errDueDate'))
       return
     }
 
@@ -480,28 +528,31 @@ export default function FinanceManagement() {
     try {
       const payload = {
         type: createForm.type,
-        orderId: createForm.orderId.trim() || undefined,
+        orderId: createForm.orderId,
         amount: Number(createForm.amount),
         currency: createForm.currency || 'EUR',
         dueDate: createForm.dueDate,
-        counterpartyType: createForm.counterpartyType.trim() || undefined,
-        counterpartyId: createForm.counterpartyId.trim() || undefined,
         remarks: createForm.remarks.trim() || undefined,
       }
-      await api.post<ApiResponse<unknown>>('/finance/records', payload)
+      const res = await api.post<ApiResponse<unknown>>('/finance/records', payload)
+      // api 客户端对非 2xx 会抛异常，这里再兜一道业务码，避免失败被当成功
+      if (res.code !== 200 && res.code !== 201) {
+        setCreateError(res.message || t('finance.createFailed'))
+        return
+      }
       setToast({
         type: 'success',
         message: t('finance.recordCreated', {
           type: createForm.type === 'RECEIVABLE' ? t('finance.arShort') : t('finance.apShort'),
         }),
       })
-      setCreateModal(false)
+      closeCreateModal()
       loadData()
       // 刷新汇总
       api.get<ApiResponse<FinanceSummary>>('/finance/summary')
         .then(res => { if (res.code === 200) setSummary(res.data) })
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.message || t('finance.createFailed') })
+      setCreateError(err?.message || t('finance.createFailed'))
     } finally {
       setCreateSubmitting(false)
     }
@@ -792,7 +843,7 @@ export default function FinanceManagement() {
       {/* ==================== 创建财务记录弹窗 ==================== */}
       <Modal
         isOpen={createModal}
-        onClose={() => setCreateModal(false)}
+        onClose={closeCreateModal}
         title={t('finance.createRecordTitle', {
           type: createForm.type === 'RECEIVABLE' ? t('finance.arShort') : t('finance.apShort'),
         })}
@@ -800,7 +851,7 @@ export default function FinanceManagement() {
         footer={
           <div className="flex items-center justify-end gap-3">
             <button
-              onClick={() => setCreateModal(false)}
+              onClick={closeCreateModal}
               className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all duration-200"
             >
               {t('common.cancel')}
@@ -816,6 +867,13 @@ export default function FinanceManagement() {
         }
       >
         <div className="space-y-4">
+          {/* 失败原因就地显示，不靠会自动消失的 toast */}
+          {createError && (
+            <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-600">{createError}</p>
+            </div>
+          )}
+
           {/* 类型切换 */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('common.type')}</label>
@@ -839,16 +897,62 @@ export default function FinanceManagement() {
             </div>
           </div>
 
-          {/* 关联订单 */}
+          {/* 关联订单：搜索选择，提交的是订单 UUID（order_id 是 uuid 列，填订单号会 500） */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">{t('finance.orderNoLabel')}</label>
-            <input
-              type="text"
-              value={createForm.orderId}
-              onChange={e => setCreateForm(prev => ({ ...prev, orderId: e.target.value }))}
-              placeholder={t('finance.orderNoPlaceholder')}
-              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
-            />
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {t('finance.orderNoLabel')} <span className="text-red-500">*</span>
+            </label>
+            {selectedOrderLabel ? (
+              <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl">
+                <span className="text-sm text-blue-700">{selectedOrderLabel}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateForm(prev => ({ ...prev, orderId: '' }))
+                    setSelectedOrderLabel('')
+                    setOrderSearch('')
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 transition-all duration-200"
+                >
+                  {t('finance.reselectOrder')}
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  placeholder={t('finance.orderSearchPlaceholder')}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+                />
+                {orderSearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+                {orderOptions.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {orderOptions.map(o => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => {
+                          setCreateForm(prev => ({ ...prev, orderId: o.id }))
+                          setSelectedOrderLabel(`${o.order_number}${o.client_name ? ` · ${o.client_name}` : ''}`)
+                          setOrderOptions([])
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 transition-all duration-200"
+                      >
+                        <span className="text-slate-800">{o.order_number}</span>
+                        {o.client_name && <span className="text-slate-400 ml-2">{o.client_name}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mt-1">{t('finance.orderPickHint')}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
