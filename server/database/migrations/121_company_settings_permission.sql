@@ -9,10 +9,14 @@
 -- 本迁移是 additive 的：只新增一个权限码 + 给 client_admin 授权，
 -- 不改表结构、不动任何业务数据。
 --
--- 配套代码改动：system/routes.js 的 /settings/company 两个端点挂上
+-- 配套代码改动：system/routes.js 里 **只给 PUT /settings/company** 挂上
 --   requirePermission('system:settings', 'portal:company_settings', 'carrier_portal:company_settings')
--- 挂上后：运营、客户管理员、承运商管理员照常可用；
---         carrier_driver（不含该权限码）被挡在银行字段之外。
+-- GET 不挂 —— 客户门户设置页对全员可见，普通成员角色 client_user 没有这个
+-- 权限码，GET 一挂上页面里公司名/地址/联系人就会变成空白；而且读也只能读到
+-- 自己公司（resolveCompanyScope 只认 JWT 的 linkedEntityId），风险面在写不在读。
+--
+-- 效果：运营 / 客户管理员 / 承运商管理员照常可改；
+--       carrier_driver、client_user 能看不能改，被挡在银行字段之外。
 
 -- 1) 新增客户门户的公司资料权限码
 --    （承运商侧的 carrier_portal:company_settings 早已存在，无需重复插入）
