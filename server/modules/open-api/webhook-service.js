@@ -24,6 +24,15 @@ import { getNumberSetting } from '../../utils/settings.js'
 // 单轮最多入队/投递多少条，防止一次拉太多
 const BATCH_SIZE = 50
 
+// 失败退避（分钟）：第 1 次失败后 1 分钟重试，以此类推；数组耗尽即 FAILED
+const RETRY_DELAYS_MIN = [1, 5, 30, 120, 360]
+// 单次 HTTP 投递超时（毫秒）
+const DELIVER_TIMEOUT_MS = 10_000
+// 领取后超过这个分钟数仍无结果的投递，视为进程中途挂掉，放回队列
+const STUCK_MINUTES = 10
+// 扫描游标回看重叠（秒）：两实例游标写入有竞态，靠回看+去重保证不漏
+const CURSOR_OVERLAP_SEC = 120
+
 /**
  * 判断一个 IP 是不是内网/保留地址。
  * webhook 目标由运营在后台自己填，不加这道校验就等于把「服务器视角的
@@ -47,10 +56,21 @@ function isPrivateAddress(ip) {
     const v = ip.toLowerCase()
     if (v === '::1' || v === '::') return true
     if (v.startsWith('fc') || v.startsWith('fd')) return true // 唯一本地地址
-    if (v.startsWith('fe80')) return true                     // 链路本地
-    // IPv4-mapped（::ffff:127.0.0.1 这类）拆出 v4 部分再判一次
-    const m = v.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-    if (m) return isPrivateAddress(m[1])
+    // 链路本地是 fe80::/10，即 fe80–febf 开头，不只是 fe80
+    if (/^fe[89ab]/.test(v)) return true
+
+    // IPv4-mapped：两种写法都要认。
+    // ⚠️ new URL() 会把 ::ffff:127.0.0.1 规范化成十六进制的 ::ffff:7f00:1，
+    //    只匹配点分十进制会漏掉，环回地址就这么被放行过
+    const dotted = v.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/)
+    if (dotted) return isPrivateAddress(dotted[1])
+    const hex = v.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+    if (hex) {
+      const hi = parseInt(hex[1], 16)
+      const lo = parseInt(hex[2], 16)
+      const v4 = [(hi >> 8) & 255, hi & 255, (lo >> 8) & 255, lo & 255].join('.')
+      return isPrivateAddress(v4)
+    }
     return false
   }
   return true // 认不出来的一律当内网拒绝
@@ -59,6 +79,13 @@ function isPrivateAddress(ip) {
 /**
  * 校验 webhook 目标地址是否允许出站。
  * 域名要真解析一次再判，否则攻击者用一个解析到 127.0.0.1 的域名就能绕过。
+ *
+ * ⚠️ 已知局限：这里解析一次、fetch 时还会再解析一次，两次之间 DNS 记录被换掉
+ * 仍可绕过（DNS rebinding / TOCTOU）。要彻底堵住得在连接层校验实际连上的 IP
+ * （自定义 agent 的 lookup 钩子）。当前威胁模型是「运营权限内的 SSRF」，
+ * 直填内网 IP 和固定解析到内网的域名都已挡住，rebinding 的门槛高得多，
+ * 暂按已知风险保留 —— 后面要收紧的话从这里入手。
+ *
  * @returns {Promise<{ok: boolean, reason?: string}>}
  */
 export async function assertWebhookTargetAllowed(rawUrl) {
@@ -95,14 +122,6 @@ export async function assertWebhookTargetAllowed(rawUrl) {
   }
   return { ok: true }
 }
-// 失败退避（分钟）：第 1 次失败后 1 分钟重试，以此类推；数组耗尽即 FAILED
-const RETRY_DELAYS_MIN = [1, 5, 30, 120, 360]
-// 单次 HTTP 投递超时（毫秒）
-const DELIVER_TIMEOUT_MS = 10_000
-// 领取后超过这个分钟数仍无结果的投递，视为进程中途挂掉，放回队列
-const STUCK_MINUTES = 10
-// 扫描游标回看重叠（秒）：两实例游标写入有竞态，靠回看+去重保证不漏
-const CURSOR_OVERLAP_SEC = 120
 
 // ==================== 游标（system_settings） ====================
 
