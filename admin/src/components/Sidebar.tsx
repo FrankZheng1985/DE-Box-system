@@ -96,9 +96,18 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <BrandMark className="w-5 h-5" />
           </div>
           {!collapsed && (
-            <div className="whitespace-nowrap">
-              <h1 className="text-sm font-bold text-slate-900">KALUNA SPED</h1>
-              <p className="text-xs text-slate-400">{t('app.systemName')} {t('app.version')}</p>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-slate-900 whitespace-nowrap">KALUNA SPED</h1>
+              {/* 副标题按语言长短自适应：德语 "Europäisches Transportmanagementsystem V2"
+                  比中文长一倍多，原来 whitespace-nowrap + 父级 overflow-hidden
+                  会把它硬切掉一半（英语同样中招，中文正好放得下所以没暴露）。
+                  这里允许换行并截到两行，配 title 供悬停查看完整文案 */}
+              <p
+                className="text-xs text-slate-400 leading-tight line-clamp-2"
+                title={`${t('app.systemName')} ${t('app.version')}`}
+              >
+                {t('app.systemName')} {t('app.version')}
+              </p>
             </div>
           )}
         </div>

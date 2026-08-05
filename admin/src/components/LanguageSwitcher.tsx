@@ -38,7 +38,10 @@ export default function LanguageSwitcher({ className = '' }: LanguageSwitcherPro
         onChange={(e) => handleChange(e.target.value)}
         aria-label={t('language.switchLabel')}
         title={t('language.switchLabel')}
-        className="w-full appearance-none pl-9 pr-8 py-2 text-sm rounded-xl border border-slate-200
+        /* min-w 保证最长的 "Deutsch" 能完整显示：左右内边距要留给地球图标和箭头，
+           实测可用文字宽只有 49px 而 "Deutsch" 需要 50px，差 1px 就被切成 "Deutscl"。
+           按规范用 min-width 撑开，不依赖外部传进来的固定宽度 */
+        className="w-full min-w-[9rem] appearance-none pl-9 pr-8 py-2 text-sm rounded-xl border border-slate-200
           bg-white text-slate-700 cursor-pointer
           focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500
           transition-all duration-200 ease-in-out"

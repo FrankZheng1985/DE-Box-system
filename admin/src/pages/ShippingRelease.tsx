@@ -3,6 +3,7 @@ import {
   Ship, Search, Eye, ChevronLeft, ChevronRight,
   CheckCircle, Mail, Send, Clock, Ban, RefreshCw,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
@@ -73,6 +74,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 
 export default function ShippingRelease() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<ShippingReleaseItem[]>([])
   const [stats, setStats] = useState<ReleaseStats>({ not_required: 0, original_pending: 0, original_sent: 0, pending_release: 0, released: 0 })
@@ -288,7 +290,13 @@ export default function ShippingRelease() {
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDate(item.updated_at)}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title={t('common.view')}>
+                        {/* 放单信息挂在订单上，查看即跳订单详情（原来这个按钮没有 onClick） */}
+                        <button
+                          onClick={() => item.order_id && navigate(`/orders/${item.order_id}`)}
+                          disabled={!item.order_id}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={t('common.view')}
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button

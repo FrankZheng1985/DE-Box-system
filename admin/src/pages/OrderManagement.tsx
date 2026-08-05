@@ -499,15 +499,24 @@ export default function OrderManagement() {
     return (
       <table className="w-full table-fixed">
         <colgroup>
-          <col className="w-[12%]" />  {/* 订单号 */}
-          <col className="w-[12%]" />  {/* 客户 */}
-          <col className="w-[16%]" />  {/* 路线 */}
-          <col className="w-[10%]" />  {/* 状态 */}
-          <col className="w-[8%]" />   {/* 类型 */}
-          <col className="w-[10%]" />  {/* 重量 */}
-          <col className="w-[12%]" />  {/* 承运商 */}
-          <col className="w-[10%]" />  {/* 报价 */}
-          <col className="w-[10%]" />  {/* 操作 */}
+          {/* 订单号 */}
+          <col className="w-[12%]" />
+          {/* 客户 */}
+          <col className="w-[12%]" />
+          {/* 路线 */}
+          <col className="w-[16%]" />
+          {/* 状态 */}
+          <col className="w-[10%]" />
+          {/* 类型 */}
+          <col className="w-[8%]" />
+          {/* 重量 */}
+          <col className="w-[10%]" />
+          {/* 承运商 */}
+          <col className="w-[12%]" />
+          {/* 报价 */}
+          <col className="w-[10%]" />
+          {/* 操作 */}
+          <col className="w-[10%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">
@@ -632,16 +641,26 @@ export default function OrderManagement() {
     return (
       <table className="w-full table-fixed">
         <colgroup>
-          <col className="w-[10%]" />  {/* 订单号 */}
-          <col className="w-[10%]" />  {/* 客户 */}
-          <col className="w-[10%]" />  {/* 船司 */}
-          <col className="w-[11%]" />  {/* 柜号 */}
-          <col className="w-[12%]" />  {/* 提单号 */}
-          <col className="w-[10%]" />  {/* 目的地 */}
-          <col className="w-[10%]" />  {/* 派送状态 */}
-          <col className="w-[10%]" />  {/* 放单状态 */}
-          <col className="w-[9%]" />   {/* ETA */}
-          <col className="w-[8%]" />   {/* 操作 */}
+          {/* 订单号 */}
+          <col className="w-[10%]" />
+          {/* 客户 */}
+          <col className="w-[10%]" />
+          {/* 船司 */}
+          <col className="w-[10%]" />
+          {/* 柜号 */}
+          <col className="w-[11%]" />
+          {/* 提单号 */}
+          <col className="w-[12%]" />
+          {/* 目的地 */}
+          <col className="w-[10%]" />
+          {/* 派送状态 */}
+          <col className="w-[10%]" />
+          {/* 放单状态 */}
+          <col className="w-[10%]" />
+          {/* ETA */}
+          <col className="w-[9%]" />
+          {/* 操作 */}
+          <col className="w-[8%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">
@@ -759,14 +778,22 @@ export default function OrderManagement() {
     return (
       <table className="w-full table-fixed">
         <colgroup>
-          <col className="w-[13%]" />  {/* 订单号 */}
-          <col className="w-[13%]" />  {/* 客户 */}
-          <col className="w-[17%]" />  {/* 路线 */}
-          <col className="w-[10%]" />  {/* 状态 */}
-          <col className="w-[16%]" />  {/* 跟踪号 */}
-          <col className="w-[10%]" />  {/* 报价 */}
-          <col className="w-[11%]" />  {/* 创建日期 */}
-          <col className="w-[10%]" />  {/* 操作 */}
+          {/* 订单号 */}
+          <col className="w-[13%]" />
+          {/* 客户 */}
+          <col className="w-[13%]" />
+          {/* 路线 */}
+          <col className="w-[17%]" />
+          {/* 状态 */}
+          <col className="w-[10%]" />
+          {/* 跟踪号 */}
+          <col className="w-[16%]" />
+          {/* 报价 */}
+          <col className="w-[10%]" />
+          {/* 创建日期 */}
+          <col className="w-[11%]" />
+          {/* 操作 */}
+          <col className="w-[10%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">

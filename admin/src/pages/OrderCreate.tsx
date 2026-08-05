@@ -286,14 +286,14 @@ export default function OrderCreate() {
   const [success, setSuccess] = useState(false)
 
   // 生成预估订单号（前端展示用）
+  // 前缀跟着后端编号范围走：number_ranges 里 ORD 只有一条规则、前缀 EU-，
+  // 三种业务类型共用同一个号段。此前前端硬编码 CS/CT/LD，用户在创建页记下的
+  // 单号到列表里根本搜不到，容易误判成丢单
   const estimatedOrderNo = useMemo(() => {
-    const prefixMap: Record<BusinessType, string> = {
-      TRUCK_LTL: 'CS', TRUCK_FTL: 'CT', LOCAL_DELIVERY: 'LD',
-    }
     const date = new Date()
     const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
-    return `${prefixMap[businessType]}-${dateStr}-XXXX`
-  }, [businessType])
+    return `EU-${dateStr}-XXXX`
+  }, [])
 
   // 当前选中的客户名称
   const selectedClientName = useMemo(() => {

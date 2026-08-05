@@ -339,9 +339,14 @@ export default function CarrierDetail() {
       <div className="space-y-4">
         {/* 操作栏 */}
         <div className="flex justify-end">
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200">
+          {/* 车辆维护还没做，按同页「覆盖路线」的既有写法给个诚实的占位，
+              不要留一个点了没反应的按钮 */}
+          <button
+            disabled
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600/50 text-white text-sm font-medium rounded-xl cursor-not-allowed transition-all duration-200"
+          >
             <Plus className="w-4 h-4" />
-            {t('carrier.addVehicle')}
+            {t('carrier.addVehicleSoon')}
           </button>
         </div>
 
@@ -690,7 +695,10 @@ export default function CarrierDetail() {
             </div>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200">
+        <button
+          onClick={() => navigate(`/carriers/${id}/edit`)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200"
+        >
           <Edit className="w-4 h-4" />
           {t('common.edit')}
         </button>

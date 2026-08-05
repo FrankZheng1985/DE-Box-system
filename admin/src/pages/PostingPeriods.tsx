@@ -12,8 +12,10 @@ interface PostingPeriod {
   period_month: number
   is_open: boolean
   opened_by: string | null
+  opened_by_name: string | null
   opened_at: string | null
   closed_by: string | null
+  closed_by_name: string | null
   closed_at: string | null
 }
 
@@ -148,11 +150,11 @@ export default function PostingPeriods() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{p.opened_by || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{p.opened_by_name || '-'}</td>
                   <td className="px-4 py-3 text-xs text-slate-500 text-center">
                     {p.opened_at ? new Date(p.opened_at).toLocaleString('zh-CN') : '-'}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{p.closed_by || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{p.closed_by_name || '-'}</td>
                   <td className="px-4 py-3 text-xs text-slate-500 text-center">
                     {p.closed_at ? new Date(p.closed_at).toLocaleString('zh-CN') : '-'}
                   </td>

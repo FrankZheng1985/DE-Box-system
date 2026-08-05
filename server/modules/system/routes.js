@@ -324,11 +324,17 @@ router.get('/posting-periods', requireUserType('OPERATOR'), requirePermission('s
   try {
     const { companyCode = 'DE01', fiscalYear = new Date().getFullYear() } = req.query
     const result = await query(
-      `SELECT id, company_code, fiscal_year, period_month, is_open,
-              opened_by, opened_at, closed_by, closed_at
-       FROM posting_periods
-       WHERE company_code = $1 AND fiscal_year = $2
-       ORDER BY period_month`,
+      // 带出操作人姓名：前端此前直接显示 opened_by / closed_by 的原始 UUID，
+      // 运营看不懂那一长串是谁
+      `SELECT p.id, p.company_code, p.fiscal_year, p.period_month, p.is_open,
+              p.opened_by, p.opened_at, p.closed_by, p.closed_at,
+              uo.display_name AS opened_by_name,
+              uc.display_name AS closed_by_name
+       FROM posting_periods p
+       LEFT JOIN users uo ON uo.id = p.opened_by
+       LEFT JOIN users uc ON uc.id = p.closed_by
+       WHERE p.company_code = $1 AND p.fiscal_year = $2
+       ORDER BY p.period_month`,
       [companyCode, parseInt(fiscalYear)]
     )
     res.json({ code: 200, message: 'success', data: result.rows })

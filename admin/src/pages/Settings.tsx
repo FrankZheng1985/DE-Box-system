@@ -248,7 +248,14 @@ export default function Settings() {
       try {
         const res = await api.get<ApiResponse<AccountInfo>>('/system/settings/account')
         if (res.code === 200 && res.data) {
-          setAccountInfo(res.data)
+          // 库里没填的字段是 null，直接塞进 state 会让受控 input 收到 null
+          // （React 会警告并把它当成非受控组件），统一兜成空串
+          setAccountInfo({
+            company_name: res.data.company_name ?? '',
+            email: res.data.email ?? '',
+            phone: res.data.phone ?? '',
+            address: res.data.address ?? '',
+          })
         }
       } catch (err) {
         console.error('[Settings] 加载账户信息失败:', err)

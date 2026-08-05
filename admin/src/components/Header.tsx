@@ -1,8 +1,9 @@
 import { Bell, LogOut, User, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
+import api, { type ApiResponse } from '../utils/api'
 import LanguageSwitcher from './LanguageSwitcher'
 
 // 路由 -> 页面标题的语言包 key（P9：文案不再写死在这里）
@@ -44,10 +45,25 @@ export default function Header() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  // 红点此前是写死的：通知中心明明 0 条未读，铃铛照样带红点诱导点击
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const pageTitle = t(getPageTitleKey(location.pathname))
+
+  // 拉未读数；切换路由时重新拉一次，从通知中心标记已读后回来红点能消
+  useEffect(() => {
+    let cancelled = false
+    api.get<ApiResponse<{ count: number }>>('/notifications/unread-count')
+      .then((res) => {
+        if (cancelled) return
+        if (res.code === 200) setUnreadCount(Number(res.data?.count) || 0)
+      })
+      .catch(() => { /* 顶栏红点拉不到就不显示，不打扰用户 */ })
+    return () => { cancelled = true }
+  }, [location.pathname])
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -69,11 +85,16 @@ export default function Header() {
 
       {/* 右侧操作区 */}
       <div className="flex items-center gap-3">
-        {/* 通知铃铛 */}
-        <button className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-200 ease-in-out">
+        {/* 通知铃铛：点击进通知中心，红点跟随真实未读数 */}
+        <button
+          onClick={() => navigate('/notifications')}
+          title={t('nav.notifications')}
+          className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all duration-200 ease-in-out"
+        >
           <Bell className="w-5 h-5" />
-          {/* 未读消息红点 */}
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+          )}
         </button>
 
         {/* 语言切换（P9） */}
@@ -119,8 +140,11 @@ export default function Header() {
                 </p>
               </div>
 
-              {/* 个人设置 */}
-              <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-all duration-200 ease-in-out">
+              {/* 个人设置：系统里没有独立的个人资料页，账号信息就在系统设置里维护 */}
+              <button
+                onClick={() => { setShowUserMenu(false); navigate('/settings') }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-all duration-200 ease-in-out"
+              >
                 <User className="w-4 h-4 text-slate-400" />
                 {t('nav.profile')}
               </button>

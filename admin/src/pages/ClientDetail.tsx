@@ -642,7 +642,10 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200">
+        <button
+          onClick={() => navigate(`/clients/${id}/edit`)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200"
+        >
           <Edit className="w-4 h-4" />
           {t('common.edit')}
         </button>

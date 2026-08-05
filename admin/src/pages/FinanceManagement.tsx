@@ -9,7 +9,7 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
-import { formatDate } from '../utils/format'
+import { formatDate, formatMoney } from '../utils/format'
 
 // ==================== 类型定义 ====================
 
@@ -97,9 +97,11 @@ const INITIAL_CREATE_FORM: CreateRecordForm = {
 }
 const INITIAL_VOID_FORM: VoidForm = { reason: '' }
 
-// PostgreSQL NUMERIC 经 API 返回是字符串（踩坑 002），统一在这里 Number() 转换
-function fmt(amount: string | number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(amount))
+// 走统一的 formatMoney：它按当前界面语言选 locale，也认记录自己的币种。
+// 之前这里写死 de-DE + EUR，导致中文界面下财务页显示 "3.500,00 €"，
+// 而同一界面的订单页显示 "€3,500.00"，两种格式并存；多币种记录也一律被当欧元
+function fmt(amount: string | number | null | undefined, currency?: string): string {
+  return formatMoney(amount, currency || 'EUR')
 }
 
 // ==================== 账单表格（应收/应付共用，含操作按钮） ====================
@@ -143,7 +145,7 @@ function BillTable({
               <td className="px-4 py-3 text-xs text-slate-900 font-medium">{r.record_number || '-'}</td>
               <td className="px-4 py-3 text-xs text-slate-600 truncate">{r.counterparty_name || '-'}</td>
               <td className="px-4 py-3 text-xs text-blue-600 cursor-pointer hover:underline" onClick={() => r.order_id && onView(r)}>{r.order_number || '-'}</td>
-              <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{fmt(r.amount)}</td>
+              <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{fmt(r.amount, r.currency)}</td>
               <td className="px-4 py-3 text-center"><StatusBadge status={r.payment_status} type="payment" /></td>
               <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDate(r.due_date)}</td>
               <td className="px-4 py-3 text-center">
@@ -260,9 +262,14 @@ function ReportTab() {
             <option value="year">{t('finance.rangeThisYear')}</option>
           </select>
         </div>
-        <button className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all duration-200">
+        {/* 报表生成还没做（旁边两个筛选下拉能改，唯独这个执行按钮是死的，
+            用户会以为报表功能坏了），先给诚实占位 */}
+        <button
+          disabled
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600/50 rounded-xl cursor-not-allowed transition-all duration-200"
+        >
           <BarChart3 className="w-4 h-4" />
-          {t('finance.generateReport')}
+          {t('finance.generateReportSoon')}
         </button>
       </div>
 
@@ -803,7 +810,7 @@ export default function FinanceManagement() {
             {/* 账单信息概览 */}
             <div className="bg-slate-50 rounded-xl p-3 space-y-1">
               <p className="text-xs text-slate-500">{t('finance.colBillNo')}: <span className="text-slate-900 font-medium">{paymentModal.row.record_number}</span></p>
-              <p className="text-xs text-slate-500">{t('financeDetail.billAmount')}: <span className="text-slate-900 font-medium">{fmt(paymentModal.row.amount)}</span></p>
+              <p className="text-xs text-slate-500">{t('financeDetail.billAmount')}: <span className="text-slate-900 font-medium">{fmt(paymentModal.row.amount, paymentModal.row.currency)}</span></p>
             </div>
 
             {/* 收款金额 */}
@@ -1051,7 +1058,7 @@ export default function FinanceManagement() {
             <div className="bg-red-50 rounded-xl p-3 border border-red-100">
               <p className="text-sm text-red-700">
                 {t('finance.voidAboutTo')} <span className="font-semibold">{voidModal.row.record_number}</span>
-                {t('finance.voidAmountPart')} <span className="font-semibold">{fmt(voidModal.row.amount)}</span>
+                {t('finance.voidAmountPart')} <span className="font-semibold">{fmt(voidModal.row.amount, voidModal.row.currency)}</span>
                 {t('finance.voidIrreversible')}
               </p>
             </div>
