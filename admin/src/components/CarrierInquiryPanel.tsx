@@ -17,7 +17,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from './Modal'
-import { formatDate, formatMoney } from '../utils/format'
+import { formatDate, formatMoney, toDateInputValue } from '../utils/format'
 import { useAuth } from '../contexts/AuthContext'
 import {
   CARRIER_INQUIRY_STATUS, carrierInquiryStatusLabelKey,
@@ -170,7 +170,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
       quotedCost: row.quoted_cost ?? '',
       currency: row.currency || 'EUR',
       transitDays: row.transit_days !== null && row.transit_days !== undefined ? String(row.transit_days) : '',
-      validUntil: row.valid_until ? row.valid_until.slice(0, 10) : '',
+      validUntil: toDateInputValue(row.valid_until),
       replyRemarks: row.reply_remarks ?? '',
     })
   }

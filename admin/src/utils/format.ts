@@ -58,6 +58,25 @@ export function formatDate(value: string | Date | null | undefined): string {
   }).format(date)
 }
 
+/**
+ * 把后端返回的日期转成 <input type="date"> 用的 YYYY-MM-DD。
+ *
+ * 不能直接 slice(0,10) / split('T')[0]：库里 date 列的值经 pg 驱动会变成
+ * 本地时区零点的 Date，序列化成 UTC 后日期会回退一天
+ * （2026-08-10 在 UTC+8 下序列化为 "2026-08-09T16:00:00.000Z"）。
+ * 截字符串就把 10 号读成 9 号，用户不改任何东西点保存都会把日期改错。
+ * 这里按本地时区取年月日，与 formatDate 的显示口径一致。
+ */
+export function toDateInputValue(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 /** 日期 + 时分 */
 export function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return '-'

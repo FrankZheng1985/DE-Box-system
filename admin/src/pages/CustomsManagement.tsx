@@ -8,6 +8,7 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import { formatDate } from '../utils/format'
 
 // ==================== 类型定义 ====================
 
@@ -336,7 +337,7 @@ export default function CustomsManagement() {
                     <td className="px-4 py-3 text-center"><StatusBadge status={item.status} type="clearance" /></td>
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{item.customs_broker || '-'}</td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{Number(item.doc_count) || 0}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 text-center">{item.updated_at?.split('T')[0] || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDate(item.updated_at)}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200" title={t('common.view')}>

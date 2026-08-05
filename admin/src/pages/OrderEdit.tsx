@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
+import { toDateInputValue } from '../utils/format'
 import {
   ArrowLeft,
   Save,
@@ -257,14 +258,14 @@ export default function OrderEdit() {
       setPickupCity(pickup.city || '')
       setPickupZipCode(pickup.zipCode || '')
       setPickupAddress(pickup.address || '')
-      setPickupDate(o.pickup_date?.split('T')[0] || '')
+      setPickupDate(toDateInputValue(o.pickup_date))
       setPickupContact(pickup.contact || o.pickup_contact || '')
       setPickupPhone(pickup.phone || o.pickup_phone || '')
       setDeliveryCountry(delivery.country || '')
       setDeliveryCity(delivery.city || '')
       setDeliveryZipCode(delivery.zipCode || '')
       setDeliveryAddress(delivery.address || '')
-      setDeliveryDate(o.delivery_date?.split('T')[0] || '')
+      setDeliveryDate(toDateInputValue(o.delivery_date))
       setDeliveryContact(delivery.contact || o.delivery_contact || '')
       setDeliveryPhone(delivery.phone || o.delivery_phone || '')
     } else {
@@ -273,13 +274,13 @@ export default function OrderEdit() {
       setContainerNo(o.container_no || '')
       setContainerType(o.container_type || '')
       setSealNo(o.seal_no || '')
-      setEta(o.eta?.split('T')[0] || '')
+      setEta(toDateInputValue(o.eta))
       setCnee(o.cnee || '')
       setPod(o.pod || '')
       setFinalDestination(o.final_destination || '')
       const delivery = parseAddress(o.delivery_address)
       setFinalDestAddress(delivery.address || '')
-      setExpectedDeliveryDate(o.expected_delivery_date?.split('T')[0] || o.delivery_date?.split('T')[0] || '')
+      setExpectedDeliveryDate(toDateInputValue(o.expected_delivery_date) || toDateInputValue(o.delivery_date))
       setDeliveryContact(o.delivery_contact || delivery.contact || '')
       setDeliveryPhone(o.delivery_phone || delivery.phone || '')
       setReleaseMethod(o.release_method || 'TELEX')

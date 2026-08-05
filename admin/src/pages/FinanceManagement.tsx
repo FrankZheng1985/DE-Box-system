@@ -9,6 +9,7 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import { formatDate } from '../utils/format'
 
 // ==================== 类型定义 ====================
 
@@ -136,7 +137,7 @@ function BillTable({
               <td className="px-4 py-3 text-xs text-blue-600 cursor-pointer hover:underline" onClick={() => r.order_id && onView(r)}>{r.order_number || '-'}</td>
               <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">{fmt(r.amount)}</td>
               <td className="px-4 py-3 text-center"><StatusBadge status={r.payment_status || r.status} type="payment" /></td>
-              <td className="px-4 py-3 text-xs text-slate-500 text-center">{r.due_date?.split('T')[0] || '-'}</td>
+              <td className="px-4 py-3 text-xs text-slate-500 text-center">{formatDate(r.due_date)}</td>
               <td className="px-4 py-3 text-center">
                 <div className="flex items-center justify-center gap-1">
                   <button
