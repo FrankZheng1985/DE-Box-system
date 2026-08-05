@@ -323,6 +323,12 @@
     "EXPIRED": "已过期",
     "CANCELLED": "已作废"
   },
+  "notFound": {
+    "title": "页面不存在",
+    "line1": "地址栏里的这个页面找不到。",
+    "line2": "可能是链接过期或输错了地址。",
+    "backHome": "返回仪表板"
+  },
   "noPermission": {
     "title": "无权访问",
     "line1": "你当前的角色没有查看这个页面的权限。",
@@ -879,6 +885,11 @@
     "currentStatus": "当前状态",
     "versionHistory": "版本历史",
     "currentVersion": "当前版本: V{{version}}"
+  },
+  "quotationEdit": {
+    "pageTitle": "编辑报价",
+    "loadFailed": "报价加载失败，请返回列表重试",
+    "saved": "报价已保存"
   },
   "quotationCreate": {
     "pageTitle": "创建报价",

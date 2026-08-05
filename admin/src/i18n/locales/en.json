@@ -323,6 +323,12 @@
     "EXPIRED": "Expired",
     "CANCELLED": "Void"
   },
+  "notFound": {
+    "title": "Page Not Found",
+    "line1": "The page in the address bar could not be found.",
+    "line2": "The link may have expired or the address was mistyped.",
+    "backHome": "Back to Dashboard"
+  },
   "noPermission": {
     "title": "No access",
     "line1": "Your current role is not allowed to view this page.",
@@ -879,6 +885,11 @@
     "currentStatus": "Current status",
     "versionHistory": "Version history",
     "currentVersion": "Current version: V{{version}}"
+  },
+  "quotationEdit": {
+    "pageTitle": "Edit Quotation",
+    "loadFailed": "Failed to load quotation, please go back and retry",
+    "saved": "Quotation saved"
   },
   "quotationCreate": {
     "pageTitle": "New quotation",

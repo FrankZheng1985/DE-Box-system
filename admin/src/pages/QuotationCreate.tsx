@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 import {
   ArrowLeft,
@@ -27,7 +27,7 @@ import api, { type ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { BUSINESS_TYPE_LIST, businessTypeLabelKey } from '../constants/businessTypes'
-import { formatMoney } from '../utils/format'
+import { formatMoney, toDateInputValue } from '../utils/format'
 import {
   CARRIER_INQUIRY_PERMISSIONS, CARRIER_INQUIRY_STATUS, type CarrierInquiry,
 } from '../constants/carrierInquiry'
@@ -141,6 +141,9 @@ export default function QuotationCreate() {
   // 后端 POST /quotations 一直支持 inquiryId 字段，只是前端此前从没传过
   const [searchParams] = useSearchParams()
   const inquiryId = searchParams.get('inquiryId')
+  // 同一组件承担新建与编辑两种模式：带 :id 进来就是编辑（沿用 InquiryEdit 的写法）
+  const { id: editId } = useParams<{ id: string }>()
+  const isEdit = Boolean(editId)
   const { hasPermission } = useAuth()
   // 服务商成本只对服务商管理岗可见（需求 5.3），后端接口同样拦一道
   const canSeeCarrierCost = hasPermission(CARRIER_INQUIRY_PERMISSIONS.VIEW)
@@ -152,6 +155,8 @@ export default function QuotationCreate() {
   const [form, setForm] = useState<QuotationFormData>({ ...INITIAL_FORM })
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
+  // 编辑模式要等详情回填后再渲染表单，否则会先闪一屏空表单
+  const [loadingDetail, setLoadingDetail] = useState(isEdit)
   const [submitting, setSubmitting] = useState(false)
   const [submitType, setSubmitType] = useState<'draft' | 'send' | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -238,6 +243,48 @@ export default function QuotationCreate() {
 
     return () => { cancelled = true }
   }, [inquiryId])
+
+  // 编辑模式：拉报价详情回填表单
+  // 路线在库里是 JSONB {country, city}，要拆回表单的四个平铺字段
+  useEffect(() => {
+    if (!isEdit || !editId) return
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const res = await api.get<ApiResponse<any>>(`/quotations/${editId}`)
+        if (cancelled) return
+        if (res.code !== 200 || !res.data) {
+          setGlobalError(res.message || t('quotationEdit.loadFailed'))
+          return
+        }
+        const d = res.data
+        setForm({
+          clientId: d.client_id || '',
+          businessType: d.business_type || '',
+          transportType: d.transport_type || '',
+          validUntil: toDateInputValue(d.valid_until),
+          originCountry: d.route_from?.country || '',
+          originCity: d.route_from?.city || '',
+          destCountry: d.route_to?.country || '',
+          destCity: d.route_to?.city || '',
+          baseFreight: Number(d.base_freight) || 0,
+          surcharge: Number(d.surcharge) || 0,
+          insuranceFee: Number(d.insurance_fee) || 0,
+          currency: d.currency || 'EUR',
+          remarks: d.remarks || '',
+        })
+      } catch (err) {
+        if (cancelled) return
+        console.error('[QuotationCreate] 获取报价详情失败:', err)
+        setGlobalError(t('quotationEdit.loadFailed'))
+      } finally {
+        if (!cancelled) setLoadingDetail(false)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [isEdit, editId, t])
 
   // 该询价选用的服务商成本（P6）：选用了哪家就用哪家，没选用就退回最低回价，
   // 作为报价时的成本参考并随报价存下来（quotations.carrier_cost）
@@ -398,28 +445,34 @@ export default function QuotationCreate() {
     }
 
     try {
-      // 先创建报价
-      const createRes = await api.post<ApiResponse<{ id: string }>>('/quotations', payload)
+      // 编辑模式改现有报价，新建模式创建
+      const saveRes = isEdit
+        ? await api.put<ApiResponse<{ id: string }>>(`/quotations/${editId}`, payload)
+        : await api.post<ApiResponse<{ id: string }>>('/quotations', payload)
 
-      if (createRes.code !== 200 && createRes.code !== 201) {
-        setGlobalError(createRes.message || t('quotationCreate.createFailed'))
+      if (saveRes.code !== 200 && saveRes.code !== 201) {
+        setGlobalError(saveRes.message || t('quotationCreate.createFailed'))
         return
       }
 
-      // 如果是发送，再调用发送接口
-      if (type === 'send' && createRes.data?.id) {
-        const sendRes = await api.post<ApiResponse<any>>(`/quotations/${createRes.data.id}/send`)
+      // 如果是发送，再调用发送接口（编辑模式用路由上的 id）
+      const quotationId = isEdit ? editId : saveRes.data?.id
+      if (type === 'send' && quotationId) {
+        const sendRes = await api.post<ApiResponse<any>>(`/quotations/${quotationId}/send`)
         if (sendRes.code !== 200) {
           setGlobalError(sendRes.message || t('quotationCreate.savedButSendFailed'))
           return
         }
       }
 
-      const msg = type === 'draft' ? t('quotationCreate.savedAsDraft') : t('quotationCreate.sentOk')
+      const msg = type === 'draft'
+        ? (isEdit ? t('quotationEdit.saved') : t('quotationCreate.savedAsDraft'))
+        : t('quotationCreate.sentOk')
       setSuccessMsg(msg)
       setTimeout(() => {
-        // 从询价来的就回询价详情，方便继续看这张单
-        navigate(inquiryId ? `/inquiries/${inquiryId}` : '/quotes')
+        // 编辑完回详情页；从询价来的回询价详情，方便继续看这张单
+        if (isEdit) navigate(`/quotes/${editId}`)
+        else navigate(inquiryId ? `/inquiries/${inquiryId}` : '/quotes')
       }, 1500)
     } catch (err: any) {
       console.error('[QuotationCreate] 提交失败:', err)
@@ -436,7 +489,7 @@ export default function QuotationCreate() {
   const inputErrorClass =
     'w-full px-3 py-2.5 text-sm border border-red-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200'
 
-  if (loadingClients) return <FormSkeleton />
+  if (loadingClients || loadingDetail) return <FormSkeleton />
 
   return (
     <div className="p-4 lg:p-6">
@@ -469,7 +522,9 @@ export default function QuotationCreate() {
         </button>
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-blue-600" />
-          <h1 className="text-xl font-semibold text-slate-900">{t('quotationCreate.pageTitle')}</h1>
+          <h1 className="text-xl font-semibold text-slate-900">
+            {isEdit ? t('quotationEdit.pageTitle') : t('quotationCreate.pageTitle')}
+          </h1>
         </div>
       </div>
 

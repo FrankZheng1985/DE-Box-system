@@ -30,6 +30,7 @@ const InquiryEdit = lazy(() => import('./pages/InquiryEdit'))
 const QuotationManagement = lazy(() => import('./pages/QuotationManagement'))
 const QuotationCreate = lazy(() => import('./pages/QuotationCreate'))
 const QuotationDetail = lazy(() => import('./pages/QuotationDetail'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 // CMR 运单
 const CMRManagement = lazy(() => import('./pages/CMRManagement'))
@@ -150,6 +151,7 @@ function AppRoutes() {
             <Route path="/quotes" element={<QuotationManagement />} />
             <Route path="/quotes/create" element={<QuotationCreate />} />
             <Route path="/quotes/:id" element={<QuotationDetail />} />
+            <Route path="/quotes/:id/edit" element={<QuotationCreate />} />
 
             {/* CMR 运单 */}
             <Route path="/cmr" element={<CMRManagement />} />
@@ -192,6 +194,9 @@ function AppRoutes() {
             <Route path="/settings/open-api" element={<OpenApiManagement />} />
             <Route path="/system/users" element={<UserManagement />} />
             <Route path="/system/roles" element={<RoleManagement />} />
+
+            {/* 兜底：未匹配的路径给明确提示，不要留一片空白 */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </PermissionRoute>
       </Suspense>

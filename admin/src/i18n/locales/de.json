@@ -323,6 +323,12 @@
     "EXPIRED": "Abgelaufen",
     "CANCELLED": "Storniert"
   },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "line1": "Die Seite in der Adressleiste wurde nicht gefunden.",
+    "line2": "Der Link ist möglicherweise abgelaufen oder die Adresse wurde falsch eingegeben.",
+    "backHome": "Zurück zum Dashboard"
+  },
   "noPermission": {
     "title": "Kein Zugriff",
     "line1": "Ihre aktuelle Rolle darf diese Seite nicht aufrufen.",
@@ -879,6 +885,11 @@
     "currentStatus": "Aktueller Status",
     "versionHistory": "Versionsverlauf",
     "currentVersion": "Aktuelle Version: V{{version}}"
+  },
+  "quotationEdit": {
+    "pageTitle": "Angebot bearbeiten",
+    "loadFailed": "Angebot konnte nicht geladen werden, bitte zurück und erneut versuchen",
+    "saved": "Angebot gespeichert"
   },
   "quotationCreate": {
     "pageTitle": "Angebot erstellen",
