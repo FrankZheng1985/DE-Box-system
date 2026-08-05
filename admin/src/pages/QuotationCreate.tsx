@@ -284,7 +284,10 @@ export default function QuotationCreate() {
     })()
 
     return () => { cancelled = true }
-  }, [isEdit, editId, t])
+    // 故意不依赖 t：把 t 放进依赖会让「切换语言」重跑这个 effect，
+    // 用 setForm 把用户已经改了一半的表单覆盖回原值
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, editId])
 
   // 该询价选用的服务商成本（P6）：选用了哪家就用哪家，没选用就退回最低回价，
   // 作为报价时的成本参考并随报价存下来（quotations.carrier_cost）
@@ -607,12 +610,19 @@ export default function QuotationCreate() {
               {t('section.basicInfo')}
             </h2>
 
+            {/* 后端 PUT 是白名单更新（只认价格/有效期/路线/备注/成本），
+                这几个字段改了也不会生效，编辑模式直接禁用并说明原因 */}
+            {isEdit && (
+              <p className="text-xs text-slate-400 mb-3">{t('quotationEdit.lockedFieldsHint')}</p>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* 客户 */}
               <FormField label={t('common.client')} required error={errors.clientId}>
                 <select
                   value={form.clientId}
                   onChange={(e) => updateField('clientId', e.target.value)}
+                  disabled={isEdit}
                   className={errors.clientId ? inputErrorClass : inputClass}
                 >
                   <option value="">{t('placeholder.selectClient')}</option>
@@ -629,6 +639,7 @@ export default function QuotationCreate() {
                 <select
                   value={form.businessType}
                   onChange={(e) => updateField('businessType', e.target.value)}
+                  disabled={isEdit}
                   className={errors.businessType ? inputErrorClass : inputClass}
                 >
                   <option value="">{t('quotationCreate.errBusinessType')}</option>
@@ -645,6 +656,7 @@ export default function QuotationCreate() {
                 <select
                   value={form.transportType}
                   onChange={(e) => updateField('transportType', e.target.value)}
+                  disabled={isEdit}
                   className={errors.transportType ? inputErrorClass : inputClass}
                 >
                   <option value="">{t('quotationCreate.errTransportType')}</option>
@@ -799,6 +811,7 @@ export default function QuotationCreate() {
                 <select
                   value={form.currency}
                   onChange={(e) => updateField('currency', e.target.value)}
+                  disabled={isEdit}
                   className={inputClass}
                 >
                   {currencyOpts.map((c) => (

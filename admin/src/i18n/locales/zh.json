@@ -888,6 +888,7 @@
   },
   "quotationEdit": {
     "pageTitle": "编辑报价",
+    "lockedFieldsHint": "客户、业务类型、运输类型与币种在报价创建后不可更改；可修改价格、有效期、路线与备注。",
     "loadFailed": "报价加载失败，请返回列表重试",
     "saved": "报价已保存"
   },

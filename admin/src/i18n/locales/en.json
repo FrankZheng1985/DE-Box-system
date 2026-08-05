@@ -888,6 +888,7 @@
   },
   "quotationEdit": {
     "pageTitle": "Edit Quotation",
+    "lockedFieldsHint": "Client, business type, transport type and currency cannot be changed after the quotation is created; price, validity, route and remarks remain editable.",
     "loadFailed": "Failed to load quotation, please go back and retry",
     "saved": "Quotation saved"
   },

@@ -888,6 +888,7 @@
   },
   "quotationEdit": {
     "pageTitle": "Angebot bearbeiten",
+    "lockedFieldsHint": "Kunde, Geschäftsart, Transportart und Währung lassen sich nach Erstellung des Angebots nicht mehr ändern; Preis, Gültigkeit, Strecke und Bemerkungen bleiben bearbeitbar.",
     "loadFailed": "Angebot konnte nicht geladen werden, bitte zurück und erneut versuchen",
     "saved": "Angebot gespeichert"
   },
