@@ -2,7 +2,7 @@
   "app": {
     "brand": "KALUNA SPED",
     "systemName": "Europäisches Transportmanagementsystem",
-    "systemNameEn": "European Transport Management System",
+    "systemNameEn": "Europäisches Transportmanagementsystem",
     "version": "V2",
     "booting": "System wird gestartet..."
   },
@@ -256,7 +256,7 @@
     "phNewPassword": "Mindestens 6 Zeichen, persönlich oder telefonisch weitergeben"
   },
   "role": {
-    "client_admin": "Kundenadministrator",
+    "client_admin": "Hauptbenutzer",
     "client_user": "Kundenbenutzer",
     "carrier_admin": "Frachtführer-Administrator",
     "carrier_driver": "Fahrer",
@@ -347,7 +347,7 @@
     "exportFiltered": "Aktuelle Auswahl exportieren",
     "exportFileName": "Anfragen",
     "colNumber": "Anfragenr.",
-    "colPieces": "Anzahl",
+    "colPieces": "Packstücke",
     "colWeightKg": "Gewicht (kg)",
     "empty": "Noch keine Anfragen",
     "loadFailed": "Anfragenliste konnte nicht geladen werden",
@@ -782,7 +782,7 @@
     "deleteRow": "Diese Zeile löschen",
     "colLineNo": "Pos.",
     "colItemNo": "Stück-Nr.",
-    "colPieces": "Anzahl",
+    "colPieces": "Packstücke",
     "colDimensions": "L×B×H (cm)",
     "colLengthCm": "Länge (cm)",
     "colWidthCm": "Breite (cm)",
@@ -1403,14 +1403,14 @@
   "customs": {
     "pageTitle": "Verzollung",
     "searchPlaceholder": "Auftragsnr., Kundenname suchen...",
-    "colBroker": "Zollagent",
+    "colBroker": "Zollagentur",
     "colDocCount": "Dokumente",
     "empty": "Noch keine Zollvorgänge",
     "updateStatus": "Status aktualisieren",
     "updateStatusTitle": "Zollstatus aktualisieren",
     "statusUpdated": "Zollstatus aktualisiert",
     "markedException": "Als Störung gemeldet",
-    "brokerPlaceholder": "Zollagent eingeben",
+    "brokerPlaceholder": "Zollagentur eingeben",
     "exceptionReason": "Grund",
     "exceptionReasonPlaceholder": "Beschreiben Sie, was passiert ist...",
     "uploadDoc": "Dokument hochladen",
@@ -1595,7 +1595,7 @@
     "RELEASE_STATUS_CHANGED": "Freistellungsstatus geändert",
     "QUALIFICATION_EXPIRING": "Frachtführer-Nachweise laufen aus",
     "INVOICE_DUE": "Rechnung fällig / überfällig",
-    "CREDIT_ALERT": "Warnung Kreditlimit"
+    "CREDIT_ALERT": "Kreditlimit überschritten"
   },
   "apiResult": {
     "SUCCESS": "Erfolg",
@@ -1809,7 +1809,7 @@
     "NO_PERMISSION_EDIT_CLIENT": "Sie dürfen die Kundendaten nicht bearbeiten",
     "NO_PERMISSION_EDIT_CREDIT": "Sie dürfen Kreditlimit, Bonität, Risikokategorie oder Zahlungsziel nicht ändern",
     "NO_PERMISSION_COMPANY_NOTIFY": "Sie dürfen keine firmenweiten Benachrichtigungseinstellungen setzen",
-    "CLIENT_ADMIN_ONLY_NOTIFY": "Nur ein Kundenadministrator kann firmenweite Benachrichtigungseinstellungen setzen",
+    "CLIENT_ADMIN_ONLY_NOTIFY": "Nur ein Hauptbenutzer kann firmenweite Benachrichtigungseinstellungen setzen",
     "CLIENT_ACCOUNT_ONLY_MEMBERS": "Nur Kundenkonten können Firmenmitglieder verwalten",
     "OLD_PASSWORD_WRONG": "Das aktuelle Passwort ist falsch",
     "PASSWORDS_REQUIRED": "Aktuelles und neues Passwort sind erforderlich",

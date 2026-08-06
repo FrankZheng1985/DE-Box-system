@@ -92,7 +92,7 @@
     "noFiles": "Keine Dateien zu diesem Auftrag"
   },
   "tracking": {
-    "count": "{{count}} Auftrag/Aufträge unterwegs",
+    "count": "{{count}} Aufträge unterwegs",
     "empty": "Keine Aufträge unterwegs",
     "currentLocation": "Aktuelle Position",
     "unknownLocation": "Unbekannt",
@@ -101,7 +101,7 @@
   },
   "customs": {
     "title": "Verzollung",
-    "broker": "Zollagent",
+    "broker": "Zollagentur",
     "destination": "Zielort",
     "files": "Dateien",
     "empty": "Keine Zollvorgänge",
@@ -165,7 +165,7 @@
     "LOADING": "Beladung",
     "IN_TRANSIT": "Unterwegs",
     "BORDER_CROSSING": "Grenzübergang",
-    "CUSTOMS": "Verzollung",
+    "CUSTOMS": "In Verzollung",
     "UNLOADING": "Entladung",
     "DELIVERED": "Zugestellt"
   },
@@ -244,7 +244,7 @@
   "inquiry": {
     "create": "Neue Anfrage",
     "serviceType": "Servicetyp",
-    "customerRef": "Ihre Referenz",
+    "customerRef": "Ihre Auftragsnr.",
     "phCustomerRef": "Referenznummer für den Abgleich",
     "routeFrom": "Versandort",
     "routeTo": "Zielort",
@@ -259,15 +259,15 @@
     "cargoItems": "Packstückliste",
     "addRow": "Zeile hinzufügen",
     "colRef": "Pos.-Nr.",
-    "colDesc": "Beschreibung",
-    "colQty": "Anzahl",
+    "colDesc": "Warenbeschreibung",
+    "colQty": "Packstücke",
     "colLength": "L (cm)",
     "colWidth": "B (cm)",
     "colHeight": "H (cm)",
     "colUnitWeight": "Stückgewicht (kg)",
     "colVolume": "Volumen (m³)",
     "totalQty": "Packstücke gesamt",
-    "totalWeight": "Realgewicht",
+    "totalWeight": "Tatsächliches Gewicht",
     "totalVolume": "Volumen",
     "ldmHint": "LDM wird automatisch berechnet: Länge m × Breite m ÷ 2,4 × Anzahl",
     "cargoDescription": "Warenbeschreibung",
@@ -353,7 +353,7 @@
     "initialPassword": "Initialpasswort",
     "newPassword": "Neues Passwort",
     "selectRole": "Rolle wählen",
-    "roleHint": "Kundenadministratoren können Konten verwalten, Rechnungen einsehen und Angebote bestätigen; Kundenbenutzer können nur Aufträge und Anfragen erstellen.",
+    "roleHint": "Hauptbenutzer können Konten verwalten, Rechnungen einsehen und Angebote bestätigen; Kundenbenutzer können nur Aufträge und Anfragen erstellen.",
     "create": "Anlegen",
     "resetPassword": "Passwort zurücksetzen",
     "resetTitle": "Passwort für {{name}} zurücksetzen",
@@ -374,7 +374,7 @@
     "resetFailed": "Zurücksetzen fehlgeschlagen"
   },
   "role": {
-    "client_admin": "Kundenadministrator",
+    "client_admin": "Hauptbenutzer",
     "client_user": "Kundenbenutzer"
   },
   "notification": {
@@ -384,7 +384,7 @@
     "scopeCompany": "Firmenstandard",
     "companyHint": "Der Firmenstandard gilt nur für Kolleginnen und Kollegen ohne eigene Einstellung; persönliche Einstellungen haben Vorrang.",
     "channelEmail": "E-Mail",
-    "channelSystem": "System",
+    "channelSystem": "In-App",
     "save": "Benachrichtigungen speichern",
     "loadFailed": "Benachrichtigungseinstellungen konnten nicht geladen werden",
     "saveFailed": "Speichern fehlgeschlagen",
@@ -403,7 +403,7 @@
     "RELEASE_STATUS_CHANGED": "Status der Reederei-Freistellung geändert",
     "QUALIFICATION_EXPIRING": "Nachweis des Frachtführers läuft ab",
     "INVOICE_DUE": "Rechnung fällig / überfällig",
-    "CREDIT_ALERT": "Warnung Kreditlimit"
+    "CREDIT_ALERT": "Kreditlimit überschritten"
   },
   "loginError": {
     "MISSING_CREDENTIALS": "Bitte Benutzername und Passwort eingeben",
@@ -434,7 +434,7 @@
     "NO_PERMISSION_EDIT_CLIENT": "Sie dürfen die Kundendaten nicht bearbeiten",
     "NO_PERMISSION_EDIT_CREDIT": "Sie dürfen Kreditlimit, Bonität, Risikokategorie oder Zahlungsziel nicht ändern",
     "NO_PERMISSION_COMPANY_NOTIFY": "Sie dürfen keine firmenweiten Benachrichtigungseinstellungen setzen",
-    "CLIENT_ADMIN_ONLY_NOTIFY": "Nur ein Kundenadministrator kann firmenweite Benachrichtigungseinstellungen setzen",
+    "CLIENT_ADMIN_ONLY_NOTIFY": "Nur ein Hauptbenutzer kann firmenweite Benachrichtigungseinstellungen setzen",
     "CLIENT_ACCOUNT_ONLY_MEMBERS": "Nur Kundenkonten können Firmenmitglieder verwalten",
     "OLD_PASSWORD_WRONG": "Das aktuelle Passwort ist falsch",
     "PASSWORDS_REQUIRED": "Aktuelles und neues Passwort sind erforderlich",
