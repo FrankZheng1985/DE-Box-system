@@ -10,12 +10,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   MessageSquare, Search, Plus, Eye, Copy, RefreshCw, Upload,
-  ChevronLeft, ChevronRight, Tag, CheckCircle, AlertCircle, Clock, FileSpreadsheet,
+Tag, CheckCircle, Clock, FileSpreadsheet,
 } from 'lucide-react'
 import api, { type ApiResponse, getApiBaseUrl } from '../utils/api'
 import StatCard from '../components/StatCard'
+import Toast from '../components/Toast'
 import InquiryQuotationTabs from '../components/InquiryQuotationTabs'
 import InquiryImportModal from '../components/InquiryImportModal'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { businessTypeLabelKey } from '../constants/businessTypes'
@@ -69,26 +71,6 @@ function fmtNumber(value: string | number | null, digits = 2): string {
 function routeText(addr: Inquiry['route_from']): string {
   if (!addr) return '-'
   return [addr.country, addr.city].filter(Boolean).join(' ') || '-'
-}
-
-// ==================== Toast ====================
-
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  return (
-    <div className="fixed top-6 right-6 z-[60]">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}>
-        {type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-        {message}
-      </div>
-    </div>
-  )
 }
 
 // ==================== 复制摘要弹窗 ====================
@@ -279,7 +261,6 @@ export default function InquiryManagement() {
     navigate(`/quotes/create?inquiryId=${inquiry.id}`)
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const allSelected = inquiries.length > 0 && selectedIds.length === inquiries.length
 
   return (
@@ -512,31 +493,7 @@ export default function InquiryManagement() {
         </div>
 
         {/* 分页 */}
-        {total > pageSize && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <span className="text-xs text-slate-500">
-              {t('common.totalCount', { count: total })}
-              <span className="mx-1">·</span>
-              {t('common.page', { page, total: totalPages })}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="h-8 w-8 flex items-center justify-center text-slate-500 border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-all duration-200 ease-in-out"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="h-8 w-8 flex items-center justify-center text-slate-500 border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition-all duration-200 ease-in-out"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
     </div>
   )

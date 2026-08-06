@@ -9,11 +9,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Save, Plus, Trash2, Loader2, CheckCircle, AlertCircle,
+  ArrowLeft, Save, Plus, Trash2, Loader2,
   Package, MapPin, User, FileText,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import Toast from '../components/Toast'
 import {
   BUSINESS_TYPES, BUSINESS_TYPE_LIST, businessTypeLabelKey, type BusinessType,
 } from '../constants/businessTypes'
@@ -144,23 +145,6 @@ function Section({ title, icon: Icon, children, action }: {
         {action}
       </div>
       <div className="p-5">{children}</div>
-    </div>
-  )
-}
-
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-  return (
-    <div className="fixed top-6 right-6 z-[60]">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}>
-        {type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-        {message}
-      </div>
     </div>
   )
 }

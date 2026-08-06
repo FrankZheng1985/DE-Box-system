@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  FileCheck, Search, Eye, Download, ChevronLeft, ChevronRight,
+  FileCheck, Search, Eye, Download,
   ClipboardList, CheckCircle, Clock, AlertTriangle, Plus, Pen, ShieldAlert,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,8 @@ import { formatDate } from '../utils/format'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import Toast from '../components/Toast'
+import Pagination from '../components/Pagination'
 
 /** 路线由后端的 from_city / to_city 拼出来（没有现成的 route 字段） */
 function routeText(cmr: { from_city: string | null; to_city: string | null }): string {
@@ -72,23 +74,6 @@ const FILE_TYPE_OPTIONS = [
   { value: 'PDF', labelKey: 'cmr.fileTypePdf' },
   { value: 'IMAGE', labelKey: 'cmr.fileTypeImage' },
 ]
-
-// ==================== Toast 组件 ====================
-
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-[fadeIn_200ms_ease-out]">
-      <div className="px-6 py-3 bg-green-500 text-white text-sm font-medium rounded-xl shadow-lg">
-        {message}
-      </div>
-    </div>
-  )
-}
 
 // ==================== 组件 ====================
 
@@ -301,7 +286,6 @@ export default function CMRManagement() {
     }
   }
 
-  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -460,22 +444,7 @@ export default function CMRManagement() {
         </div>
 
         {/* 分页 */}
-        {total > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-slate-600">{page} / {totalPages || 1}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
 
       {/* ==================== 上传 CMR Modal ==================== */}

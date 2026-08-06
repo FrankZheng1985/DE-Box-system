@@ -10,10 +10,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Copy, Tag, Package, MapPin, User, FileText,
-  CheckCircle, AlertCircle, Loader2, Pencil, Trash2,
+  Loader2, Pencil, Trash2,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
+import Toast from '../components/Toast'
 import CarrierInquiryPanel from '../components/CarrierInquiryPanel'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
@@ -128,23 +129,6 @@ function Section({ title, icon: Icon, children, action }: {
         {action}
       </div>
       <div className="p-5">{children}</div>
-    </div>
-  )
-}
-
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-  return (
-    <div className="fixed top-6 right-6 z-[60]">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}>
-        {type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-        {message}
-      </div>
     </div>
   )
 }

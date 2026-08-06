@@ -17,8 +17,6 @@ import {
   ToggleRight,
   CheckCircle,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -26,6 +24,7 @@ import api, { type ApiResponse } from '../utils/api'
 import type { MasterDataItem } from '../types'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Pagination from '../components/Pagination'
 
 // ==================== Tab 配置 ====================
 
@@ -458,7 +457,6 @@ export default function MasterData() {
     return val !== null && val !== undefined ? String(val) : '-'
   }
 
-  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="space-y-6">
@@ -625,32 +623,7 @@ export default function MasterData() {
         </div>
 
         {/* 分页 */}
-        {total > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">
-              {t('common.totalCount', { count: total })}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-slate-600">
-                {page} / {totalPages || 1}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
 
       {/* 新增/编辑弹窗 */}

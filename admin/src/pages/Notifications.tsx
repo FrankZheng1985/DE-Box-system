@@ -9,12 +9,11 @@ import {
   ShieldAlert,
   Check,
   CheckCheck,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import Pagination from '../components/Pagination'
 
 // ==================== 类型定义 ====================
 
@@ -137,7 +136,6 @@ export default function Notifications() {
   }
 
   // 分页信息
-  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="p-4 lg:p-6">
@@ -258,56 +256,7 @@ export default function Notifications() {
         )}
 
         {/* 分页 */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-            <span className="text-xs text-slate-500">
-              {t('common.page', { page, total: totalPages })}
-              <span className="mx-1">·</span>
-              {t('common.totalCount', { count: total })}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number
-                if (totalPages <= 5) {
-                  pageNum = i + 1
-                } else if (page <= 3) {
-                  pageNum = i + 1
-                } else if (page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i
-                } else {
-                  pageNum = page - 2 + i
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-all duration-200 ${
-                      page === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                )
-              })}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
     </div>
   )

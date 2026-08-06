@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
+import Toast from '../components/Toast'
 import OrderFilesSection from '../components/OrderFilesSection'
 import { formatDate, formatDateTime, formatMoney } from '../utils/format'
 import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constants/businessTypes'
@@ -362,26 +363,6 @@ function StarRating({ score }: { score: number }) {
         <Star key={`empty-${i}`} className="w-4 h-4 text-slate-200 fill-slate-200" />
       ))}
       <span className="text-sm text-slate-500 ml-1">{Number(score).toFixed(1)}</span>
-    </div>
-  )
-}
-
-// ==================== Toast 通知组件 ====================
-
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  return (
-    <div className="fixed top-6 right-6 z-[60] animate-[slideIn_300ms_ease-out]">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}>
-        {type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-        {message}
-      </div>
     </div>
   )
 }

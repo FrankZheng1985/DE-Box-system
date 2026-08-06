@@ -26,6 +26,7 @@ import {
 import api, { type ApiResponse } from '../utils/api'
 import { useTranslation } from 'react-i18next'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
+import { Label, TextInput, SelectInput, TextArea, SectionTitle } from '../components/form'
 import {
   BUSINESS_TYPES,
   type BusinessType,
@@ -190,111 +191,6 @@ const initialContainerForm: ContainerForm = {
   remarks: '',
   clientPrice: '',
   currency: 'EUR',
-}
-
-// ==================== 通用输入组件 ====================
-
-// 表单标签
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <label className="block text-sm font-medium text-slate-700 mb-1">
-      {children}
-      {required && <span className="text-red-500 ml-0.5">*</span>}
-    </label>
-  )
-}
-
-// 文本输入
-function TextInput({
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  disabled,
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  type?: string
-  disabled?: boolean
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900
-        placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
-        transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400"
-    />
-  )
-}
-
-// 下拉选择
-function SelectInput({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string
-  onChange: (v: string) => void
-  options: { value: string; label: string }[]
-  placeholder?: string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900
-        focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
-        transition-all duration-200"
-    >
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  )
-}
-
-// 多行文本
-function TextArea({
-  value,
-  onChange,
-  placeholder,
-  rows = 3,
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  rows?: number
-}) {
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900
-        placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
-        transition-all duration-200 resize-none"
-    />
-  )
-}
-
-// 分组标题
-function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-      <Icon className="w-4 h-4 text-blue-500" />
-      <h3 className="text-sm font-semibold text-slate-800">{children}</h3>
-    </div>
-  )
 }
 
 // ==================== 主组件 ====================

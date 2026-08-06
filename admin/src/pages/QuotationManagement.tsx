@@ -1,18 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  FileText, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight,
+  FileText, Search, Plus, Eye, Edit,
   Send, CheckCircle, XCircle, Clock, TrendingUp, ShoppingCart, AlertCircle, Ban,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import Toast from '../components/Toast'
 import { useTranslation } from 'react-i18next'
 import { businessTypeLabelKey } from '../constants/businessTypes'
 import { formatMoney } from '../utils/format'
 import ConfirmDialog from '../components/ConfirmDialog'
 import InquiryQuotationTabs from '../components/InquiryQuotationTabs'
+import Pagination from '../components/Pagination'
 import { QUOTATION_STATUS, QUOTATION_STATUS_TABS } from '../constants/inquiryQuotation'
 
 // ==================== 类型定义 ====================
@@ -71,26 +73,6 @@ function routeText(q: Quotation): string {
   const to = fmt(q.route_to)
   if (!from && !to) return '-'
   return `${from || '-'} → ${to || '-'}`
-}
-
-// ==================== Toast 通知组件 ====================
-
-function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  return (
-    <div className="fixed top-6 right-6 z-[60] animate-[slideIn_300ms_ease-out]">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}>
-        {type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-        {message}
-      </div>
-    </div>
-  )
 }
 
 // ==================== 组件 ====================
@@ -371,7 +353,6 @@ export default function QuotationManagement() {
     )
   }
 
-  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -514,22 +495,7 @@ export default function QuotationManagement() {
         </div>
 
         {/* 分页 */}
-        {total > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-slate-600">{page} / {totalPages || 1}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
 
       {/* ==================== 接受确认弹窗 ==================== */}

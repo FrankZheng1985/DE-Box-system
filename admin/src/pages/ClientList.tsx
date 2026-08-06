@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download, Ban, RotateCcw, LogIn, Loader2 } from 'lucide-react'
+import { Users, Search, Plus, Eye, Edit, CheckCircle, AlertCircle, Download, Ban, RotateCcw, LogIn, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
 
 // ==================== 类型定义 ====================
@@ -260,7 +261,6 @@ export default function ClientList() {
     }
   }
 
-  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -475,28 +475,7 @@ export default function ClientList() {
         </div>
 
         {/* 分页 */}
-        {total > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-slate-600">{page} / {totalPages || 1}</span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
 
       {/* 添加客户弹窗 */}

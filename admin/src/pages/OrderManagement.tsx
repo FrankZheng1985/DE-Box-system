@@ -13,8 +13,6 @@ import {
   Eye,
   Edit,
   Download,
-  ChevronLeft,
-  ChevronRight,
   Truck,
   Container,
   MapPin,
@@ -28,6 +26,7 @@ import { useAuth } from '../contexts/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
 import OrderImportModal from '../components/OrderImportModal'
+import PaginationBar from '../components/Pagination'
 import { formatDate, formatMoney, formatNumber } from '../utils/format'
 import {
   BUSINESS_TYPES,
@@ -262,7 +261,6 @@ export default function OrderManagement() {
   }
 
   // ---------- 当前使用的配置 ----------
-  const totalPages = Math.max(1, Math.ceil(pagination.total / PAGE_SIZE))
   const statusTabs =
     businessType === BUSINESS_TYPES.TRUCK_FTL
       ? CONTAINER_DELIVERY_STATUS_TABS
@@ -460,32 +458,12 @@ export default function OrderManagement() {
         </div>
 
         {/* ===== 分页 ===== */}
-        {pagination.total > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <div className="text-xs text-slate-500">
-              {t('common.totalCount', { count: pagination.total })}
-              <span className="mx-1">·</span>
-              {t('common.page', { page: currentPage, total: totalPages })}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-                className="p-1.5 rounded-lg border border-gray-200 text-slate-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {renderPageNumbers()}
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                className="p-1.5 rounded-lg border border-gray-200 text-slate-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <PaginationBar
+          page={currentPage}
+          total={pagination.total}
+          pageSize={PAGE_SIZE}
+          onChange={setCurrentPage}
+        />
 
         {/* 空状态 */}
         {!loading && orders.length === 0 && (
@@ -995,61 +973,4 @@ export default function OrderManagement() {
     )
   }
 
-  // ==================== 页码按钮 ====================
-  function renderPageNumbers() {
-    const pages: (number | string)[] = []
-    const maxVisible = 5
-
-    if (totalPages <= maxVisible + 2) {
-      // 总页数不多，全部显示
-      for (let i = 1; i <= totalPages; i++) pages.push(i)
-    } else {
-      // 始终显示第1页
-      pages.push(1)
-
-      let start = Math.max(2, currentPage - 1)
-      let end = Math.min(totalPages - 1, currentPage + 1)
-
-      // 保证中间至少显示 3 个页码
-      if (start <= 2) {
-        end = Math.min(totalPages - 1, start + 2)
-      }
-      if (end >= totalPages - 1) {
-        start = Math.max(2, end - 2)
-      }
-
-      if (start > 2) pages.push('...')
-      for (let i = start; i <= end; i++) pages.push(i)
-      if (end < totalPages - 1) pages.push('...')
-
-      // 始终显示最后一页
-      pages.push(totalPages)
-    }
-
-    return pages.map((page, idx) => {
-      if (page === '...') {
-        return (
-          <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-400">
-            ...
-          </span>
-        )
-      }
-
-      const pageNum = page as number
-      const isActive = currentPage === pageNum
-      return (
-        <button
-          key={pageNum}
-          onClick={() => setCurrentPage(pageNum)}
-          className={`min-w-[32px] h-8 px-2 text-xs rounded-lg border transition-all duration-200 ${
-            isActive
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'bg-white text-slate-600 border-gray-200 hover:bg-gray-50'
-          }`}
-        >
-          {pageNum}
-        </button>
-      )
-    })
-  }
 }

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { Label, TextInput, SelectInput, SectionTitle } from '../components/form'
 import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
@@ -81,67 +82,6 @@ function getEditableStatuses(businessType: string): string[] {
   return businessType === BUSINESS_TYPES.LOCAL_DELIVERY
     ? ['PENDING_QUOTE', 'PENDING_DISPATCH']
     : ['PENDING_REVIEW', 'CONFIRMED']
-}
-
-// ==================== 通用输入组件 ====================
-
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <label className="block text-sm font-medium text-slate-700 mb-1">
-      {children}
-      {required && <span className="text-red-500 ml-0.5">*</span>}
-    </label>
-  )
-}
-
-function TextInput({
-  value, onChange, placeholder, type = 'text', disabled,
-}: {
-  value: string; onChange: (v: string) => void; placeholder?: string; type?: string; disabled?: boolean
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900
-        placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
-        transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400"
-    />
-  )
-}
-
-function SelectInput({
-  value, onChange, options, placeholder, disabled,
-}: {
-  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; placeholder?: string; disabled?: boolean
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-900
-        focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400
-        transition-all duration-200 disabled:bg-slate-50 disabled:text-slate-400"
-    >
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
-  )
-}
-
-function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
-      <Icon className="w-4 h-4 text-blue-500" />
-      <h3 className="text-sm font-semibold text-slate-800">{children}</h3>
-    </div>
-  )
 }
 
 // ==================== 地址解析 ====================

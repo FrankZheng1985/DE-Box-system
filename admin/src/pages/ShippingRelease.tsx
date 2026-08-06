@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Ship, Search, Eye, ChevronLeft, ChevronRight,
+  Ship, Search, Eye,
   CheckCircle, Mail, Send, Clock, Ban, RefreshCw,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +9,8 @@ import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
+import Toast from '../components/Toast'
+import Pagination from '../components/Pagination'
 import { formatDate } from '../utils/format'
 
 // ==================== 类型定义 ====================
@@ -52,23 +54,6 @@ const RELEASE_STATUS_OPTIONS = [
   { value: 'PENDING_RELEASE', labelKey: 'status.PENDING_RELEASE' },
   { value: 'RELEASED', labelKey: 'clearanceStatus.CLEARED' },
 ]
-
-// ==================== Toast 组件 ====================
-
-function Toast({ message, onClose }: { message: string; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-[fadeIn_200ms_ease-out]">
-      <div className="px-6 py-3 bg-green-500 text-white text-sm font-medium rounded-xl shadow-lg">
-        {message}
-      </div>
-    </div>
-  )
-}
 
 // ==================== 组件 ====================
 
@@ -187,7 +172,6 @@ export default function ShippingRelease() {
     }
   }
 
-  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -316,22 +300,7 @@ export default function ShippingRelease() {
         </div>
 
         {/* 分页 */}
-        {total > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-            <p className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</p>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-slate-600">{page} / {totalPages || 1}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} total={total} pageSize={pageSize} onChange={setPage} />
       </div>
 
       {/* ==================== 更新放单状态 Modal ==================== */}
