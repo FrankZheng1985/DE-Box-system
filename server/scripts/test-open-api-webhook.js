@@ -77,7 +77,7 @@ const hookKey = await query(
 const hookKeyId = hookKey.rows[0].id
 
 // 对照组：同客户但没配 Webhook，其单据不应入队
-const plainKey = await query(
+const _plainKey = await query(
   `INSERT INTO api_keys (partner_code, partner_name, client_id, key_prefix, key_hash,
                          status, created_by)
    VALUES ('P8WPLAIN','无Webhook合作方',$1,'eutms_pppppp',$2,'ACTIVE',$3) RETURNING id`,

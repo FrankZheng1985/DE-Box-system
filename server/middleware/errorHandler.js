@@ -2,7 +2,9 @@
  * 全局错误处理中间件
  */
 
-export function errorHandler(err, req, res, next) {
+// 第 4 个参数 _next 不能删：Express 靠函数入参个数（arity === 4）
+// 识别「错误处理中间件」，删了它就退化成普通中间件，错误再也进不来
+export function errorHandler(err, req, res, _next) {
   console.error('❌ 服务器错误:', err)
 
   // 默认错误响应

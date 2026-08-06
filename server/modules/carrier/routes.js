@@ -87,7 +87,11 @@ router.get('/', requirePermission('carrier:view'), async (req, res) => {
  */
 router.get('/match', requirePermission('carrier:view'), async (req, res) => {
   try {
-    const { routeFrom, routeTo, vehicleType } = req.query
+    // ⚠️ 这三个筛选参数目前**接收了但没有使用**——本接口返回全部承运商，
+    // 由运营看着准时率/覆盖路线自己挑，并不按线路或车型过滤。
+    // 加 _ 前缀是为了让 lint 通过的同时保留接口契约的可见性；
+    // 要不要真按它们过滤属于业务决策，未擅自改动行为。
+    const { routeFrom: _routeFrom, routeTo: _routeTo, vehicleType: _vehicleType } = req.query
     /**
      * 派单页的承运商匹配
      *

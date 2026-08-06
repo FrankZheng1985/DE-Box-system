@@ -17,7 +17,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') })
 import {
   documentEngine, documentFlow, numberRange,
   changeTracker, postingPeriod, accountDetermination,
-  creditManager, pricingEngine
+  pricingEngine
 } from '../core/index.js'
 
 const pool = new pg.Pool({

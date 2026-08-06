@@ -270,7 +270,7 @@ export function validateUserCreate(req, res, next) {
  * 验证创建客户请求
  */
 export function validateCustomerCreate(req, res, next) {
-  const { code, name, contactPerson, phone, email, creditLimit, paymentTerms } = req.body
+  const { code, name, phone, email, creditLimit, paymentTerms } = req.body
 
   if (!code || !isValidString(code, 1, 50)) {
     return validationError(res, '客户编码不能为空', 'code')
@@ -305,7 +305,7 @@ export function validateCustomerCreate(req, res, next) {
  * 验证创建供应商请求
  */
 export function validateSupplierCreate(req, res, next) {
-  const { code, name, contactPerson, phone, email, paymentTerms } = req.body
+  const { code, name, phone, email, paymentTerms } = req.body
 
   if (!code || !isValidString(code, 1, 50)) {
     return validationError(res, '供应商编码不能为空', 'code')

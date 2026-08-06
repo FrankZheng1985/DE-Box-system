@@ -83,6 +83,7 @@ export async function testConnection() {
   try {
     const client = await pool.connect()
     const result = await client.query('SELECT current_database() as db, NOW() as time')
+    // eslint-disable-next-line no-console -- 连接自检，启动时只输出一次
     console.log(`✅ 数据库连接成功: ${result.rows[0].db} (${result.rows[0].time})`)
     client.release()
     return true

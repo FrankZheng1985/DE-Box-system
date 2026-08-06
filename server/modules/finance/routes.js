@@ -326,7 +326,6 @@ router.put('/:id/payment', requireUserType('OPERATOR'), requirePermission('finan
         subledgerType: record.counterparty_type, subledgerId: record.counterparty_id, orderId: record.order_id
       })
 
-      const updateFields = { paid_amount: newPaidAmount, payment_status: newStatus, updated_at: 'NOW()' }
       if (newStatus === 'PAID') {
         await client.query(
           `UPDATE financial_records SET paid_amount = $1, payment_status = $2, paid_date = NOW(), updated_at = NOW() WHERE id = $3`,

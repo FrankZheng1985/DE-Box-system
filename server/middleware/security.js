@@ -53,6 +53,9 @@ export function requestLogger(req, res, next) {
     } else if (res.statusCode >= 400) {
       console.warn('⚠️ [WARN]', JSON.stringify(logData))
     } else {
+      // requestLogger 整个中间件只在 NODE_ENV !== 'production' 时才被 app.js 挂载，
+      // 生产根本不会执行到这里
+      // eslint-disable-next-line no-console
       console.log('📝 [INFO]', `${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`)
     }
   })

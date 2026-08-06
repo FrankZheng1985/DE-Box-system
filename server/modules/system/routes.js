@@ -618,7 +618,6 @@ router.post('/master-data/:type', requireUserType('OPERATOR'), requirePermission
     // 构建INSERT
     const cols = ['code', 'name_zh', 'name_en', 'name_de', 'sort_order']
     const vals = [code.toUpperCase(), name_zh, name_en || null, name_de || null, sort_order || 0]
-    let paramIdx = vals.length
 
     // 追加额外字段
     const allowedExtra = MD_EXTRA_COLS[req.params.type] || []
@@ -626,7 +625,6 @@ router.post('/master-data/:type', requireUserType('OPERATOR'), requirePermission
       if (extraFields[col] !== undefined) {
         cols.push(col)
         vals.push(extraFields[col] || null)
-        paramIdx++
       }
     }
 

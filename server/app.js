@@ -170,10 +170,12 @@ app.use(errorHandler)
 // Socket.IO
 io.on('connection', (socket) => {
   if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console -- 已被 NODE_ENV 判断包住，生产不会输出
     console.log('客户端连接:', socket.id)
   }
   socket.on('disconnect', () => {
     if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console -- 同上，仅开发环境
       console.log('客户端断开:', socket.id)
     }
   })
@@ -188,6 +190,7 @@ async function startServer() {
     await testConnection()
 
     httpServer.listen(PORT, () => {
+      // eslint-disable-next-line no-console -- 启动横幅，进程生命周期内只输出一次
       console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║         EU-TMS 欧洲运输管理系统 V2.0                         ║

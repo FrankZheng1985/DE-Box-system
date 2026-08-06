@@ -189,6 +189,7 @@ export function getDatabase() {
     })
     
     const dbType = isProduction ? '生产' : '开发'
+    // eslint-disable-next-line no-console -- 连接池建立，启动时只输出一次
     console.log(`🌐 PostgreSQL 数据库连接已建立 (${dbType}环境)`)
   }
   return new PostgresDatabase(pgPool)
@@ -208,6 +209,7 @@ export function closeDatabase() {
   if (pgPool) {
     pgPool.end()
     pgPool = null
+    // eslint-disable-next-line no-console -- 连接池关闭，进程退出时只输出一次
     console.log('🌐 PostgreSQL 连接池已关闭')
   }
 }
@@ -240,6 +242,7 @@ export async function testConnection() {
   try {
     const client = await pgPool.connect()
     const result = await client.query('SELECT current_database() as db')
+    // eslint-disable-next-line no-console -- 连接自检，启动时只输出一次
     console.log('✅ PostgreSQL 连接测试成功:', result.rows[0].db)
     client.release()
     return true

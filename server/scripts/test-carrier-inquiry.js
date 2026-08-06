@@ -66,7 +66,7 @@ await query(
    DO UPDATE SET is_open = true`
 )
 
-const admin = tokenFor({ id: adminId, username: 'admin', userType: 'OPERATOR', roleCode: 'sys_admin' })
+const _admin = tokenFor({ id: adminId, username: 'admin', userType: 'OPERATOR', roleCode: 'sys_admin' })
 const manager = tokenFor({ id: adminId, username: 'mgr', userType: 'OPERATOR', roleCode: 'op_manager' })
 const staff = tokenFor({ id: adminId, username: 'staff', userType: 'OPERATOR', roleCode: 'op_staff' })
 

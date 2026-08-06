@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "npx nodemon app.js",
     "start": "node app.js",
-    "init-db": "node scripts/init-db.js"
+    "init-db": "node scripts/init-db.js",
+    "lint": "eslint . --ext js --report-unused-disable-directives"
   },
   "dependencies": {
     "ali-oss": "^6.20.0",
@@ -30,6 +31,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/pg": "^8.10.9",
+    "eslint": "^8.57.1",
     "nodemon": "^3.0.2"
   },
   "engines": {

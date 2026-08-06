@@ -6,7 +6,6 @@
 import { Router } from 'express'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
-import { documentEngine, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 
 const router = Router()
 router.use(authenticateToken)
