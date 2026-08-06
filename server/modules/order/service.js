@@ -121,6 +121,26 @@ function getInitialStatus(businessType) {
   return businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? 'PENDING_QUOTE' : 'PENDING_REVIEW'
 }
 
+/**
+ * 把平铺的联系人字段并进地址 JSONB
+ *
+ * orders 表只有 pickup_address / delivery_address 两个 JSONB 列，没有联系人列。
+ * 前端（admin 建单页、门户建单页、批量导入）都在传 pickupContact / deliveryPhone
+ * 这样的平铺字段，model.create 根本不认 —— 填了直接进黑洞，页面还一切正常。
+ *
+ * 地址和联系人都为空时返回原值（保持 null），不要造出一个空对象存进库。
+ */
+function mergeContactIntoAddress(address, contactName, contactPhone) {
+  const name = (contactName || '').trim()
+  const phone = (contactPhone || '').trim()
+  if (!name && !phone) return address
+  return {
+    ...(address || {}),
+    ...(name ? { contactName: name } : {}),
+    ...(phone ? { contactPhone: phone } : {})
+  }
+}
+
 // 业务范围（business_areas 表的外键，迁移 105 已补 LD）
 const BUSINESS_AREA_MAP = {
   TRUCK_LTL: 'CS',
@@ -166,8 +186,12 @@ export const orderService = {
 
   /**
    * 创建订单（核心流程，演示 ERP 内核的完整调用）
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.skipNewOrderNotify] 批量导入时用：跳过逐单的「新订单」站内通知，
+   *        由调用方在最后发一条汇总。200 单逐条发会把每个操作员的通知中心刷爆。
    */
-  async createOrder(client, orderData, userId) {
+  async createOrder(client, orderData, userId, options = {}) {
     // 步骤 0：业务类型校验，防止旧值（CURTAIN_SIDE/CONTAINER）或非法值再进库
     if (!Object.values(BUSINESS_TYPES).includes(orderData.businessType)) {
       throw new Error(`无效的业务类型: ${orderData.businessType}，允许值: ${Object.values(BUSINESS_TYPES).join(' / ')}`)
@@ -204,6 +228,14 @@ export const orderService = {
     const initialStatus = getInitialStatus(orderData.businessType)
     const order = await orderModel.create(client, {
       ...orderData,
+      // 联系人并进地址的 JSONB：orders 表没有联系人列，平铺的
+      // pickupContact / deliveryPhone 这些直接传会被 model 忽略掉，填了等于没填
+      pickupAddress: mergeContactIntoAddress(
+        orderData.pickupAddress, orderData.pickupContact, orderData.pickupPhone
+      ),
+      deliveryAddress: mergeContactIntoAddress(
+        orderData.deliveryAddress, orderData.deliveryContact, orderData.deliveryPhone
+      ),
       documentId: doc.id,
       orderNumber: doc.docNumber,
       companyCode,
@@ -270,7 +302,9 @@ export const orderService = {
       }
     }
 
-    // 步骤 9：通知所有操作员有新订单
+    // 步骤 9：通知所有操作员有新订单（批量导入时跳过，由调用方发汇总）
+    if (options.skipNewOrderNotify) return order
+
     try {
       const operators = await client.query(
         `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`

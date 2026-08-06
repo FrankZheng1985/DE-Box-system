@@ -20,11 +20,14 @@ import {
   MapPin,
   X,
   Calendar,
+  Upload,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { useAuth } from '../contexts/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
+import OrderImportModal from '../components/OrderImportModal'
 import { formatDate, formatMoney, formatNumber } from '../utils/format'
 import {
   BUSINESS_TYPES,
@@ -85,10 +88,13 @@ const PAGE_SIZE = 15
 export default function OrderManagement() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { hasPermission } = useAuth()
 
   // ---------- 状态 ----------
   // 业务类型 Tab
   const [businessType, setBusinessType] = useState<BusinessType>(BUSINESS_TYPES.TRUCK_LTL)
+  // 批量导入弹窗
+  const [showImport, setShowImport] = useState(false)
   // 状态筛选（FTL 筛的是派送子状态 delivery_status，其余筛主状态 status）
   const [statusFilter, setStatusFilter] = useState('')
   // 搜索关键词
@@ -257,14 +263,36 @@ export default function OrderManagement() {
             <p className="text-xs text-slate-500">{t('order.pageSubtitle')}</p>
           </div>
         </div>
-        <button
-          onClick={() => navigate('/orders/create')}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          {t('order.create')}
-        </button>
+        <div className="flex items-center gap-2">
+          {hasPermission('order:import') && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 text-sm font-medium rounded-xl border border-slate-200 hover:bg-slate-50 transition-all duration-200"
+            >
+              <Upload className="w-4 h-4" />
+              {t('orderImport.entry')}
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/orders/create')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            {t('order.create')}
+          </button>
+        </div>
       </div>
+
+      {showImport && (
+        <OrderImportModal
+          onClose={() => setShowImport(false)}
+          onImported={(count) => {
+            setShowImport(false)
+            setToast(t('orderImport.successNotice', { count }))
+            fetchOrders()
+          }}
+        />
+      )}
 
       {/* ===== 业务类型 Tab ===== */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">

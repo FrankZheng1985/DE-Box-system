@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, RefreshCw, FolderOpen, X, Download, FileText } from 'lucide-react'
+import { Plus, Search, RefreshCw, FolderOpen, X, Download, FileText, Upload } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { useAuth } from '../contexts/AuthContext'
 import { formatMoney, formatNumber, formatDate, formatDateTime } from '../utils/format'
 import { BUSINESS_TYPES, getStatusLabel, getStatusStyle } from '../constants/businessTypes'
+import OrderImportModal from '../components/OrderImportModal'
 
 // 订单文件（与后端 GET /orders/:id/files 统一视图一致）
 interface OrderFileItem {
@@ -37,8 +39,11 @@ interface Order {
 export default function MyOrders() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [showImport, setShowImport] = useState(false)
+  const [notice, setNotice] = useState('')
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -114,14 +119,42 @@ export default function MyOrders() {
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
-        <button
-          onClick={() => navigate('/orders/create')}
-          className="h-8 px-3 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
-        >
-          <Plus className="w-4 h-4" />
-          {t('nav.createOrder')}
-        </button>
+        <div className="flex items-center gap-2">
+          {hasPermission('portal:order_import') && (
+            <button
+              onClick={() => { setNotice(''); setShowImport(true) }}
+              className="h-8 px-3 text-xs text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out flex items-center gap-1"
+            >
+              <Upload className="w-4 h-4" />
+              {t('orderImport.entry')}
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/orders/create')}
+            className="h-8 px-3 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            {t('nav.createOrder')}
+          </button>
+        </div>
       </div>
+
+      {notice && (
+        <div className="px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-xs rounded-lg">
+          {notice}
+        </div>
+      )}
+
+      {showImport && (
+        <OrderImportModal
+          onClose={() => setShowImport(false)}
+          onImported={(count) => {
+            setShowImport(false)
+            setNotice(t('orderImport.successNotice', { count }))
+            loadOrders()
+          }}
+        />
+      )}
 
       {/* 表格 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">

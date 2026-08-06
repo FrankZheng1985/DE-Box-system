@@ -9,11 +9,13 @@ import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
-import { getPool } from '../../core/db.js'
+import { getPool, withTransaction } from '../../core/db.js'
+import { notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import { resolveLang, t } from '../../utils/i18n.js'
 import { uploadToOSS, deleteFromOSS } from '../../utils/oss-service.js'
 import orderController from './controller.js'
-import { BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
+import { orderService, BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
+import importService from './import-service.js'
 
 const router = Router()
 
@@ -48,6 +50,102 @@ const orderFileUpload = multer({
     cb(null, allowed.includes(file.mimetype))
   }
 })
+
+/**
+ * 批量导入的文件接收器
+ *
+ * 用内存存储：文件解析完就没用了，不落盘（订单附件才需要留存）。
+ */
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: importService.MAX_FILE_SIZE, files: 1 },
+})
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * 校验导入请求，取出「导给哪个客户 + 哪个运输产品」
+ *
+ * ⚠️ 客户门户一律用 JWT 里的绑定客户，忽略前端传的 clientId ——
+ *    否则登录一个客户就能给别的客户造单（踩坑 016 / 023 同族）。
+ *
+ * @returns {{clientId: string, businessType: string}|null} 已经回过响应时返回 null
+ */
+function resolveImportContext(req, res) {
+  const businessType = String(req.body?.businessType || '').toUpperCase()
+  if (!importService.IMPORT_BUSINESS_TYPES.includes(businessType)) {
+    res.status(400).json({
+      code: 400,
+      message: `请指定运输产品，允许值：${importService.IMPORT_BUSINESS_TYPES.join(' / ')}`,
+      data: null,
+    })
+    return null
+  }
+
+  if (!req.file) {
+    res.status(400).json({ code: 400, message: '请选择要导入的 Excel 文件', data: null })
+    return null
+  }
+
+  const userType = req.user.userType || req.user.roleCode
+  if (userType === 'CLIENT') {
+    return { clientId: req.user.linkedEntityId, businessType }
+  }
+
+  const clientId = req.body?.clientId
+  if (!clientId) {
+    res.status(400).json({ code: 400, message: '请先选择要导入到哪个客户', data: null })
+    return null
+  }
+  if (!UUID_RE.test(String(clientId))) {
+    res.status(400).json({ code: 400, message: '客户 clientId 格式不正确', data: null })
+    return null
+  }
+  return { clientId: String(clientId), businessType }
+}
+
+/** 解析结果 → 前端要的结构（预览和导入失败共用，两边看到的一模一样） */
+function buildPreviewPayload(result, businessType) {
+  return {
+    businessType,
+    totalRows: result.totalRows,
+    orderCount: result.orders.length,
+    orders: result.orders.map((o) => ({ rowNumber: o.rowNumber, ...o.payload })),
+    errors: result.errors,
+    warnings: result.warnings,
+  }
+}
+
+/**
+ * 批量导入成功后给操作员发一条汇总通知
+ *
+ * 走独立连接（导入事务已经提交），发失败不影响导入结果 —— 单子已经进库了，
+ * 这里再抛错会让前端以为导入失败又去导一遍。
+ */
+async function notifyBatchImported(created, businessType) {
+  if (created.length === 0) return
+  try {
+    const pool = getPool()
+    const operators = await pool.query(
+      `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`
+    )
+    if (operators.rows.length === 0) return
+
+    const productLabel = BUSINESS_TYPE_LABELS[businessType] || businessType
+    await notificationEngine.notify(pool, {
+      userIds: operators.rows.map((u) => u.id),
+      type: NOTIFICATION_TYPES.STATUS_UPDATE,
+      title: `批量导入 ${created.length} 张订单`,
+      message: `${productLabel}：批量导入 ${created.length} 张订单（${created[0].orderNumber} 等），请及时审核`,
+      titleKey: 'notify.orderBatchImportTitle',
+      messageKey: 'notify.orderBatchImportMessage',
+      payload: { count: created.length, product: productLabel, orderNo: created[0].orderNumber },
+      relatedOrderId: created[0].id,
+    })
+  } catch (error) {
+    console.warn('批量导入汇总通知发送失败（不影响导入结果）:', error.message)
+  }
+}
 
 const FILE_CATEGORIES = ['LOADING_PHOTO', 'CMR', 'POD_PROOF', 'OTHER']
 
@@ -349,6 +447,116 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('order:expo
     res.status(500).json({ code: 500, message: '导出失败' })
   }
 })
+
+// ==================== 批量导入（按运输产品分模板） ====================
+
+/**
+ * 下载某个运输产品的导入模板
+ * GET /api/v1/orders/import-template?businessType=TRUCK_LTL
+ *
+ * ⚠️ 和 /stats /export 一样必须放在 /:id 前面（踩坑 001）
+ *
+ * 表头按请求语言渲染（P9）；解析时三种语言的表头都认，所以德语同事下的模板
+ * 中文同事也能拿来导。
+ */
+router.get('/import-template',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('order:import', 'portal:order_import'),
+  async (req, res) => {
+    const lang = resolveLang(req)
+    const businessType = String(req.query.businessType || '').toUpperCase()
+    if (!importService.IMPORT_BUSINESS_TYPES.includes(businessType)) {
+      return res.status(400).json({
+        code: 400,
+        message: `请指定运输产品，允许值：${importService.IMPORT_BUSINESS_TYPES.join(' / ')}`,
+        data: null,
+      })
+    }
+    try {
+      const workbook = importService.buildTemplateWorkbook(businessType, lang)
+      const filename = `order_import_${businessType.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      await workbook.xlsx.write(res)
+      res.end()
+    } catch (error) {
+      console.error('生成订单导入模板失败:', error)
+      res.status(500).json({ code: 500, message: '生成导入模板失败', data: null })
+    }
+  })
+
+/**
+ * 批量导入预览（只解析校验，不写库）
+ * POST /api/v1/orders/import/preview   multipart: file, businessType [, clientId]
+ *
+ * ⚠️ 必须在 /import 之前注册，否则 /import/preview 会被后面的参数路由抢走
+ *    （同踩坑 001 的套路）
+ */
+router.post('/import/preview',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('order:import', 'portal:order_import'),
+  importUpload.single('file'),
+  async (req, res) => {
+    const lang = resolveLang(req)
+    try {
+      const context = resolveImportContext(req, res)
+      if (!context) return
+
+      const result = await importService.analyzeImportFile(req.file.buffer, context.businessType, lang)
+      res.json({ code: 200, message: 'success', data: buildPreviewPayload(result, context.businessType) })
+    } catch (error) {
+      console.error('解析订单导入文件失败:', error)
+      res.status(500).json({ code: 500, message: '解析导入文件失败', data: null })
+    }
+  })
+
+/**
+ * 批量导入（解析 + 写库）
+ * POST /api/v1/orders/import   multipart: file, businessType [, clientId]
+ *
+ * 用的是和预览完全相同的解析函数，所以「预览看到几张单，导进去就是几张」。
+ * 有任何一条错误就整批不导 —— 导一半客户没法知道该补哪几张。
+ */
+router.post('/import',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('order:import', 'portal:order_import'),
+  importUpload.single('file'),
+  async (req, res) => {
+    const lang = resolveLang(req)
+    try {
+      const context = resolveImportContext(req, res)
+      if (!context) return
+
+      const result = await importService.analyzeImportFile(req.file.buffer, context.businessType, lang)
+      if (result.errors.length > 0 || result.orders.length === 0) {
+        return res.status(400).json({
+          code: 400,
+          message: '导入文件有错误，请修正后重试',
+          data: buildPreviewPayload(result, context.businessType),
+        })
+      }
+
+      const created = await withTransaction(async (client) =>
+        importService.createOrdersFromRows(client, result.orders, {
+          clientId: context.clientId,
+          userId: req.user.id,
+          createOrder: orderService.createOrder,
+        })
+      )
+
+      // 逐单通知在导入时关掉了，这里给操作员补一条汇总
+      await notifyBatchImported(created, context.businessType)
+
+      res.json({
+        code: 200,
+        message: `成功导入 ${created.length} 张订单`,
+        data: { created, count: created.length },
+      })
+    } catch (error) {
+      console.error('批量导入订单失败:', error)
+      res.status(500).json({ code: 500, message: error.message, data: null })
+    }
+  })
 
 // CRUD
 router.get('/', requirePermission(...CAN_VIEW_ORDER), orderController.list)

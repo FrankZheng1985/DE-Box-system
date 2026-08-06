@@ -122,8 +122,15 @@ export const orderController = {
    */
   async create(req, res) {
     try {
+      // 客户门户建单一律落在自己公司名下：clientId 取 JWT 的绑定，忽略前端传参。
+      // 以前直接吃 req.body.clientId，客户门户账号改一下就能给别家公司造单
+      // （和列表接口踩过的坑同族：踩坑 016 / 023）
+      const payload = req.user?.userType === 'CLIENT'
+        ? { ...req.body, clientId: req.user.linkedEntityId }
+        : req.body
+
       const order = await withTransaction(async (client) => {
-        return orderService.createOrder(client, req.body, req.user.id)
+        return orderService.createOrder(client, payload, req.user.id)
       })
 
       res.json({ code: 200, message: '订单创建成功', data: order })
