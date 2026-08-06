@@ -10,6 +10,7 @@ import { resolveLang, t } from '../../utils/i18n.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange, creditManager } from '../../core/index.js'
 import { roleHasAnyPermission } from '../../core/permission-service.js'
+import { generateTicket, hashTicket, getClientIp, TICKET_TTL_SECONDS } from '../../utils/impersonation.js'
 
 const router = Router()
 router.use(authenticateToken)
@@ -639,6 +640,65 @@ router.put('/:id/toggle-status', requirePermission('client:edit'), async (req, r
   } catch (error) {
     console.error('[Client] 切换状态失败:', error)
     res.status(500).json({ code: 500, message: error.message || '操作失败', data: null })
+  }
+})
+
+/**
+ * 签发进入客户门户的票据（员工以自己的身份，看这一家客户的视角）
+ * POST /api/v1/clients/:id/impersonate
+ *
+ * 只发票据，不发 token —— token 由客户门户拿票据去 /auth/impersonate/exchange 换，
+ * 免得 token 出现在跳转 URL 里（原因见 utils/impersonation.js 注释）。
+ *
+ * 不需要这家客户有任何门户账号：进去的是员工自己的身份，
+ * 客户的账号既不被借用，last_login_at 也不会被污染。
+ *
+ * 本模块顶部已经 requireUserType('OPERATOR')，所以这里只需再要一个权限码。
+ */
+router.post('/:id/impersonate', requirePermission('client:impersonate'), async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const clientResult = await query(
+      'SELECT id, company_name, status FROM clients WHERE id = $1',
+      [id]
+    )
+    if (clientResult.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '客户不存在', data: null })
+    }
+    const client = clientResult.rows[0]
+    if (client.status !== 'ACTIVE') {
+      return res.status(400).json({ code: 400, message: '该客户已作废，无法进入其门户', data: null })
+    }
+
+    const ticket = generateTicket()
+    const expiresAt = new Date(Date.now() + TICKET_TTL_SECONDS * 1000)
+
+    await query(
+      `INSERT INTO impersonation_sessions
+         (ticket_hash, operator_user_id, operator_username,
+          target_client_id, target_company_name, client_ip, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [hashTicket(ticket), req.user.id, req.user.username,
+       client.id, client.company_name, getClientIp(req), expiresAt]
+    )
+
+    // 审计：这条日志和库里的台账互为备份，排查时先看日志更快
+    console.warn('[客户门户代入] 签发票据 | 员工:', req.user.username,
+      '| 客户:', client.company_name, '| 客户ID:', client.id)
+
+    res.json({
+      code: 200,
+      message: 'success',
+      data: {
+        ticket,
+        expiresIn: TICKET_TTL_SECONDS,
+        companyName: client.company_name,
+      },
+    })
+  } catch (error) {
+    console.error('[Client] 签发客户门户代入票据失败:', error)
+    res.status(500).json({ code: 500, message: '操作失败', data: null })
   }
 })
 

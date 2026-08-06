@@ -1084,6 +1084,8 @@
     "add": "添加客户",
     "added": "客户添加成功",
     "addFailed": "添加客户失败",
+    "impersonate": "进入客户门户",
+    "impersonateFailed": "进入客户门户失败",
     "searchPlaceholder": "搜索公司名称、VAT税号...",
     "empty": "暂无客户数据",
     "allLevels": "全部等级",

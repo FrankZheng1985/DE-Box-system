@@ -16,6 +16,7 @@ import {
   User,
   Menu,
   Users,
+  AlertTriangle,
 } from 'lucide-react'
 import { useState } from 'react'
 import BrandMark from './BrandMark'
@@ -41,7 +42,7 @@ const navItems = [
 
 export default function Layout() {
   const { t } = useTranslation()
-  const { user, logout, hasPermission } = useAuth()
+  const { user, logout, hasPermission, impersonation } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -60,7 +61,31 @@ export default function Layout() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* 员工代入横幅
+          放在最外层 flex-col 的第一格，而不是塞进内容区——
+          页面滚动发生在 main 内部，横幅在这里就永远留在视线里，
+          员工不会在翻了几页之后忘记自己正在客户的门户里操作 */}
+      {impersonation && (
+        <div className="bg-amber-500 text-white px-4 lg:px-6 py-2 flex items-center gap-2 z-[60]">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1 min-w-0 text-xs">
+            {t('impersonation.banner', {
+              company: impersonation.companyName,
+              operator: impersonation.operatorDisplayName || impersonation.operatorUsername,
+            })}
+          </span>
+          <button
+            onClick={handleLogout}
+            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-white/20 hover:bg-white/30 rounded-lg transition-all duration-200"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            {t('impersonation.exit')}
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-1 min-h-0">
       {/* 移动端遮罩 */}
       {sidebarOpen && (
         <div
@@ -153,6 +178,7 @@ export default function Layout() {
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           <Outlet />
         </main>
+      </div>
       </div>
     </div>
   )

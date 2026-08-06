@@ -1084,6 +1084,8 @@
     "add": "Add client",
     "added": "Client added",
     "addFailed": "Could not add the client",
+    "impersonate": "Open client portal",
+    "impersonateFailed": "Could not open the client portal",
     "searchPlaceholder": "Search company name, VAT number...",
     "empty": "No clients yet",
     "allLevels": "All levels",

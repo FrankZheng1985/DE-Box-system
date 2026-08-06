@@ -409,7 +409,17 @@
     "MISSING_CREDENTIALS": "请输入用户名和密码",
     "INVALID_CREDENTIALS": "用户名或密码错误",
     "ACCOUNT_DISABLED": "账号已停用，请联系管理员",
-    "LOGIN_ERROR": "登录失败，请稍后重试"
+    "LOGIN_ERROR": "登录失败，请稍后重试",
+    "IMPERSONATION_TICKET_MISSING": "进入链接不完整，请回到管理端重新点击",
+    "IMPERSONATION_TICKET_INVALID": "进入票据无效或已过期，请回到管理端重新点击",
+    "IMPERSONATION_TARGET_INVALID": "该客户已作废或不存在，无法进入其门户",
+    "IMPERSONATION_OPERATOR_INVALID": "你的员工账号已停用或已变更，无法进入客户门户"
+  },
+  "impersonation": {
+    "signingIn": "正在进入客户门户…",
+    "retryHint": "请回到管理端的客户列表，重新点击「进入客户门户」",
+    "banner": "你（{{operator}}）正在查看 {{company}} 的客户门户，此处的所有操作都会真实生效",
+    "exit": "退出"
   },
   "apiMessage": {
     "SERVER_ERROR": "服务器内部错误",

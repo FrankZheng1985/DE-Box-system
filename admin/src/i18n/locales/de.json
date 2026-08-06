@@ -1084,6 +1084,8 @@
     "add": "Kunde anlegen",
     "added": "Kunde angelegt",
     "addFailed": "Kunde konnte nicht angelegt werden",
+    "impersonate": "Kundenportal öffnen",
+    "impersonateFailed": "Kundenportal konnte nicht geöffnet werden",
     "searchPlaceholder": "Firmenname, USt-IdNr. suchen...",
     "empty": "Noch keine Kunden",
     "allLevels": "Alle Stufen",

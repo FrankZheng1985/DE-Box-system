@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download, Ban, RotateCcw } from 'lucide-react'
+import { Users, Search, Plus, Eye, Edit, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Download, Ban, RotateCcw, LogIn, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useAuth } from '../contexts/AuthContext'
 
 // ==================== 类型定义 ====================
 
@@ -84,11 +85,23 @@ const CLIENT_LEVEL_LABEL_KEYS: Record<string, string> = {
   NORMAL: 'client.levelNormalShort',
 }
 
+/**
+ * 客户门户的地址
+ *
+ * 生产是同域下的 /customer/（nginx 按路径分发到客户门户 SPA）。
+ * 开发时管理端和客户门户是两个 vite server，同域相对路径会被管理端自己接住，
+ * 所以 dev 下直接指到客户门户的 5175 端口。
+ */
+const CUSTOMER_PORTAL_URL =
+  (import.meta.env?.VITE_CUSTOMER_PORTAL_URL as string | undefined) ||
+  (import.meta.env?.DEV ? 'http://localhost:5175/customer' : '/customer')
+
 // ==================== 组件 ====================
 
 export default function ClientList() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [loading, setLoading] = useState(true)
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
@@ -106,6 +119,11 @@ export default function ClientList() {
 
   // 作废/恢复确认
   const [confirmTarget, setConfirmTarget] = useState<Client | null>(null)
+
+  // 正在换取代入票据的客户 id（只用于按钮的加载态显示）
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null)
+  // 真正的防连点开关，见 handleImpersonate 里的说明
+  const impersonatingRef = useRef(false)
 
   // 获取客户列表
   const fetchClients = async () => {
@@ -198,6 +216,47 @@ export default function ClientList() {
       fetchClients()
     } else {
       throw new Error(res.message || t('common.operateFailed'))
+    }
+  }
+
+  // 以员工自己的身份进入该客户视角的客户门户
+  //
+  // 后端只返回一张 60 秒有效的一次性票据，真正的 token 由客户门户拿票据去换，
+  // 所以 URL 里出现的不是 token（URL 会进浏览器历史和 nginx 日志）。
+  const handleImpersonate = async (client: Client) => {
+    // 用 ref 而不是 impersonatingId 挡连点：state 要等下一次渲染才更新，
+    // 同一个事件循环里的两次点击都会读到旧值，等于没挡
+    if (impersonatingRef.current) return
+    impersonatingRef.current = true
+
+    // ⚠️ 空白窗口必须在点击的同步调用栈里开出来。
+    //    先 await 接口再 window.open，浏览器会判定为"非用户手势触发"直接拦掉弹窗。
+    const portalWindow = window.open('', '_blank')
+
+    setImpersonatingId(client.id)
+    try {
+      const res = await api.post<ApiResponse<{ ticket: string }>>(
+        `/clients/${client.id}/impersonate`,
+        {}
+      )
+      if (res.code === 200 && res.data?.ticket) {
+        const url = `${CUSTOMER_PORTAL_URL}/login?ticket=${encodeURIComponent(res.data.ticket)}`
+        if (portalWindow) {
+          portalWindow.location.href = url
+        } else {
+          // 弹窗被拦截器挡了，退回当前标签页跳转，别让点击毫无反应
+          window.location.href = url
+        }
+      } else {
+        portalWindow?.close()
+        setToast({ type: 'error', message: res.message || t('client.impersonateFailed') })
+      }
+    } catch (err: any) {
+      portalWindow?.close()
+      setToast({ type: 'error', message: err?.message || t('client.impersonateFailed') })
+    } finally {
+      impersonatingRef.current = false
+      setImpersonatingId(null)
     }
   }
 
@@ -383,6 +442,19 @@ export default function ClientList() {
                             title={t('common.edit')}
                           >
                             <Edit className="w-4 h-4" />
+                          </button>
+                        )}
+                        {/* 登录客户门户：作废客户后端也会拒绝，这里就不摆出来了 */}
+                        {!isInactive && hasPermission('client:impersonate') && (
+                          <button
+                            onClick={() => handleImpersonate(client)}
+                            disabled={impersonatingId === client.id}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={t('client.impersonate')}
+                          >
+                            {impersonatingId === client.id
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <LogIn className="w-4 h-4" />}
                           </button>
                         )}
                         <button

@@ -409,7 +409,17 @@
     "MISSING_CREDENTIALS": "Please enter your username and password",
     "INVALID_CREDENTIALS": "Incorrect username or password",
     "ACCOUNT_DISABLED": "This account is disabled, please contact your administrator",
-    "LOGIN_ERROR": "Login failed, please try again later"
+    "LOGIN_ERROR": "Login failed, please try again later",
+    "IMPERSONATION_TICKET_MISSING": "The access link is incomplete, please click again in the admin portal",
+    "IMPERSONATION_TICKET_INVALID": "The access ticket is invalid or has expired, please click again in the admin portal",
+    "IMPERSONATION_TARGET_INVALID": "This client is voided or does not exist, its portal cannot be opened",
+    "IMPERSONATION_OPERATOR_INVALID": "Your staff account is disabled or has changed, access is not possible"
+  },
+  "impersonation": {
+    "signingIn": "Opening the client portal …",
+    "retryHint": "Go back to the client list in the admin portal and click “Open client portal” again",
+    "banner": "You ({{operator}}) are viewing the client portal of {{company}}. Everything you do here takes real effect.",
+    "exit": "Exit"
   },
   "apiMessage": {
     "SERVER_ERROR": "Internal server error",

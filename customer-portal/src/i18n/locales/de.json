@@ -409,7 +409,17 @@
     "MISSING_CREDENTIALS": "Bitte Benutzername und Passwort eingeben",
     "INVALID_CREDENTIALS": "Benutzername oder Passwort ist falsch",
     "ACCOUNT_DISABLED": "Dieses Konto ist deaktiviert, bitte den Administrator kontaktieren",
-    "LOGIN_ERROR": "Anmeldung fehlgeschlagen, bitte später erneut versuchen"
+    "LOGIN_ERROR": "Anmeldung fehlgeschlagen, bitte später erneut versuchen",
+    "IMPERSONATION_TICKET_MISSING": "Der Zugangslink ist unvollständig, bitte im Verwaltungsportal erneut klicken",
+    "IMPERSONATION_TICKET_INVALID": "Das Zugangsticket ist ungültig oder abgelaufen, bitte im Verwaltungsportal erneut klicken",
+    "IMPERSONATION_TARGET_INVALID": "Dieser Kunde ist storniert oder existiert nicht, das Portal kann nicht geöffnet werden",
+    "IMPERSONATION_OPERATOR_INVALID": "Ihr Mitarbeiterkonto ist deaktiviert oder wurde geändert, Zugang nicht möglich"
+  },
+  "impersonation": {
+    "signingIn": "Kundenportal wird geöffnet …",
+    "retryHint": "Bitte in der Kundenliste des Verwaltungsportals erneut auf „Kundenportal öffnen“ klicken",
+    "banner": "Sie ({{operator}}) sehen gerade das Kundenportal von {{company}}. Alle Aktionen hier werden tatsächlich wirksam.",
+    "exit": "Beenden"
   },
   "apiMessage": {
     "SERVER_ERROR": "Interner Serverfehler",
