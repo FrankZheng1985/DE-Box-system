@@ -146,7 +146,11 @@ async function request<T>(
       }
 
       if (response.status === 401) {
+        // 登录态失效：清凭据并整页跳回登录页，只清不跳会停在空页面上（踩坑 043）
         localStorage.removeItem(AUTH_STORAGE_KEY)
+        if (window.location.pathname !== '/carrier/login') {
+          window.location.href = '/carrier/login'
+        }
         throw new ApiError(i18n.t('apiError.sessionExpired'), 401, 'UNAUTHORIZED')
       }
       throw new ApiError(errorMsg, response.status, `HTTP_${response.status}`)

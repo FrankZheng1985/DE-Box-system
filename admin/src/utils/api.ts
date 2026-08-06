@@ -189,8 +189,12 @@ async function request<T>(
         }
 
         if (response.status === 401) {
-          // Token 过期，清除认证信息
+          // Token 过期，清除认证信息并整页跳回登录页——只清不跳会停在一个
+          // "看着还登录着"的空页面上（踩坑 043）；已在登录页时不跳，避免循环
           localStorage.removeItem(AUTH_STORAGE_KEY)
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
           throw new ApiError(i18n.t('apiError.sessionExpired'), 401, 'UNAUTHORIZED')
         }
 
