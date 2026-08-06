@@ -6,6 +6,7 @@
  */
 
 import { query as poolQuery } from '../../core/db.js'
+import { documentEngine } from '../../core/index.js'
 
 /** 欧洲标准车厢内宽（米），LDM 换算的分母 */
 const TRUCK_INNER_WIDTH_M = 2.4
@@ -68,6 +69,60 @@ export function normalizeCargoItem(raw, lineNumber) {
     stackable: raw.stackable !== false,
     remarks: raw.remarks || null,
   }
+}
+
+/**
+ * 建一张询价单（含凭证 + 按件明细）
+ *
+ * 单张新建（POST /inquiries）和批量导入共用这一条路径 ——
+ * 两边各写一条 20 字段的 INSERT 迟早会写岔（少一个字段就是一列静默丢数据）。
+ *
+ * ⚠️ 必须在事务里调用，凭证和询价单要么一起成功要么一起回滚。
+ *
+ * @param {object} client 事务客户端
+ * @param {object} params
+ * @param {string} params.clientId 客户 UUID（调用方按登录身份决定，不从 payload 取）
+ * @param {string} params.createdBy 操作人 UUID
+ * @param {object} params.payload 询价字段（camelCase，同 POST /inquiries 的 body）
+ * @returns {Promise<object>} 入库后的询价单行
+ */
+export async function createInquiryRecord(client, { clientId, createdBy, payload }) {
+  const doc = await documentEngine.createDocument(client, {
+    docType: 'INQ',
+    companyCode: 'DE01',
+    postingDate: new Date(),
+    headerText: `询价 - ${payload.businessType}`,
+    createdBy,
+  })
+
+  const result = await client.query(
+    `INSERT INTO inquiries
+     (document_id, inquiry_number, client_id, business_type, transport_type,
+      route_from, route_to, cargo_description, cargo_weight_kg,
+      cargo_volume_m3, cargo_quantity, special_requirements,
+      pod, container_type, remarks, status,
+      contact_name, contact_phone, contact_email, customer_ref)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+     RETURNING *`,
+    [doc.id, doc.docNumber, clientId,
+     payload.businessType, payload.transportType,
+     JSON.stringify(payload.routeFrom || {}), JSON.stringify(payload.routeTo || {}),
+     payload.cargoDescription, payload.cargoWeightKg,
+     payload.cargoVolumeM3, payload.cargoQuantity,
+     payload.specialRequirements, payload.pod, payload.containerType,
+     payload.remarks, 'PENDING_QUOTE',
+     payload.contactName, payload.contactPhone, payload.contactEmail,
+     payload.customerRef]
+  )
+  const created = result.rows[0]
+
+  // 有按件明细就入库，并把合计汇总回写表头（覆盖上面写入的表头合计值）
+  if (Array.isArray(payload.cargoItems) && payload.cargoItems.length > 0) {
+    await replaceCargoItems(client, created.id, payload.cargoItems)
+    const refreshed = await client.query(`SELECT * FROM inquiries WHERE id = $1`, [created.id])
+    return refreshed.rows[0]
+  }
+  return created
 }
 
 /**
@@ -270,6 +325,7 @@ export default {
   calcUnitVolumeM3,
   calcLineLdm,
   normalizeCargoItem,
+  createInquiryRecord,
   replaceCargoItems,
   recalcInquiryTotals,
   getCargoItems,

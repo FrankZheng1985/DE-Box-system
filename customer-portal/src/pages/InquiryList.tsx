@@ -7,8 +7,9 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, RefreshCw, Send, X, Trash2, Package } from 'lucide-react'
+import { Plus, RefreshCw, Send, X, Trash2, Package, Upload } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import InquiryImportModal from '../components/InquiryImportModal'
 import { BUSINESS_TYPES, BUSINESS_TYPE_VALUES, type BusinessType } from '../constants/businessTypes'
 import {
   INQUIRY_STATUS_STYLES,
@@ -126,8 +127,10 @@ export default function InquiryList() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [form, setForm] = useState(INITIAL_FORM)
   const [rows, setRows] = useState<CargoRow[]>([newRow()])
 
@@ -252,17 +255,41 @@ export default function InquiryList() {
         <button onClick={loadInquiries} className="h-8 px-2 text-slate-500 hover:bg-gray-100 rounded-lg transition-all duration-200 ease-in-out">
           <RefreshCw className="w-4 h-4" />
         </button>
-        <button
-          onClick={() => { resetForm(); setShowCreate(true) }}
-          className="h-8 px-3 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-all duration-200 ease-in-out flex items-center gap-1"
-        >
-          <Plus className="w-4 h-4" />
-          {t('inquiry.create')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setNotice(''); setShowImport(true) }}
+            className="h-8 px-3 text-xs text-slate-700 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out flex items-center gap-1"
+          >
+            <Upload className="w-4 h-4" />
+            {t('inquiryImport.entry')}
+          </button>
+          <button
+            onClick={() => { resetForm(); setShowCreate(true) }}
+            className="h-8 px-3 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-all duration-200 ease-in-out flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            {t('inquiry.create')}
+          </button>
+        </div>
       </div>
 
       {error && !showCreate && (
         <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">{error}</div>
+      )}
+
+      {notice && (
+        <div className="px-4 py-3 bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl">{notice}</div>
+      )}
+
+      {showImport && (
+        <InquiryImportModal
+          onClose={() => setShowImport(false)}
+          onImported={(count) => {
+            setShowImport(false)
+            setNotice(t('inquiryImport.successNotice', { count }))
+            loadInquiries()
+          }}
+        />
       )}
 
       {/* 新建询价弹窗 */}

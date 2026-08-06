@@ -9,11 +9,12 @@
 
 import { Router } from 'express'
 import ExcelJS from 'exceljs'
+import multer from 'multer'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { resolveLang, t } from '../../utils/i18n.js'
-import { documentEngine } from '../../core/index.js'
 import inquiryService from './service.js'
+import importService from './import-service.js'
 
 const router = Router()
 router.use(authenticateToken)
@@ -31,6 +32,17 @@ const INQUIRY_STATUS = {
 }
 
 const VALID_BUSINESS_TYPES = ['TRUCK_LTL', 'TRUCK_FTL', 'LOCAL_DELIVERY']
+
+/**
+ * 批量导入的文件接收器
+ *
+ * 用内存存储：文件解析完就没用了，不落盘（落盘还要考虑清理和权限，
+ * 而且这是纯解析场景，不像订单附件需要留存）。
+ */
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: importService.MAX_FILE_SIZE, files: 1 },
+})
 
 const BUSINESS_TYPE_LABELS = {
   TRUCK_LTL: '卡车派送 LTL',
@@ -289,6 +301,119 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('inquiry:ex
 })
 
 /**
+ * 下载批量导入模板
+ * GET /api/v1/inquiries/import-template
+ *
+ * 表头按请求语言渲染（P9）；解析时三种语言的表头都认，所以德语同事下的模板
+ * 中文同事也能拿来导。
+ */
+router.get('/import-template',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('inquiry:create', 'portal:inquiry_manage'),
+  async (req, res) => {
+    const lang = resolveLang(req)
+    try {
+      const workbook = importService.buildTemplateWorkbook(lang)
+      const filename = `inquiry_import_template_${new Date().toISOString().slice(0, 10)}.xlsx`
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      await workbook.xlsx.write(res)
+      res.end()
+    } catch (error) {
+      console.error('生成询价导入模板失败:', error)
+      res.status(500).json({ code: 500, message: '生成导入模板失败', data: null })
+    }
+  })
+
+/**
+ * 批量导入预览（只解析校验，不写库）
+ * POST /api/v1/inquiries/import/preview   multipart: file
+ *
+ * ⚠️ 必须在 /import 之前注册，否则 /import/preview 会先被 /import 之后的
+ *    参数路由抢走（同踩坑 001 的套路）
+ */
+router.post('/import/preview',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('inquiry:create', 'portal:inquiry_manage'),
+  importUpload.single('file'),
+  async (req, res) => {
+    const lang = resolveLang(req)
+    try {
+      const clientId = resolveImportClientId(req, res)
+      if (!clientId) return
+      if (!req.file) {
+        return res.status(400).json({ code: 400, message: '请选择要导入的 Excel 文件', data: null })
+      }
+
+      const result = await importService.analyzeImportFile(req.file.buffer, lang)
+      // 库里已有同名客户单号的，标出来提醒是不是重复导入
+      const dupWarnings = await importService.markExistingCustomerRefs(
+        { query }, clientId, result.groups, lang
+      )
+
+      res.json({
+        code: 200,
+        message: 'success',
+        data: buildPreviewPayload(result, dupWarnings),
+      })
+    } catch (error) {
+      console.error('解析询价导入文件失败:', error)
+      res.status(500).json({ code: 500, message: '解析导入文件失败', data: null })
+    }
+  })
+
+/**
+ * 批量导入（解析 + 写库）
+ * POST /api/v1/inquiries/import   multipart: file [, clientId]
+ *
+ * 用的是和预览完全相同的解析函数，所以「预览看到几张单，导进去就是几张」。
+ * 有任何一条错误就整批不导 —— 导一半客户没法知道该补哪几张。
+ */
+router.post('/import',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('inquiry:create', 'portal:inquiry_manage'),
+  importUpload.single('file'),
+  async (req, res) => {
+    const lang = resolveLang(req)
+    try {
+      const clientId = resolveImportClientId(req, res)
+      if (!clientId) return
+      if (!req.file) {
+        return res.status(400).json({ code: 400, message: '请选择要导入的 Excel 文件', data: null })
+      }
+
+      const result = await importService.analyzeImportFile(req.file.buffer, lang)
+      const dupWarnings = await importService.markExistingCustomerRefs(
+        { query }, clientId, result.groups, lang
+      )
+
+      if (result.errors.length > 0 || result.groups.length === 0) {
+        return res.status(400).json({
+          code: 400,
+          message: '导入文件有错误，请修正后重试',
+          data: buildPreviewPayload(result, dupWarnings),
+        })
+      }
+
+      const created = await withTransaction(async (client) =>
+        importService.createInquiriesFromGroups(client, result.groups, {
+          clientId,
+          createdBy: req.user.id,
+        })
+      )
+
+      res.json({
+        code: 200,
+        message: `成功导入 ${created.length} 张询价单`,
+        data: { created, count: created.length },
+      })
+    } catch (error) {
+      console.error('批量导入询价失败:', error)
+      res.status(500).json({ code: 500, message: error.message, data: null })
+    }
+  })
+
+/**
  * 询价详情（含按件明细 + 已开出的报价）
  * GET /api/v1/inquiries/:id
  */
@@ -359,44 +484,14 @@ router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('inqui
       })
     }
 
-    const inquiry = await withTransaction(async (client) => {
-      const doc = await documentEngine.createDocument(client, {
-        docType: 'INQ',
-        companyCode: 'DE01',
-        postingDate: new Date(),
-        headerText: `询价 - ${req.body.businessType}`,
+    // 建单逻辑收在 service 里，和批量导入共用同一条路径（两条 INSERT 迟早写岔）
+    const inquiry = await withTransaction(async (client) =>
+      inquiryService.createInquiryRecord(client, {
+        clientId,
         createdBy: req.user.id,
+        payload: req.body,
       })
-
-      const result = await client.query(
-        `INSERT INTO inquiries
-         (document_id, inquiry_number, client_id, business_type, transport_type,
-          route_from, route_to, cargo_description, cargo_weight_kg,
-          cargo_volume_m3, cargo_quantity, special_requirements,
-          pod, container_type, remarks, status,
-          contact_name, contact_phone, contact_email, customer_ref)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-         RETURNING *`,
-        [doc.id, doc.docNumber, clientId,
-         req.body.businessType, req.body.transportType,
-         JSON.stringify(req.body.routeFrom || {}), JSON.stringify(req.body.routeTo || {}),
-         req.body.cargoDescription, req.body.cargoWeightKg,
-         req.body.cargoVolumeM3, req.body.cargoQuantity,
-         req.body.specialRequirements, req.body.pod, req.body.containerType,
-         req.body.remarks, INQUIRY_STATUS.PENDING_QUOTE,
-         req.body.contactName, req.body.contactPhone, req.body.contactEmail,
-         req.body.customerRef]
-      )
-      const created = result.rows[0]
-
-      // 有按件明细就入库，并把合计汇总回写表头（覆盖上面写入的表头合计值）
-      if (Array.isArray(req.body.cargoItems) && req.body.cargoItems.length > 0) {
-        await inquiryService.replaceCargoItems(client, created.id, req.body.cargoItems)
-        const refreshed = await client.query(`SELECT * FROM inquiries WHERE id = $1`, [created.id])
-        return refreshed.rows[0]
-      }
-      return created
-    })
+    )
 
     res.json({ code: 200, message: '询价创建成功', data: inquiry })
   } catch (error) {
@@ -486,6 +581,60 @@ router.delete('/:id', requireUserType('OPERATOR'), requirePermission('inquiry:de
 })
 
 // ==================== 内部工具 ====================
+
+/** UUID 粗校验：拿非 UUID 去查 uuid 列会直接抛库错，变成 500 而不是 400 */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * 批量导入归到哪个客户
+ *
+ * 门户账号一律取 JWT 里的绑定，忽略前端传参（踩坑 016）；
+ * 运营端必须显式选客户 —— 猜错客户比导入失败严重得多。
+ *
+ * @returns {string|null} 返回 null 时响应已经写好了
+ */
+function resolveImportClientId(req, res) {
+  const userType = req.user.userType || req.user.roleCode
+  if (userType === 'CLIENT') return req.user.linkedEntityId
+
+  const clientId = req.body?.clientId
+  if (!clientId) {
+    res.status(400).json({ code: 400, message: '请先选择要导入到哪个客户', data: null })
+    return null
+  }
+  if (!UUID_RE.test(String(clientId))) {
+    res.status(400).json({ code: 400, message: '客户 clientId 格式不正确', data: null })
+    return null
+  }
+  return String(clientId)
+}
+
+/** 预览结果 → 前端要的结构（预览和导入失败共用，两边看到的一模一样） */
+function buildPreviewPayload(result, dupWarnings = []) {
+  return {
+    totalRows: result.totalRows,
+    inquiryCount: result.groups.length,
+    itemCount: result.groups.reduce((sum, g) => sum + g.cargoItems.length, 0),
+    inquiries: result.groups.map((g) => ({
+      customerRef: g.customerRef,
+      businessType: g.businessType,
+      routeFrom: g.routeFrom,
+      routeTo: g.routeTo,
+      contactName: g.contactName,
+      contactPhone: g.contactPhone,
+      contactEmail: g.contactEmail,
+      itemCount: g.cargoItems.length,
+      totalQuantity: g.totalQuantity ?? 0,
+      totalWeightKg: g.totalWeightKg ?? 0,
+      totalVolumeM3: g.totalVolumeM3 ?? 0,
+      totalLdm: g.totalLdm ?? 0,
+      rows: g.rowNumbers,
+      duplicateOfExisting: g.duplicateOfExisting,
+    })),
+    errors: result.errors,
+    warnings: [...result.warnings, ...dupWarnings],
+  }
+}
 
 /**
  * 按 id 列表（或当前筛选条件）取询价单，始终带上身份过滤

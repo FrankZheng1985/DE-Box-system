@@ -9,12 +9,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  MessageSquare, Search, Plus, Eye, Copy, RefreshCw,
+  MessageSquare, Search, Plus, Eye, Copy, RefreshCw, Upload,
   ChevronLeft, ChevronRight, Tag, CheckCircle, AlertCircle, Clock, FileSpreadsheet,
 } from 'lucide-react'
 import api, { type ApiResponse, getApiBaseUrl } from '../utils/api'
 import StatCard from '../components/StatCard'
 import InquiryQuotationTabs from '../components/InquiryQuotationTabs'
+import InquiryImportModal from '../components/InquiryImportModal'
+import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { businessTypeLabelKey } from '../constants/businessTypes'
 import {
@@ -165,6 +167,8 @@ export default function InquiryManagement() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [summary, setSummary] = useState<{ text: string; count: number } | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [showImport, setShowImport] = useState(false)
+  const { hasPermission } = useAuth()
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type })
@@ -289,6 +293,17 @@ export default function InquiryManagement() {
           onToast={showToast}
         />
       )}
+      {showImport && (
+        <InquiryImportModal
+          onClose={() => setShowImport(false)}
+          onImported={(count) => {
+            setShowImport(false)
+            showToast(t('inquiryImport.successNotice', { count }), 'success')
+            fetchInquiries()
+            fetchStats()
+          }}
+        />
+      )}
 
       {/* 页头 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -371,6 +386,16 @@ export default function InquiryManagement() {
             <FileSpreadsheet className="w-3.5 h-3.5" />
             {selectedIds.length > 0 ? t('inquiry.exportSelected') : t('inquiry.exportFiltered')}
           </button>
+          {/* 批量导入＝批量建单，用建单权限拦（没有 inquiry:create 的人不该看到入口） */}
+          {hasPermission('inquiry:create') && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="h-8 px-3 text-xs text-slate-700 border border-slate-200 bg-white rounded-lg hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              {t('inquiryImport.entry')}
+            </button>
+          )}
         </div>
 
         {/* 列表 */}
