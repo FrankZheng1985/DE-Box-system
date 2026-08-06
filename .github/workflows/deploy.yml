@@ -196,18 +196,72 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${REMOTE} \
             "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-box-system/admin/dist/homepage.html"
 
-      # ========== 第十二步：健康检查 ==========
+      # ========== 第十二步：健康检查（失败会让整个部署红）==========
+      #
+      # 2026-08-06 重写。原来这一步有两个毛病，叠在一起让它彻底失去意义：
+      #
+      #   1. 两个分支都不 exit 非 0 —— 服务起不来它也照样绿，
+      #      「CI 全绿」根本不能证明生产是活的（踩坑 042 的另一面）。
+      #   2. 探的是 `http://IP/api/health`，而自 2026-08-02 启用 HTTPS 强制跳转后，
+      #      这个地址一直返回 **301**。也就是说它**每次部署都在打印「警告 HTTP 301」**，
+      #      只因为从不失败，没人发现。
+      #
+      # 所以不能只把 if 改成 exit 1 —— 那样每一次部署都会立刻开始失败。
+      # 正确做法是同时修地址（-L 跟跳转 / -k 放行 IP 的自签名证书）。
+      #
+      # ⚠️ 这一步失败**不会自动回滚**：此时 rsync 和 PM2 重启都已经做完了。
+      #    它是报警器不是保险丝 —— 红了说明生产可能已经坏了，要人立刻去看。
       - name: Health Check
         run: |
-          echo ">>> 等待服务启动..."
-          sleep 5
-          echo ">>> 检查服务健康状态..."
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.SERVER_HOST }}/api/health || echo "000")
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "健康检查通过 (HTTP $HTTP_STATUS)"
-          else
-            echo "警告: 健康检查返回 HTTP $HTTP_STATUS（可能服务还在启动中）"
+          set -u
+          ORIGIN="https://${{ secrets.SERVER_HOST }}/api/health"   # 源站直连，绕开 DNS/CDN
+          PUBLIC="https://kalunasped.com/api/health"               # 用户真正走的路径
+
+          # 校验响应体而不只看状态码：nginx 返回一个陈旧页面同样是 200，
+          # 只有 body 里带 "status":"ok" 才能证明 Node 应用本身在响应。
+          probe() {
+            curl -sS -k -L -m 15 "$1" 2>/dev/null | grep -q '"status":"ok"'
+          }
+
+          # PM2 reload 是渐进式的，新旧进程交替期间可能短暂不可用，
+          # 所以退避重试而不是 sleep 一个拍脑袋的固定值。累计约 75 秒。
+          # 注意用 if 而不是 `[ x ] && sleep`：后者在 wait=0 时整条返回非 0，
+          # 将来若有人给这个 run 块加上 set -e，会在第一次循环就误中断。
+          BACKOFF="3 5 8 12 15 15 15"
+          echo ">>> 探测源站: $ORIGIN"
+          ok=0; n=0
+          for wait in 0 $BACKOFF; do
+            if [ "$wait" -gt 0 ]; then sleep "$wait"; fi
+            n=$((n + 1))
+            if probe "$ORIGIN"; then ok=1; echo "源站健康检查通过（第 ${n} 次尝试）"; break; fi
+            echo "    第 ${n} 次未就绪…"
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::源站健康检查失败：$ORIGIN 在约 75 秒内始终没有返回 status=ok"
+            echo "--- 最后一次响应（截断）---"
+            curl -sS -k -L -m 15 -w '\nHTTP %{http_code}\n' "$ORIGIN" 2>&1 | head -20 || true
+            exit 1
           fi
+
+          # 源站活着之后再看用户实际访问的域名。这一段同样是硬失败：
+          # kalunasped.com 打不开 = 客户打不开，和源站坏了一样严重。
+          echo ">>> 探测正式域名: $PUBLIC"
+          ok=0; n=0
+          for wait in 0 3 5 8 12; do
+            if [ "$wait" -gt 0 ]; then sleep "$wait"; fi
+            n=$((n + 1))
+            if probe "$PUBLIC"; then ok=1; echo "正式域名健康检查通过（第 ${n} 次尝试）"; break; fi
+            echo "    第 ${n} 次未就绪…"
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "::error::正式域名健康检查失败：$PUBLIC 无法返回 status=ok（源站本身是好的，怀疑 DNS / 证书 / nginx 域名块）"
+            curl -sS -L -m 15 -w '\nHTTP %{http_code}\n' "$PUBLIC" 2>&1 | head -20 || true
+            exit 1
+          fi
+
+          echo "健康检查全部通过：源站与正式域名均返回 status=ok"
 
       # ========== 清理 SSH ==========
       - name: Cleanup SSH Key
