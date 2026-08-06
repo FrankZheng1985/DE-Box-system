@@ -282,7 +282,9 @@
     "sectionPickupFtl": "Container pickup location (optional)",
     "pickupFtlHint": "Leave empty for the normal case (pickup at the discharge port); fill in only for a specific terminal or your own warehouse.",
     "phPickupTerminal": "e.g. Hamburg (pickup city)",
-    "phPickupTerminalAddr": "Terminal / warehouse name, street"
+    "phPickupTerminalAddr": "Terminal / warehouse name, street",
+    "pickupRef": "Pickup ref. / appointment",
+    "phPickupRef": "e.g. APPT-88123"
   },
   "transportType": {
     "FTL": "Full truckload (FTL)",

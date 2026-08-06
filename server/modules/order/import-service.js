@@ -131,6 +131,8 @@ export const IMPORT_COLUMNS_BY_TYPE = {
     { field: 'sealNo', labelKey: 'excel.sealNo', width: 14, kind: 'text' },
     // 提柜地点：不填就是从卸货港提，所以整组选填
     ...PICKUP_COLUMNS,
+    // 提柜参考号 / 预约号：堆场提柜要凭它排队，只有集装箱单有这回事
+    { field: 'pickupRef', labelKey: 'excel.pickupRef', width: 18, kind: 'text', maxLength: 100 },
     { field: 'pod', labelKey: 'excel.pod', width: 14, kind: 'text', required: true },
     { field: 'finalDestination', labelKey: 'excel.finalDestination', width: 16, kind: 'text', required: true },
     { field: 'finalDestAddress', labelKey: 'excel.finalDestAddress', width: 28, kind: 'text' },
@@ -151,6 +153,9 @@ export const IMPORT_COLUMNS_BY_TYPE = {
 const EXTRA_HEADER_ALIASES = {
   贵司单号: 'customerRef',
   客户参考号: 'customerRef',
+  提柜预约号: 'pickupRef',
+  预约号: 'pickupRef',
+  提柜号: 'pickupRef',
   参考号: 'customerRef',
   委托单号: 'customerRef',
   运输类型: 'transportType',
@@ -338,6 +343,7 @@ function buildExampleRow(businessType, lang) {
       pickupAddressLine: 'Container Terminal Burchardkai',
       pickupContact: '',
       pickupPhone: '',
+      pickupRef: 'APPT-88123',
       pod: 'Hamburg',
       finalDestination: 'München',
       finalDestAddress: 'Werkstr. 12, 80331 München',
@@ -583,6 +589,7 @@ function buildOrderPayload(v, businessType) {
         address: v.pickupAddressLine,
         contactName: v.pickupContact,
         contactPhone: v.pickupPhone,
+        reference: v.pickupRef,
       }),
       deliveryAddress: buildAddress({
         city: v.finalDestination,

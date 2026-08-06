@@ -505,7 +505,8 @@
     "email": "E-Mail",
     "origin": "Versandort",
     "destination": "Zielort",
-    "customerRef": "Kundenreferenz"
+    "customerRef": "Kundenreferenz",
+    "pickupRef": "Abholreferenz / Termin-Nr."
   },
   "placeholder": {
     "selectClient": "Kunde auswählen",
@@ -550,7 +551,8 @@
     "serviceCountries": "Kommagetrennt, z. B. DE, FR, PL, NL",
     "customerRefEg": "z. B. ABC-2026-0001",
     "pickupTerminal": "z. B. Hamburg (Abholort)",
-    "pickupTerminalAddr": "Terminal / Lager, Straße und Hausnummer"
+    "pickupTerminalAddr": "Terminal / Lager, Straße und Hausnummer",
+    "pickupRefEg": "z. B. APPT-88123"
   },
   "order": {
     "pageTitle": "Aufträge",

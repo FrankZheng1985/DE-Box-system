@@ -42,13 +42,21 @@ import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constan
 
 // ==================== 类型定义 ====================
 
+/**
+ * 地址 JSONB 的实际形状
+ *
+ * ⚠️ 键名必须和后端写入的一致：service.js 的 mergeContactIntoAddress 写的是
+ *    contactName / contactPhone，之前这里写成 contact / phone，联系人存了也显示不出来。
+ *    reference 只有集装箱单的提柜地点会有（提柜参考号 / 预约号）。
+ */
 interface Address {
-  country: string
-  city: string
-  zipCode: string
-  address: string
-  contact: string
-  phone: string
+  country?: string
+  city?: string
+  zipCode?: string
+  address?: string
+  contactName?: string
+  contactPhone?: string
+  reference?: string
 }
 
 interface StatusLog {
@@ -139,7 +147,7 @@ interface StatusAction {
 // 格式化日期（中文格式）
 // 解析地址（兼容 JSON 字符串和对象）
 function parseAddress(addr: Address | string | null): Address {
-  const empty: Address = { country: '', city: '', zipCode: '', address: '', contact: '', phone: '' }
+  const empty: Address = { country: '', city: '', zipCode: '', address: '' }
   if (!addr) return empty
   if (typeof addr === 'string') {
     try {
@@ -741,6 +749,16 @@ export default function OrderDetail() {
                 <InfoItem label="ETA" value={order.eta ? formatDate(order.eta) : '-'} />
                 <InfoItem label={t('field.pod')} value={order.pod || '-'} />
                 <InfoItem label={t('field.finalDestination')} value={order.final_destination || '-'} />
+                {/* 提柜地点整组选填：没填就是按常规从卸货港提柜，这时不占位 */}
+                {pickupAddr.city && (
+                  <InfoItem
+                    label={t('section.pickupFtl')}
+                    value={[pickupAddr.city, pickupAddr.address].filter(Boolean).join(' · ')}
+                  />
+                )}
+                {pickupAddr.reference && (
+                  <InfoItem label={t('field.pickupRef')} value={pickupAddr.reference} />
+                )}
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-slate-400 font-medium">{t('order.colReleaseStatus')}</span>
                   {order.release_status ? (
@@ -841,12 +859,12 @@ export default function OrderDetail() {
                 <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.pickupContact')}</p>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{pickupAddr.contact || '-'}</span>
+                  <span>{pickupAddr.contactName || '-'}</span>
                 </div>
-                {pickupAddr.phone && (
+                {pickupAddr.contactPhone && (
                   <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                     <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{pickupAddr.phone}</span>
+                    <span>{pickupAddr.contactPhone}</span>
                   </div>
                 )}
               </div>
@@ -854,12 +872,12 @@ export default function OrderDetail() {
                 <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.deliveryContact')}</p>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{deliveryAddr.contact || '-'}</span>
+                  <span>{deliveryAddr.contactName || '-'}</span>
                 </div>
-                {deliveryAddr.phone && (
+                {deliveryAddr.contactPhone && (
                   <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                     <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{deliveryAddr.phone}</span>
+                    <span>{deliveryAddr.contactPhone}</span>
                   </div>
                 )}
               </div>

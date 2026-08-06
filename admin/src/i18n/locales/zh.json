@@ -505,7 +505,8 @@
     "email": "邮箱",
     "origin": "起运地",
     "destination": "目的地",
-    "customerRef": "客户单号"
+    "customerRef": "客户单号",
+    "pickupRef": "提柜参考号/预约号"
   },
   "placeholder": {
     "selectClient": "请选择客户",
@@ -550,7 +551,8 @@
     "serviceCountries": "用逗号分隔，如 DE, FR, PL, NL",
     "customerRefEg": "如：ABC-2026-0001",
     "pickupTerminal": "如：Hamburg（提柜城市）",
-    "pickupTerminalAddr": "堆场 / 仓库名称、街道门牌"
+    "pickupTerminalAddr": "堆场 / 仓库名称、街道门牌",
+    "pickupRefEg": "如：APPT-88123"
   },
   "order": {
     "pageTitle": "订单管理",

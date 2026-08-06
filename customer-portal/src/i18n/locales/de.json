@@ -282,7 +282,9 @@
     "sectionPickupFtl": "Abholort Container (optional)",
     "pickupFtlHint": "Für den Regelfall leer lassen (Abholung im Entladehafen); nur bei einem bestimmten Terminal oder Ihrem Lager ausfüllen.",
     "phPickupTerminal": "z. B. Hamburg (Abholort)",
-    "phPickupTerminalAddr": "Terminal / Lager, Straße und Hausnummer"
+    "phPickupTerminalAddr": "Terminal / Lager, Straße und Hausnummer",
+    "pickupRef": "Abholreferenz / Termin-Nr.",
+    "phPickupRef": "z. B. APPT-88123"
   },
   "transportType": {
     "FTL": "Komplettladung (FTL)",

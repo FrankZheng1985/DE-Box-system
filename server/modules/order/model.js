@@ -133,7 +133,7 @@ export const orderModel = {
       params.push(`%${search}%`)
       // 客户打电话报的往往是他们自己的单号，所以 customer_ref 也要能搜；
       // 客户名此前搜不到，但三个搜索框的提示语一直写着「搜索…客户…」，一并补上
-      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx} OR o.customer_ref ILIKE $${paramIdx} OR c.company_name ILIKE $${paramIdx})`
+      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx} OR o.customer_ref ILIKE $${paramIdx} OR c.company_name ILIKE $${paramIdx} OR o.pickup_address->>'reference' ILIKE $${paramIdx})`
     }
     if (dateFrom) {
       params.push(dateFrom)

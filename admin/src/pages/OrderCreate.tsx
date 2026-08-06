@@ -116,6 +116,7 @@ interface ContainerForm {
   pickupAddress: string
   pickupContact: string
   pickupPhone: string
+  pickupRef: string
   pod: string
   finalDestination: string
   finalDestAddress: string
@@ -177,6 +178,7 @@ const initialContainerForm: ContainerForm = {
   pickupAddress: '',
   pickupContact: '',
   pickupPhone: '',
+  pickupRef: '',
   pod: '',
   finalDestination: '',
   finalDestAddress: '',
@@ -454,7 +456,7 @@ export default function OrderCreate() {
         }
       } else {
         const f = containerForm
-        const hasPickupLocation = [f.pickupCountry, f.pickupCity, f.pickupZipCode, f.pickupAddress]
+        const hasPickupLocation = [f.pickupCountry, f.pickupCity, f.pickupZipCode, f.pickupAddress, f.pickupRef]
           .some((v) => v.trim() !== '')
         payload = {
           clientId: f.clientId,
@@ -468,6 +470,7 @@ export default function OrderCreate() {
                 city: f.pickupCity,
                 zipCode: f.pickupZipCode,
                 address: f.pickupAddress,
+                reference: f.pickupRef,
               })
             : null,
           pickupContact: f.pickupContact || null,
@@ -1103,6 +1106,14 @@ function ContainerFormSection({
           <div>
             <Label>{t('field.phone')}</Label>
             <TextInput value={form.pickupPhone} onChange={(v) => onUpdate('pickupPhone', v)} placeholder="+49 xxx xxx" />
+          </div>
+          <div>
+            <Label>{t('field.pickupRef')}</Label>
+            <TextInput
+              value={form.pickupRef}
+              onChange={(v) => onUpdate('pickupRef', v)}
+              placeholder={t('placeholder.pickupRefEg')}
+            />
           </div>
         </div>
       </div>

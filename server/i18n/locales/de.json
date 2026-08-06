@@ -148,7 +148,8 @@
     "orderImportErrTooLong": "{{field}} erlaubt höchstens {{max}} Zeichen, aktuell {{actual}}",
     "orderImportWarnDuplicate": "„{{value}}“ ist identisch mit Zeile {{row}} – bitte prüfen, ob das gewollt ist",
     "orderImportRuleCustomerRef": "„Kundenreferenz“ ist Ihre eigene Auftrags- bzw. Referenznummer – so lassen sich die Vorgänge später beidseitig zuordnen. Das Feld darf leer bleiben. Dieselbe Referenz auf mehreren Aufträgen ist zulässig (z. B. eine Sendung auf zwei Container verteilt).",
-    "orderImportRulePickupFtl": "Ladeland/PLZ/Ladeort/Ladeadresse bezeichnen den **Abholort des Containers**. Leer lassen für den Regelfall (Abholung im Entladehafen); nur ausfüllen, wenn wir an einem bestimmten Terminal oder Ihrem Lager abholen sollen."
+    "orderImportRulePickupFtl": "Ladeland/PLZ/Ladeort/Ladeadresse bezeichnen den **Abholort des Containers**. Leer lassen für den Regelfall (Abholung im Entladehafen); nur ausfüllen, wenn wir an einem bestimmten Terminal oder Ihrem Lager abholen sollen.",
+    "pickupRef": "Abholreferenz / Termin-Nr."
   },
   "email": {
     "footerAuto": "Diese Nachricht wurde automatisch versendet – bitte nicht direkt antworten.",

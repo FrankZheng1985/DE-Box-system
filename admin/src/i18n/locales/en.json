@@ -505,7 +505,8 @@
     "email": "Email",
     "origin": "Origin",
     "destination": "Destination",
-    "customerRef": "Client reference"
+    "customerRef": "Client reference",
+    "pickupRef": "Pickup ref. / appointment"
   },
   "placeholder": {
     "selectClient": "Select a client",
@@ -550,7 +551,8 @@
     "serviceCountries": "Comma separated, e.g. DE, FR, PL, NL",
     "customerRefEg": "e.g. ABC-2026-0001",
     "pickupTerminal": "e.g. Hamburg (pickup city)",
-    "pickupTerminalAddr": "Terminal / warehouse name, street"
+    "pickupTerminalAddr": "Terminal / warehouse name, street",
+    "pickupRefEg": "e.g. APPT-88123"
   },
   "order": {
     "pageTitle": "Orders",

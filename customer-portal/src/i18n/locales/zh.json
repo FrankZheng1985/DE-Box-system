@@ -282,7 +282,9 @@
     "sectionPickupFtl": "提柜地点（选填）",
     "pickupFtlHint": "留空就按常规从卸货港提柜；需要我们去指定堆场或贵司仓库提柜时才填。",
     "phPickupTerminal": "如：Hamburg（提柜城市）",
-    "phPickupTerminalAddr": "堆场 / 仓库名称、街道门牌"
+    "phPickupTerminalAddr": "堆场 / 仓库名称、街道门牌",
+    "pickupRef": "提柜参考号/预约号",
+    "phPickupRef": "如：APPT-88123"
   },
   "transportType": {
     "FTL": "整车 (FTL)",

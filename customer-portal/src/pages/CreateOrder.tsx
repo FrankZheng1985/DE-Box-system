@@ -57,7 +57,7 @@ function buildAddress(fields: Record<string, string>): Record<string, string> {
 
 /** 集装箱单的提柜地点是整组选填，一个字都没填就当作「从卸货港提柜」 */
 function hasPickupLocation(f: ContainerOrderForm): boolean {
-  return [f.pickupCountry, f.pickupCity, f.pickupZipCode, f.pickupAddress]
+  return [f.pickupCountry, f.pickupCity, f.pickupZipCode, f.pickupAddress, f.pickupRef]
     .some((v) => v.trim() !== '')
 }
 
@@ -120,6 +120,7 @@ export default function CreateOrder() {
               city: f.pickupCity,
               zipCode: f.pickupZipCode,
               address: f.pickupAddress,
+              reference: f.pickupRef,
             })
           : undefined,
         pickupContact: orNull(f.pickupContact),

@@ -55,6 +55,7 @@ export interface ContainerOrderForm {
   pickupAddress: string
   pickupContact: string
   pickupPhone: string
+  pickupRef: string
   pod: string
   finalDestination: string
   finalDestAddress: string
@@ -87,7 +88,7 @@ export const initialContainerForm: ContainerOrderForm = {
   shippingLine: '', blNumber: '', eta: '', cnee: '',
   containerNo: '', containerType: '', sealNo: '',
   pickupCountry: '', pickupCity: '', pickupZipCode: '', pickupAddress: '',
-  pickupContact: '', pickupPhone: '',
+  pickupContact: '', pickupPhone: '', pickupRef: '',
   pod: '', finalDestination: '', finalDestAddress: '', expectedDeliveryDate: '',
   deliveryContact: '', deliveryPhone: '',
   releaseMethod: 'TELEX', needsClearance: false,
@@ -399,6 +400,13 @@ export function ContainerOrderFields({ form, onChange }: {
           </Field>
           <Field label={t('createOrder.pickupPhone')}>
             <TextInput value={form.pickupPhone} onChange={(v) => onChange('pickupPhone', v)} type="tel" />
+          </Field>
+          <Field label={t('createOrder.pickupRef')}>
+            <TextInput
+              value={form.pickupRef}
+              onChange={(v) => onChange('pickupRef', v)}
+              placeholder={t('createOrder.phPickupRef')}
+            />
           </Field>
         </div>
       </Section>
