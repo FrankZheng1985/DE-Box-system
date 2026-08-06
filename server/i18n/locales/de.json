@@ -53,7 +53,7 @@
     "lineNo": "Pos.",
     "itemNo": "Stück-Nr.",
     "cargoDescription": "Warenbeschreibung",
-    "quantity": "Anzahl",
+    "quantity": "Packstücke",
     "lengthCm": "Länge (cm)",
     "widthCm": "Breite (cm)",
     "heightCm": "Höhe (cm)",
