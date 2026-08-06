@@ -146,7 +146,9 @@
     "orderImportErrEnum": "{{field}}「{{value}}」不是有效值，允许值：{{allowed}}",
     "orderImportErrInteger": "{{field}}「{{value}}」必须是整数",
     "orderImportErrTooLong": "{{field}}最多 {{max}} 个字符，当前 {{actual}} 个",
-    "orderImportWarnDuplicate": "「{{value}}」和第 {{row}} 行重复，确认不是复制粘贴时漏改的话可以忽略"
+    "orderImportWarnDuplicate": "「{{value}}」和第 {{row}} 行重复，确认不是复制粘贴时漏改的话可以忽略",
+    "orderImportRuleCustomerRef": "「客户单号」填贵司自己的单号/参考号，方便日后对账时双方对得上；不填也能导入。同一个单号拆成多张订单是允许的（比如一票货分两个柜）。",
+    "orderImportRulePickupFtl": "「装货国家/邮编/城市/地址」是**提柜地点**，留空就按常规从卸货港提柜；只有需要我们去指定堆场或客户自有仓库提柜时才填。"
   },
   "email": {
     "footerAuto": "此邮件由系统自动发送，请勿直接回复",

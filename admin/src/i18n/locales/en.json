@@ -466,7 +466,8 @@
     "destinationInfo": "Destination details",
     "otherInfo": "Other information",
     "contact": "Contact",
-    "additionalNotes": "Additional notes"
+    "additionalNotes": "Additional notes",
+    "pickupFtl": "Container pickup location (optional)"
   },
   "field": {
     "addressDetail": "Street address",
@@ -503,7 +504,8 @@
     "name": "Name",
     "email": "Email",
     "origin": "Origin",
-    "destination": "Destination"
+    "destination": "Destination",
+    "customerRef": "Client reference"
   },
   "placeholder": {
     "selectClient": "Select a client",
@@ -545,7 +547,10 @@
     "carrierName": "Enter the carrier's company name",
     "licenseNo": "Licence number",
     "paymentTermsEg": "e.g. 30",
-    "serviceCountries": "Comma separated, e.g. DE, FR, PL, NL"
+    "serviceCountries": "Comma separated, e.g. DE, FR, PL, NL",
+    "customerRefEg": "e.g. ABC-2026-0001",
+    "pickupTerminal": "e.g. Hamburg (pickup city)",
+    "pickupTerminalAddr": "Terminal / warehouse name, street"
   },
   "order": {
     "pageTitle": "Orders",
@@ -555,9 +560,9 @@
     "createdDateRange": "Created between:",
     "dateRangeTo": "and",
     "clearDate": "Clear dates",
-    "searchPlaceholderLtl": "Search order no., client, route...",
-    "searchPlaceholderFtl": "Search container no., B/L no., client...",
-    "searchPlaceholderLocal": "Search order no., client, tracking no....",
+    "searchPlaceholderLtl": "Search order no., client ref., client, tracking no.…",
+    "searchPlaceholderFtl": "Search container, B/L, client ref., client…",
+    "searchPlaceholderLocal": "Search order no., client ref., client, tracking no.…",
     "colWeightKg": "Weight (kg)",
     "colPriceEur": "Price (EUR)",
     "colShippingLine": "Carrier line",
@@ -577,7 +582,8 @@
     "trackingFill": "Add tracking no.",
     "trackingEditHint": "Click to edit: {{value}}",
     "trackingSaved": "Tracking number saved",
-    "trackingSaveFailed": "Could not save the tracking number"
+    "trackingSaveFailed": "Could not save the tracking number",
+    "customerRef": "Client ref."
   },
   "orderForm": {
     "errCargoDescRequired": "Please describe the goods",
@@ -1400,7 +1406,8 @@
     "damageNote": "Damage description",
     "damageNoteLabel": "Damage description:",
     "damagePlaceholder": "Describe the damage...",
-    "noDamageDetail": "No details given"
+    "noDamageDetail": "No details given",
+    "customerRef": "Client ref."
   },
   "customs": {
     "pageTitle": "Customs clearance",
@@ -2096,6 +2103,20 @@
     "colContainerNo": "Container no.",
     "selectClient": "Import for client",
     "clientPlaceholder": "Select a client",
-    "clientRequired": "Please select which client to import for"
+    "clientRequired": "Please select which client to import for",
+    "colCustomerRef": "Client ref."
+  },
+  "createOrder": {
+    "customerRef": "Client reference",
+    "customerRefHint": "Your own reference number, for reconciliation later (optional)",
+    "phCustomerRef": "e.g. ABC-2026-0001",
+    "sectionPickupFtl": "Container pickup location (optional)",
+    "pickupFtlHint": "Leave empty for the normal case (pickup at the discharge port); fill in only for a specific terminal or your own warehouse."
+  },
+  "orders": {
+    "customerRef": "Client ref."
+  },
+  "excel": {
+    "customerRef": "Client ref."
   }
 }

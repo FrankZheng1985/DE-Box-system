@@ -40,6 +40,27 @@ function orNumber(value: string): number | undefined {
   return text === '' ? undefined : Number(text)
 }
 
+/**
+ * 只保留填了值的地址字段
+ *
+ * 空串写进 JSONB 后，`pickup_address->>'zipCode'` 拿到的是 '' 而不是 NULL，
+ * 前端一律显示成空白、后端判空还得多写一层，不如一开始就不写进去（踩坑 047 防护第 3 条）。
+ */
+function buildAddress(fields: Record<string, string>): Record<string, string> {
+  const address: Record<string, string> = {}
+  for (const [key, value] of Object.entries(fields)) {
+    const text = value.trim()
+    if (text !== '') address[key] = text
+  }
+  return address
+}
+
+/** 集装箱单的提柜地点是整组选填，一个字都没填就当作「从卸货港提柜」 */
+function hasPickupLocation(f: ContainerOrderForm): boolean {
+  return [f.pickupCountry, f.pickupCity, f.pickupZipCode, f.pickupAddress]
+    .some((v) => v.trim() !== '')
+}
+
 export default function CreateOrder() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -90,7 +111,19 @@ export default function CreateOrder() {
       const f = containerForm
       return {
         ...base,
+        customerRef: orNull(f.customerRef),
         transportType: 'FTL',
+        // 提柜地点：整组都没填就不传，表示按常规从卸货港提柜
+        pickupAddress: hasPickupLocation(f)
+          ? buildAddress({
+              country: f.pickupCountry,
+              city: f.pickupCity,
+              zipCode: f.pickupZipCode,
+              address: f.pickupAddress,
+            })
+          : undefined,
+        pickupContact: orNull(f.pickupContact),
+        pickupPhone: orNull(f.pickupPhone),
         shippingLine: orNull(f.shippingLine),
         blNumber: f.blNumber.trim(),
         eta: orNull(f.eta),
@@ -117,22 +150,23 @@ export default function CreateOrder() {
     const f = groundForm
     return {
       ...base,
+      customerRef: orNull(f.customerRef),
       // 本地派送没有 FTL/LTL 之分
       transportType: businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? null : f.transportType,
       // ⚠️ 地址必须是对象：后端 model.js 是 JSON.stringify(data.pickupAddress) 写进 JSONB 列，
       //    传 pickupCountry 这种平铺字段的话整列会落成 NULL
-      pickupAddress: {
-        country: f.pickupCountry.trim(),
-        city: f.pickupCity.trim(),
-        zipCode: f.pickupZipCode.trim(),
-        address: f.pickupAddress.trim(),
-      },
-      deliveryAddress: {
-        country: f.deliveryCountry.trim(),
-        city: f.deliveryCity.trim(),
-        zipCode: f.deliveryZipCode.trim(),
-        address: f.deliveryAddress.trim(),
-      },
+      pickupAddress: buildAddress({
+        country: f.pickupCountry,
+        city: f.pickupCity,
+        zipCode: f.pickupZipCode,
+        address: f.pickupAddress,
+      }),
+      deliveryAddress: buildAddress({
+        country: f.deliveryCountry,
+        city: f.deliveryCity,
+        zipCode: f.deliveryZipCode,
+        address: f.deliveryAddress,
+      }),
       // 联系人由后端并进地址的 JSONB（orders 表没有联系人列）
       pickupContact: orNull(f.pickupContact),
       pickupPhone: orNull(f.pickupPhone),

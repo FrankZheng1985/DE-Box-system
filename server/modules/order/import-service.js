@@ -39,20 +39,48 @@ const CARGO_COLUMNS = [
 
 const REMARKS_COLUMN = { field: 'remarks', labelKey: 'excel.remarks', width: 24, kind: 'text' }
 
-/** 装卸货地址 + 联系人（卡车派送 LTL / 本地派送） */
-const GROUND_ADDRESS_COLUMNS = [
-  { field: 'pickupCountry', labelKey: 'excel.pickupCountry', width: 12, kind: 'text', required: true },
+/**
+ * 客户单号（三个产品都有，放第一列）
+ *
+ * 客户报单、对账说的都是他们自己的单号。刻意不做唯一校验 ——
+ * 一票货分两个柜、分批出运时，同一个客户单号对应多张订单是正常业务。
+ */
+const CUSTOMER_REF_COLUMN = {
+  field: 'customerRef', labelKey: 'excel.customerRef', width: 18, kind: 'text', maxLength: 100,
+}
+
+/** 装货地址 + 联系人（这里都不带 required，各产品自己决定必不必填） */
+const PICKUP_COLUMNS = [
+  { field: 'pickupCountry', labelKey: 'excel.pickupCountry', width: 12, kind: 'text' },
   { field: 'pickupZipCode', labelKey: 'excel.pickupZip', width: 12, kind: 'text' },
-  { field: 'pickupCity', labelKey: 'excel.pickupCity', width: 14, kind: 'text', required: true },
+  { field: 'pickupCity', labelKey: 'excel.pickupCity', width: 14, kind: 'text' },
   { field: 'pickupAddressLine', labelKey: 'excel.pickupAddress', width: 26, kind: 'text' },
   { field: 'pickupContact', labelKey: 'excel.pickupContact', width: 14, kind: 'text' },
   { field: 'pickupPhone', labelKey: 'excel.pickupPhone', width: 18, kind: 'text' },
-  { field: 'deliveryCountry', labelKey: 'excel.deliveryCountry', width: 12, kind: 'text', required: true },
+]
+
+/** 卸货地址 + 联系人 */
+const DELIVERY_COLUMNS = [
+  { field: 'deliveryCountry', labelKey: 'excel.deliveryCountry', width: 12, kind: 'text' },
   { field: 'deliveryZipCode', labelKey: 'excel.deliveryZip', width: 12, kind: 'text' },
-  { field: 'deliveryCity', labelKey: 'excel.deliveryCity', width: 14, kind: 'text', required: true },
+  { field: 'deliveryCity', labelKey: 'excel.deliveryCity', width: 14, kind: 'text' },
   { field: 'deliveryAddressLine', labelKey: 'excel.deliveryAddress', width: 26, kind: 'text' },
   { field: 'deliveryContact', labelKey: 'excel.deliveryContact', width: 14, kind: 'text' },
   { field: 'deliveryPhone', labelKey: 'excel.deliveryPhone', width: 18, kind: 'text' },
+]
+
+/** 把指定几列标成必填，返回新数组（不改原定义，同一组列在不同产品下必填要求不一样） */
+function markRequired(columns, ...fieldNames) {
+  return columns.map((col) => (fieldNames.includes(col.field) ? { ...col, required: true } : col))
+}
+
+/**
+ * 卡车派送 LTL / 本地派送的装卸货列：国家和城市必填
+ * （集装箱单的装货信息是「去哪提柜」，默认从卸货港提，所以那边全部选填）
+ */
+const GROUND_ADDRESS_COLUMNS = [
+  ...markRequired(PICKUP_COLUMNS, 'pickupCountry', 'pickupCity'),
+  ...markRequired(DELIVERY_COLUMNS, 'deliveryCountry', 'deliveryCity'),
 ]
 
 const GROUND_DATE_COLUMNS = [
@@ -73,6 +101,7 @@ const SPECIAL_REQUIREMENTS_COLUMN = {
  */
 export const IMPORT_COLUMNS_BY_TYPE = {
   TRUCK_LTL: [
+    CUSTOMER_REF_COLUMN,
     { field: 'transportType', labelKey: 'excel.transportType', width: 14, kind: 'enum', enumValues: ['FTL', 'LTL'] },
     ...GROUND_ADDRESS_COLUMNS,
     ...GROUND_DATE_COLUMNS,
@@ -82,6 +111,7 @@ export const IMPORT_COLUMNS_BY_TYPE = {
   ],
 
   LOCAL_DELIVERY: [
+    CUSTOMER_REF_COLUMN,
     // 本地派送没有 FTL/LTL 之分，所以没有运输类型列
     ...GROUND_ADDRESS_COLUMNS,
     ...GROUND_DATE_COLUMNS,
@@ -91,6 +121,7 @@ export const IMPORT_COLUMNS_BY_TYPE = {
   ],
 
   TRUCK_FTL: [
+    CUSTOMER_REF_COLUMN,
     { field: 'shippingLine', labelKey: 'excel.shippingLine', width: 16, kind: 'text' },
     { field: 'blNumber', labelKey: 'excel.blNumber', width: 18, kind: 'text', required: true },
     { field: 'eta', labelKey: 'excel.eta', width: 14, kind: 'date' },
@@ -98,6 +129,8 @@ export const IMPORT_COLUMNS_BY_TYPE = {
     { field: 'containerNo', labelKey: 'excel.containerNo', width: 16, kind: 'text', required: true },
     { field: 'containerType', labelKey: 'excel.containerType', width: 12, kind: 'text' },
     { field: 'sealNo', labelKey: 'excel.sealNo', width: 14, kind: 'text' },
+    // 提柜地点：不填就是从卸货港提，所以整组选填
+    ...PICKUP_COLUMNS,
     { field: 'pod', labelKey: 'excel.pod', width: 14, kind: 'text', required: true },
     { field: 'finalDestination', labelKey: 'excel.finalDestination', width: 16, kind: 'text', required: true },
     { field: 'finalDestAddress', labelKey: 'excel.finalDestAddress', width: 28, kind: 'text' },
@@ -116,6 +149,10 @@ export const IMPORT_COLUMNS_BY_TYPE = {
  * 键会经 normalizeKey 规整，所以这里不用管大小写和空格
  */
 const EXTRA_HEADER_ALIASES = {
+  贵司单号: 'customerRef',
+  客户参考号: 'customerRef',
+  参考号: 'customerRef',
+  委托单号: 'customerRef',
   运输类型: 'transportType',
   业务类型: 'transportType',
   发货国家: 'pickupCountry',
@@ -262,6 +299,9 @@ function buildGuideSheet(workbook, businessType, columns, lang) {
     t(lang, 'excel.orderImportRuleOneRow'),
     t(lang, 'excel.orderImportRuleProduct', { product: t(lang, `businessType.${businessType}`) }),
     t(lang, 'excel.orderImportRuleRequired', { columns: requiredLabels }),
+    t(lang, 'excel.orderImportRuleCustomerRef'),
+    // 提柜地点只有集装箱单要解释；卡车单的装货地址是必填的，没什么可说
+    ...(businessType === 'TRUCK_FTL' ? [t(lang, 'excel.orderImportRulePickupFtl')] : []),
     t(lang, 'excel.orderImportRuleDate'),
     t(lang, 'excel.orderImportRuleNumber'),
     t(lang, 'excel.orderImportRuleLimit', { maxRows: MAX_DATA_ROWS }),
@@ -283,6 +323,7 @@ function buildGuideSheet(workbook, businessType, columns, lang) {
 function buildExampleRow(businessType, lang) {
   if (businessType === 'TRUCK_FTL') {
     return {
+      customerRef: 'ABC-2026-0001',
       shippingLine: 'MSC',
       blNumber: 'MSCU1234567',
       eta: '2026-09-01',
@@ -290,6 +331,13 @@ function buildExampleRow(businessType, lang) {
       containerNo: 'MSCU7654321',
       containerType: '40HQ',
       sealNo: 'SL123456',
+      // 提柜地点留空 = 从卸货港提柜，这里给出「指定堆场」的写法示例
+      pickupCountry: 'DE',
+      pickupZipCode: '20457',
+      pickupCity: 'Hamburg',
+      pickupAddressLine: 'Container Terminal Burchardkai',
+      pickupContact: '',
+      pickupPhone: '',
       pod: 'Hamburg',
       finalDestination: 'München',
       finalDestAddress: 'Werkstr. 12, 80331 München',
@@ -307,6 +355,7 @@ function buildExampleRow(businessType, lang) {
   }
 
   const base = {
+    customerRef: 'ABC-2026-0001',
     pickupCountry: 'DE',
     pickupZipCode: '44532',
     pickupCity: 'Lünen',
@@ -502,6 +551,7 @@ function parseRowValues(raw, columns, rowNumber, lang, errors) {
 function buildOrderPayload(v, businessType) {
   const common = {
     businessType,
+    customerRef: v.customerRef || null,
     cargoDescription: v.cargoDescription || null,
     cargoQuantity: v.cargoQuantity ?? null,
     cargoWeightKg: v.cargoWeightKg ?? null,
@@ -525,6 +575,15 @@ function buildOrderPayload(v, businessType) {
       finalDestination: v.finalDestination,
       finalDestAddress: v.finalDestAddress || null,
       expectedDeliveryDate: v.expectedDeliveryDate || null,
+      // 提柜地点：整组没填就落 null，表示按常规从卸货港提柜
+      pickupAddress: buildAddress({
+        country: v.pickupCountry,
+        zipCode: v.pickupZipCode,
+        city: v.pickupCity,
+        address: v.pickupAddressLine,
+        contactName: v.pickupContact,
+        contactPhone: v.pickupPhone,
+      }),
       deliveryAddress: buildAddress({
         city: v.finalDestination,
         address: v.finalDestAddress,

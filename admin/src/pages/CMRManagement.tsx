@@ -22,6 +22,7 @@ interface CMR {
   id: string
   cmr_number: string
   order_number: string
+  customer_ref: string | null
   client_name: string
   from_city: string | null
   to_city: string | null
@@ -367,14 +368,15 @@ export default function CMRManagement() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[12%]" /><col className="w-[11%]" /><col className="w-[12%]" />
-              <col className="w-[14%]" /><col className="w-[11%]" /><col className="w-[8%]" />
-              <col className="w-[11%]" /><col className="w-[21%]" />
+              <col className="w-[11%]" /><col className="w-[10%]" /><col className="w-[10%]" />
+              <col className="w-[11%]" /><col className="w-[13%]" /><col className="w-[10%]" />
+              <col className="w-[7%]" /><col className="w-[10%]" /><col className="w-[18%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.colNumber')}</th>
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.relatedOrder')}</th>
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.customerRef')}</th>
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.client')}</th>
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('cmr.colSignStatus')}</th>
@@ -394,7 +396,7 @@ export default function CMRManagement() {
                 ))
               ) : cmrList.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center">
+                  <td colSpan={9} className="px-4 py-16 text-center">
                     <FileCheck className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm text-slate-500">{t('cmr.empty')}</p>
                   </td>
@@ -404,6 +406,9 @@ export default function CMRManagement() {
                   <tr key={cmr.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all duration-200">
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium">{cmr.cmr_number}</td>
                     <td className="px-4 py-3 text-xs text-blue-600">{cmr.order_number || '-'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 truncate" title={cmr.customer_ref || undefined}>
+                      {cmr.customer_ref || '-'}
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{cmr.client_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 truncate">{routeText(cmr)}</td>
                     <td className="px-4 py-3 text-center"><StatusBadge status={cmr.sign_status} type="cmr" /></td>

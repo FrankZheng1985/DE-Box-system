@@ -8,6 +8,7 @@ interface CMRDocument {
   id: string
   cmr_number: string
   order_number: string
+  customer_ref: string | null
   from_city: string
   to_city: string
   // ⚠️ cmr_documents 表里没有 status 列，只有 sign_status
@@ -67,17 +68,19 @@ export default function CMRFiles() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed min-w-[600px]">
             <colgroup>
-              <col className="w-[15%]" />
-              <col className="w-[15%]" />
-              <col className="w-[25%]" />
-              <col className="w-[12%]" />
-              <col className="w-[15%]" />
-              <col className="w-[18%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[13%]" />
+              <col className="w-[21%]" />
+              <col className="w-[11%]" />
+              <col className="w-[13%]" />
+              <col className="w-[16%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
                 <th className="text-left px-3 py-2.5 font-medium">{t('cmrFiles.cmrNo')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.orderNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('cmrFiles.customerRef')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.date')}</th>
@@ -95,7 +98,7 @@ export default function CMRFiles() {
                 ))
               ) : documents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8">
+                  <td colSpan={7} className="text-center py-8">
                     <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-sm text-slate-400">{t('cmrFiles.empty')}</p>
                   </td>
@@ -107,6 +110,9 @@ export default function CMRFiles() {
                     <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="text-left px-3 py-2.5 text-xs font-medium text-slate-900">{doc.cmr_number || t('common.empty')}</td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600">{doc.order_number || t('common.empty')}</td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate" title={doc.customer_ref || undefined}>
+                        {doc.customer_ref || t('common.empty')}
+                      </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
                         {doc.from_city || t('common.empty')} → {doc.to_city || t('common.empty')}
                       </td>

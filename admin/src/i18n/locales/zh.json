@@ -466,7 +466,8 @@
     "destinationInfo": "目的地信息",
     "otherInfo": "其他信息",
     "contact": "联系人",
-    "additionalNotes": "补充说明"
+    "additionalNotes": "补充说明",
+    "pickupFtl": "提柜地点（选填）"
   },
   "field": {
     "addressDetail": "详细地址",
@@ -503,7 +504,8 @@
     "name": "姓名",
     "email": "邮箱",
     "origin": "起运地",
-    "destination": "目的地"
+    "destination": "目的地",
+    "customerRef": "客户单号"
   },
   "placeholder": {
     "selectClient": "请选择客户",
@@ -545,7 +547,10 @@
     "carrierName": "请输入运输公司名称",
     "licenseNo": "许可证编号",
     "paymentTermsEg": "如 30",
-    "serviceCountries": "用逗号分隔，如 DE, FR, PL, NL"
+    "serviceCountries": "用逗号分隔，如 DE, FR, PL, NL",
+    "customerRefEg": "如：ABC-2026-0001",
+    "pickupTerminal": "如：Hamburg（提柜城市）",
+    "pickupTerminalAddr": "堆场 / 仓库名称、街道门牌"
   },
   "order": {
     "pageTitle": "订单管理",
@@ -555,9 +560,9 @@
     "createdDateRange": "创建日期：",
     "dateRangeTo": "至",
     "clearDate": "清除日期",
-    "searchPlaceholderLtl": "搜索订单号、客户、路线...",
-    "searchPlaceholderFtl": "搜索柜号、提单号、客户...",
-    "searchPlaceholderLocal": "搜索订单号、客户、跟踪号...",
+    "searchPlaceholderLtl": "搜索订单号、客户单号、客户、跟踪号...",
+    "searchPlaceholderFtl": "搜索柜号、提单号、客户单号、客户...",
+    "searchPlaceholderLocal": "搜索订单号、客户单号、客户、跟踪号...",
     "colWeightKg": "重量 (kg)",
     "colPriceEur": "报价 (EUR)",
     "colShippingLine": "船司",
@@ -577,7 +582,8 @@
     "trackingFill": "填写跟踪号",
     "trackingEditHint": "点击修改：{{value}}",
     "trackingSaved": "跟踪号已保存",
-    "trackingSaveFailed": "保存跟踪号失败"
+    "trackingSaveFailed": "保存跟踪号失败",
+    "customerRef": "客户单号"
   },
   "orderForm": {
     "errCargoDescRequired": "请填写货物描述",
@@ -1400,7 +1406,8 @@
     "damageNote": "货损说明",
     "damageNoteLabel": "货损说明：",
     "damagePlaceholder": "请描述货损情况...",
-    "noDamageDetail": "无详细说明"
+    "noDamageDetail": "无详细说明",
+    "customerRef": "客户单号"
   },
   "customs": {
     "pageTitle": "清关管理",
@@ -2096,6 +2103,20 @@
     "colContainerNo": "柜号",
     "selectClient": "导入到哪个客户",
     "clientPlaceholder": "请选择客户",
-    "clientRequired": "请先选择要导入到哪个客户"
+    "clientRequired": "请先选择要导入到哪个客户",
+    "colCustomerRef": "客户单号"
+  },
+  "createOrder": {
+    "customerRef": "客户单号",
+    "customerRefHint": "贵司自己的单号，方便日后对账（选填）",
+    "phCustomerRef": "如：ABC-2026-0001",
+    "sectionPickupFtl": "提柜地点（选填）",
+    "pickupFtlHint": "留空就按常规从卸货港提柜；需要我们去指定堆场或贵司仓库提柜时才填。"
+  },
+  "orders": {
+    "customerRef": "客户单号"
+  },
+  "excel": {
+    "customerRef": "客户单号"
   }
 }

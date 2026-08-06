@@ -92,7 +92,8 @@
     "empty": "暂无订单数据",
     "viewFiles": "查看订单文件",
     "filesTitle": "订单文件",
-    "noFiles": "该订单暂无文件"
+    "noFiles": "该订单暂无文件",
+    "customerRef": "客户单号"
   },
   "tracking": {
     "count": "共 {{count}} 个运输中的订单",
@@ -123,7 +124,8 @@
     "count": "共 {{count}} 份CMR文件",
     "cmrNo": "CMR编号",
     "empty": "暂无CMR文件",
-    "noFile": "暂无文件"
+    "noFile": "暂无文件",
+    "customerRef": "客户单号"
   },
   "settings": {
     "accountInfo": "账户信息",
@@ -273,7 +275,14 @@
     "phCnee": "收货公司名称",
     "phContainerNo": "如：MSCU7654321",
     "phPod": "如：Hamburg",
-    "phFinalDest": "如：München"
+    "phFinalDest": "如：München",
+    "customerRef": "客户单号",
+    "customerRefHint": "贵司自己的单号，方便日后对账（选填）",
+    "phCustomerRef": "如：ABC-2026-0001",
+    "sectionPickupFtl": "提柜地点（选填）",
+    "pickupFtlHint": "留空就按常规从卸货港提柜；需要我们去指定堆场或贵司仓库提柜时才填。",
+    "phPickupTerminal": "如：Hamburg（提柜城市）",
+    "phPickupTerminalAddr": "堆场 / 仓库名称、街道门牌"
   },
   "transportType": {
     "FTL": "整车 (FTL)",
@@ -766,7 +775,8 @@
     "colContainerNo": "柜号",
     "selectClient": "导入到哪个客户",
     "clientPlaceholder": "请选择客户",
-    "clientRequired": "请先选择要导入到哪个客户"
+    "clientRequired": "请先选择要导入到哪个客户",
+    "colCustomerRef": "客户单号"
   },
   "businessTypeDesc": {
     "TRUCK_LTL": "零担拼车，按件/按方计费",

@@ -14,6 +14,7 @@ import { BUSINESS_TYPES, type BusinessType } from '../constants/businessTypes'
 
 /** 地面运输（卡车派送 LTL / 本地派送）的表单值 */
 export interface GroundOrderForm {
+  customerRef: string
   transportType: string
   pickupCountry: string
   pickupCity: string
@@ -39,6 +40,7 @@ export interface GroundOrderForm {
 
 /** 集装箱（卡车运输 FTL）的表单值 */
 export interface ContainerOrderForm {
+  customerRef: string
   shippingLine: string
   blNumber: string
   eta: string
@@ -46,6 +48,13 @@ export interface ContainerOrderForm {
   containerNo: string
   containerType: string
   sealNo: string
+  // 提柜地点（选填）：留空就按常规从卸货港提柜
+  pickupCountry: string
+  pickupCity: string
+  pickupZipCode: string
+  pickupAddress: string
+  pickupContact: string
+  pickupPhone: string
   pod: string
   finalDestination: string
   finalDestAddress: string
@@ -62,6 +71,7 @@ export interface ContainerOrderForm {
 }
 
 export const initialGroundForm: GroundOrderForm = {
+  customerRef: '',
   transportType: 'LTL',
   pickupCountry: '', pickupCity: '', pickupZipCode: '', pickupAddress: '',
   pickupContact: '', pickupPhone: '',
@@ -73,8 +83,11 @@ export const initialGroundForm: GroundOrderForm = {
 }
 
 export const initialContainerForm: ContainerOrderForm = {
+  customerRef: '',
   shippingLine: '', blNumber: '', eta: '', cnee: '',
   containerNo: '', containerType: '', sealNo: '',
+  pickupCountry: '', pickupCity: '', pickupZipCode: '', pickupAddress: '',
+  pickupContact: '', pickupPhone: '',
   pod: '', finalDestination: '', finalDestAddress: '', expectedDeliveryDate: '',
   deliveryContact: '', deliveryPhone: '',
   releaseMethod: 'TELEX', needsClearance: false,
@@ -182,10 +195,18 @@ export function GroundOrderFields({ businessType, form, onChange }: {
 
   return (
     <div className="space-y-5">
-      {/* 本地派送没有 FTL/LTL 之分，整块不渲染 */}
-      {!isLocalDelivery && (
-        <Section icon={Package} title={t('createOrder.sectionBasic')}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <Section icon={Package} title={t('createOrder.sectionBasic')}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label={t('createOrder.customerRef')}>
+            <TextInput
+              value={form.customerRef}
+              onChange={(v) => onChange('customerRef', v)}
+              placeholder={t('createOrder.phCustomerRef')}
+            />
+            <p className="mt-1 text-[11px] text-slate-400">{t('createOrder.customerRefHint')}</p>
+          </Field>
+          {/* 本地派送没有 FTL/LTL 之分 */}
+          {!isLocalDelivery && (
             <Field label={t('createOrder.transportType')}>
               <SelectInput
                 value={form.transportType}
@@ -196,9 +217,9 @@ export function GroundOrderFields({ businessType, form, onChange }: {
                 ]}
               />
             </Field>
-          </div>
-        </Section>
-      )}
+          )}
+        </div>
+      </Section>
 
       <Section icon={MapPin} title={t('createOrder.pickupAddress')}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -304,6 +325,19 @@ export function ContainerOrderFields({ form, onChange }: {
 
   return (
     <div className="space-y-5">
+      <Section icon={Package} title={t('createOrder.sectionBasic')}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label={t('createOrder.customerRef')}>
+            <TextInput
+              value={form.customerRef}
+              onChange={(v) => onChange('customerRef', v)}
+              placeholder={t('createOrder.phCustomerRef')}
+            />
+            <p className="mt-1 text-[11px] text-slate-400">{t('createOrder.customerRefHint')}</p>
+          </Field>
+        </div>
+      </Section>
+
       <Section icon={Ship} title={t('createOrder.sectionShipping')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label={t('createOrder.shippingLine')}>
@@ -338,6 +372,33 @@ export function ContainerOrderFields({ form, onChange }: {
           </Field>
           <Field label={t('createOrder.sealNo')}>
             <TextInput value={form.sealNo} onChange={(v) => onChange('sealNo', v)} />
+          </Field>
+        </div>
+      </Section>
+
+      {/* 提柜地点：留空就是从卸货港提柜，只有指定堆场/自有仓库时才填 */}
+      <Section icon={MapPin} title={t('createOrder.sectionPickupFtl')}>
+        <p className="-mt-1 mb-3 text-[11px] text-slate-400">{t('createOrder.pickupFtlHint')}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Field label={t('createOrder.country')}>
+            <TextInput value={form.pickupCountry} onChange={(v) => onChange('pickupCountry', v)} placeholder={t('createOrder.phCountryDE')} />
+          </Field>
+          <Field label={t('createOrder.city')}>
+            <TextInput value={form.pickupCity} onChange={(v) => onChange('pickupCity', v)} placeholder={t('createOrder.phPickupTerminal')} />
+          </Field>
+          <Field label={t('createOrder.zipCode')}>
+            <TextInput value={form.pickupZipCode} onChange={(v) => onChange('pickupZipCode', v)} placeholder={t('createOrder.phZipDE')} />
+          </Field>
+          <div className="sm:col-span-3">
+            <Field label={t('createOrder.address')}>
+              <TextInput value={form.pickupAddress} onChange={(v) => onChange('pickupAddress', v)} placeholder={t('createOrder.phPickupTerminalAddr')} />
+            </Field>
+          </div>
+          <Field label={t('createOrder.pickupContact')}>
+            <TextInput value={form.pickupContact} onChange={(v) => onChange('pickupContact', v)} />
+          </Field>
+          <Field label={t('createOrder.pickupPhone')}>
+            <TextInput value={form.pickupPhone} onChange={(v) => onChange('pickupPhone', v)} type="tel" />
           </Field>
         </div>
       </Section>

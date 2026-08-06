@@ -97,7 +97,7 @@ router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission
   try {
     const pool = getPool()
     const result = await pool.query(
-      `SELECT fr.record_number, c.company_name as counterparty_name, o.order_number,
+      `SELECT fr.record_number, c.company_name as counterparty_name, o.order_number, o.customer_ref,
               fr.amount, fr.currency, fr.payment_status, fr.due_date, fr.paid_amount
        FROM financial_records fr
        LEFT JOIN clients c ON c.id = fr.counterparty_id
@@ -119,6 +119,7 @@ router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission
       { header: t(lang, 'excel.billNo'), key: 'recordNumber', width: 18 },
       { header: t(lang, 'excel.client'), key: 'client', width: 24 },
       { header: t(lang, 'excel.relatedOrder'), key: 'orderNumber', width: 18 },
+      { header: t(lang, 'excel.customerRef'), key: 'customerRef', width: 18 },
       { header: t(lang, 'excel.amount'), key: 'amount', width: 14 },
       { header: t(lang, 'excel.currency'), key: 'currency', width: 8 },
       { header: t(lang, 'excel.status'), key: 'status', width: 12 },
@@ -134,6 +135,7 @@ router.get('/export/receivables', requireUserType('OPERATOR'), requirePermission
         recordNumber: row.record_number || '-',
         client: row.counterparty_name || '-',
         orderNumber: row.order_number || '-',
+        customerRef: row.customer_ref || '-',
         amount: row.amount ? Number(row.amount) : 0,
         currency: row.currency || 'EUR',
         status: statusMap[row.payment_status] || row.payment_status || '-',
@@ -161,7 +163,7 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
   try {
     const pool = getPool()
     const result = await pool.query(
-      `SELECT fr.record_number, cr.company_name as counterparty_name, o.order_number,
+      `SELECT fr.record_number, cr.company_name as counterparty_name, o.order_number, o.customer_ref,
               fr.amount, fr.currency, fr.payment_status, fr.due_date, fr.paid_amount
        FROM financial_records fr
        LEFT JOIN carriers cr ON cr.id = fr.counterparty_id
@@ -183,6 +185,7 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
       { header: t(lang, 'excel.billNo'), key: 'recordNumber', width: 18 },
       { header: t(lang, 'excel.carrier'), key: 'carrier', width: 24 },
       { header: t(lang, 'excel.relatedOrder'), key: 'orderNumber', width: 18 },
+      { header: t(lang, 'excel.customerRef'), key: 'customerRef', width: 18 },
       { header: t(lang, 'excel.amount'), key: 'amount', width: 14 },
       { header: t(lang, 'excel.currency'), key: 'currency', width: 8 },
       { header: t(lang, 'excel.status'), key: 'status', width: 12 },
@@ -198,6 +201,7 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
         recordNumber: row.record_number || '-',
         carrier: row.counterparty_name || '-',
         orderNumber: row.order_number || '-',
+        customerRef: row.customer_ref || '-',
         amount: row.amount ? Number(row.amount) : 0,
         currency: row.currency || 'EUR',
         status: statusMap[row.payment_status] || row.payment_status || '-',

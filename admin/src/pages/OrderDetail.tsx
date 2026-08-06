@@ -73,6 +73,7 @@ interface DocumentFlow {
 interface Order {
   id: string
   order_number: string
+  customer_ref: string | null
   business_type: string
   status: string
   delivery_status: string
@@ -578,6 +579,11 @@ export default function OrderDetail() {
             </div>
             <p className="text-sm text-slate-400 mt-1">
               {t('orderDetail.createdAt', { time: formatDateTime(order.created_at) })}
+              {order.customer_ref && (
+                <span className="ml-3 text-slate-500">
+                  {t('field.customerRef')}: <span className="text-slate-700">{order.customer_ref}</span>
+                </span>
+              )}
             </p>
           </div>
         </div>

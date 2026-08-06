@@ -45,9 +45,12 @@ import {
 interface OrderRow {
   id: string
   order_number: string
+  customer_ref: string | null
   business_type: string
   client_name: string
   pickup_city: string | null
+  pod: string | null
+  final_destination: string | null
   delivery_city: string | null
   status: string
   delivery_status: string | null
@@ -84,6 +87,31 @@ const BUSINESS_TABS = [
 const PAGE_SIZE = 15
 
 // ==================== 组件 ====================
+
+/**
+ * 列表里的路线取值
+ *
+ * 集装箱单（TRUCK_FTL）的两头是「卸货港 → 最终目的地」，装卸货地址列本来就是空的；
+ * 自从集装箱单能填「提柜地点」以后，再读 pickup_city 会显示成「Hamburg → -」，
+ * 看着像目的地丢了。所以按产品分开取。
+ */
+function routeFrom(order: OrderRow): string {
+  const value = order.business_type === BUSINESS_TYPES.TRUCK_FTL
+    ? order.pod || order.pickup_city
+    : order.pickup_city
+  return value || '-'
+}
+
+function routeTo(order: OrderRow): string {
+  const value = order.business_type === BUSINESS_TYPES.TRUCK_FTL
+    ? order.final_destination || order.delivery_city
+    : order.delivery_city
+  return value || '-'
+}
+
+function routeText(order: OrderRow): string {
+  return `${routeFrom(order)} → ${routeTo(order)}`
+}
 
 export default function OrderManagement() {
   const navigate = useNavigate()
@@ -528,28 +556,33 @@ export default function OrderManagement() {
       <table className="w-full table-fixed">
         <colgroup>
           {/* 订单号 */}
-          <col className="w-[12%]" />
+          <col className="w-[11%]" />
+          {/* 客户单号 */}
+          <col className="w-[10%]" />
           {/* 客户 */}
-          <col className="w-[12%]" />
+          <col className="w-[11%]" />
           {/* 路线 */}
-          <col className="w-[16%]" />
+          <col className="w-[14%]" />
           {/* 状态 */}
-          <col className="w-[10%]" />
+          <col className="w-[9%]" />
           {/* 类型 */}
-          <col className="w-[8%]" />
+          <col className="w-[7%]" />
           {/* 重量 */}
-          <col className="w-[10%]" />
+          <col className="w-[9%]" />
           {/* 承运商 */}
-          <col className="w-[12%]" />
+          <col className="w-[11%]" />
           {/* 报价 */}
-          <col className="w-[10%]" />
+          <col className="w-[9%]" />
           {/* 操作 */}
-          <col className="w-[10%]" />
+          <col className="w-[9%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.orderNo')}
+            </th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t('order.customerRef')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.client')}
@@ -593,16 +626,20 @@ export default function OrderManagement() {
                   {order.order_number}
                 </button>
               </td>
+              {/* 客户单号 */}
+              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.customer_ref || undefined}>
+                {order.customer_ref || '-'}
+              </td>
               {/* 客户 */}
               <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.client_name}>
                 {order.client_name}
               </td>
               {/* 路线 */}
               <td className="px-4 py-3 text-xs text-slate-600">
-                <span className="truncate block" title={`${order.pickup_city} → ${order.delivery_city}`}>
-                  {order.pickup_city}
+                <span className="truncate block" title={routeText(order)}>
+                  {routeFrom(order)}
                   <span className="text-slate-400 mx-1">→</span>
-                  {order.delivery_city}
+                  {routeTo(order)}
                 </span>
               </td>
               {/* 状态 */}
@@ -873,10 +910,10 @@ export default function OrderManagement() {
               </td>
               {/* 路线 */}
               <td className="px-4 py-3 text-xs text-slate-600">
-                <span className="truncate block" title={`${order.pickup_city} → ${order.delivery_city}`}>
-                  {order.pickup_city}
+                <span className="truncate block" title={routeText(order)}>
+                  {routeFrom(order)}
                   <span className="text-slate-400 mx-1">→</span>
-                  {order.delivery_city}
+                  {routeTo(order)}
                 </span>
               </td>
               {/* 状态（本地派送文案：IN_TRANSIT→派送中，COMPLETED→已签收） */}

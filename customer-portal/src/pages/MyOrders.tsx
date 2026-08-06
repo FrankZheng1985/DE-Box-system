@@ -23,8 +23,11 @@ interface OrderFileItem {
 interface Order {
   id: string
   order_number: string
+  customer_ref: string | null
   business_type: string
   pickup_city: string
+  pod: string | null
+  final_destination: string | null
   delivery_city: string
   status: string
   transport_type: string
@@ -34,6 +37,24 @@ interface Order {
   delivery_date: string
   tracking_number: string | null
   created_at: string
+}
+
+/**
+ * 路线取值：集装箱单的两头是「卸货港 → 最终目的地」，不是装卸货城市
+ * （集装箱单能填提柜地点之后，读 pickup_city 会显示成「Hamburg → -」）
+ */
+function routeFrom(order: Order): string {
+  const value = order.business_type === BUSINESS_TYPES.TRUCK_FTL
+    ? order.pod || order.pickup_city
+    : order.pickup_city
+  return value || '-'
+}
+
+function routeTo(order: Order): string {
+  const value = order.business_type === BUSINESS_TYPES.TRUCK_FTL
+    ? order.final_destination || order.delivery_city
+    : order.delivery_city
+  return value || '-'
 }
 
 export default function MyOrders() {
@@ -159,22 +180,24 @@ export default function MyOrders() {
       {/* 表格 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[820px]">
+          <table className="w-full table-fixed min-w-[900px]">
             <colgroup>
               <col className="w-[12%]" />
-              <col className="w-[15%]" />
-              <col className="w-[9%]" />
+              <col className="w-[11%]" />
+              <col className="w-[13%]" />
               <col className="w-[8%]" />
-              <col className="w-[12%]" />
-              <col className="w-[8%]" />
-              <col className="w-[10%]" />
-              <col className="w-[9%]" />
+              <col className="w-[7%]" />
               <col className="w-[10%]" />
               <col className="w-[7%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
+              <col className="w-[9%]" />
+              <col className="w-[6%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.orderNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('orders.customerRef')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.type')}</th>
@@ -190,7 +213,7 @@ export default function MyOrders() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 10 }).map((_, j) => (
+                    {Array.from({ length: 11 }).map((_, j) => (
                       <td key={j} className="px-3 py-3">
                         <div className="h-3 bg-gray-100 rounded animate-pulse" />
                       </td>
@@ -199,7 +222,7 @@ export default function MyOrders() {
                 ))
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-sm text-slate-400">
+                  <td colSpan={11} className="text-center py-8 text-sm text-slate-400">
                     {t('orders.empty')}
                   </td>
                 </tr>
@@ -211,8 +234,11 @@ export default function MyOrders() {
                       <td className="text-left px-3 py-2.5 text-xs font-medium text-primary-600">
                         {order.order_number || '-'}
                       </td>
+                      <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate" title={order.customer_ref || undefined}>
+                        {order.customer_ref || '-'}
+                      </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
-                        {order.pickup_city || '-'} → {order.delivery_city || '-'}
+                        {routeFrom(order)} → {routeTo(order)}
                       </td>
                       <td className="text-center px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full ${getStatusStyle(order.status)}`}>

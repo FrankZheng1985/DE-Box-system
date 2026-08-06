@@ -355,7 +355,7 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('order:expo
 
     // 构建查询（复用 list 的筛选逻辑）
     let sql = `
-      SELECT o.order_number, o.business_type, o.status, o.transport_type,
+      SELECT o.order_number, o.customer_ref, o.business_type, o.status, o.transport_type,
              o.cargo_weight_kg, o.client_price, o.carrier_cost, o.currency,
              o.created_at,
              c.company_name as client_name,
@@ -403,6 +403,7 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('order:expo
 
     sheet.columns = [
       { header: t(lang, 'excel.orderNo'), key: 'orderNumber', width: 18 },
+      { header: t(lang, 'excel.customerRef'), key: 'customerRef', width: 18 },
       { header: t(lang, 'excel.client'), key: 'clientName', width: 20 },
       { header: t(lang, 'excel.businessType'), key: 'businessType', width: 12 },
       { header: t(lang, 'excel.status'), key: 'status', width: 12 },
@@ -422,6 +423,7 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('order:expo
     for (const row of result.rows) {
       sheet.addRow({
         orderNumber: row.order_number,
+        customerRef: row.customer_ref || '-',
         clientName: row.client_name || '-',
         businessType: BUSINESS_TYPE_LABELS[row.business_type] || row.business_type,
         status: getStatusLabel(row.business_type, row.status),

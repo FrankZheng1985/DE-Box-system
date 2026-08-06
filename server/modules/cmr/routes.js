@@ -44,7 +44,7 @@ router.get('/', requirePermission('cmr:view', 'portal:file_download', 'carrier_p
   try {
     const { signStatus, hasDamage, orderId, search, page = 1, pageSize = 20 } = req.query
     let sql = `
-      SELECT cmr.*, o.order_number, c.company_name as client_name,
+      SELECT cmr.*, o.order_number, o.customer_ref, c.company_name as client_name,
              o.pickup_address->>'city' as from_city, o.delivery_address->>'city' as to_city,
              u.display_name as uploaded_by_name
       FROM cmr_documents cmr

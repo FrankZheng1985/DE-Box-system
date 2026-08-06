@@ -92,7 +92,8 @@
     "empty": "Keine Auftragsdaten",
     "viewFiles": "Auftragsdateien ansehen",
     "filesTitle": "Auftragsdateien",
-    "noFiles": "Keine Dateien zu diesem Auftrag"
+    "noFiles": "Keine Dateien zu diesem Auftrag",
+    "customerRef": "Kundenreferenz"
   },
   "tracking": {
     "count": "{{count}} Aufträge unterwegs",
@@ -123,7 +124,8 @@
     "count": "{{count}} CMR-Datei(en)",
     "cmrNo": "CMR-Nr.",
     "empty": "Keine CMR-Dateien",
-    "noFile": "Keine Datei"
+    "noFile": "Keine Datei",
+    "customerRef": "Kundenreferenz"
   },
   "settings": {
     "accountInfo": "Kontodaten",
@@ -273,7 +275,14 @@
     "phCnee": "Firmenname des Empfängers",
     "phContainerNo": "z. B. MSCU7654321",
     "phPod": "z. B. Hamburg",
-    "phFinalDest": "z. B. München"
+    "phFinalDest": "z. B. München",
+    "customerRef": "Kundenreferenz",
+    "customerRefHint": "Ihre eigene Referenznummer, für die spätere Zuordnung (optional)",
+    "phCustomerRef": "z. B. ABC-2026-0001",
+    "sectionPickupFtl": "Abholort Container (optional)",
+    "pickupFtlHint": "Für den Regelfall leer lassen (Abholung im Entladehafen); nur bei einem bestimmten Terminal oder Ihrem Lager ausfüllen.",
+    "phPickupTerminal": "z. B. Hamburg (Abholort)",
+    "phPickupTerminalAddr": "Terminal / Lager, Straße und Hausnummer"
   },
   "transportType": {
     "FTL": "Komplettladung (FTL)",
@@ -766,7 +775,8 @@
     "colContainerNo": "Container-Nr.",
     "selectClient": "Import für Kunde",
     "clientPlaceholder": "Kunde auswählen",
-    "clientRequired": "Bitte zuerst den Kunden auswählen"
+    "clientRequired": "Bitte zuerst den Kunden auswählen",
+    "colCustomerRef": "Kundenreferenz"
   },
   "businessTypeDesc": {
     "TRUCK_LTL": "Stückgut, Abrechnung je Packstück oder m³",

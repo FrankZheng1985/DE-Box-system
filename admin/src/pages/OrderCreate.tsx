@@ -47,15 +47,31 @@ interface Client {
 
 // 地址
 interface Address {
-  country: string
-  city: string
-  zipCode: string
-  address: string
+  country?: string
+  city?: string
+  zipCode?: string
+  address?: string
+}
+
+/**
+ * 只保留填了值的地址字段
+ *
+ * 空串写进 JSONB 后，`pickup_address->>'zipCode'` 拿到的是 '' 而不是 NULL，
+ * 判空还得多写一层，不如一开始就不写进去（踩坑 047 防护第 3 条）。
+ */
+function buildAddress(fields: Record<string, string>): Address {
+  const address: Record<string, string> = {}
+  for (const [key, value] of Object.entries(fields)) {
+    const text = (value || '').trim()
+    if (text !== '') address[key] = text
+  }
+  return address
 }
 
 // 卡车运输表单（LTL 和本地派送共用；本地派送不用 transportType）
 interface TruckForm {
   clientId: string
+  customerRef: string
   transportType: TransportType
   cargoDescription: string
   cargoWeightKg: string
@@ -84,6 +100,7 @@ interface TruckForm {
 // 集装箱物流表单
 interface ContainerForm {
   clientId: string
+  customerRef: string
   transportType: TransportType
   shippingLine: string
   blNumber: string
@@ -92,6 +109,13 @@ interface ContainerForm {
   containerNo: string
   containerType: string
   sealNo: string
+  // 提柜地点（选填）：留空就按常规从卸货港提柜
+  pickupCountry: string
+  pickupCity: string
+  pickupZipCode: string
+  pickupAddress: string
+  pickupContact: string
+  pickupPhone: string
   pod: string
   finalDestination: string
   finalDestAddress: string
@@ -109,6 +133,7 @@ interface ContainerForm {
 
 const initialTruckForm: TruckForm = {
   clientId: '',
+  customerRef: '',
   transportType: 'LTL',
   cargoDescription: '',
   cargoWeightKg: '',
@@ -137,6 +162,7 @@ const initialTruckForm: TruckForm = {
 
 const initialContainerForm: ContainerForm = {
   clientId: '',
+  customerRef: '',
   transportType: 'FTL',
   shippingLine: '',
   blNumber: '',
@@ -145,6 +171,12 @@ const initialContainerForm: ContainerForm = {
   containerNo: '',
   containerType: '',
   sealNo: '',
+  pickupCountry: '',
+  pickupCity: '',
+  pickupZipCode: '',
+  pickupAddress: '',
+  pickupContact: '',
+  pickupPhone: '',
   pod: '',
   finalDestination: '',
   finalDestAddress: '',
@@ -390,24 +422,25 @@ export default function OrderCreate() {
         const f = truckForm
         payload = {
           clientId: f.clientId,
+          customerRef: f.customerRef.trim() || null,
           businessType,
           transportType: businessType === BUSINESS_TYPES.LOCAL_DELIVERY ? null : f.transportType,
           cargoDescription: f.cargoDescription,
           cargoWeightKg: Number(f.cargoWeightKg),
           cargoVolumeM3: f.cargoVolumeM3 ? Number(f.cargoVolumeM3) : null,
           cargoQuantity: Number(f.cargoQuantity),
-          pickupAddress: {
+          pickupAddress: buildAddress({
             country: f.pickupCountry,
             city: f.pickupCity,
             zipCode: f.pickupZipCode,
             address: f.pickupAddress,
-          } as Address,
-          deliveryAddress: {
+          }),
+          deliveryAddress: buildAddress({
             country: f.deliveryCountry,
             city: f.deliveryCity,
             zipCode: f.deliveryZipCode,
             address: f.deliveryAddress,
-          } as Address,
+          }),
           pickupDate: f.pickupDate,
           deliveryDate: f.deliveryDate,
           pickupContact: f.pickupContact || null,
@@ -421,10 +454,24 @@ export default function OrderCreate() {
         }
       } else {
         const f = containerForm
+        const hasPickupLocation = [f.pickupCountry, f.pickupCity, f.pickupZipCode, f.pickupAddress]
+          .some((v) => v.trim() !== '')
         payload = {
           clientId: f.clientId,
+          customerRef: f.customerRef.trim() || null,
           businessType: BUSINESS_TYPES.TRUCK_FTL,
           transportType: f.transportType,
+          // 提柜地点整组没填就不传，表示按常规从卸货港提柜
+          pickupAddress: hasPickupLocation
+            ? buildAddress({
+                country: f.pickupCountry,
+                city: f.pickupCity,
+                zipCode: f.pickupZipCode,
+                address: f.pickupAddress,
+              })
+            : null,
+          pickupContact: f.pickupContact || null,
+          pickupPhone: f.pickupPhone || null,
           shippingLine: f.shippingLine,
           blNumber: f.blNumber,
           eta: f.eta,
@@ -646,6 +693,14 @@ function TruckFormSection({
               onChange={(v) => onUpdate('clientId', v)}
               options={clientOptions}
               placeholder={clientsLoading ? t('common.loading') : t('placeholder.selectClient')}
+            />
+          </div>
+          <div>
+            <Label>{t('field.customerRef')}</Label>
+            <TextInput
+              value={form.customerRef}
+              onChange={(v) => onUpdate('customerRef', v)}
+              placeholder={t('placeholder.customerRefEg')}
             />
           </div>
           {/* 本地派送没有 FTL/LTL 之分 */}
@@ -925,6 +980,14 @@ function ContainerFormSection({
               ]}
             />
           </div>
+          <div>
+            <Label>{t('field.customerRef')}</Label>
+            <TextInput
+              value={form.customerRef}
+              onChange={(v) => onUpdate('customerRef', v)}
+              placeholder={t('placeholder.customerRefEg')}
+            />
+          </div>
         </div>
       </div>
 
@@ -996,6 +1059,50 @@ function ContainerFormSection({
               onChange={(v) => onUpdate('sealNo', v)}
               placeholder={t('placeholder.sealNoEg')}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* 提柜地点：留空就是从卸货港提柜，只有指定堆场/客户自有仓库时才填 */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+        <SectionTitle icon={MapPin}>{t('section.pickupFtl')}</SectionTitle>
+        <p className="-mt-2 mb-4 text-xs text-slate-400">{t('createOrder.pickupFtlHint')}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label>{t('common.country')}</Label>
+            <TextInput
+              value={form.pickupCountry}
+              onChange={(v) => onUpdate('pickupCountry', v)}
+              placeholder={t('placeholder.cityHamburg')}
+            />
+          </div>
+          <div>
+            <Label>{t('common.city')}</Label>
+            <TextInput
+              value={form.pickupCity}
+              onChange={(v) => onUpdate('pickupCity', v)}
+              placeholder={t('placeholder.pickupTerminal')}
+            />
+          </div>
+          <div>
+            <Label>{t('field.zipCode')}</Label>
+            <TextInput value={form.pickupZipCode} onChange={(v) => onUpdate('pickupZipCode', v)} />
+          </div>
+          <div>
+            <Label>{t('field.addressDetail')}</Label>
+            <TextInput
+              value={form.pickupAddress}
+              onChange={(v) => onUpdate('pickupAddress', v)}
+              placeholder={t('placeholder.pickupTerminalAddr')}
+            />
+          </div>
+          <div>
+            <Label>{t('field.contact')}</Label>
+            <TextInput value={form.pickupContact} onChange={(v) => onUpdate('pickupContact', v)} />
+          </div>
+          <div>
+            <Label>{t('field.phone')}</Label>
+            <TextInput value={form.pickupPhone} onChange={(v) => onUpdate('pickupPhone', v)} placeholder="+49 xxx xxx" />
           </div>
         </div>
       </div>

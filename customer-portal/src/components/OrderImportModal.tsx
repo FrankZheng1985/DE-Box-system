@@ -34,6 +34,7 @@ interface AddressPart {
 interface ImportPreviewOrder {
   rowNumber: number
   businessType: string
+  customerRef?: string | null
   pickupAddress?: AddressPart | null
   deliveryAddress?: AddressPart | null
   cargoQuantity?: number | null
@@ -336,18 +337,20 @@ export default function OrderImportModal({ onClose, onImported }: Props) {
               {/* 将要生成的订单 */}
               {preview.orders.length > 0 && (
                 <div className="overflow-x-auto">
-                  <table className="w-full table-fixed min-w-[700px]">
+                  <table className="w-full table-fixed min-w-[820px]">
                     <colgroup>
-                      <col className="w-[10%]" />
+                      <col className="w-[8%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[20%]" />
                       <col className="w-[24%]" />
-                      <col className="w-[30%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[12%]" />
+                      <col className="w-[10%]" />
+                      <col className="w-[11%]" />
+                      <col className="w-[11%]" />
                     </colgroup>
                     <thead>
                       <tr className="text-[11px] text-slate-500 border-b border-gray-100">
                         <th className="text-center px-2 py-2 font-medium">{t('orderImport.colRow')}</th>
+                        <th className="text-left px-2 py-2 font-medium">{t('orderImport.colCustomerRef')}</th>
                         <th className="text-left px-2 py-2 font-medium">
                           {isContainer ? t('orderImport.colBlNumber') : t('orderImport.colPickup')}
                         </th>
@@ -365,6 +368,9 @@ export default function OrderImportModal({ onClose, onImported }: Props) {
                       {preview.orders.map((item) => (
                         <tr key={item.rowNumber} className="border-b border-gray-50">
                           <td className="text-center px-2 py-2 text-xs text-slate-400">{item.rowNumber}</td>
+                          <td className="text-left px-2 py-2 text-xs text-slate-600 truncate" title={item.customerRef || undefined}>
+                            {item.customerRef || '-'}
+                          </td>
                           <td className="text-left px-2 py-2 text-xs text-slate-900 truncate">
                             {isContainer ? (item.blNumber || '-') : cityText(item.pickupAddress)}
                           </td>

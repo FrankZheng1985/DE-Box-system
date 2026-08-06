@@ -725,6 +725,7 @@ export const orderService = {
 
     // 映射前端字段到数据库字段
     const fieldMap = {
+      customerRef: 'customer_ref',
       cargoDescription: 'cargo_description',
       cargoWeightKg: 'cargo_weight_kg',
       cargoVolumeM3: 'cargo_volume_m3',

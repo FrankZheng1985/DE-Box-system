@@ -146,7 +146,9 @@
     "orderImportErrEnum": "{{field}} \"{{value}}\" is not allowed. Allowed values: {{allowed}}",
     "orderImportErrInteger": "{{field}} \"{{value}}\" must be a whole number",
     "orderImportErrTooLong": "{{field}} allows at most {{max}} characters, got {{actual}}",
-    "orderImportWarnDuplicate": "\"{{value}}\" is the same as in row {{row}} — ignore this if it is intentional"
+    "orderImportWarnDuplicate": "\"{{value}}\" is the same as in row {{row}} — ignore this if it is intentional",
+    "orderImportRuleCustomerRef": "\"Client reference\" is your own order/reference number, so both sides can match records later. It may be left empty. The same reference may span several orders (e.g. one shipment split across two containers).",
+    "orderImportRulePickupFtl": "The pickup country/postcode/city/address is the **container pickup location**. Leave it empty for the normal case (pickup at the discharge port); fill it in only when we should collect from a specific terminal or your own warehouse."
   },
   "email": {
     "footerAuto": "This message was sent automatically — please do not reply.",

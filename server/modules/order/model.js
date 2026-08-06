@@ -22,7 +22,8 @@ export const ORDER_TRACKED_FIELDS = [
   { name: 'eta', label: 'ETA' },
   { name: 'release_status', label: '放单状态' },
   { name: 'clearance_status', label: '清关状态' },
-  { name: 'tracking_number', label: '跟踪号' }
+  { name: 'tracking_number', label: '跟踪号' },
+  { name: 'customer_ref', label: '客户单号' }
 ]
 
 export const orderModel = {
@@ -33,7 +34,7 @@ export const orderModel = {
   async create(client, data) {
     const result = await client.query(
       `INSERT INTO orders
-       (document_id, order_number, client_id, company_code, business_area,
+       (document_id, order_number, customer_ref, client_id, company_code, business_area,
         business_type, status, delivery_status, transport_type,
         cargo_description, cargo_weight_kg, cargo_volume_m3, cargo_quantity,
         pickup_address, delivery_address, pickup_date, delivery_date,
@@ -43,10 +44,11 @@ export const orderModel = {
         expected_delivery_date, release_method, needs_clearance, needs_release,
         client_price, carrier_cost, currency)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
-               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
        RETURNING *`,
       [
-        data.documentId, data.orderNumber, data.clientId, data.companyCode, data.businessArea,
+        data.documentId, data.orderNumber, data.customerRef || null,
+        data.clientId, data.companyCode, data.businessArea,
         data.businessType, data.status || 'PENDING_REVIEW',
         // 只有 TRUCK_FTL（原集装箱）走派送子状态机
         data.businessType === 'TRUCK_FTL' ? 'WAITING_ARRANGE' : null,
@@ -92,9 +94,10 @@ export const orderModel = {
     let sql = `
       SELECT o.id, o.order_number, o.business_type, o.status, o.delivery_status,
              o.transport_type, o.cargo_weight_kg, o.container_no, o.bl_number,
-             o.shipping_line, o.eta, o.client_price, o.carrier_cost, o.currency,
+             o.shipping_line, o.eta, o.pod, o.final_destination,
+             o.client_price, o.carrier_cost, o.currency,
              o.pickup_date, o.delivery_date, o.release_status, o.clearance_status,
-             o.tracking_number, o.created_at,
+             o.tracking_number, o.customer_ref, o.created_at,
              c.company_name as client_name,
              cr.company_name as carrier_name,
              o.pickup_address->>'city' as pickup_city,
@@ -128,7 +131,9 @@ export const orderModel = {
     }
     if (search) {
       params.push(`%${search}%`)
-      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx})`
+      // 客户打电话报的往往是他们自己的单号，所以 customer_ref 也要能搜；
+      // 客户名此前搜不到，但三个搜索框的提示语一直写着「搜索…客户…」，一并补上
+      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx} OR o.customer_ref ILIKE $${paramIdx} OR c.company_name ILIKE $${paramIdx})`
     }
     if (dateFrom) {
       params.push(dateFrom)

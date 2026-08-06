@@ -466,7 +466,8 @@
     "destinationInfo": "Zielangaben",
     "otherInfo": "Sonstige Angaben",
     "contact": "Ansprechpartner",
-    "additionalNotes": "Ergänzende Angaben"
+    "additionalNotes": "Ergänzende Angaben",
+    "pickupFtl": "Abholort Container (optional)"
   },
   "field": {
     "addressDetail": "Straße und Hausnummer",
@@ -503,7 +504,8 @@
     "name": "Name",
     "email": "E-Mail",
     "origin": "Versandort",
-    "destination": "Zielort"
+    "destination": "Zielort",
+    "customerRef": "Kundenreferenz"
   },
   "placeholder": {
     "selectClient": "Kunde auswählen",
@@ -545,7 +547,10 @@
     "carrierName": "Firmenname des Frachtführers eingeben",
     "licenseNo": "Lizenznummer",
     "paymentTermsEg": "z. B. 30",
-    "serviceCountries": "Kommagetrennt, z. B. DE, FR, PL, NL"
+    "serviceCountries": "Kommagetrennt, z. B. DE, FR, PL, NL",
+    "customerRefEg": "z. B. ABC-2026-0001",
+    "pickupTerminal": "z. B. Hamburg (Abholort)",
+    "pickupTerminalAddr": "Terminal / Lager, Straße und Hausnummer"
   },
   "order": {
     "pageTitle": "Aufträge",
@@ -555,9 +560,9 @@
     "createdDateRange": "Erstellt zwischen:",
     "dateRangeTo": "und",
     "clearDate": "Datum zurücksetzen",
-    "searchPlaceholderLtl": "Auftragsnr., Kunde, Strecke suchen...",
-    "searchPlaceholderFtl": "Container-Nr., Konnossement-Nr., Kunde suchen...",
-    "searchPlaceholderLocal": "Auftragsnr., Kunde, Sendungsnr. suchen...",
+    "searchPlaceholderLtl": "Auftragsnr., Kundenreferenz, Kunde, Sendungsnr. suchen…",
+    "searchPlaceholderFtl": "Container, Konnossement, Kundenreferenz, Kunde suchen…",
+    "searchPlaceholderLocal": "Auftragsnr., Kundenreferenz, Kunde, Sendungsnr. suchen…",
     "colWeightKg": "Gewicht (kg)",
     "colPriceEur": "Preis (EUR)",
     "colShippingLine": "Reederei",
@@ -577,7 +582,8 @@
     "trackingFill": "Sendungsnr. eintragen",
     "trackingEditHint": "Zum Ändern klicken: {{value}}",
     "trackingSaved": "Sendungsnummer gespeichert",
-    "trackingSaveFailed": "Sendungsnummer konnte nicht gespeichert werden"
+    "trackingSaveFailed": "Sendungsnummer konnte nicht gespeichert werden",
+    "customerRef": "Kundenreferenz"
   },
   "orderForm": {
     "errCargoDescRequired": "Bitte die Ware beschreiben",
@@ -1400,7 +1406,8 @@
     "damageNote": "Schadensbeschreibung",
     "damageNoteLabel": "Schadensbeschreibung:",
     "damagePlaceholder": "Beschreiben Sie den Schaden...",
-    "noDamageDetail": "Keine Angaben"
+    "noDamageDetail": "Keine Angaben",
+    "customerRef": "Kundenreferenz"
   },
   "customs": {
     "pageTitle": "Verzollung",
@@ -2096,6 +2103,20 @@
     "colContainerNo": "Container-Nr.",
     "selectClient": "Import für Kunde",
     "clientPlaceholder": "Kunde auswählen",
-    "clientRequired": "Bitte zuerst den Kunden auswählen"
+    "clientRequired": "Bitte zuerst den Kunden auswählen",
+    "colCustomerRef": "Kundenreferenz"
+  },
+  "createOrder": {
+    "customerRef": "Kundenreferenz",
+    "customerRefHint": "Ihre eigene Referenznummer, für die spätere Zuordnung (optional)",
+    "phCustomerRef": "z. B. ABC-2026-0001",
+    "sectionPickupFtl": "Abholort Container (optional)",
+    "pickupFtlHint": "Für den Regelfall leer lassen (Abholung im Entladehafen); nur bei einem bestimmten Terminal oder Ihrem Lager ausfüllen."
+  },
+  "orders": {
+    "customerRef": "Kundenreferenz"
+  },
+  "excel": {
+    "customerRef": "Kundenreferenz"
   }
 }

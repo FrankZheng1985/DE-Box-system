@@ -92,7 +92,8 @@
     "empty": "No order data",
     "viewFiles": "View order files",
     "filesTitle": "Order files",
-    "noFiles": "No files for this order"
+    "noFiles": "No files for this order",
+    "customerRef": "Client ref."
   },
   "tracking": {
     "count": "{{count}} order(s) in transit",
@@ -123,7 +124,8 @@
     "count": "{{count}} CMR file(s)",
     "cmrNo": "CMR No.",
     "empty": "No CMR files",
-    "noFile": "No file"
+    "noFile": "No file",
+    "customerRef": "Client ref."
   },
   "settings": {
     "accountInfo": "Account information",
@@ -273,7 +275,14 @@
     "phCnee": "Consignee company name",
     "phContainerNo": "e.g. MSCU7654321",
     "phPod": "e.g. Hamburg",
-    "phFinalDest": "e.g. Munich"
+    "phFinalDest": "e.g. Munich",
+    "customerRef": "Client reference",
+    "customerRefHint": "Your own reference number, for reconciliation later (optional)",
+    "phCustomerRef": "e.g. ABC-2026-0001",
+    "sectionPickupFtl": "Container pickup location (optional)",
+    "pickupFtlHint": "Leave empty for the normal case (pickup at the discharge port); fill in only for a specific terminal or your own warehouse.",
+    "phPickupTerminal": "e.g. Hamburg (pickup city)",
+    "phPickupTerminalAddr": "Terminal / warehouse name, street"
   },
   "transportType": {
     "FTL": "Full truckload (FTL)",
@@ -766,7 +775,8 @@
     "colContainerNo": "Container no.",
     "selectClient": "Import for client",
     "clientPlaceholder": "Select a client",
-    "clientRequired": "Please select which client to import for"
+    "clientRequired": "Please select which client to import for",
+    "colCustomerRef": "Client ref."
   },
   "businessTypeDesc": {
     "TRUCK_LTL": "Groupage, charged per piece or per m³",
