@@ -33,8 +33,11 @@ export function authenticateToken(req, res, next) {
         data: null,
       })
     }
-    return res.status(403).json({
-      errCode: 403,
+    // 无效令牌必须回 401 而不是 403：三端前端只对 401 清登录态回登录页，
+    // 403 会被显示成"没有权限"，用户卡在坏令牌上出不来（JWT 换密钥后全站如此）
+    console.warn('[认证拒绝] 令牌校验失败:', error.message, '| path:', req.method, req.originalUrl)
+    return res.status(401).json({
+      errCode: 401,
       msg: '无效的认证令牌',
       data: null,
     })
