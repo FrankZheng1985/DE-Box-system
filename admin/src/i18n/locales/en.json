@@ -674,6 +674,7 @@
     "noCarriers": "No matching carriers",
     "performanceScore": "Performance score",
     "coveredRoutes": "Routes covered",
+    "routeMatched": "Has run this route",
     "carrierCost": "Carrier cost",
     "carrierCostEur": "Carrier cost (€)",
     "enterQuoteAmount": "Enter the quoted amount",

@@ -61,6 +61,11 @@ interface MatchedCarrier {
   on_time_sample?: number
   /** 跑过的真实线路（装货城市 → 卸货城市），按次数取前 5 条 */
   covered_routes?: string[] | null
+  /**
+   * 是否跑过本单这条线（装货城市 → 卸货城市）。
+   * 只用于排序和界面标记，**不代表没跑过就不能派** —— 后端不会因此排除任何人。
+   */
+  route_matched?: boolean
 }
 
 // ==================== 工具函数 ====================
@@ -235,20 +240,33 @@ export default function OrderAssign() {
       setLoading(true)
       setError(null)
       try {
-        // 并行请求订单详情和匹配承运商
-        const [orderRes, carrierRes] = await Promise.all([
-          api.get<ApiResponse<{ order: Order }>>(`/orders/${id}`),
-          api.get<ApiResponse<MatchedCarrier[]>>('/carriers/match'),
-        ])
+        // 改成串行：匹配承运商要带上本单的装卸货城市，所以必须先拿到订单。
+        // （原来是 Promise.all 并行，拿不到城市，筛选参数一直没法传）
+        const orderRes = await api.get<ApiResponse<{ order: Order }>>(`/orders/${id}`)
 
         if (cancelled) return
 
+        let loadedOrder: Order
         if (orderRes.code === 200 && orderRes.data) {
-          setOrder(orderRes.data.order || orderRes.data as unknown as Order)
+          loadedOrder = orderRes.data.order || (orderRes.data as unknown as Order)
+          setOrder(loadedOrder)
         } else {
           setError(orderRes.message || t('orderAssign.loadOrderFailed'))
           return
         }
+
+        // 用本单的装货城市 → 卸货城市去匹配：跑过这条线的承运商会排在前面
+        // 并带 route_matched 标记。**不会因此排除任何人**（后端只拿它排序）。
+        const from = parseAddress(loadedOrder.pickup_address).city?.trim()
+        const to = parseAddress(loadedOrder.delivery_address).city?.trim()
+        const qs = new URLSearchParams()
+        if (from) qs.set('routeFrom', from)
+        if (to) qs.set('routeTo', to)
+        const matchUrl = qs.toString() ? `/carriers/match?${qs}` : '/carriers/match'
+
+        const carrierRes = await api.get<ApiResponse<MatchedCarrier[]>>(matchUrl)
+
+        if (cancelled) return
 
         if (carrierRes.code === 200 && carrierRes.data) {
           const list = Array.isArray(carrierRes.data) ? carrierRes.data : []
@@ -608,6 +626,16 @@ export default function OrderAssign() {
                 <span className="text-xs text-slate-500 block mb-1">{t('orderAssign.performanceScore')}</span>
                 <ScoreStars score={carrier.performance_score || 0} />
               </div>
+
+              {/* 跑过本单这条线的标记（只是提示，没有这个标记也照样能派） */}
+              {carrier.route_matched && (
+                <div className="mb-3">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-lg">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    {t('orderAssign.routeMatched')}
+                  </span>
+                </div>
+              )}
 
               {/* 覆盖路线 */}
               {carrier.covered_routes && carrier.covered_routes.length > 0 && (

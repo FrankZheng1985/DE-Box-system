@@ -674,6 +674,7 @@
     "noCarriers": "暂无匹配的承运商",
     "performanceScore": "绩效评分",
     "coveredRoutes": "覆盖路线",
+    "routeMatched": "跑过这条线",
     "carrierCost": "承运费用",
     "carrierCostEur": "承运费用 (€)",
     "enterQuoteAmount": "请输入报价金额",

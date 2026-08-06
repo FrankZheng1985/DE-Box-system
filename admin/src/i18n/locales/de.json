@@ -674,6 +674,7 @@
     "noCarriers": "Keine passenden Frachtführer",
     "performanceScore": "Leistungsbewertung",
     "coveredRoutes": "Abgedeckte Strecken",
+    "routeMatched": "Strecke bereits gefahren",
     "carrierCost": "Frachtkosten",
     "carrierCostEur": "Frachtkosten (€)",
     "enterQuoteAmount": "Angebotsbetrag eingeben",

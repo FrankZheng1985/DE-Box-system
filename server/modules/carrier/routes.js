@@ -87,11 +87,11 @@ router.get('/', requirePermission('carrier:view'), async (req, res) => {
  */
 router.get('/match', requirePermission('carrier:view'), async (req, res) => {
   try {
-    // ⚠️ 这三个筛选参数目前**接收了但没有使用**——本接口返回全部承运商，
-    // 由运营看着准时率/覆盖路线自己挑，并不按线路或车型过滤。
-    // 加 _ 前缀是为了让 lint 通过的同时保留接口契约的可见性；
-    // 要不要真按它们过滤属于业务决策，未擅自改动行为。
-    const { routeFrom: _routeFrom, routeTo: _routeTo, vehicleType: _vehicleType } = req.query
+    // 三个筛选参数（2026-08-06 补做，此前接收了但从未使用）。
+    // 全部可选：一个都不传时行为与以前完全一致，返回全部启用中的承运商。
+    const routeFrom = req.query.routeFrom?.trim() || null
+    const routeTo = req.query.routeTo?.trim() || null
+    const vehicleType = req.query.vehicleType?.trim() || null
     /**
      * 派单页的承运商匹配
      *
@@ -105,9 +105,49 @@ router.get('/match', requirePermission('carrier:view'), async (req, res) => {
      *   不拿一两单算出来的 100% 骗人。
      * - 覆盖路线：跑过的真实线路（装货城市 → 卸货城市）按次数取前 5 条，
      *   比让运营手工维护一张路线表实在。
+     *
+     * 筛选口径（2026-08-06 Frank 拍板）：
+     *
+     * - **车型是硬筛，但"没填过"不算不合格**。把 `carriers.vehicle_types`（声明的能力）
+     *   和 `carrier_vehicles.vehicle_type`（实际在册车辆）并起来当作「已知能力集」：
+     *   集合为空 = 这家根本没维护过车型信息，**未知不等于做不了**，照常显示；
+     *   集合非空才要求包含所需车型。
+     *   否则以当前数据（两家承运商 vehicle_types 都是 []、车辆表 0 条）
+     *   一硬筛就会把派单页筛空，运营没法派单。
+     *
+     * - **路线只影响排序，绝不排除**。覆盖路线是从历史订单算出来的，
+     *   "没跑过这条线"不等于"跑不了"——尤其系统刚开始运营、订单还没几单时。
+     *   命中的排在前面并返回 route_matched 供前端标记。
      */
     const result = await query(
-      `WITH delivered AS (
+      `WITH caps AS (
+         -- 已知车型能力集 = 声明的 vehicle_types ∪ 实际在册车辆的 vehicle_type
+         SELECT c.id AS carrier_id,
+                COALESCE((
+                  SELECT ARRAY_AGG(DISTINCT UPPER(t)) FROM (
+                    SELECT jsonb_array_elements_text(
+                             CASE WHEN jsonb_typeof(c.vehicle_types) = 'array'
+                                  THEN c.vehicle_types ELSE '[]'::jsonb END
+                           ) AS t
+                    UNION
+                    SELECT cv.vehicle_type
+                    FROM carrier_vehicles cv
+                    WHERE cv.carrier_id = c.id AND cv.vehicle_type IS NOT NULL
+                  ) u WHERE t IS NOT NULL AND t <> ''
+                ), ARRAY[]::text[]) AS known_types
+         FROM carriers c
+       ),
+       route_hits AS (
+         -- 该承运商跑过多少次「装货城市 → 卸货城市」这条线（大小写与首尾空格不敏感）
+         SELECT o.carrier_id, COUNT(*)::int AS hits
+         FROM orders o
+         WHERE o.carrier_id IS NOT NULL
+           AND $1::text IS NOT NULL AND $2::text IS NOT NULL
+           AND LOWER(TRIM(o.pickup_address->>'city'))   = LOWER(TRIM($1::text))
+           AND LOWER(TRIM(o.delivery_address->>'city')) = LOWER(TRIM($2::text))
+         GROUP BY o.carrier_id
+       ),
+       delivered AS (
          -- 每单第一次进入 DELIVERED/COMPLETED 的时间，就是实际送达时间
          SELECT o.id, o.carrier_id, o.delivery_date,
                 MIN(l.created_at)::date AS actual_date
@@ -146,13 +186,27 @@ router.get('/match', requirePermission('carrier:view'), async (req, res) => {
                    THEN ROUND(ot.on_time::numeric * 100 / ot.sample, 1)
                    END AS on_time_rate,
               COALESCE(ot.sample, 0)::int AS on_time_sample,
-              COALESCE(r.covered_routes, ARRAY[]::text[]) AS covered_routes
+              COALESCE(r.covered_routes, ARRAY[]::text[]) AS covered_routes,
+              -- 跑过这条线没有：只用于排序与前端标记，不参与过滤
+              (COALESCE(rh.hits, 0) > 0) AS route_matched
        FROM carriers cr
+       JOIN caps cap       ON cap.carrier_id = cr.id
        LEFT JOIN ontime ot ON ot.carrier_id = cr.id
        LEFT JOIN routes r  ON r.carrier_id  = cr.id
+       LEFT JOIN route_hits rh ON rh.carrier_id = cr.id
        WHERE cr.status = 'ACTIVE'
-       ORDER BY cr.performance_score DESC
-       LIMIT 10`
+         -- 车型硬筛：没传就不筛；已知能力集为空视为"未维护"，不排除
+         AND (
+           $3::text IS NULL
+           OR CARDINALITY(cap.known_types) = 0
+           OR UPPER(TRIM($3::text)) = ANY(cap.known_types)
+         )
+       ORDER BY route_matched DESC,                              -- 跑过这条线的排前面
+                ot.sample > 0 DESC NULLS LAST,                   -- 有准时率样本的优先于无样本
+                on_time_rate DESC NULLS LAST,
+                cr.performance_score DESC
+       LIMIT 10`,
+      [routeFrom, routeTo, vehicleType]
     )
     res.json({ code: 200, message: 'success', data: result.rows })
   } catch (error) {
