@@ -496,7 +496,9 @@ export const orderService = {
           )
         }
 
-        console.log(`[自动开票] 订单 ${order.order_number} 完成 → 应收 €${clientPrice} / 应付 €${carrierCost}`)
+        // 原来这里有一行 console.log 打订单号和应收/应付金额，已删除：
+        // 业务数据不该常驻生产日志，而且它和刚生成的 AR/AP 凭证信息重复
+        // ——真要查这笔账，凭证本身才是权威记录。失败分支的 console.error 保留。
       } catch (finErr) {
         console.error('订单完成自动开票失败（不影响主流程）:', finErr.message)
       }
