@@ -189,12 +189,34 @@ jobs:
             pm2 status
           DEPLOY_SCRIPT
 
-      # ========== 第十一步：恢复官网主页 ==========
-      - name: Restore Homepage
+      # ========== 第十一步：恢复官网主页与法务页 ==========
+      #
+      # ⚠️ 第八步的 rsync 带 --delete：admin/dist 里任何不属于前端构建产物的东西都会被删掉。
+      #    官网首页一直靠这一步复制回去，法务页（Impressum / Datenschutz / AGB）同理。
+      #    漏掉它们的后果不是"样式丢了"，而是下次部署后 Impressum 静默 404 ——
+      #    在德国缺少 Impressum 是可被竞争对手发警告函（Abmahnung）追究的，
+      #    而且这种 404 没人会立刻发现。所以法务页必须跟着每次部署一起落地。
+      - name: Restore Homepage & Legal Pages
         run: |
           REMOTE="${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${REMOTE} \
-            "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-box-system/admin/dist/homepage.html"
+          SSH_OPTS="-i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+
+          # 法务页在仓库里维护，先同步到服务器的 homepage/ 目录。
+          # 刻意不加 --delete：服务器上的 index.html 和历次备份要原样留着。
+          rsync -avz -e "ssh ${SSH_OPTS}" \
+            homepage/ \
+            ${REMOTE}:/var/www/germany-box-system/homepage/
+
+          ssh ${SSH_OPTS} ${REMOTE} << 'RESTORE'
+            set -e
+            cd /var/www/germany-box-system
+            cp homepage/index.html admin/dist/homepage.html
+            cp homepage/impressum.html homepage/datenschutz.html homepage/agb.html \
+               homepage/legal.css homepage/legal.js admin/dist/
+            echo "官网主页与法务页已就位："
+            ls -1 admin/dist/homepage.html admin/dist/impressum.html \
+                  admin/dist/datenschutz.html admin/dist/agb.html
+          RESTORE
 
       # ========== 第十二步：健康检查（失败会让整个部署红）==========
       #
