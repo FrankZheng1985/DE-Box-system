@@ -54,6 +54,9 @@ export default function TransportTasks() {
   const [loading, setLoading] = useState(true)
   const [rejectId, setRejectId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  // 接单/拒单/改状态的结果提示。沿用本端 CompanySettings、GPSReport 已有的
+  // { text, ok } 模式，不另起一套组件。
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
 
   useEffect(() => {
     fetchOrders()
@@ -76,33 +79,52 @@ export default function TransportTasks() {
     }
   }
 
+  /**
+   * 三个操作原来都是「成功没提示、失败只 console.error」——
+   * 承运商点完接单，订单直接从列表消失（当前 tab 筛的是 ASSIGNED），
+   * 成没成全靠猜；失败时界面更是毫无反应，他会以为没点上而反复点。
+   *
+   * 后端业务失败返回的是 HTTP 400，api 客户端会抛 ApiError，
+   * 且 message 已按 messageCode 翻成当前语言，所以直接用 error.message；
+   * 成功同理用 res.message（'接单成功' → ORDER_ACCEPTED 等已在码表里）。
+   */
   const handleAccept = async (id: string) => {
+    setMessage(null)
     try {
-      await api.post<ApiResponse>(`/orders/${id}/accept`)
+      const res = await api.post<ApiResponse>(`/orders/${id}/accept`)
+      setMessage({ text: res.message || t('tasks.acceptSuccess'), ok: true })
       fetchOrders()
-    } catch (error) {
+    } catch (error: any) {
       console.error('接单失败:', error)
+      setMessage({ text: error?.message || t('tasks.acceptFailed'), ok: false })
     }
   }
 
   const handleReject = async () => {
     if (!rejectId || !rejectReason.trim()) return
+    setMessage(null)
     try {
-      await api.post<ApiResponse>(`/orders/${rejectId}/reject`, { reason: rejectReason })
+      const res = await api.post<ApiResponse>(`/orders/${rejectId}/reject`, { reason: rejectReason })
       setRejectId(null)
       setRejectReason('')
+      setMessage({ text: res.message || t('tasks.rejectSuccess'), ok: true })
       fetchOrders()
-    } catch (error) {
+    } catch (error: any) {
       console.error('拒单失败:', error)
+      // 失败时**不关弹窗、不清理由**，让人能看到错误后直接重试
+      setMessage({ text: error?.message || t('tasks.rejectFailed'), ok: false })
     }
   }
 
   const handleUpdateStatus = async (id: string, status: string) => {
+    setMessage(null)
     try {
-      await api.put<ApiResponse>(`/orders/${id}/delivery-status`, { status })
+      const res = await api.put<ApiResponse>(`/orders/${id}/delivery-status`, { status })
+      setMessage({ text: res.message || t('tasks.statusUpdated'), ok: true })
       fetchOrders()
-    } catch (error) {
+    } catch (error: any) {
       console.error('更新状态失败:', error)
+      setMessage({ text: error?.message || t('tasks.statusUpdateFailed'), ok: false })
     }
   }
 
@@ -120,6 +142,18 @@ export default function TransportTasks() {
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {/* 操作结果提示：接单/拒单/改状态成败都在这里说清楚 */}
+      {message && (
+        <div
+          role="status"
+          className={`text-sm px-4 py-3 rounded-xl ${
+            message.ok ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
 
       {/* Tab 切换 */}
       <div className="flex gap-2 border-b border-slate-200 pb-0">
