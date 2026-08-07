@@ -220,8 +220,44 @@
     "TRUCK_FTL": "Truck FTL",
     "LOCAL_DELIVERY": "Local delivery"
   },
+  "inquiryStatus": {
+    "PENDING_QUOTE": "Pending quotation",
+    "QUOTED": "Quoted",
+    "ACCEPTED": "Accepted",
+    "REJECTED": "Rejected",
+    "CANCELLED": "Cancelled"
+  },
   "common": {
     "yes": "Yes",
     "no": "No"
+  },
+  "inquirySummary": {
+    "inquiryNo": "Inquiry no.",
+    "customerRef": "Client ref.",
+    "client": "Client",
+    "serviceType": "Service type",
+    "origin": "ORIGIN",
+    "destination": "DESTINATION",
+    "contact": "CONTACT",
+    "country": "Country",
+    "zipCode": "Postcode",
+    "city": "City",
+    "address": "Address",
+    "contactName": "Name",
+    "contactPhone": "Phone",
+    "contactEmail": "Email",
+    "cargoItems": "CARGO DETAILS",
+    "itemRef": "Ref.",
+    "pieces": "pcs",
+    "perPiece": "per piece",
+    "notStackable": "not stackable",
+    "totals": "TOTALS",
+    "totalQuantity": "Pieces",
+    "totalWeight": "Gross weight",
+    "totalVolume": "Volume",
+    "totalLdm": "LDM",
+    "cargoDescription": "GOODS DESCRIPTION",
+    "specialRequirements": "SPECIAL REQUIREMENTS",
+    "remarks": "REMARKS"
   }
 }

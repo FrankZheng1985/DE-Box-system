@@ -220,8 +220,44 @@
     "TRUCK_FTL": "LKW-Komplettladung (FTL)",
     "LOCAL_DELIVERY": "Nahverkehr"
   },
+  "inquiryStatus": {
+    "PENDING_QUOTE": "Angebot ausstehend",
+    "QUOTED": "Angebot erstellt",
+    "ACCEPTED": "Angenommen",
+    "REJECTED": "Abgelehnt",
+    "CANCELLED": "Storniert"
+  },
   "common": {
     "yes": "Ja",
     "no": "Nein"
+  },
+  "inquirySummary": {
+    "inquiryNo": "Anfragenr.",
+    "customerRef": "Kundenreferenz",
+    "client": "Kunde",
+    "serviceType": "Leistungsart",
+    "origin": "VERSANDORT",
+    "destination": "ZIELORT",
+    "contact": "ANSPRECHPARTNER",
+    "country": "Land",
+    "zipCode": "PLZ",
+    "city": "Ort",
+    "address": "Adresse",
+    "contactName": "Name",
+    "contactPhone": "Telefon",
+    "contactEmail": "E-Mail",
+    "cargoItems": "SENDUNGSDATEN",
+    "itemRef": "Ref.",
+    "pieces": "Stk.",
+    "perPiece": "je Stück",
+    "notStackable": "nicht stapelbar",
+    "totals": "GESAMT",
+    "totalQuantity": "Packstücke",
+    "totalWeight": "Gewicht",
+    "totalVolume": "Volumen",
+    "totalLdm": "LDM",
+    "cargoDescription": "WARENBESCHREIBUNG",
+    "specialRequirements": "BESONDERE ANFORDERUNGEN",
+    "remarks": "BEMERKUNGEN"
   }
 }

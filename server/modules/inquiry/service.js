@@ -7,6 +7,7 @@
 
 import { query as poolQuery } from '../../core/db.js'
 import { documentEngine } from '../../core/index.js'
+import { t } from '../../utils/i18n.js'
 
 /** 欧洲标准车厢内宽（米），LDM 换算的分母 */
 const TRUCK_INNER_WIDTH_M = 2.4
@@ -203,80 +204,107 @@ export async function getCargoItems(inquiryId, client = null) {
  *
  * 固定模板，直接可以粘给服务商询价，不需要再手工整理。
  * 字段缺失时显示 "-"，保持模板行数固定，服务商每次看到的格式一样。
+ *
+ * 语言：这份文本是给欧洲服务商看的，不是给自己人看的界面，
+ * 所以默认英文，而不是跟着操作员的界面语言走。要中文/德文版本传 lang。
+ *
+ * @param {object} inquiry 询价主表行
+ * @param {object[]} [items] 货物明细行
+ * @param {'zh'|'en'|'de'} [lang='en'] 摘要文本语言
  */
-export function buildSummaryText(inquiry, items = []) {
+export function buildSummaryText(inquiry, items = [], lang = 'en') {
   const from = parseAddress(inquiry.route_from)
   const to = parseAddress(inquiry.route_to)
+  const p = PUNCTUATION[lang] || PUNCTUATION.en
+  /** 「标签＋冒号＋值」一行，冒号中英文不一样，统一从这里出 */
+  const field = (key, value) => `${t(lang, `inquirySummary.${key}`)}${p.colon}${value}`
+  /** 【起运地】/ [ORIGIN] 这种小标题 */
+  const section = (key) => `${p.sectionOpen}${t(lang, `inquirySummary.${key}`)}${p.sectionClose}`
 
   const lines = []
-  lines.push(`询价单号：${inquiry.inquiry_number || '-'}`)
-  if (inquiry.customer_ref) lines.push(`客户单号：${inquiry.customer_ref}`)
-  lines.push(`客户：${inquiry.client_name || '-'}`)
-  lines.push(`服务类型：${BUSINESS_TYPE_LABELS[inquiry.business_type] || inquiry.business_type || '-'}`)
+  lines.push(field('inquiryNo', inquiry.inquiry_number || '-'))
+  if (inquiry.customer_ref) lines.push(field('customerRef', inquiry.customer_ref))
+  lines.push(field('client', inquiry.client_name || '-'))
+  lines.push(field('serviceType', businessTypeLabel(inquiry.business_type, lang)))
   lines.push('')
 
-  lines.push('【起运地】')
-  lines.push(...formatAddressLines(from))
+  lines.push(section('origin'))
+  lines.push(...formatAddressLines(from, lang))
   lines.push('')
 
-  lines.push('【目的地】')
-  lines.push(...formatAddressLines(to))
+  lines.push(section('destination'))
+  lines.push(...formatAddressLines(to, lang))
   lines.push('')
 
-  lines.push('【联系人】')
-  lines.push(`姓名：${inquiry.contact_name || '-'}`)
-  lines.push(`电话：${inquiry.contact_phone || '-'}`)
-  lines.push(`邮箱：${inquiry.contact_email || '-'}`)
+  lines.push(section('contact'))
+  lines.push(field('contactName', inquiry.contact_name || '-'))
+  lines.push(field('contactPhone', inquiry.contact_phone || '-'))
+  lines.push(field('contactEmail', inquiry.contact_email || '-'))
   lines.push('')
 
   if (items.length > 0) {
-    lines.push('【货物明细】')
+    lines.push(section('cargoItems'))
     for (const it of items) {
       const dims = [it.length_cm, it.width_cm, it.height_cm]
         .map((v) => (v === null || v === undefined ? '?' : trimNumber(v)))
         .join('×')
       const parts = [
-        it.reference_no ? `单号 ${it.reference_no}` : null,
+        it.reference_no ? `${t(lang, 'inquirySummary.itemRef')} ${it.reference_no}` : null,
         it.description || null,
-        `${it.quantity} 件`,
+        `${it.quantity} ${t(lang, 'inquirySummary.pieces')}`,
         `${dims} cm`,
-        it.unit_weight_kg !== null ? `单件 ${trimNumber(it.unit_weight_kg)} kg` : null,
-        it.unit_volume_m3 !== null ? `单件 ${trimNumber(it.unit_volume_m3)} m³` : null,
+        it.unit_weight_kg !== null ? `${t(lang, 'inquirySummary.perPiece')} ${trimNumber(it.unit_weight_kg)} kg` : null,
+        it.unit_volume_m3 !== null ? `${t(lang, 'inquirySummary.perPiece')} ${trimNumber(it.unit_volume_m3)} m³` : null,
         it.ldm !== null ? `LDM ${trimNumber(it.ldm)}` : null,
-        it.stackable === false ? '不可堆叠' : null,
+        it.stackable === false ? t(lang, 'inquirySummary.notStackable') : null,
       ].filter(Boolean)
       lines.push(`${it.line_number}. ${parts.join(' | ')}`)
     }
     lines.push('')
   }
 
-  lines.push('【合计】')
-  lines.push(`件数：${inquiry.cargo_quantity ?? '-'} 件`)
-  lines.push(`实重：${inquiry.cargo_weight_kg !== null && inquiry.cargo_weight_kg !== undefined ? trimNumber(inquiry.cargo_weight_kg) + ' kg' : '-'}`)
-  lines.push(`体积：${inquiry.cargo_volume_m3 !== null && inquiry.cargo_volume_m3 !== undefined ? trimNumber(inquiry.cargo_volume_m3) + ' m³' : '-'}`)
-  lines.push(`LDM：${inquiry.ldm !== null && inquiry.ldm !== undefined ? trimNumber(inquiry.ldm) : '-'}`)
+  lines.push(section('totals'))
+  lines.push(field('totalQuantity', `${inquiry.cargo_quantity ?? '-'} ${t(lang, 'inquirySummary.pieces')}`))
+  lines.push(field('totalWeight', inquiry.cargo_weight_kg !== null && inquiry.cargo_weight_kg !== undefined ? trimNumber(inquiry.cargo_weight_kg) + ' kg' : '-'))
+  lines.push(field('totalVolume', inquiry.cargo_volume_m3 !== null && inquiry.cargo_volume_m3 !== undefined ? trimNumber(inquiry.cargo_volume_m3) + ' m³' : '-'))
+  lines.push(field('totalLdm', inquiry.ldm !== null && inquiry.ldm !== undefined ? trimNumber(inquiry.ldm) : '-'))
 
   if (inquiry.cargo_description) {
     lines.push('')
-    lines.push(`【货物描述】${inquiry.cargo_description}`)
+    lines.push(`${section('cargoDescription')}${p.inlineGap}${inquiry.cargo_description}`)
   }
   if (inquiry.special_requirements) {
     lines.push('')
-    lines.push(`【特殊要求】${inquiry.special_requirements}`)
+    lines.push(`${section('specialRequirements')}${p.inlineGap}${inquiry.special_requirements}`)
   }
   if (inquiry.remarks) {
     lines.push('')
-    lines.push(`【备注】${inquiry.remarks}`)
+    lines.push(`${section('remarks')}${p.inlineGap}${inquiry.remarks}`)
   }
 
   return lines.join('\n')
 }
 
-/** 服务类型中文名（和 order/service.js 的 BUSINESS_TYPE_LABELS 保持一致） */
-const BUSINESS_TYPE_LABELS = {
-  TRUCK_LTL: '卡车派送 LTL',
-  TRUCK_FTL: '卡车运输 FTL',
-  LOCAL_DELIVERY: '本地派送',
+/**
+ * 摘要里的标点：中文用全角冒号和【】，英德用半角冒号和 []
+ * （英文段落里出现【】会显得很突兀）
+ */
+const PUNCTUATION = {
+  // inlineGap：小标题后面直接跟正文时的间隔，中文的【】自带视觉分隔不用空格
+  zh: { colon: '：', sectionOpen: '【', sectionClose: '】', inlineGap: '' },
+  en: { colon: ': ', sectionOpen: '[', sectionClose: ']', inlineGap: ' ' },
+  de: { colon: ': ', sectionOpen: '[', sectionClose: ']', inlineGap: ' ' },
+}
+
+/**
+ * 服务类型的多语言名称
+ * t() 查不到 key 时会把 key 原样返回，那种情况退回数据库里的原始代码，
+ * 免得摘要里出现 "businessType.XXX" 这种给服务商看不懂的东西
+ */
+function businessTypeLabel(businessType, lang) {
+  if (!businessType) return '-'
+  const label = t(lang, `businessType.${businessType}`)
+  return label.startsWith('businessType.') ? businessType : label
 }
 
 // ==================== 内部工具 ====================
@@ -290,12 +318,14 @@ export function parseAddress(value) {
   return value
 }
 
-function formatAddressLines(addr) {
+function formatAddressLines(addr, lang = 'en') {
+  const p = PUNCTUATION[lang] || PUNCTUATION.en
+  const line = (key, value) => `${t(lang, `inquirySummary.${key}`)}${p.colon}${value || '-'}`
   return [
-    `国家：${addr.country || '-'}`,
-    `邮编：${addr.zipCode || '-'}`,
-    `城市：${addr.city || '-'}`,
-    `地址：${addr.address || '-'}`,
+    line('country', addr.country),
+    line('zipCode', addr.zipCode),
+    line('city', addr.city),
+    line('address', addr.address),
   ]
 }
 

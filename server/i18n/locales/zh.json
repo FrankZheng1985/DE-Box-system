@@ -220,8 +220,44 @@
     "TRUCK_FTL": "卡车运输 FTL",
     "LOCAL_DELIVERY": "本地派送"
   },
+  "inquiryStatus": {
+    "PENDING_QUOTE": "待报价",
+    "QUOTED": "已报价",
+    "ACCEPTED": "已接受",
+    "REJECTED": "已拒绝",
+    "CANCELLED": "已取消"
+  },
   "common": {
     "yes": "是",
     "no": "否"
+  },
+  "inquirySummary": {
+    "inquiryNo": "询价单号",
+    "customerRef": "客户单号",
+    "client": "客户",
+    "serviceType": "服务类型",
+    "origin": "起运地",
+    "destination": "目的地",
+    "contact": "联系人",
+    "country": "国家",
+    "zipCode": "邮编",
+    "city": "城市",
+    "address": "地址",
+    "contactName": "姓名",
+    "contactPhone": "电话",
+    "contactEmail": "邮箱",
+    "cargoItems": "货物明细",
+    "itemRef": "单号",
+    "pieces": "件",
+    "perPiece": "单件",
+    "notStackable": "不可堆叠",
+    "totals": "合计",
+    "totalQuantity": "件数",
+    "totalWeight": "实重",
+    "totalVolume": "体积",
+    "totalLdm": "LDM",
+    "cargoDescription": "货物描述",
+    "specialRequirements": "特殊要求",
+    "remarks": "备注"
   }
 }

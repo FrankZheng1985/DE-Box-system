@@ -12,7 +12,7 @@ import ExcelJS from 'exceljs'
 import multer from 'multer'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
-import { resolveLang, t } from '../../utils/i18n.js'
+import { resolveLang, normalizeLang, t } from '../../utils/i18n.js'
 import inquiryService from './service.js'
 import importService from './import-service.js'
 import { CLIENT_HIDDEN_STATUSES } from '../quotation/service.js'
@@ -81,18 +81,20 @@ const importUpload = multer({
   limits: { fileSize: importService.MAX_FILE_SIZE, files: 1 },
 })
 
-const BUSINESS_TYPE_LABELS = {
-  TRUCK_LTL: '卡车派送 LTL',
-  TRUCK_FTL: '卡车运输 FTL',
-  LOCAL_DELIVERY: '本地派送',
-}
-
-const STATUS_LABELS = {
-  PENDING_QUOTE: '待报价',
-  QUOTED: '已报价',
-  ACCEPTED: '已接受',
-  REJECTED: '已拒绝',
-  CANCELLED: '已取消',
+/**
+ * 把数据库里的枚举代码译成对应语言的名称
+ *
+ * t() 查不到 key 时会原样返回 key，那种情况退回数据库里的原始代码，
+ * 免得导出的 Excel 里出现 "inquiryStatus.XXX" 这种没人看得懂的字符串。
+ *
+ * @param {string} section 语言包里的段名，如 'businessType' / 'inquiryStatus'
+ * @param {string} code 数据库里的枚举值
+ * @param {'zh'|'en'|'de'} lang
+ */
+function enumLabel(section, code, lang) {
+  if (!code) return ''
+  const label = t(lang, `${section}.${code}`)
+  return label.startsWith(`${section}.`) ? code : label
 }
 
 /** 当前登录人是不是客户门户账号 */
@@ -267,8 +269,22 @@ router.get('/quote-sla', requirePermission('inquiry:view', 'portal:inquiry_manag
 })
 
 /**
+ * 发给服务商的成品（复制摘要、导出 Excel）用哪种语言
+ *
+ * 这些东西是直接转给欧洲服务商的，不是给操作员看的界面，所以**默认英文**，
+ * 不跟 Accept-Language（那是操作员的界面语言，多半是中文）走。
+ * 需要中文/德文时前端显式传 ?lang=zh / ?lang=de。
+ *
+ * ⚠️ 不要拿它去渲染"导入模板"和导入报错——那两样是给操作员/客户自己看的，
+ * 仍然该跟界面语言走，用 resolveLang()。
+ */
+function resolveCarrierDocLang(req) {
+  return normalizeLang(req.query?.lang) || 'en'
+}
+
+/**
  * 批量复制摘要（需求 5.4）
- * POST /api/v1/inquiries/summary   body: { ids: [...] }
+ * POST /api/v1/inquiries/summary?lang=en   body: { ids: [...] }
  *
  * 用 POST 而不是 GET，因为勾选的 id 可能很多，塞进 query string 会超长。
  */
@@ -284,10 +300,11 @@ router.post('/summary', requireUserType('OPERATOR'), requirePermission('inquiry:
       return res.status(404).json({ code: 404, message: '没有可复制的询价单', data: null })
     }
 
+    const summaryLang = resolveCarrierDocLang(req)
     const blocks = []
     for (const inquiry of rows) {
       const items = await inquiryService.getCargoItems(inquiry.id)
-      blocks.push(inquiryService.buildSummaryText(inquiry, items))
+      blocks.push(inquiryService.buildSummaryText(inquiry, items, summaryLang))
     }
     // 多张单之间用分隔线隔开，粘到聊天窗口里一眼能分清
     const text = blocks.join('\n\n' + '─'.repeat(32) + '\n\n')
@@ -301,13 +318,13 @@ router.post('/summary', requireUserType('OPERATOR'), requirePermission('inquiry:
 
 /**
  * 导出 Excel（固定模板，需求 5.4）
- * GET /api/v1/inquiries/export?ids=a,b,c  不传 ids 则按当前筛选条件导出
+ * GET /api/v1/inquiries/export?ids=a,b,c&lang=en  不传 ids 则按当前筛选条件导出
  *
  * 一行一件货，表头字段在每行重复，方便服务商直接筛选排序。
  */
 router.get('/export', requireUserType('OPERATOR'), requirePermission('inquiry:export'), async (req, res) => {
-  // Excel 表头按请求语言渲染（P9）
-  const lang = resolveLang(req)
+  // 这份 Excel 和复制摘要一样是转给服务商的，所以默认英文，不跟界面语言走
+  const lang = resolveCarrierDocLang(req)
   try {
     const ids = req.query.ids ? String(req.query.ids).split(',').filter(Boolean) : null
     const rows = await loadInquiriesForExport(req, ids)
@@ -348,7 +365,7 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('inquiry:ex
 
     for (const inquiry of rows) {
       const items = await inquiryService.getCargoItems(inquiry.id)
-      const base = buildExportHeaderCells(inquiry)
+      const base = buildExportHeaderCells(inquiry, lang)
 
       if (items.length === 0) {
         // 没录明细的单也要出现在导出里，否则服务商会以为漏了
@@ -539,7 +556,7 @@ router.get('/:id', requirePermission('inquiry:view', 'portal:inquiry_manage'), a
 
 /**
  * 单张询价的复制摘要
- * GET /api/v1/inquiries/:id/summary
+ * GET /api/v1/inquiries/:id/summary?lang=en
  */
 router.get('/:id/summary', requireUserType('OPERATOR'), requirePermission('inquiry:export'), async (req, res) => {
   try {
@@ -549,7 +566,7 @@ router.get('/:id/summary', requireUserType('OPERATOR'), requirePermission('inqui
     const items = await inquiryService.getCargoItems(inquiry.id)
     res.json({
       code: 200, message: 'success',
-      data: { text: inquiryService.buildSummaryText(inquiry, items) },
+      data: { text: inquiryService.buildSummaryText(inquiry, items, resolveCarrierDocLang(req)) },
     })
   } catch (error) {
     console.error('生成询价摘要失败:', error)
@@ -759,15 +776,15 @@ async function loadInquiriesForExport(req, ids) {
   return result.rows
 }
 
-function buildExportHeaderCells(inquiry) {
+function buildExportHeaderCells(inquiry, lang = 'en') {
   const from = inquiryService.parseAddress(inquiry.route_from)
   const to = inquiryService.parseAddress(inquiry.route_to)
   return {
     inquiry_number: inquiry.inquiry_number || '',
     customer_ref: inquiry.customer_ref || '',
     client_name: inquiry.client_name || '',
-    business_type: BUSINESS_TYPE_LABELS[inquiry.business_type] || inquiry.business_type || '',
-    status: STATUS_LABELS[inquiry.status] || inquiry.status || '',
+    business_type: enumLabel('businessType', inquiry.business_type, lang),
+    status: enumLabel('inquiryStatus', inquiry.status, lang),
     from_country: from.country || '',
     from_zip: from.zipCode || '',
     from_city: from.city || '',
