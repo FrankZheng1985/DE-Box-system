@@ -234,8 +234,6 @@
   "inquirySummary": {
     "inquiryNo": "Inquiry no.",
     "customerRef": "Client ref.",
-    "client": "Client",
-    "serviceType": "Service type",
     "origin": "ORIGIN",
     "destination": "DESTINATION",
     "contact": "CONTACT",

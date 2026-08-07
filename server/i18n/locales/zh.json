@@ -234,8 +234,6 @@
   "inquirySummary": {
     "inquiryNo": "询价单号",
     "customerRef": "客户单号",
-    "client": "客户",
-    "serviceType": "服务类型",
     "origin": "起运地",
     "destination": "目的地",
     "contact": "联系人",

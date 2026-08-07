@@ -113,14 +113,19 @@ function hideDraftQuotationSql(req, params, columnPrefix = '') {
 }
 
 /**
- * 按登录身份强制收窄可见范围
+ * 按登录身份强制收窄可见范围，并排除软删除的单
  *
  * ⚠️ 客户只能看自己公司的询价，这个边界必须在后端按 JWT 强制，
  *    不能信任前端传的 clientId（踩坑 016）
+ *
+ * 软删除过滤放在这里而不是各个 SQL 里手写：列表 / 统计 / 时效 / 导出四处都走这个函数，
+ * 以后新加的查询只要照旧调它就自动带上，不会漏掉一处让已删的单又冒出来。
+ * 单条详情不走这里，loadInquiryWithAccessCheck 里另有一份。
  */
 function applyScopeFilter(req, sql, params) {
   const userType = req.user.userType || req.user.roleCode
   let idx = params.length
+  sql += ` AND i.deleted_at IS NULL`
   if (userType === 'CLIENT' && req.user.linkedEntityId) {
     params.push(req.user.linkedEntityId)
     sql += ` AND i.client_id = $${++idx}`
@@ -139,7 +144,7 @@ async function loadInquiryWithAccessCheck(inquiryId, req, res) {
   const result = await query(
     `SELECT i.*, c.company_name AS client_name
      FROM inquiries i LEFT JOIN clients c ON c.id = i.client_id
-     WHERE i.id = $1`,
+     WHERE i.id = $1 AND i.deleted_at IS NULL`,
     [inquiryId]
   )
   if (result.rows.length === 0) {
@@ -674,24 +679,58 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
 })
 
 /**
- * 删除询价（仅待报价状态）
+ * 删除询价（软删除，仅待报价且尚无任何报价的单）
  * DELETE /api/v1/inquiries/:id
+ *
+ * 客户门户也能调（开发意见 #2）：批量导入时数据填错，客户要能自己把错单清掉，
+ * 不用每次找运营。租户边界由 loadInquiryWithAccessCheck 按 JWT 校验（踩坑 016）。
+ *
+ * 两道守卫：
+ *   1. 状态必须是 PENDING_QUOTE —— 已报价/已接受的单属于业务凭证链，只能走取消
+ *   2. 运营还没在这张单上动过手 —— 「PENDING_QUOTE」不等于没人管：
+ *      自 536bd5c 起建草稿不再推进询价状态，运营可能正编着草稿报价；
+ *      发给服务商的询价（carrier_inquiries）也不改询价状态，邮件可能已经发出去了。
+ *      这两种情况下删掉询价，下游就会挂着查不到上游的孤儿记录。
+ *
+ * 有了这道守卫，quotations / carrier_inquiries 的查询就不必再各自过滤已删询价 ——
+ * 它们的外键永远指不到一张被删的单。
+ *
+ * 软删除而非物理删：删完还要能追溯谁在什么时候删了哪张单（迁移 127）。
  */
-router.delete('/:id', requireUserType('OPERATOR'), requirePermission('inquiry:delete'), async (req, res) => {
-  try {
-    const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
-    if (!inquiry) return
-    if (inquiry.status !== INQUIRY_STATUS.PENDING_QUOTE) {
-      return res.status(400).json({ code: 400, message: '仅待报价状态的询价可以删除', data: null })
+router.delete('/:id',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('inquiry:delete', 'portal:inquiry_manage'),
+  async (req, res) => {
+    try {
+      const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
+      if (!inquiry) return
+      if (inquiry.status !== INQUIRY_STATUS.PENDING_QUOTE) {
+        return res.status(400).json({ code: 400, message: '仅待报价状态的询价可以删除', data: null })
+      }
+
+      // 草稿报价也算：客户看不到草稿，但运营已经在这张单上干活了
+      const inProgress = await query(
+        `SELECT
+           (SELECT COUNT(*) FROM quotations       WHERE inquiry_id = $1)::int AS quotation_count,
+           (SELECT COUNT(*) FROM carrier_inquiries WHERE inquiry_id = $1)::int AS carrier_inquiry_count`,
+        [req.params.id]
+      )
+      const { quotation_count, carrier_inquiry_count } = inProgress.rows[0]
+      if (quotation_count > 0 || carrier_inquiry_count > 0) {
+        return res.status(400).json({ code: 400, message: '该询价已在报价处理中，无法删除，请联系客服', data: null })
+      }
+
+      // 软删除：明细行 inquiry_cargo_items 原样留着，跟着主表一起被查询过滤掉
+      await query(
+        `UPDATE inquiries SET deleted_at = NOW(), deleted_by = $1, updated_at = NOW() WHERE id = $2`,
+        [req.user.id, req.params.id]
+      )
+      res.json({ code: 200, message: '询价已删除', data: null })
+    } catch (error) {
+      console.error('删除询价失败:', error)
+      res.status(500).json({ code: 500, message: error.message, data: null })
     }
-    // inquiry_cargo_items 有 ON DELETE CASCADE，明细行会跟着删掉
-    await query(`DELETE FROM inquiries WHERE id = $1`, [req.params.id])
-    res.json({ code: 200, message: '询价已删除', data: null })
-  } catch (error) {
-    console.error('删除询价失败:', error)
-    res.status(500).json({ code: 500, message: error.message, data: null })
-  }
-})
+  })
 
 // ==================== 内部工具 ====================
 

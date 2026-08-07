@@ -1909,6 +1909,7 @@
     "INQUIRY_DELETED": "Anfrage gelöscht",
     "INQUIRY_EDIT_ONLY_PENDING": "Nur Anfragen, die auf ein Angebot warten, können bearbeitet werden",
     "INQUIRY_DELETE_ONLY_PENDING": "Nur Anfragen, die auf ein Angebot warten, können gelöscht werden",
+    "INQUIRY_DELETE_IN_PROGRESS": "Diese Anfrage wird bereits bearbeitet und kann nicht mehr gelöscht werden",
     "INQUIRIES_LOAD_FAILED": "Anfragen konnten nicht geladen werden",
     "INQUIRY_DETAIL_LOAD_FAILED": "Anfragedetails konnten nicht geladen werden",
     "INQUIRY_STATS_LOAD_FAILED": "Anfragestatistik konnte nicht geladen werden",

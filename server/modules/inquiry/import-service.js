@@ -324,8 +324,9 @@ export async function markExistingCustomerRefs(db, clientId, groups, lang) {
   if (refs.length === 0) return []
 
   const result = await db.query(
+    // 已删除的单不算重复：客户导错了自己删掉，重新导同一个客户单号必须放行
     `SELECT DISTINCT customer_ref FROM inquiries
-     WHERE client_id = $1 AND customer_ref = ANY($2::text[])`,
+     WHERE client_id = $1 AND customer_ref = ANY($2::text[]) AND deleted_at IS NULL`,
     [clientId, refs]
   )
   const existing = new Set(result.rows.map((r) => r.customer_ref))

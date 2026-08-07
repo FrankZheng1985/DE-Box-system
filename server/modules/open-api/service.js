@@ -305,7 +305,7 @@ const QUOTATION_STATUS_LABELS = {
 export async function getInquiryStatusForApi(apiKey, externalRef) {
   const inq = await query(
     `SELECT id, inquiry_number, status, business_type, customer_ref, created_at, updated_at
-     FROM inquiries WHERE external_source = $1 AND external_ref = $2`,
+     FROM inquiries WHERE external_source = $1 AND external_ref = $2 AND deleted_at IS NULL`,
     [apiKey.partner_code, externalRef]
   )
   if (inq.rows.length === 0) return null
@@ -401,8 +401,10 @@ export async function createInquiryFromApi(apiKey, body) {
   try {
     return await withTransaction(async (client) => {
       const dup = await client.query(
+        // 已删除的单不占幂等键（迁移 127 同步收窄了 uq_inquiries_external），
+        // 客户删掉错单后合作方重推同一单号要能重新建
         `SELECT id, inquiry_number, status, created_at FROM inquiries
-         WHERE external_source = $1 AND external_ref = $2`,
+         WHERE external_source = $1 AND external_ref = $2 AND deleted_at IS NULL`,
         [apiKey.partner_code, body.externalOrderNo]
       )
       if (dup.rows.length > 0) return { duplicated: true, inquiry: dup.rows[0] }
@@ -450,8 +452,10 @@ export async function createInquiryFromApi(apiKey, body) {
     // 并发同单号：两个请求同时过了先查后插，晚提交的撞幂等索引整笔回滚，这里补查后按重复返回
     if (err.code === '23505' && err.constraint === 'uq_inquiries_external') {
       const dup = await query(
+        // 已删除的单不占幂等键（迁移 127 同步收窄了 uq_inquiries_external），
+        // 客户删掉错单后合作方重推同一单号要能重新建
         `SELECT id, inquiry_number, status, created_at FROM inquiries
-         WHERE external_source = $1 AND external_ref = $2`,
+         WHERE external_source = $1 AND external_ref = $2 AND deleted_at IS NULL`,
         [apiKey.partner_code, body.externalOrderNo]
       )
       if (dup.rows.length > 0) return { duplicated: true, inquiry: dup.rows[0] }

@@ -234,8 +234,6 @@
   "inquirySummary": {
     "inquiryNo": "Anfragenr.",
     "customerRef": "Kundenreferenz",
-    "client": "Kunde",
-    "serviceType": "Leistungsart",
     "origin": "VERSANDORT",
     "destination": "ZIELORT",
     "contact": "ANSPRECHPARTNER",

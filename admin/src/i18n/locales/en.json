@@ -1909,6 +1909,7 @@
     "INQUIRY_DELETED": "Inquiry deleted",
     "INQUIRY_EDIT_ONLY_PENDING": "Only inquiries awaiting a quotation can be edited",
     "INQUIRY_DELETE_ONLY_PENDING": "Only inquiries awaiting a quotation can be deleted",
+    "INQUIRY_DELETE_IN_PROGRESS": "This inquiry is already being quoted and can no longer be deleted",
     "INQUIRIES_LOAD_FAILED": "Could not load the inquiries",
     "INQUIRY_DETAIL_LOAD_FAILED": "Could not load the inquiry details",
     "INQUIRY_STATS_LOAD_FAILED": "Could not load the inquiry statistics",

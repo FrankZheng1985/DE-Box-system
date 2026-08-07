@@ -151,6 +151,9 @@ export default function InquiryList() {
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState(INITIAL_FORM)
   const [rows, setRows] = useState<CargoRow[]>([newRow()])
+  /** 正在确认删除的那张单，null=没有弹确认框 */
+  const [deleteTarget, setDeleteTarget] = useState<Inquiry | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { loadInquiries() }, [])
 
@@ -246,6 +249,40 @@ export default function InquiryList() {
     setForm(INITIAL_FORM)
     setRows([newRow()])
     setError('')
+  }
+
+  /**
+   * 能不能删这张单
+   *
+   * 只是前端的提前收窄，真正的守卫在后端（状态 + 有没有报价/服务商询价）。
+   * 前端拿不到"有没有草稿报价"，所以按钮显示了也可能被后端拒——那种情况按
+   * 后端 message 提示，不做静默失败。
+   */
+  const canDelete = (item: Inquiry) =>
+    item.status === 'PENDING_QUOTE' && (item.quotation_count ?? 0) === 0
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setError('')
+    try {
+      const res = await api.delete<ApiResponse<null>>(`/inquiries/${deleteTarget.id}`)
+      if (res.code === 200) {
+        setDeleteTarget(null)
+        setNotice(t('inquiry.deleteSuccess', { no: deleteTarget.inquiry_number }))
+        loadInquiries()
+      } else {
+        // 必须显示后端 message，否则失败会被伪装成成功（踩坑 011）
+        setError(res.message || t('inquiry.deleteFailed'))
+        setDeleteTarget(null)
+      }
+    } catch (err) {
+      console.error('删除询价失败:', err)
+      setError(err instanceof Error ? err.message : t('inquiry.deleteFailed'))
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -348,6 +385,50 @@ export default function InquiryList() {
             loadInquiries()
           }}
         />
+      )}
+
+      {/* 删除确认：删除不可撤销，必须二次确认，且把单号写出来避免删错行 */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-slate-900">{t('inquiry.deleteTitle')}</h3>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-2">
+              <p className="text-sm text-slate-700">
+                {t('inquiry.deleteConfirm', { no: deleteTarget.inquiry_number })}
+              </p>
+              {deleteTarget.customer_ref && (
+                <p className="text-xs text-slate-500">
+                  {t('inquiry.customerRef')}: {deleteTarget.customer_ref}
+                </p>
+              )}
+              <p className="text-xs text-amber-600">{t('inquiry.deleteIrreversible')}</p>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="h-8 px-3 text-xs text-slate-700 border border-gray-200 bg-white rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 ease-in-out"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="h-8 px-3 text-xs text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all duration-200 ease-in-out"
+              >
+                {deleting ? t('inquiry.deleting') : t('common.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 新建询价弹窗 */}
@@ -571,21 +652,28 @@ export default function InquiryList() {
       {/* 列表 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[820px]">
+          {/* 客户单号是客户自己对账的抓手，独占一列排在询价单号右边（开发意见 #1）；
+              原先挤在询价单号下面当 10px 灰色小字，客户反馈看不见 */}
+          {/* 列宽按内容实测排的：询价编号 17 字符、报价时效要放下「已等待 0.0 天」、
+              表头「实重(kg)」和「操作」都不能被压成两行 */}
+          <table className="w-full table-fixed min-w-[1080px]">
             <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[12%]" />
-              <col className="w-[16%]" />
-              <col className="w-[7%]" />
-              <col className="w-[9%]" />
-              <col className="w-[7%]" />
+              <col className="w-[15%]" />
               <col className="w-[11%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
+              <col className="w-[9%]" />
+              <col className="w-[14%]" />
+              <col className="w-[5%]" />
+              <col className="w-[8%]" />
+              <col className="w-[5%]" />
+              <col className="w-[8%]" />
+              <col className="w-[11%]" />
+              <col className="w-[8%]" />
+              <col className="w-[6%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.inquiryNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.customerRef')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.serviceType')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.colQty')}</th>
@@ -594,27 +682,32 @@ export default function InquiryList() {
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.colSla')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.createdAt')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 11 }).map((_, j) => (
                       <td key={j} className="px-3 py-3"><div className="h-3 bg-gray-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={11} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item) => (
                   <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="text-left px-3 py-2.5">
                       <span className="text-xs font-medium text-slate-900 block truncate">{item.inquiry_number || '-'}</span>
-                      {item.customer_ref && <span className="text-[10px] text-slate-400">{t('inquiry.customerRef')} {item.customer_ref}</span>}
+                    </td>
+                    <td className="text-left px-3 py-2.5">
+                      <span className="text-xs font-medium text-slate-900 block truncate" title={item.customer_ref || ''}>
+                        {item.customer_ref || '-'}
+                      </span>
                     </td>
                     <td className="text-left px-3 py-2.5 text-xs text-slate-600">
                       {t(`businessType.${item.business_type}`, { defaultValue: item.business_type })}
@@ -649,6 +742,21 @@ export default function InquiryList() {
                     </td>
                     <td className="text-center px-3 py-2.5 text-xs text-slate-500">
                       {item.created_at ? new Date(item.created_at).toLocaleDateString('de-DE') : '-'}
+                    </td>
+                    {/* 只有还没进入报价流程的单能删（开发意见 #2），其余显示占位符
+                        —— 按钮直接消失会让客户以为是页面坏了 */}
+                    <td className="text-center px-3 py-2.5">
+                      {canDelete(item) ? (
+                        <button
+                          onClick={() => { setError(''); setNotice(''); setDeleteTarget(item) }}
+                          title={t('inquiry.deleteTitle')}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 ease-in-out"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-300">-</span>
+                      )}
                     </td>
                   </tr>
                 ))

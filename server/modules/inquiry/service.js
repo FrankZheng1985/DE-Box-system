@@ -224,8 +224,9 @@ export function buildSummaryText(inquiry, items = [], lang = 'en') {
   const lines = []
   lines.push(field('inquiryNo', inquiry.inquiry_number || '-'))
   if (inquiry.customer_ref) lines.push(field('customerRef', inquiry.customer_ref))
-  lines.push(field('client', inquiry.client_name || '-'))
-  lines.push(field('serviceType', businessTypeLabel(inquiry.business_type, lang)))
+  // 刻意不输出「客户」和「服务类型」：这份摘要是直接粘给欧洲服务商询价的，
+  // 客户名是我们自己的商业信息（等于把货主直接告诉承运商），服务类型是我们内部
+  // 的渠道口径，服务商既看不懂也用不上。两者都要删（开发意见 #4）。
   lines.push('')
 
   lines.push(section('origin'))
@@ -298,17 +299,6 @@ const PUNCTUATION = {
   zh: { colon: '：', sectionOpen: '【', sectionClose: '】', inlineGap: '' },
   en: { colon: ': ', sectionOpen: '[', sectionClose: ']', inlineGap: ' ' },
   de: { colon: ': ', sectionOpen: '[', sectionClose: ']', inlineGap: ' ' },
-}
-
-/**
- * 服务类型的多语言名称
- * t() 查不到 key 时会把 key 原样返回，那种情况退回数据库里的原始代码，
- * 免得摘要里出现 "businessType.XXX" 这种给服务商看不懂的东西
- */
-function businessTypeLabel(businessType, lang) {
-  if (!businessType) return '-'
-  const label = t(lang, `businessType.${businessType}`)
-  return label.startsWith('businessType.') ? businessType : label
 }
 
 // ==================== 内部工具 ====================

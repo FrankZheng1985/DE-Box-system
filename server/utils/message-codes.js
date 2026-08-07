@@ -128,6 +128,7 @@ export const MESSAGE_CODES = {
   '询价已删除': 'INQUIRY_DELETED',
   '仅待报价状态的询价可以编辑': 'INQUIRY_EDIT_ONLY_PENDING',
   '仅待报价状态的询价可以删除': 'INQUIRY_DELETE_ONLY_PENDING',
+  '该询价已在报价处理中，无法删除，请联系客服': 'INQUIRY_DELETE_IN_PROGRESS',
   '获取询价列表失败': 'INQUIRIES_LOAD_FAILED',
   '获取询价详情失败': 'INQUIRY_DETAIL_LOAD_FAILED',
   '获取询价统计失败': 'INQUIRY_STATS_LOAD_FAILED',
