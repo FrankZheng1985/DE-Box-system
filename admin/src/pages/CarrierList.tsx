@@ -355,28 +355,19 @@ export default function CarrierList() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             {/* 列宽按百分比固定（UI 规范：table-fixed + colgroup，不在 th 上写死 px）。
-                原来没有 colgroup，9 列平分会把「操作」挤出可视区、逼出横向滚动条。
-                改列数时记得同步这里。 */}
+                ⚠️ 全表**只能有一个 colgroup**：浏览器会把多个 colgroup 的 col
+                依次累加，百分比被稀释，结果所有列一起变窄、内容竖排。
+                加列时改这里的项，别再新增一个 colgroup。 */}
             <colgroup>
-              <col className="w-[17%]" />{/* 公司名称 */}
-              <col className="w-[11%]" />{/* 分类 / 类型 */}
-              <col className="w-[9%]"  />{/* 国家 */}
-              <col className="w-[11%]" />{/* 评分 */}
-              <col className="w-[6%]"  />{/* 车辆数 */}
-              <col className="w-[12%]" />{/* 服务国家 */}
-              <col className="w-[16%]" />{/* 车辆类型 */}
-              <col className="w-[8%]"  />{/* 状态 */}
-              <col className="w-[10%]" />{/* 操作 */}
-            </colgroup>
-            <colgroup>
-              <col className="w-[18%]" />
-              <col className="w-[14%]" />
-              <col className="w-[8%]" />
-              <col className="w-[13%]" />
-              <col className="w-[7%]" />
-              <col className="w-[17%]" />
-              <col className="w-[10%]" />
-              <col className="w-[13%]" />
+              <col className="w-[14%]" />{/* 公司名称 */}
+              <col className="w-[10%]" />{/* 分类 / 类型：「外部服务商」徽章 5 字，窄了会竖排成单字 */}
+              <col className="w-[9%]"  />{/* 国家：Slovenia 这类全称 */}
+              <col className="w-[11%]" />{/* 评分：五颗星 + 数字，窄了星标会被挤没 */}
+              <col className="w-[6%]"  />{/* 车辆数：只有个位数 */}
+              <col className="w-[12%]" />{/* 服务国家：最多 3 个国家码徽章 + 溢出计数 */}
+              <col className="w-[20%]" />{/* 车辆类型：标签是「Curtain Side (篷布车)」这种长文本，给最宽 */}
+              <col className="w-[8%]"  />{/* 状态：「启用」徽章 */}
+              <col className="w-[10%]" />{/* 操作：三个图标按钮一排 */}
             </colgroup>
             <thead>
               <tr className="border-b border-slate-100">
