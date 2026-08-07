@@ -22,6 +22,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
 import { formatMoney, formatNumber } from '../utils/format'
+import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 
 // ==================== 类型定义 ====================
 
@@ -231,65 +232,91 @@ export default function OrderAssign() {
   // 成功提示
   const [successMsg, setSuccessMsg] = useState('')
 
-  // 拉取订单和匹配承运商
+  // 车型筛选：订单表里没有「本单需要什么车型」字段，无从自动推导，
+  // 所以做成运营手动选。空 = 不筛（默认，行为与以前一致）
+  const [vehicleFilter, setVehicleFilter] = useState('')
+  // 换筛选只重拉承运商，用独立的 loading，别让整页骨架屏闪一下
+  const [loadingCarriers, setLoadingCarriers] = useState(false)
+  const { options: vehicleTypeOptions } = useMasterDataOptions('vehicle-types')
+
+  // 第一步：拉订单。匹配承运商要带本单的装卸货城市，所以必须先拿到它
+  // （原来两个请求是 Promise.all 并行的，拿不到城市，筛选参数一直没法传）
   useEffect(() => {
     if (!id) return
     let cancelled = false
 
-    async function fetchData() {
+    async function fetchOrder() {
       setLoading(true)
       setError(null)
       try {
-        // 改成串行：匹配承运商要带上本单的装卸货城市，所以必须先拿到订单。
-        // （原来是 Promise.all 并行，拿不到城市，筛选参数一直没法传）
-        const orderRes = await api.get<ApiResponse<{ order: Order }>>(`/orders/${id}`)
-
+        const res = await api.get<ApiResponse<{ order: Order }>>(`/orders/${id}`)
         if (cancelled) return
-
-        let loadedOrder: Order
-        if (orderRes.code === 200 && orderRes.data) {
-          loadedOrder = orderRes.data.order || (orderRes.data as unknown as Order)
-          setOrder(loadedOrder)
+        if (res.code === 200 && res.data) {
+          setOrder(res.data.order || (res.data as unknown as Order))
         } else {
-          setError(orderRes.message || t('orderAssign.loadOrderFailed'))
-          return
-        }
-
-        // 用本单的装货城市 → 卸货城市去匹配：跑过这条线的承运商会排在前面
-        // 并带 route_matched 标记。**不会因此排除任何人**（后端只拿它排序）。
-        const from = parseAddress(loadedOrder.pickup_address).city?.trim()
-        const to = parseAddress(loadedOrder.delivery_address).city?.trim()
-        const qs = new URLSearchParams()
-        if (from) qs.set('routeFrom', from)
-        if (to) qs.set('routeTo', to)
-        const matchUrl = qs.toString() ? `/carriers/match?${qs}` : '/carriers/match'
-
-        const carrierRes = await api.get<ApiResponse<MatchedCarrier[]>>(matchUrl)
-
-        if (cancelled) return
-
-        if (carrierRes.code === 200 && carrierRes.data) {
-          const list = Array.isArray(carrierRes.data) ? carrierRes.data : []
-          setCarriers(list)
-          // 初始化报价输入（默认为 0）
-          const priceMap: Record<string, number> = {}
-          list.forEach((c) => {
-            priceMap[c.id] = 0
-          })
-          setCarrierPrices(priceMap)
+          setError(res.message || t('orderAssign.loadOrderFailed'))
+          setLoading(false)
         }
       } catch (err: any) {
         if (cancelled) return
-        console.error('[OrderAssign] 获取数据失败:', err)
+        console.error('[OrderAssign] 获取订单失败:', err)
         setError(err.message || t('apiError.networkFailed'))
-      } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
 
-    fetchData()
+    fetchOrder()
     return () => { cancelled = true }
   }, [id])
+
+  // 第二步：按本单路线 + 运营选的车型匹配承运商。
+  // 单独一个 effect，这样换车型筛选时只重拉承运商，不用重拉订单。
+  useEffect(() => {
+    if (!order) return
+    let cancelled = false
+
+    async function fetchCarriers() {
+      setLoadingCarriers(true)
+      try {
+        // 路线：跑过这条线的排前面并带 route_matched 标记，**不排除任何人**
+        // 车型：**会排除**没有该车型的承运商（但没维护过车型的照常显示，未知≠做不了）
+        const from = parseAddress(order!.pickup_address).city?.trim()
+        const to = parseAddress(order!.delivery_address).city?.trim()
+        const qs = new URLSearchParams()
+        if (from) qs.set('routeFrom', from)
+        if (to) qs.set('routeTo', to)
+        if (vehicleFilter) qs.set('vehicleType', vehicleFilter)
+        const matchUrl = qs.toString() ? `/carriers/match?${qs}` : '/carriers/match'
+
+        const res = await api.get<ApiResponse<MatchedCarrier[]>>(matchUrl)
+        if (cancelled) return
+
+        if (res.code === 200 && res.data) {
+          const list = Array.isArray(res.data) ? res.data : []
+          setCarriers(list)
+          // 换筛选条件后**保留运营已经填过的报价**，只给新出现的承运商补 0，
+          // 否则改一下车型就把输入清空了
+          setCarrierPrices((prev) => {
+            const next: Record<string, number> = {}
+            list.forEach((c) => { next[c.id] = prev[c.id] ?? 0 })
+            return next
+          })
+        }
+      } catch (err: any) {
+        if (cancelled) return
+        console.error('[OrderAssign] 匹配承运商失败:', err)
+        setError(err.message || t('apiError.networkFailed'))
+      } finally {
+        if (!cancelled) {
+          setLoadingCarriers(false)
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchCarriers()
+    return () => { cancelled = true }
+  }, [order, vehicleFilter])
 
   // 更新报价金额
   function handlePriceChange(carrierId: string, value: string) {
@@ -549,15 +576,41 @@ export default function OrderAssign() {
       )}
 
       {/* ==================== 推荐承运商卡片 ==================== */}
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
           <Truck className="w-5 h-5 text-blue-600" />
           {t('orderAssign.recommendedTitle')}
           <span className="text-sm font-normal text-slate-400 ml-1">
             {t('orderAssign.availableCarrierCount', { count: carriers.length })}
           </span>
+          {loadingCarriers && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}
         </h2>
+
+        {/* 车型筛选（手动选）：订单里没有「本单需要什么车型」字段，无从自动推导 */}
+        <div className="flex items-center gap-2">
+          <label htmlFor="vehicleFilter" className="text-xs text-slate-500 whitespace-nowrap">
+            {t('orderAssign.filterByVehicle')}
+          </label>
+          <select
+            id="vehicleFilter"
+            value={vehicleFilter}
+            onChange={(e) => setVehicleFilter(e.target.value)}
+            className="min-w-[10rem] h-9 px-3 text-sm border border-slate-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+          >
+            <option value="">{t('orderAssign.vehicleAny')}</option>
+            {vehicleTypeOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* 筛了车型却一家都没剩时，把原因说清楚——别让人以为系统坏了 */}
+      {vehicleFilter && carriers.length === 0 && (
+        <div className="mb-4 text-sm px-4 py-3 rounded-xl bg-amber-50 text-amber-700">
+          {t('orderAssign.noCarrierForVehicle')}
+        </div>
+      )}
 
       {carriers.length === 0 ? (
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-12 text-center">
