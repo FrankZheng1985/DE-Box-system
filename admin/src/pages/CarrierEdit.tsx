@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { toDateInputValue } from '../utils/format'
 import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 
 // ==================== 类型定义 ====================
@@ -112,9 +113,12 @@ export default function CarrierEdit() {
             vatNumber: d.vat_number || d.vatNumber || '',
             country: d.country || '',
             transportLicense: d.transport_license || d.transportLicense || '',
-            licenseExpiry: d.license_expiry || d.licenseExpiry || '',
+            // date 列回填必须走 toDateInputValue（踩坑 039）：后端返回的是 UTC ISO 串，
+            // 直接塞给 <input type="date"> 是非法值，框子会显示空白——
+            // 用户以为本来就没填，一保存就把库里的日期清掉了
+            licenseExpiry: toDateInputValue(d.license_expiry || d.licenseExpiry),
             insuranceNumber: d.insurance_number || d.insuranceNumber || '',
-            insuranceExpiry: d.insurance_expiry || d.insuranceExpiry || '',
+            insuranceExpiry: toDateInputValue(d.insurance_expiry || d.insuranceExpiry),
             contactName: d.contact_name || d.contactName || '',
             contactEmail: d.contact_email || d.contactEmail || '',
             contactPhone: d.contact_phone || d.contactPhone || '',
