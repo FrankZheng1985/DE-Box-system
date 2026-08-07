@@ -1206,6 +1206,7 @@
     "serviceCountriesHint": "多个国家用逗号分隔",
     "vehicleTypes": "车辆类型",
     "vehicleTypesEmpty": "基础数据里还没有车型，请先到「系统设置 → 基础数据维护」添加",
+    "vehicleTypesUnset": "未维护",
     "remarksLabel": "备注（特点 / 优势 / 短板）",
     "noRemarks": "暂无备注",
     "remarksPlaceholder": "例如：德国南部线路价格有优势，但旺季车源紧张；老板配合度高，可以垫付清关费",

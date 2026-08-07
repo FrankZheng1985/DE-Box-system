@@ -20,6 +20,8 @@ interface Carrier {
   performance_score: number | string | null
   vehicle_count: number
   service_countries: string[]
+  /** 车型代号数组（迁移 126 起存代号，不再是英文名）。空 = 从没维护过 */
+  vehicle_types: string[]
   status: string
   contact_name: string
   contact_phone: string
@@ -136,6 +138,11 @@ export default function CarrierList() {
   // 车型选项来自基础数据：value 是代号（CURTAIN_SIDE），label 是当前语言的名称。
   // 存进库的是**代号**，界面显示的是**本地化名称**，两者分开。
   const { options: vehicleTypeOptions } = useMasterDataOptions('vehicle-types')
+
+  // 库里存的是代号，列表要显示当前语言的名称。基础数据里查不到的代号
+  // （比如运营手工删过某个车型）原样显示，不要吞掉——让人看得见才查得出问题
+  const vehicleTypeLabel = (code: string) =>
+    vehicleTypeOptions.find(o => o.value === code)?.label || code
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -364,7 +371,11 @@ export default function CarrierList() {
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.country')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colScore')}</th>
                 <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.colVehicleCount')}</th>
-                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('orderAssign.coveredRoutes')}</th>
+                {/* 这一列渲染的是 service_countries，原来表头却写着「覆盖路线」，
+                    标题和数据对不上（2026-08-07 修） */}
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.serviceCountries')}</th>
+                {/* 车型：派单页的车型筛选靠它，没维护过的要让运营一眼看见 */}
+                <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('carrier.vehicleTypes')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.actions')}</th>
               </tr>
@@ -373,7 +384,8 @@ export default function CarrierList() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {/* 列数要和 thead 保持一致，加列时别忘了改这里和下面的 colSpan */}
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-slate-100 rounded animate-pulse" />
                       </td>
@@ -382,7 +394,7 @@ export default function CarrierList() {
                 ))
               ) : carriers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-16 text-center">
+                  <td colSpan={9} className="px-4 py-16 text-center">
                     <Truck className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm text-slate-500">{t('carrier.empty')}</p>
                   </td>
@@ -436,7 +448,27 @@ export default function CarrierList() {
                             +{carrier.service_countries.length - 3}
                           </span>
                         )}
+                        {(carrier.service_countries || []).length === 0 && (
+                          <span className="text-xs text-slate-300">-</span>
+                        )}
                       </div>
+                    </td>
+                    {/* 车型：空 = 从没维护过。派单页按车型筛选时这种承运商**不会被排除**
+                        （未知≠做不了），所以必须在这里让运营看见，否则永远想不起来去填 */}
+                    <td className="px-4 py-3">
+                      {(carrier.vehicle_types || []).length === 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-xs">
+                          {t('carrier.vehicleTypesUnset')}
+                        </span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {carrier.vehicle_types.map(code => (
+                            <span key={code} className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">
+                              {vehicleTypeLabel(code)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <StatusBadge status={carrier.status || 'draft'} />
