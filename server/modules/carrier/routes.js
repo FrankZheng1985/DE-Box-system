@@ -10,6 +10,23 @@ import { resolveLang, t } from '../../utils/i18n.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
 
+/**
+ * 城市名归一化的 SQL 片段：去首尾空格 → 转小写 → 抹掉变音符号。
+ *
+ * 为什么不用 unaccent 扩展：生产 RDS 上没装（可装但要库级权限），
+ * translate() 是内置函数，不依赖任何扩展，今天就能上。
+ *
+ * ß 要先单独 replace —— translate() 是 1:1 字符映射，做不了 ß→ss 这种一对二。
+ *
+ * @param {string} expr 已经是合法 SQL 的表达式（列名或占位符），**不接受用户输入拼接**
+ * @returns {string} 归一化后的 SQL 表达式
+ */
+function normCity(expr) {
+  return `TRANSLATE(LOWER(TRIM(REPLACE(${expr}, 'ß', 'ss'))), ` +
+    `'áàâãäåéèêëíìîïóòôõöøúùûüñçý', ` +
+    `'aaaaaaeeeeiiiioooooouuuuncy')`
+}
+
 const router = Router()
 router.use(authenticateToken)
 
@@ -138,13 +155,21 @@ router.get('/match', requirePermission('carrier:view'), async (req, res) => {
          FROM carriers c
        ),
        route_hits AS (
-         -- 该承运商跑过多少次「装货城市 → 卸货城市」这条线（大小写与首尾空格不敏感）
+         -- 该承运商跑过多少次「装货城市 → 卸货城市」这条线。
+         -- 比较前统一归一：去首尾空格 + 转小写 + **抹掉变音符号**。
+         --
+         -- 变音符号那一步是 2026-08-07 补的，之前漏了，导致这个匹配在德国
+         -- 基本等于废的：同一个城市运营有时打 Lünen、有时打 LUNEN，
+         -- lower() 之后是 'lünen' vs 'lunen'，**永远不相等**。
+         -- München / Köln / Düsseldorf 全是这个毛病。
          SELECT o.carrier_id, COUNT(*)::int AS hits
          FROM orders o
          WHERE o.carrier_id IS NOT NULL
+           -- 取消/拒单的单子根本没跑过，不能算作这家跑过这条线
+           AND o.status NOT IN ('CANCELLED', 'REJECTED')
            AND $1::text IS NOT NULL AND $2::text IS NOT NULL
-           AND LOWER(TRIM(o.pickup_address->>'city'))   = LOWER(TRIM($1::text))
-           AND LOWER(TRIM(o.delivery_address->>'city')) = LOWER(TRIM($2::text))
+           AND ${normCity("o.pickup_address->>'city'")}   = ${normCity('$1::text')}
+           AND ${normCity("o.delivery_address->>'city'")} = ${normCity('$2::text')}
          GROUP BY o.carrier_id
        ),
        delivered AS (
@@ -172,6 +197,8 @@ router.get('/match', requirePermission('carrier:view'), async (req, res) => {
                   ROW_NUMBER() OVER (PARTITION BY o.carrier_id ORDER BY COUNT(*) DESC) AS rn
            FROM orders o
            WHERE o.carrier_id IS NOT NULL
+             -- 同上：取消/拒单的不算跑过，否则会虚报承运商的线路经验
+             AND o.status NOT IN ('CANCELLED', 'REJECTED')
              AND o.pickup_address->>'city' IS NOT NULL
              AND o.delivery_address->>'city' IS NOT NULL
            GROUP BY o.carrier_id, 2
