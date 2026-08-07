@@ -7,6 +7,7 @@ import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Pagination from '../components/Pagination'
+import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 
 // ==================== 类型定义 ====================
 
@@ -73,7 +74,15 @@ const INITIAL_FORM: CarrierForm = {
   remarks: '',
 }
 
-const VEHICLE_TYPE_OPTIONS = ['Curtain Side', 'Container Chassis', 'Flatbed', 'Refrigerated']
+// 车型选项**不再写死在这里**，改为读基础数据（md_vehicle_types），见组件内的
+// useMasterDataOptions('vehicle-types')。
+//
+// 原来这里是 ['Curtain Side', 'Container Chassis', ...]，存进库的是**英文名**，
+// 而基础数据用的是**代号**（CURTAIN_SIDE 等）——同一个概念两套词表，后果：
+//   1. 派单页按车型筛选永远匹配不上：'Curtain Side' 归一后是 'CURTAIN SIDE'（空格），
+//      代号是 'CURTAIN_SIDE'（下划线），差一个字符就永不相等
+//   2. 在基础数据里新增车型，这个表单看不到（它不读基础数据）
+//   3. 英文名写死，中德文界面下也只能显示英文
 
 // 承运商分类 / 类型（P7，值域与迁移 111 的 CHECK 约束一致）
 const CATEGORY_LABEL_KEYS: Record<string, string> = {
@@ -124,6 +133,9 @@ export default function CarrierList() {
   // 添加承运商弹窗状态
   const [showAddModal, setShowAddModal] = useState(false)
   const [form, setForm] = useState<CarrierForm>(INITIAL_FORM)
+  // 车型选项来自基础数据：value 是代号（CURTAIN_SIDE），label 是当前语言的名称。
+  // 存进库的是**代号**，界面显示的是**本地化名称**，两者分开。
+  const { options: vehicleTypeOptions } = useMasterDataOptions('vehicle-types')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -689,16 +701,22 @@ export default function CarrierList() {
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-2">{t('carrier.vehicleTypes')}</label>
             <div className="flex flex-wrap gap-4">
-              {VEHICLE_TYPE_OPTIONS.map(type => (
-                <label key={type} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={form.vehicleTypes.includes(type)}
-                    onChange={() => toggleVehicleType(type)}
-                  />
-                  <span className="text-sm text-slate-700">{type}</span>
-                </label>
-              ))}
+              {vehicleTypeOptions.length === 0 ? (
+                // 基础数据一条都没有时说清楚，别只给一片空白让人以为页面坏了
+                <span className="text-sm text-slate-400">{t('carrier.vehicleTypesEmpty')}</span>
+              ) : (
+                vehicleTypeOptions.map(opt => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      // 勾选状态和提交值都用**代号**，显示才用本地化名称
+                      checked={form.vehicleTypes.includes(opt.value)}
+                      onChange={() => toggleVehicleType(opt.value)}
+                    />
+                    <span className="text-sm text-slate-700">{opt.label}</span>
+                  </label>
+                ))
+              )}
             </div>
           </div>
 

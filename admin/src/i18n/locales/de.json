@@ -1205,6 +1205,7 @@
     "serviceCountries": "Bediente Länder",
     "serviceCountriesHint": "Mehrere Länder durch Komma trennen",
     "vehicleTypes": "Fahrzeugtypen",
+    "vehicleTypesEmpty": "Noch keine Fahrzeugtypen hinterlegt – bitte zuerst unter Einstellungen → Stammdaten anlegen",
     "remarksLabel": "Notizen (Stärken / Schwächen)",
     "noRemarks": "Keine Notizen",
     "remarksPlaceholder": "z. B. günstig auf Strecken in Süddeutschland, in der Hochsaison aber knappe Kapazität; Inhaber ist flexibel und kann Zollgebühren vorstrecken",
