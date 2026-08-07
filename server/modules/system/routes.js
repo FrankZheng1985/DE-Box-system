@@ -511,8 +511,17 @@ router.get('/master-data/:type/options', requireUserType('OPERATOR'), async (req
         value = row.name_en
         label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else if (type === 'vehicle-types') {
-        // 车型：value = name_en
-        value = row.name_en
+        // 车型：value = code（迁移 126 起，同「特殊要求」的思路）
+        //
+        // 以前返回 name_en，因为 carriers.vehicle_types 历史上存的就是英文名。
+        // 但那样 `/carriers/match` 的车型筛选永远匹配不上——存的是
+        // 'Curtain Side'（空格），基础数据的代号是 'CURTAIN_SIDE'（下划线），
+        // 差一个字符就永不相等。迁移 126 已把存量英文名转成代号。
+        //
+        // ⚠️ 前一个提交只改了前端（改读基础数据 + 绑 opt.value），
+        //    但那时 value 返回的还是英文名，**等于什么都没变**——
+        //    这一处补上，整条链路才真正走通。
+        value = row.code
         label = lang === 'zh' ? `${row.name_en} (${name})` : name
       } else {
         value = row.code
