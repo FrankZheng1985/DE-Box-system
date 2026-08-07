@@ -33,6 +33,42 @@ const INQUIRY_STATUS = {
 
 const VALID_BUSINESS_TYPES = ['TRUCK_LTL', 'TRUCK_FTL', 'LOCAL_DELIVERY']
 
+// ==================== 报价时效口径 ====================
+//
+// 时效 = 询价单创建 → 客户第一次拿到报价，单位「天」。
+//
+// 「拿到报价」取第一张【非草稿】报价的 created_at：
+//   - 草稿是运营还在编的，客户门户「我的报价」页会把 DRAFT 过滤掉根本看不到，
+//     算进来等于客户没收到价却显示"已报价 0 天"
+//   - 系统没有单独的"发出时间"列（quotations 只有 created_at / updated_at，
+//     updated_at 会被后续任何编辑覆盖），所以用非草稿报价的创建时间近似发出时间。
+//     实际操作里运营是建完就发，误差在当天以内
+
+/** 第一张非草稿报价的时间，挂 LATERAL 让下面几个表达式都能引用 fq.first_quoted_at */
+const FIRST_QUOTE_JOIN = `
+      LEFT JOIN LATERAL (
+        SELECT MIN(q.created_at) AS first_quoted_at
+        FROM quotations q
+        WHERE q.inquiry_id = i.id AND q.status <> 'DRAFT'
+      ) fq ON TRUE`
+
+/** 建单 → 首次报价，天（小数）。同一天内报价会是 0.x，取整会全变 0 看不出差别 */
+const RESPONSE_DAYS_EXPR = `(EXTRACT(EPOCH FROM (fq.first_quoted_at - i.created_at)) / 86400.0)`
+
+/** 还没报价的单已经等了多久，天（小数）。只对仍在等报价的单有意义 */
+const WAITING_DAYS_EXPR = `(EXTRACT(EPOCH FROM (NOW() - i.created_at)) / 86400.0)`
+
+/** 只对 PENDING_QUOTE 算等待天数：已取消/已拒绝的单不该继续往上涨 */
+const IS_STILL_WAITING = `(fq.first_quoted_at IS NULL AND i.status = '${INQUIRY_STATUS.PENDING_QUOTE}')`
+
+/**
+ * 天数保留 1 位小数
+ * ::float8 是为了让 pg 直接返回数字 —— NUMERIC 回来是字符串，前端 .toFixed() 会炸（踩坑 002）
+ */
+function roundDays(expr) {
+  return `ROUND((${expr})::numeric, 1)::float8`
+}
+
 /**
  * 批量导入的文件接收器
  *
@@ -115,9 +151,12 @@ router.get('/', requirePermission('inquiry:view', 'portal:inquiry_manage'), asyn
     let sql = `
       SELECT i.*, c.company_name AS client_name,
              (SELECT COUNT(*) FROM inquiry_cargo_items ci WHERE ci.inquiry_id = i.id)::int AS item_count,
-             (SELECT COUNT(*) FROM quotations q WHERE q.inquiry_id = i.id)::int AS quotation_count
+             (SELECT COUNT(*) FROM quotations q WHERE q.inquiry_id = i.id)::int AS quotation_count,
+             fq.first_quoted_at,
+             ${roundDays(RESPONSE_DAYS_EXPR)} AS quote_response_days,
+             CASE WHEN ${IS_STILL_WAITING} THEN ${roundDays(WAITING_DAYS_EXPR)} END AS quote_waiting_days
       FROM inquiries i
-      LEFT JOIN clients c ON c.id = i.client_id
+      LEFT JOIN clients c ON c.id = i.client_id${FIRST_QUOTE_JOIN}
       WHERE 1=1`
     const params = []
 
@@ -171,6 +210,39 @@ router.get('/stats', requireUserType('OPERATOR'), requirePermission('inquiry:vie
   } catch (error) {
     console.error('获取询价统计失败:', error)
     res.status(500).json({ code: 500, message: '获取询价统计失败', data: null })
+  }
+})
+
+/**
+ * 报价时效统计
+ * GET /api/v1/inquiries/quote-sla
+ *
+ * 客户门户询价页顶部那排卡片的数据源。口径见文件上方「报价时效口径」。
+ * 客户看到的只会是自己公司的单 —— applyScopeFilter 按 JWT 强制收窄（踩坑 016）。
+ *
+ * ⚠️ 必须注册在 /:id 之前（踩坑 001）
+ */
+router.get('/quote-sla', requirePermission('inquiry:view', 'portal:inquiry_manage'), async (req, res) => {
+  try {
+    let sql = `
+      SELECT
+        COUNT(*)::int                          AS total,
+        COUNT(fq.first_quoted_at)::int         AS quoted_count,
+        COUNT(*) FILTER (WHERE ${IS_STILL_WAITING})::int AS pending_count,
+        ${roundDays(`AVG(${RESPONSE_DAYS_EXPR})`)} AS avg_days,
+        ${roundDays(`MIN(${RESPONSE_DAYS_EXPR})`)} AS fastest_days,
+        ${roundDays(`MAX(${RESPONSE_DAYS_EXPR})`)} AS slowest_days,
+        ${roundDays(`MAX(${WAITING_DAYS_EXPR}) FILTER (WHERE ${IS_STILL_WAITING})`)} AS pending_max_wait_days
+      FROM inquiries i${FIRST_QUOTE_JOIN}
+      WHERE 1=1`
+    const params = []
+    sql = applyScopeFilter(req, sql, params)
+
+    const result = await query(sql, params)
+    res.json({ code: 200, message: 'success', data: result.rows[0] })
+  } catch (error) {
+    console.error('获取报价时效统计失败:', error)
+    res.status(500).json({ code: 500, message: '获取报价时效统计失败', data: null })
   }
 })
 

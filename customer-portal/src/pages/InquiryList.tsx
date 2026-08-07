@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, RefreshCw, Send, X, Trash2, Package, Upload } from 'lucide-react'
+import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import InquiryImportModal from '../components/InquiryImportModal'
 import { BUSINESS_TYPES, BUSINESS_TYPE_VALUES, type BusinessType } from '../constants/businessTypes'
@@ -32,6 +32,23 @@ interface Inquiry {
   status: string
   quotation_count: number
   created_at: string
+  /** 第一次收到报价的时间，没报价过是 null */
+  first_quoted_at: string | null
+  /** 建单 → 首次报价的天数（1 位小数），未报价是 null */
+  quote_response_days: number | null
+  /** 还没报价的单已经等了几天，只有仍在等报价的单才有值 */
+  quote_waiting_days: number | null
+}
+
+/** 报价时效统计（GET /inquiries/quote-sla），天数为 1 位小数或 null */
+interface QuoteSlaStats {
+  total: number
+  quoted_count: number
+  pending_count: number
+  avg_days: number | null
+  fastest_days: number | null
+  slowest_days: number | null
+  pending_max_wait_days: number | null
 }
 
 interface AddressForm {
@@ -125,6 +142,7 @@ function AddressFields({ label, value, onChange }: {
 export default function InquiryList() {
   const { t } = useTranslation()
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
+  const [sla, setSla] = useState<QuoteSlaStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -139,12 +157,23 @@ export default function InquiryList() {
   const loadInquiries = async () => {
     setLoading(true)
     try {
-      const res = await api.get<ApiResponse<Inquiry[]>>('/inquiries')
-      if (res.code === 200) {
-        setInquiries(res.data || [])
+      // 时效统计是整个公司全量算的，不能拿当前这一页的行去平均（列表默认只有 20 条）
+      const [listRes, slaRes] = await Promise.all([
+        api.get<ApiResponse<Inquiry[]>>('/inquiries'),
+        // 统计接口挂了只是少一排卡片，不能连累列表整页报错
+        // （前端先于后端上线时这里会 404，必须自己吞掉）
+        api.get<ApiResponse<QuoteSlaStats>>('/inquiries/quote-sla').catch((err) => {
+          console.warn('加载报价时效统计失败:', err)
+          return null
+        }),
+      ])
+
+      if (listRes.code === 200) {
+        setInquiries(listRes.data || [])
       } else {
-        setError(res.message || t('inquiry.loadFailed'))
+        setError(listRes.message || t('inquiry.loadFailed'))
       }
+      setSla(slaRes && slaRes.code === 200 ? slaRes.data : null)
     } catch (err) {
       console.error('加载询价列表失败:', err)
       setError(t('inquiry.loadFailed'))
@@ -183,6 +212,35 @@ export default function InquiryList() {
     },
     { quantity: 0, weight: 0, volume: 0, ldm: 0 }
   )
+
+  /** 天数 → "1.5 天"；没有值（没报价 / 没数据）显示 "暂无" */
+  const daysText = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return t('inquiry.slaNoData')
+    return t('inquiry.slaDaysUnit', { days: fmt(value, 1) })
+  }
+
+  const slaCards = [
+    {
+      key: 'avg', label: t('inquiry.slaAvg'), value: sla?.avg_days ?? null,
+      icon: Gauge, color: 'bg-blue-100 text-blue-700',
+      hint: t('inquiry.slaQuotedCount', { quoted: sla?.quoted_count ?? 0, total: sla?.total ?? 0 }),
+    },
+    {
+      key: 'fastest', label: t('inquiry.slaFastest'), value: sla?.fastest_days ?? null,
+      icon: Timer, color: 'bg-green-100 text-green-700',
+      hint: t('inquiry.slaFastestHint'),
+    },
+    {
+      key: 'slowest', label: t('inquiry.slaSlowest'), value: sla?.slowest_days ?? null,
+      icon: Clock, color: 'bg-amber-100 text-amber-700',
+      hint: t('inquiry.slaSlowestHint'),
+    },
+    {
+      key: 'pending', label: t('inquiry.slaPendingWait'), value: sla?.pending_max_wait_days ?? null,
+      icon: Hourglass, color: 'bg-gray-100 text-gray-600',
+      hint: t('inquiry.slaPendingCount', { count: sla?.pending_count ?? 0 }),
+    },
+  ]
 
   const resetForm = () => {
     setForm(INITIAL_FORM)
@@ -476,19 +534,54 @@ export default function InquiryList() {
         </div>
       )}
 
+      {/* 报价时效统计（口径：询价提交 → 第一次收到报价） */}
+      <div>
+        <div className="flex items-baseline gap-2 mb-2">
+          <h2 className="text-sm font-semibold text-slate-900">{t('inquiry.slaTitle')}</h2>
+          <span className="text-[11px] text-slate-400">{t('inquiry.slaHint')}</span>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="h-3 bg-gray-100 rounded w-20 mb-3 animate-pulse" />
+                <div className="h-7 bg-gray-100 rounded w-16 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {slaCards.map((card) => (
+              <div key={card.key} className="bg-white rounded-xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-slate-500">{card.label}</span>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.color}`}>
+                    <card.icon className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">{daysText(card.value)}</div>
+                <p className="text-[11px] text-slate-400 mt-1">{card.hint}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* 列表 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed min-w-[820px]">
             <colgroup>
-              <col className="w-[15%]" />
-              <col className="w-[13%]" />
-              <col className="w-[18%]" />
-              <col className="w-[8%]" />
-              <col className="w-[10%]" />
-              <col className="w-[8%]" />
-              <col className="w-[13%]" />
-              <col className="w-[15%]" />
+              <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[16%]" />
+              <col className="w-[7%]" />
+              <col className="w-[9%]" />
+              <col className="w-[7%]" />
+              <col className="w-[11%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
@@ -499,6 +592,7 @@ export default function InquiryList() {
                 <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.weightKg')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">LDM</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
+                <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.colSla')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.createdAt')}</th>
               </tr>
             </thead>
@@ -506,14 +600,14 @@ export default function InquiryList() {
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-3 py-3"><div className="h-3 bg-gray-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={9} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item) => (
@@ -538,6 +632,20 @@ export default function InquiryList() {
                       }`}>
                         {t(`inquiryStatus.${item.status}`, { defaultValue: item.status })}
                       </span>
+                    </td>
+                    {/* 报价时效：已报价的显示用了几天，还没报价的显示已经等了几天 */}
+                    <td className="text-right px-3 py-2.5 text-xs">
+                      {item.quote_response_days !== null && item.quote_response_days !== undefined ? (
+                        <span className="font-medium text-slate-900">
+                          {t('inquiry.slaDaysUnit', { days: fmt(item.quote_response_days, 1) })}
+                        </span>
+                      ) : item.quote_waiting_days !== null && item.quote_waiting_days !== undefined ? (
+                        <span className="text-amber-600">
+                          {t('inquiry.slaWaiting', { days: fmt(item.quote_waiting_days, 1) })}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </td>
                     <td className="text-center px-3 py-2.5 text-xs text-slate-500">
                       {item.created_at ? new Date(item.created_at).toLocaleDateString('de-DE') : '-'}

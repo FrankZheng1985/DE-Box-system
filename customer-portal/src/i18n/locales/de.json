@@ -330,7 +330,21 @@
     "loadFailed": "Anfragen konnten nicht geladen werden",
     "submitFailed": "Anfrage konnte nicht gesendet werden",
     "errorFrom": "Bitte mindestens Land oder Stadt des Versandorts angeben",
-    "errorTo": "Bitte mindestens Land oder Stadt des Zielorts angeben"
+    "errorTo": "Bitte mindestens Land oder Stadt des Zielorts angeben",
+    "colSla": "Angebotsdauer",
+    "slaTitle": "Angebotsdauer",
+    "slaHint": "Von der Anfrage bis zum ersten Angebot, in Tagen",
+    "slaDaysUnit": "{{days}} Tage",
+    "slaNoData": "k. A.",
+    "slaWaiting": "wartet seit {{days}} Tagen",
+    "slaAvg": "Durchschnittliche Dauer",
+    "slaQuotedCount": "{{quoted}} von {{total}} Anfragen angeboten",
+    "slaFastest": "Schnellstes Angebot",
+    "slaFastestHint": "Bisher schnellste Anfrage",
+    "slaSlowest": "Langsamstes Angebot",
+    "slaSlowestHint": "Bisher langsamste Anfrage",
+    "slaPendingWait": "Längste offene Wartezeit",
+    "slaPendingCount": "{{count}} warten auf ein Angebot"
   },
   "inquiryStatus": {
     "PENDING_QUOTE": "Angebot ausstehend",

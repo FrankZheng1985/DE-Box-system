@@ -330,7 +330,21 @@
     "loadFailed": "Failed to load inquiries",
     "submitFailed": "Failed to submit the inquiry",
     "errorFrom": "Please enter at least the origin country or city",
-    "errorTo": "Please enter at least the destination country or city"
+    "errorTo": "Please enter at least the destination country or city",
+    "colSla": "Quote time",
+    "slaTitle": "Quotation lead time",
+    "slaHint": "From inquiry submission to the first quotation received, in days",
+    "slaDaysUnit": "{{days}} days",
+    "slaNoData": "n/a",
+    "slaWaiting": "waiting {{days}} days",
+    "slaAvg": "Average lead time",
+    "slaQuotedCount": "{{quoted}} of {{total}} inquiries quoted",
+    "slaFastest": "Fastest quote",
+    "slaFastestHint": "Quickest inquiry so far",
+    "slaSlowest": "Slowest quote",
+    "slaSlowestHint": "Slowest inquiry so far",
+    "slaPendingWait": "Longest open wait",
+    "slaPendingCount": "{{count}} awaiting a quote"
   },
   "inquiryStatus": {
     "PENDING_QUOTE": "Pending quotation",

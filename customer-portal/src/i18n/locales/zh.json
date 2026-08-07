@@ -330,7 +330,21 @@
     "loadFailed": "加载询价列表失败",
     "submitFailed": "提交询价失败",
     "errorFrom": "请至少填写起运地的国家或城市",
-    "errorTo": "请至少填写目的地的国家或城市"
+    "errorTo": "请至少填写目的地的国家或城市",
+    "colSla": "报价时效",
+    "slaTitle": "报价时效",
+    "slaHint": "从询价提交到第一次收到报价，单位：天",
+    "slaDaysUnit": "{{days}} 天",
+    "slaNoData": "暂无",
+    "slaWaiting": "已等待 {{days}} 天",
+    "slaAvg": "平均报价时效",
+    "slaQuotedCount": "已报价 {{quoted}} / 共 {{total}} 单",
+    "slaFastest": "最快报价",
+    "slaFastestHint": "响应最快的一单",
+    "slaSlowest": "最慢报价",
+    "slaSlowestHint": "响应最慢的一单",
+    "slaPendingWait": "待报价最长等待",
+    "slaPendingCount": "待报价 {{count}} 单"
   },
   "inquiryStatus": {
     "PENDING_QUOTE": "待报价",
