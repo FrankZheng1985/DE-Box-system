@@ -174,10 +174,11 @@ export default function MyQuotations() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      // 后端按登录身份强制只返回本公司的报价（踩坑 016），前端不用传 clientId
+      // 后端按登录身份强制只返回本公司的、且已发出的报价（踩坑 016、054），
+      // 前端不用传 clientId，也不需要靠自己藏草稿
       const res = await api.get<ApiResponse<Quotation[]>>('/quotations?pageSize=100')
       if (res.code === 200) {
-        // 草稿是运营还没发出来的，客户不该看到
+        // 这行是双保险，不是安全边界——真正挡草稿的是后端 SQL（踩坑 054）
         setQuotations((res.data || []).filter((q) => q.status !== QUOTATION_STATUS.DRAFT))
       } else {
         setMessage({ text: res.message || t('quotations.loadFailed'), type: 'error' })

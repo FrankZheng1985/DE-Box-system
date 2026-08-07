@@ -9,7 +9,7 @@ import { withTransaction, query } from '../../core/db.js'
 import { roleHasAnyPermission } from '../../core/permission-service.js'
 import { documentEngine, pricingEngine, changeTracker } from '../../core/index.js'
 import quotationService, {
-  QUOTATION_STATUS, DECISION_ACTIONS,
+  QUOTATION_STATUS, DECISION_ACTIONS, CLIENT_HIDDEN_STATUSES,
   createOrderFromQuotation,
 } from './service.js'
 import { queueQuotationEmail } from './email.js'
@@ -20,12 +20,20 @@ router.use(authenticateToken)
 // 等于返回全部数据（失效方向必须是拒绝，不是放行）
 router.use(requireTenantBinding)
 
+/** 当前登录人是不是客户门户账号 */
+function isClientUser(req) {
+  return (req.user.userType || req.user.roleCode) === 'CLIENT'
+}
+
 /**
  * 取报价单并校验访问权限
  *
  * ⚠️ 改这里之前请先看踩坑 016：门户的数据边界必须后端按 JWT 强制。
  *    以前 accept / reject 只挂了 authenticateToken，**任何登录用户**
  *    （包括别家公司的客户账号、承运商账号）都能接受或拒绝任意一张报价。
+ *
+ * 客户看自己公司的草稿也一律按「不存在」处理（踩坑 054）——
+ * 草稿是运营还没发出来的价，回 403 等于告诉对方"这张单确实存在"。
  *
  * @returns {Promise<object|null>} 无权或不存在时已写好响应并返回 null
  */
@@ -44,6 +52,10 @@ async function loadQuotationWithAccessCheck(quotationId, req, res) {
   const userType = req.user.userType || req.user.roleCode
   if (userType === 'CLIENT' && quotation.client_id !== req.user.linkedEntityId) {
     res.status(403).json({ code: 403, message: '无权访问该报价单', data: null })
+    return null
+  }
+  if (userType === 'CLIENT' && CLIENT_HIDDEN_STATUSES.includes(quotation.status)) {
+    res.status(404).json({ code: 404, message: '报价不存在', data: null })
     return null
   }
   if (userType === 'CARRIER') {
@@ -110,8 +122,12 @@ router.get('/', requirePermission('quotation:view', 'portal:quotation_view'), as
       WHERE 1=1`
     const params = []; let idx = 0
 
-    if (req.user.userType === 'CLIENT' && req.user.linkedEntityId) {
+    // 客户只看得到自己公司的（踩坑 016），且看不到运营还没发出去的草稿（踩坑 054）。
+    // 判断条件里不带 linkedEntityId ——「绑定为空」时应该查不到东西，
+    // 而不是跳过过滤把全部报价返回出去（失效方向必须是拒绝）
+    if (isClientUser(req)) {
       params.push(req.user.linkedEntityId); sql += ` AND q.client_id = $${++idx}`
+      params.push(CLIENT_HIDDEN_STATUSES); sql += ` AND q.status <> ALL($${++idx}::text[])`
     } else if (clientId) {
       params.push(clientId); sql += ` AND q.client_id = $${++idx}`
     }
@@ -557,12 +573,20 @@ router.get('/:id/versions', requirePermission('quotation:view', 'portal:quotatio
     if (!current) return
     const { client_id, route_from, route_to } = current
 
+    // 同一条线路可能有好几版，其中新开的那版常常还是草稿——客户不该看到（踩坑 054）
+    const params = [client_id, route_from, route_to]
+    let hideDraftSql = ''
+    if (isClientUser(req)) {
+      params.push(CLIENT_HIDDEN_STATUSES)
+      hideDraftSql = ` AND status <> ALL($${params.length}::text[])`
+    }
+
     const result = await query(
       `SELECT id, quotation_number, version, total_price, currency, status, valid_until, created_at
        FROM quotations
-       WHERE client_id = $1 AND route_from = $2 AND route_to = $3
+       WHERE client_id = $1 AND route_from = $2 AND route_to = $3${hideDraftSql}
        ORDER BY version DESC`,
-      [client_id, route_from, route_to]
+      params
     )
     res.json({ code: 200, message: 'success', data: result.rows })
   } catch (error) {

@@ -34,6 +34,16 @@ export const QUOTATION_STATUS = {
 /** 客户可以做决策的状态：已发送、或之前点过待定 */
 export const CLIENT_DECIDABLE = [QUOTATION_STATUS.SENT, QUOTATION_STATUS.PENDING_DECISION]
 
+/**
+ * 客户门户看不到的报价状态
+ *
+ * 草稿 = 运营还在编、尚未点「发送」的价，客户不该看到里面的金额。
+ * ⚠️ 这个过滤必须在后端 SQL 里做（踩坑 054）：以前只有客户门户页面用
+ *    `.filter(q => q.status !== 'DRAFT')` 把草稿藏起来，接口照样把
+ *    total_price 返回给客户，带自己的 token 直接调接口就能看到。
+ */
+export const CLIENT_HIDDEN_STATUSES = [QUOTATION_STATUS.DRAFT]
+
 /** 客户决策动作 */
 export const DECISION_ACTIONS = {
   ACCEPT: 'ACCEPT',

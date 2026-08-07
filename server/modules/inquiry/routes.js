@@ -15,6 +15,7 @@ import { withTransaction, query } from '../../core/db.js'
 import { resolveLang, t } from '../../utils/i18n.js'
 import inquiryService from './service.js'
 import importService from './import-service.js'
+import { CLIENT_HIDDEN_STATUSES } from '../quotation/service.js'
 
 const router = Router()
 router.use(authenticateToken)
@@ -94,6 +95,21 @@ const STATUS_LABELS = {
   CANCELLED: '已取消',
 }
 
+/** 当前登录人是不是客户门户账号 */
+function isClientUser(req) {
+  return (req.user.userType || req.user.roleCode) === 'CLIENT'
+}
+
+/**
+ * 客户不可见的报价状态拼进 SQL（草稿是运营还没发出来的价 —— 踩坑 054）
+ * @returns {string} 客户身份返回 ` AND <前缀>status <> ALL($n::text[])`，其它身份返回空串
+ */
+function hideDraftQuotationSql(req, params, columnPrefix = '') {
+  if (!isClientUser(req)) return ''
+  params.push(CLIENT_HIDDEN_STATUSES)
+  return ` AND ${columnPrefix}status <> ALL($${params.length}::text[])`
+}
+
 /**
  * 按登录身份强制收窄可见范围
  *
@@ -148,17 +164,21 @@ async function loadInquiryWithAccessCheck(inquiryId, req, res) {
 router.get('/', requirePermission('inquiry:view', 'portal:inquiry_manage'), async (req, res) => {
   try {
     const { status, businessType, search, page = 1, pageSize = 20 } = req.query
+    // 占位符要按它在 SQL 里出现的先后顺序入参：这一条在 SELECT 子查询里，
+    // 排在所有 WHERE 条件之前，所以必须最先 push
+    const params = []
+    const hideDraftInCount = hideDraftQuotationSql(req, params, 'q.')
     let sql = `
       SELECT i.*, c.company_name AS client_name,
              (SELECT COUNT(*) FROM inquiry_cargo_items ci WHERE ci.inquiry_id = i.id)::int AS item_count,
-             (SELECT COUNT(*) FROM quotations q WHERE q.inquiry_id = i.id)::int AS quotation_count,
+             (SELECT COUNT(*) FROM quotations q
+               WHERE q.inquiry_id = i.id${hideDraftInCount})::int AS quotation_count,
              fq.first_quoted_at,
              ${roundDays(RESPONSE_DAYS_EXPR)} AS quote_response_days,
              CASE WHEN ${IS_STILL_WAITING} THEN ${roundDays(WAITING_DAYS_EXPR)} END AS quote_waiting_days
       FROM inquiries i
       LEFT JOIN clients c ON c.id = i.client_id${FIRST_QUOTE_JOIN}
       WHERE 1=1`
-    const params = []
 
     sql = applyScopeFilter(req, sql, params)
     let idx = params.length
@@ -494,12 +514,16 @@ router.get('/:id', requirePermission('inquiry:view', 'portal:inquiry_manage'), a
     const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
     if (!inquiry) return
 
+    // 询价详情会把这张询价开出的报价一并带上，草稿同样要挡掉（踩坑 054）
+    const quotationParams = [inquiry.id]
+    const hideDraft = hideDraftQuotationSql(req, quotationParams)
+
     const [items, quotations] = await Promise.all([
       inquiryService.getCargoItems(inquiry.id),
       query(
         `SELECT id, quotation_number, version, total_price, currency, status, valid_until, created_at
-         FROM quotations WHERE inquiry_id = $1 ORDER BY version DESC, created_at DESC`,
-        [inquiry.id]
+         FROM quotations WHERE inquiry_id = $1${hideDraft} ORDER BY version DESC, created_at DESC`,
+        quotationParams
       ),
     ])
 
