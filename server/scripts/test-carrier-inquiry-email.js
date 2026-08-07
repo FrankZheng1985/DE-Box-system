@@ -21,8 +21,10 @@ app.use(express.json())
 const carrierInquiryRoutes = (await import('../modules/carrier-inquiry/routes.js')).default
 app.use('/api/v1/carrier-inquiries', carrierInquiryRoutes)
 
-const server = app.listen(3097)
-const BASE = 'http://127.0.0.1:3097/api/v1'
+// 端口可用 TEST_PORT 覆盖：并行对话可能占着默认端口
+const TEST_PORT = Number(process.env.TEST_PORT) || 3097
+const server = app.listen(TEST_PORT)
+const BASE = `http://127.0.0.1:${TEST_PORT}/api/v1`
 
 function tokenFor(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' })

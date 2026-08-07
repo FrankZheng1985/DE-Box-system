@@ -27,8 +27,10 @@ const quotationRoutes = (await import('../modules/quotation/routes.js')).default
 app.use('/api/v1/carrier-inquiries', carrierInquiryRoutes)
 app.use('/api/v1/quotations', quotationRoutes)
 
-const server = app.listen(3098)
-const BASE = 'http://127.0.0.1:3098/api/v1'
+// 端口可用 TEST_PORT 覆盖：并行对话可能占着默认端口（撞过一次）
+const TEST_PORT = Number(process.env.TEST_PORT) || 3098
+const server = app.listen(TEST_PORT)
+const BASE = `http://127.0.0.1:${TEST_PORT}/api/v1`
 
 function tokenFor(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' })
