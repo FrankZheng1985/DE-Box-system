@@ -37,6 +37,7 @@ interface CarrierInfo {
   contact_name: string
   contact_phone: string
   contact_email: string
+  inquiry_emails: string[] | null
   address: string
   transport_license: string
   license_expiry: string
@@ -307,6 +308,13 @@ export default function CarrierDetail() {
           <InfoRow icon={Phone} label={t('field.contact')} value={carrier.contact_name || '-'} />
           <InfoRow icon={Phone} label={t('field.phone')} value={carrier.contact_phone || '-'} />
           <InfoRow icon={Mail} label={t('master.contactEmail')} value={carrier.contact_email || '-'} />
+          <InfoRow
+            icon={Mail}
+            label={t('master.inquiryEmails')}
+            value={Array.isArray(carrier.inquiry_emails) && carrier.inquiry_emails.length > 0
+              ? carrier.inquiry_emails.join(', ')
+              : '-'}
+          />
           <InfoRow icon={MapPin} label={t('master.address')} value={carrier.address || '-'} />
         </div>
 

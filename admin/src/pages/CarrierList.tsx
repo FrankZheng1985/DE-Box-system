@@ -43,6 +43,8 @@ interface CarrierForm {
   contactName: string
   contactEmail: string
   contactPhone: string
+  /** 询价邮箱，逗号分隔的多个地址（提交时拆成数组） */
+  inquiryEmails: string
   address: string
   serviceCountries: string
   vehicleTypes: string[]
@@ -62,6 +64,7 @@ const INITIAL_FORM: CarrierForm = {
   contactName: '',
   contactEmail: '',
   contactPhone: '',
+  inquiryEmails: '',
   address: '',
   serviceCountries: '',
   vehicleTypes: [],
@@ -221,6 +224,11 @@ export default function CarrierList() {
         contactName: form.contactName.trim(),
         contactEmail: form.contactEmail.trim(),
         contactPhone: form.contactPhone.trim() || undefined,
+        // 询价邮箱：逗号分隔的字符串拆成数组，后端存 JSONB
+        inquiryEmails: form.inquiryEmails
+          .split(/[,;，；]/)
+          .map(s => s.trim())
+          .filter(Boolean),
         address: form.address.trim() || undefined,
         serviceCountries: serviceCountriesArr.length > 0 ? serviceCountriesArr : undefined,
         vehicleTypes: form.vehicleTypes.length > 0 ? form.vehicleTypes : undefined,
@@ -609,6 +617,19 @@ export default function CarrierList() {
               placeholder="+49 xxx xxxx"
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
             />
+          </div>
+
+          {/* 询价邮箱（可多个，逗号分隔） */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('master.inquiryEmails')}</label>
+            <input
+              type="text"
+              value={form.inquiryEmails}
+              onChange={e => updateField('inquiryEmails', e.target.value)}
+              placeholder={t('master.inquiryEmailsPlaceholder')}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+            />
+            <p className="text-xs text-slate-400 mt-1">{t('master.inquiryEmailsHint')}</p>
           </div>
 
           {/* 地址 */}

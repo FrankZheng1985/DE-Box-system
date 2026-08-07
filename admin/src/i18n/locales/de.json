@@ -199,6 +199,12 @@
     "DECLINED": "Abgelehnt",
     "CANCELLED": "Storniert"
   },
+  "carrierInquiryEmailStatus": {
+    "PENDING": "E-Mail eingereiht",
+    "SENDING": "E-Mail wird gesendet",
+    "SENT": "E-Mail gesendet",
+    "FAILED": "E-Mail fehlgeschlagen"
+  },
   "apiError": {
     "sessionExpired": "Ihre Sitzung ist abgelaufen, bitte erneut anmelden",
     "timeout": "Zeitüberschreitung der Anfrage, bitte Netzwerkverbindung prüfen",
@@ -840,7 +846,7 @@
     "costVisibilityHint": "Kostendaten – nur für Rollen mit Frachtführerverwaltung sichtbar",
     "start": "Frachtführer anfragen",
     "startWithCount": "Anfrage senden ({{count}})",
-    "startModalHint": "Hier wird nur der Anfragedatensatz im System angelegt. Die eigentlichen Angaben bitte über „Zusammenfassung kopieren“ oben auf der Seite weitergeben.",
+    "startModalHint": "Das System sendet eine zweisprachige Anfrage-E-Mail (EN/DE) an die hinterlegten Anfrage-Adressen der ausgewählten Dienstleister (ersatzweise an die Kontakt-E-Mail). Ohne Häkchen wird nur der Datensatz angelegt.",
     "emptyTitle": "Zu dieser Anfrage wurden noch keine Frachtführer angefragt.",
     "emptyHint": "Oben rechts starten; sobald Angebote eingehen, lassen sie sich vergleichen und auswählen.",
     "colCarrier": "Frachtführer",
@@ -882,7 +888,18 @@
     "replyFailedRetry": "Frachtführerangebot konnte nicht gespeichert werden",
     "confirmDecline": "{{carrier}} als „kein Angebot“ markieren?",
     "confirmCancel": "Anfrage an {{carrier}} wirklich stornieren?",
-    "confirmDelete": "{{number}} wirklich löschen? Das lässt sich nicht rückgängig machen."
+    "confirmDelete": "{{number}} wirklich löschen? Das lässt sich nicht rückgängig machen.",
+    "sendEmailToggle": "Anfrage-E-Mail mitsenden (EN + DE)",
+    "noInquiryEmail": "Keine Anfrage-E-Mail hinterlegt",
+    "startedCount": "Anfrage an {{count}} Dienstleister gestartet",
+    "skippedSuffix": ", {{count}} bereits laufende übersprungen",
+    "emailQueuedSuffix": ", Anfrage-E-Mails für {{count}} Dienstleister eingereiht",
+    "noEmailCarriers": "Anfrage angelegt, aber keine E-Mail versendet (keine Adresse hinterlegt): {{carriers}}",
+    "sendEmail": "E-Mail senden",
+    "resendEmail": "E-Mail erneut senden",
+    "emailQueuedTo": "Anfrage-E-Mail eingereiht: {{emails}}",
+    "sendEmailFailed": "Anfrage-E-Mail konnte nicht gesendet werden",
+    "emailRecipients": "Empfänger: {{emails}}"
   },
   "quotationDetail": {
     "pageTitle": "Angebotsdetails",
@@ -948,6 +965,9 @@
     "vatNumber": "USt-IdNr.",
     "address": "Adresse",
     "contactEmail": "Kontakt-E-Mail",
+    "inquiryEmails": "Anfrage-E-Mails",
+    "inquiryEmailsPlaceholder": "z. B. quote@carrier.com, dispo@carrier.com",
+    "inquiryEmailsHint": "Mehrere Adressen möglich, durch Komma getrennt. Anfrage-E-Mails gehen an alle; wenn leer, wird die Kontakt-E-Mail verwendet.",
     "contactSection": "Kontaktdaten",
     "allStatus": "Alle Status",
     "statusActive": "Aktiv",

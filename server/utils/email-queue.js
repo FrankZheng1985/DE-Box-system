@@ -15,6 +15,7 @@ import { normalizeLang, renderNotification } from './i18n.js'
 import {
   sendEmail, isConfigured,
   notificationEmail, quotationEmail, paymentReminderEmail,
+  carrierInquiryEmail,
 } from './email-service.js'
 
 /**
@@ -48,6 +49,8 @@ async function langForRecipient(email) {
 const TEMPLATES = {
   QUOTATION_RESPONSE: (row, lang) => quotationEmail(row.email_payload || {}, lang),
   PAYMENT_REMINDER: (row, lang) => paymentReminderEmail(row.email_payload || {}, lang),
+  // 收件方是外部服务商，固定英德双语，不看收件人语言偏好
+  CARRIER_INQUIRY: (row) => carrierInquiryEmail(row.email_payload || {}),
 }
 
 function renderEmail(row, lang) {

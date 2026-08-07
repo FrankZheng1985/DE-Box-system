@@ -29,6 +29,8 @@ interface CarrierFormData {
   contactName: string
   contactEmail: string
   contactPhone: string
+  /** 询价邮箱，逗号分隔的多个地址（提交时拆成数组） */
+  inquiryEmails: string
   address: string
   carrierCategory: string
   carrierType: string
@@ -46,6 +48,7 @@ const INITIAL_FORM: CarrierFormData = {
   contactName: '',
   contactEmail: '',
   contactPhone: '',
+  inquiryEmails: '',
   address: '',
   carrierCategory: 'EXTERNAL',
   carrierType: '',
@@ -106,6 +109,7 @@ export default function CarrierEdit() {
             contactName: d.contact_name || d.contactName || '',
             contactEmail: d.contact_email || d.contactEmail || '',
             contactPhone: d.contact_phone || d.contactPhone || '',
+            inquiryEmails: Array.isArray(d.inquiry_emails) ? d.inquiry_emails.join(', ') : '',
             address: d.address || '',
             carrierCategory: d.carrier_category || d.carrierCategory || 'EXTERNAL',
             // 类型允许为空（未分类），下拉里对应"暂不确定"
@@ -144,7 +148,15 @@ export default function CarrierEdit() {
     setSubmitting(true)
     setError('')
     try {
-      const res = await api.put<ApiResponse<any>>(`/carriers/${id}`, form)
+      // 询价邮箱在表单里是逗号分隔的字符串，后端要数组
+      const payload = {
+        ...form,
+        inquiryEmails: form.inquiryEmails
+          .split(/[,;，；]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }
+      const res = await api.put<ApiResponse<any>>(`/carriers/${id}`, payload)
       if (res.code === 200) {
         setSuccessMsg(t('carrierEdit.updated'))
         setTimeout(() => navigate(`/carriers/${id}`), 1200)
@@ -292,6 +304,17 @@ export default function CarrierEdit() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('field.phone')}</label>
               <input type="text" value={form.contactPhone} onChange={(e) => updateField('contactPhone', e.target.value)} className={inputClass} />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('master.inquiryEmails')}</label>
+              <input
+                type="text"
+                value={form.inquiryEmails}
+                onChange={(e) => updateField('inquiryEmails', e.target.value)}
+                placeholder={t('master.inquiryEmailsPlaceholder')}
+                className={inputClass}
+              />
+              <p className="text-xs text-slate-400 mt-1.5">{t('master.inquiryEmailsHint')}</p>
             </div>
           </div>
         </div>

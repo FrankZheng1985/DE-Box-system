@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Truck, Plus, Loader2, CheckCircle2, Ban, XCircle, Trash2, Pencil, Search,
+  Truck, Plus, Loader2, CheckCircle2, Ban, XCircle, Trash2, Pencil, Search, Mail,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
@@ -22,6 +22,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   CARRIER_INQUIRY_STATUS, carrierInquiryStatusLabelKey,
   CARRIER_INQUIRY_STATUS_STYLES, CARRIER_INQUIRY_PERMISSIONS,
+  carrierInquiryEmailStatusKey, CARRIER_INQUIRY_EMAIL_STATUS_STYLES,
   type CarrierInquiry,
 } from '../constants/carrierInquiry'
 
@@ -33,11 +34,32 @@ interface CarrierOption {
   company_name: string
   country: string | null
   status: string
+  contact_email: string | null
+  inquiry_emails: string[] | null
 }
 
 /** 列表接口比标准响应多一个 summary（最低价标记由后端算） */
 interface CarrierInquiryListResponse extends ApiResponse<CarrierInquiry[]> {
   summary?: { lowest_id: string | null; lowest_cost: number | null }
+}
+
+/** 批量发起接口的 summary（按结构化字段拼提示，不解析后端中文 message —— 踩坑 032） */
+interface BatchSummary {
+  created: number
+  skipped: number
+  email_enabled: boolean
+  email_queued: number
+  no_email_carriers: string[]
+}
+
+interface BatchResponse extends ApiResponse<CarrierInquiry[]> {
+  summary?: BatchSummary
+}
+
+/** 一家服务商实际会收到询价邮件的邮箱（和后端 recipientsForCarrier 同口径） */
+function carrierEmails(c: CarrierOption): string[] {
+  if (Array.isArray(c.inquiry_emails) && c.inquiry_emails.length > 0) return c.inquiry_emails
+  return c.contact_email ? [c.contact_email] : []
 }
 
 interface Props {
@@ -80,6 +102,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
   const [carrierSearch, setCarrierSearch] = useState('')
   const [picked, setPicked] = useState<string[]>([])
   const [requestRemarks, setRequestRemarks] = useState('')
+  const [sendEmails, setSendEmails] = useState(true)
   const [sending, setSending] = useState(false)
 
   // 回价弹窗
@@ -118,6 +141,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
     setSendOpen(true)
     setPicked([])
     setRequestRemarks('')
+    setSendEmails(true)
     setCarrierSearch('')
     try {
       const res = await api.get<ApiResponse<CarrierOption[]>>('/carriers?status=ACTIVE&pageSize=200')
@@ -141,13 +165,27 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
     }
     setSending(true)
     try {
-      const res = await api.post<ApiResponse<CarrierInquiry[]>>('/carrier-inquiries/batch', {
+      const res = await api.post<BatchResponse>('/carrier-inquiries/batch', {
         inquiryId,
         carrierIds: picked,
         requestRemarks: requestRemarks || undefined,
+        sendEmails,
       })
       if (res.code === 200) {
-        onToast(res.message || t('carrierInquiry.started'), 'success')
+        const s = res.summary
+        if (s) {
+          // 有服务商没邮箱时用 error 提醒（记录已建立，但邮件没发出去，不能装作全成功）
+          if (s.email_enabled && s.no_email_carriers.length > 0) {
+            onToast(t('carrierInquiry.noEmailCarriers', { carriers: s.no_email_carriers.join('、') }), 'error')
+          } else {
+            let msg = t('carrierInquiry.startedCount', { count: s.created })
+            if (s.skipped > 0) msg += t('carrierInquiry.skippedSuffix', { count: s.skipped })
+            if (s.email_enabled && s.email_queued > 0) msg += t('carrierInquiry.emailQueuedSuffix', { count: s.email_queued })
+            onToast(msg, 'success')
+          }
+        } else {
+          onToast(res.message || t('carrierInquiry.started'), 'success')
+        }
         setSendOpen(false)
         await fetchRows()
         onChanged?.()
@@ -159,6 +197,28 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
       onToast(t('carrierInquiry.startFailedRetry'), 'error')
     } finally {
       setSending(false)
+    }
+  }
+
+  // ---------- 补发/重发询价邮件 ----------
+
+  const handleSendEmail = async (row: CarrierInquiry) => {
+    setBusyId(row.id)
+    try {
+      const res = await api.post<ApiResponse<{ recipients: string[] }>>(
+        `/carrier-inquiries/${row.id}/send-email`, {}
+      )
+      if (res.code === 200) {
+        onToast(t('carrierInquiry.emailQueuedTo', { emails: (res.data?.recipients || []).join(', ') }), 'success')
+        await fetchRows()
+      } else {
+        onToast(res.message || t('carrierInquiry.sendEmailFailed'), 'error')
+      }
+    } catch (err) {
+      console.error('发送询价邮件失败:', err)
+      onToast(t('carrierInquiry.sendEmailFailed'), 'error')
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -317,7 +377,24 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                       <p className="text-xs font-medium text-slate-900 truncate">{row.carrier_name || '-'}</p>
                       <p className="text-[11px] text-slate-400 truncate">{row.carrier_code || ''}</p>
                     </td>
-                    <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">{row.carrier_inquiry_number}</td>
+                    <td className="text-left px-3 py-2.5">
+                      <p className="text-xs text-slate-600 truncate">{row.carrier_inquiry_number}</p>
+                      {row.email_status && (
+                        <span
+                          className={`inline-block mt-0.5 px-1.5 py-0.5 text-[10px] rounded-full ${
+                            CARRIER_INQUIRY_EMAIL_STATUS_STYLES[row.email_status] || 'bg-gray-100 text-gray-600'
+                          }`}
+                          title={[
+                            (row.email_recipients?.length ?? 0) > 0
+                              ? t('carrierInquiry.emailRecipients', { emails: row.email_recipients!.join(', ') })
+                              : '',
+                            row.email_error || '',
+                          ].filter(Boolean).join('\n')}
+                        >
+                          {t(carrierInquiryEmailStatusKey(row.email_status), { defaultValue: row.email_status })}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-center px-3 py-2.5">
                       <span className={`inline-block px-2 py-0.5 text-[11px] rounded-full ${
                         CARRIER_INQUIRY_STATUS_STYLES[row.status] || 'bg-gray-100 text-gray-600'
@@ -364,6 +441,17 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                             >
                               <Ban className="w-3 h-3" />
                               {t('carrierInquiry.decline')}
+                            </button>
+                          )}
+                          {row.status === CARRIER_INQUIRY_STATUS.PENDING && (
+                            <button
+                              onClick={() => handleSendEmail(row)}
+                              disabled={busyId === row.id}
+                              title={row.email_status ? t('carrierInquiry.resendEmail') : t('carrierInquiry.sendEmail')}
+                              className="h-7 px-2 text-[11px] text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 inline-flex items-center gap-1 transition-all duration-200 ease-in-out"
+                            >
+                              <Mail className="w-3 h-3" />
+                              {row.email_status ? t('carrierInquiry.resendEmail') : t('carrierInquiry.sendEmail')}
                             </button>
                           )}
                           {row.status === CARRIER_INQUIRY_STATUS.PENDING && (
@@ -461,6 +549,7 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
             ) : (
               visibleCarriers.map((c) => {
                 const asked = alreadyAsked.has(c.id)
+                const emails = carrierEmails(c)
                 return (
                   <label
                     key={c.id}
@@ -480,6 +569,19 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
                       <p className="text-xs text-slate-400 truncate">
                         {c.carrier_code}{c.country ? ` · ${c.country}` : ''}
                       </p>
+                      {sendEmails && (
+                        emails.length > 0 ? (
+                          <p className="text-[11px] text-slate-400 truncate flex items-center gap-1">
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{emails.join(', ')}</span>
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            {t('carrierInquiry.noInquiryEmail')}
+                          </p>
+                        )
+                      )}
                     </div>
                     {asked && <span className="text-[11px] text-amber-600 flex-shrink-0">{t('carrierInquiry.alreadyAsked')}</span>}
                   </label>
@@ -498,6 +600,16 @@ export default function CarrierInquiryPanel({ inquiryId, onChanged, onToast }: P
               className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-slate-400 resize-none transition-all duration-200 ease-in-out"
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendEmails}
+              onChange={(e) => setSendEmails(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300"
+            />
+            {t('carrierInquiry.sendEmailToggle')}
+          </label>
         </div>
       </Modal>
 

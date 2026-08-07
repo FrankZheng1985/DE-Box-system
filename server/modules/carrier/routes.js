@@ -50,6 +50,33 @@ const CARRIER_FIELDS = [
 const CARRIER_CATEGORIES = ['EXTERNAL', 'OWN_FLEET']
 const CARRIER_TYPES = ['PLATFORM', 'FLEET', 'INDIVIDUAL']
 
+/** 宽松的邮箱格式检查：挡手误，不追求 RFC 完备 */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * 整理前端传来的询价邮箱数组：去空格、去空项、去重（不分大小写）。
+ * 有格式不对的直接抛错点名，别静默丢掉——运营以为登记上了，实际发不出去。
+ */
+function parseInquiryEmails(value) {
+  if (!Array.isArray(value)) return []
+  const seen = new Set()
+  const emails = []
+  const invalid = []
+  for (const item of value) {
+    const email = String(item || '').trim()
+    if (!email) continue
+    if (!EMAIL_PATTERN.test(email)) { invalid.push(email); continue }
+    const key = email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    emails.push(email)
+  }
+  if (invalid.length > 0) {
+    throw new Error(`参数错误：询价邮箱格式不正确：${invalid.join('、')}`)
+  }
+  return emails
+}
+
 /**
  * 承运商列表
  */
@@ -345,8 +372,8 @@ router.post('/', requirePermission('carrier:create'), async (req, res) => {
           license_expiry, insurance_number, insurance_expiry,
           service_countries, vehicle_types, contact_name, contact_email,
           contact_phone, address, carrier_category, carrier_type, remarks,
-          status, company_code)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+          inquiry_emails, status, company_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
          RETURNING *`,
         [docNumber, req.body.companyName, req.body.vatNumber, req.body.country,
          req.body.transportLicense, req.body.licenseExpiry,
@@ -359,6 +386,7 @@ router.post('/', requirePermission('carrier:create'), async (req, res) => {
          // 类型可以先不填，别硬塞默认值制造假数据
          CARRIER_TYPES.includes(req.body.carrierType) ? req.body.carrierType : null,
          req.body.remarks || null,
+         JSON.stringify(parseInquiryEmails(req.body.inquiryEmails)),
          'ACTIVE', 'DE01']
       )
 
@@ -427,6 +455,11 @@ router.put('/:id', requirePermission('carrier:edit'), async (req, res) => {
       if (req.body.vehicleTypes) {
         params.push(JSON.stringify(req.body.vehicleTypes))
         setClauses.push(`vehicle_types = $${++idx}`)
+      }
+      // 用 !== undefined 判断：传空数组 [] 表示清空询价邮箱，也要落库
+      if (req.body.inquiryEmails !== undefined) {
+        params.push(JSON.stringify(parseInquiryEmails(req.body.inquiryEmails)))
+        setClauses.push(`inquiry_emails = $${++idx}`)
       }
       if (req.body.status) {
         params.push(req.body.status)

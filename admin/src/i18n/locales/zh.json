@@ -199,6 +199,12 @@
     "DECLINED": "不报价",
     "CANCELLED": "已取消"
   },
+  "carrierInquiryEmailStatus": {
+    "PENDING": "邮件待发送",
+    "SENDING": "邮件发送中",
+    "SENT": "邮件已发送",
+    "FAILED": "邮件发送失败"
+  },
   "apiError": {
     "sessionExpired": "登录已过期，请重新登录",
     "timeout": "请求超时，请检查网络连接",
@@ -840,7 +846,7 @@
     "costVisibilityHint": "成本信息，仅服务商管理岗可见",
     "start": "发起服务商询价",
     "startWithCount": "发起询价（{{count}}）",
-    "startModalHint": "这里只在系统内建立询价记录。实际询价内容请用页面上方的「复制摘要」粘给服务商。",
+    "startModalHint": "系统会给所选服务商发送英德双语询价邮件（收件人为其登记的询价邮箱，未登记则用联系邮箱）；不勾选发送则只登记记录。",
     "emptyTitle": "还没有对这张询价发起服务商询价。",
     "emptyHint": "点右上角发起，回价填进来后可以对比选用。",
     "colCarrier": "服务商",
@@ -882,7 +888,18 @@
     "replyFailedRetry": "回填服务商报价失败",
     "confirmDecline": "确定把 {{carrier}} 标记为不报价吗？",
     "confirmCancel": "确定取消对 {{carrier}} 的询价吗？",
-    "confirmDelete": "确定删除 {{number}} 吗？此操作不可撤销。"
+    "confirmDelete": "确定删除 {{number}} 吗？此操作不可撤销。",
+    "sendEmailToggle": "同时发送询价邮件（英德双语）",
+    "noInquiryEmail": "未登记询价邮箱",
+    "startedCount": "已发起 {{count}} 家服务商询价",
+    "skippedSuffix": "，{{count}} 家已在询价中已跳过",
+    "emailQueuedSuffix": "，{{count}} 家的询价邮件已进入发送队列",
+    "noEmailCarriers": "已建立询价记录，但以下服务商未登记邮箱、邮件未发送：{{carriers}}",
+    "sendEmail": "发邮件",
+    "resendEmail": "重发邮件",
+    "emailQueuedTo": "询价邮件已进入发送队列：{{emails}}",
+    "sendEmailFailed": "发送询价邮件失败",
+    "emailRecipients": "收件人：{{emails}}"
   },
   "quotationDetail": {
     "pageTitle": "报价详情",
@@ -948,6 +965,9 @@
     "vatNumber": "VAT 税号",
     "address": "地址",
     "contactEmail": "联系邮箱",
+    "inquiryEmails": "询价邮箱",
+    "inquiryEmailsPlaceholder": "如 quote@carrier.com, dispo@carrier.com",
+    "inquiryEmailsHint": "可填多个，用逗号分隔；发询价邮件时会同时发给所有邮箱，留空则用联系邮箱",
     "contactSection": "联系人信息",
     "allStatus": "全部状态",
     "statusActive": "有效",

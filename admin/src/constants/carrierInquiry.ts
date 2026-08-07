@@ -33,6 +33,19 @@ export const CARRIER_INQUIRY_PERMISSIONS = {
   MANAGE: 'carrier_inquiry:manage',
 } as const
 
+/** 询价邮件发送状态文案的语言包 key（值来自 notifications.email_status） */
+export function carrierInquiryEmailStatusKey(status: string): string {
+  return `carrierInquiryEmailStatus.${status}`
+}
+
+/** 询价邮件发送状态配色（全局规范的状态配色表） */
+export const CARRIER_INQUIRY_EMAIL_STATUS_STYLES: Record<string, string> = {
+  PENDING: 'bg-amber-100 text-amber-700',
+  SENDING: 'bg-blue-100 text-blue-700',
+  SENT: 'bg-green-100 text-green-700',
+  FAILED: 'bg-red-100 text-red-700',
+}
+
 /** 一条服务商询价（字段名和后端返回的 snake_case 保持一致） */
 export interface CarrierInquiry {
   id: string
@@ -56,4 +69,12 @@ export interface CarrierInquiry {
   selected_at: string | null
   created_by_name: string | null
   created_at: string
+  /** 服务商登记的询价邮箱（carriers.inquiry_emails） */
+  carrier_inquiry_emails: string[] | null
+  /** 最近一次询价邮件的收件人，空数组/null = 没发过 */
+  email_recipients: string[] | null
+  /** 邮件发送状态（PENDING/SENDING/SENT/FAILED），null = 没发过 */
+  email_status: string | null
+  email_sent_at: string | null
+  email_error: string | null
 }

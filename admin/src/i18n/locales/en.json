@@ -199,6 +199,12 @@
     "DECLINED": "Declined",
     "CANCELLED": "Cancelled"
   },
+  "carrierInquiryEmailStatus": {
+    "PENDING": "Email queued",
+    "SENDING": "Email sending",
+    "SENT": "Email sent",
+    "FAILED": "Email failed"
+  },
   "apiError": {
     "sessionExpired": "Your session has expired, please log in again",
     "timeout": "Request timed out, please check your network connection",
@@ -840,7 +846,7 @@
     "costVisibilityHint": "Cost data — visible only to carrier management roles",
     "start": "Request carrier quotes",
     "startWithCount": "Send inquiry ({{count}})",
-    "startModalHint": "This only records the inquiry in the system. Send the actual details using \"Copy summary\" at the top of the page.",
+    "startModalHint": "The system sends a bilingual (EN/DE) inquiry email to each selected carrier's registered inquiry addresses (falling back to the contact email). Untick sending to only record the inquiry.",
     "emptyTitle": "No carrier inquiries have been raised for this request yet.",
     "emptyHint": "Start one from the top right; once quotes come back you can compare and pick one.",
     "colCarrier": "Carrier",
@@ -882,7 +888,18 @@
     "replyFailedRetry": "Could not save the carrier quote",
     "confirmDecline": "Mark {{carrier}} as declined?",
     "confirmCancel": "Cancel the inquiry to {{carrier}}?",
-    "confirmDelete": "Delete {{number}}? This cannot be undone."
+    "confirmDelete": "Delete {{number}}? This cannot be undone.",
+    "sendEmailToggle": "Also send inquiry email (EN + DE)",
+    "noInquiryEmail": "No inquiry email on file",
+    "startedCount": "Started inquiries with {{count}} carrier(s)",
+    "skippedSuffix": ", {{count}} already in progress skipped",
+    "emailQueuedSuffix": ", inquiry emails queued for {{count}} carrier(s)",
+    "noEmailCarriers": "Inquiry records created, but no email was sent to carriers without an address: {{carriers}}",
+    "sendEmail": "Send email",
+    "resendEmail": "Resend email",
+    "emailQueuedTo": "Inquiry email queued: {{emails}}",
+    "sendEmailFailed": "Failed to send inquiry email",
+    "emailRecipients": "Recipients: {{emails}}"
   },
   "quotationDetail": {
     "pageTitle": "Quotation details",
@@ -948,6 +965,9 @@
     "vatNumber": "VAT number",
     "address": "Address",
     "contactEmail": "Contact email",
+    "inquiryEmails": "Inquiry emails",
+    "inquiryEmailsPlaceholder": "e.g. quote@carrier.com, dispo@carrier.com",
+    "inquiryEmailsHint": "Multiple addresses allowed, comma-separated. Inquiry emails go to all of them; if empty, the contact email is used.",
     "contactSection": "Contact details",
     "allStatus": "All statuses",
     "statusActive": "Active",

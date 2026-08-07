@@ -216,6 +216,89 @@ export function quotationEmail(p, lang = 'zh') {
 }
 
 /**
+ * 服务商询价邮件（2026-08-07 Frank 定：询价从"只登记"升级为系统直发）
+ *
+ * 收件方是外部欧洲服务商，不走系统的三语偏好，固定英语+德语双语正文，
+ * 谁都能看懂，也不用逐家维护语言设置。所以本模板刻意没有 lang 参数。
+ *
+ * ⚠️ 不放客户信息：询价来自客户订单，但对服务商只报路线和货物，
+ *    客户名/客户价格绝不能出现在这封邮件里。
+ *
+ * @param {object} p
+ * @param {string} p.carrierInquiryNumber 服务商询价单号（CINQ-…，服务商回邮件时引用）
+ * @param {string} [p.carrierName]        服务商公司名（称呼用）
+ * @param {string} [p.route]              路线描述，如 "DE Hamburg → PL Warszawa"
+ * @param {string} [p.serviceEn]          服务类型英文（如 Road freight FTL）
+ * @param {string} [p.serviceDe]          服务类型德文
+ * @param {string} [p.containerType]      柜型
+ * @param {string} [p.pod]                目的港/POD
+ * @param {string} [p.cargoDescription]   货物描述
+ * @param {string} [p.weightKg]           重量（已格式化，含单位）
+ * @param {string} [p.volumeM3]           体积（已格式化，含单位）
+ * @param {string} [p.quantity]           件数
+ * @param {string} [p.specialReqEn]       特殊要求英文
+ * @param {string} [p.specialReqDe]       特殊要求德文
+ * @param {string} [p.requestRemarks]     运营补充要求（原样附上，可能是任意语言）
+ * @returns {{ subject: string, html: string }}
+ */
+export function carrierInquiryEmail(p) {
+  const subject = `Transport Inquiry / Transportanfrage ${p.carrierInquiryNumber}${p.route ? ` – ${p.route}` : ''}`
+
+  // 双语标签放同一行，表格只渲染一遍，比上下两大段重复表格好读
+  const row = (labelEn, labelDe, value) => value
+    ? `<tr><td style="padding:10px 14px;color:#64748b;font-size:13px;border-bottom:1px solid #f1f5f9;white-space:nowrap;">${esc(labelEn)}${labelDe && labelDe !== labelEn ? ` / ${esc(labelDe)}` : ''}</td>
+           <td style="padding:10px 14px;color:#1e293b;font-size:13px;border-bottom:1px solid #f1f5f9;">${esc(value)}</td></tr>`
+    : ''
+
+  const service = [p.serviceEn, p.serviceDe].filter(Boolean).join(' / ')
+  const specialReq = [p.specialReqEn, p.specialReqDe]
+    .filter(Boolean)
+    // 英德文相同（比如库里没维护德文名）就只显示一遍
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .join(' / ')
+
+  const html = emailWrapper('Transport Inquiry / Transportanfrage', `
+    <h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">Request for Quotation / Anfrage</h2>
+    <p style="color:#475569;line-height:1.6;font-size:14px;">
+      Dear ${esc(p.carrierName || 'Partner')} team,<br/>
+      please quote your best rate for the transport below.
+      Simply <strong>reply to this email</strong> with your price, transit time and validity,
+      quoting reference <strong>${esc(p.carrierInquiryNumber)}</strong>.
+    </p>
+    <p style="color:#475569;line-height:1.6;font-size:14px;">
+      Sehr geehrtes Team von ${esc(p.carrierName || 'Partner')},<br/>
+      bitte senden Sie uns Ihr bestes Angebot für den unten stehenden Transport.
+      <strong>Antworten Sie einfach auf diese E-Mail</strong> mit Preis, Laufzeit und Gültigkeit,
+      unter Angabe der Referenz <strong>${esc(p.carrierInquiryNumber)}</strong>.
+    </p>
+
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border-radius:6px;">
+      ${row('Reference', 'Referenz', p.carrierInquiryNumber)}
+      ${row('Route', 'Strecke', p.route)}
+      ${row('Service', 'Leistung', service)}
+      ${row('Container', 'Container', p.containerType)}
+      ${row('POD', 'Bestimmungshafen', p.pod)}
+      ${row('Cargo', 'Ware', p.cargoDescription)}
+      ${row('Weight', 'Gewicht', p.weightKg)}
+      ${row('Volume', 'Volumen', p.volumeM3)}
+      ${row('Quantity', 'Stückzahl', p.quantity)}
+      ${row('Special requirements', 'Besondere Anforderungen', specialReq)}
+      ${row('Remarks', 'Anmerkungen', p.requestRemarks)}
+    </table>
+
+    <p style="color:#475569;font-size:13px;line-height:1.6;">
+      Best regards / Mit freundlichen Grüßen<br/>
+      <strong>KALUNA SPED</strong>
+    </p>
+    <p style="color:#94a3b8;font-size:11px;line-height:1.6;margin-top:16px;">
+      Kaluna UG (haftungsbeschränkt) · Niederbeckstraße 35, 40472 Düsseldorf<br/>
+      Amtsgericht Düsseldorf HRB 108503 · Geschäftsführer: Shunyi Wang
+    </p>
+  `, 'en')
+  return { subject, html }
+}
+
+/**
  * 账单到期 / 逾期提醒邮件（需求 8）
  *
  * @param {object} p
@@ -375,6 +458,7 @@ export default {
   isConfigured,
   notificationEmail,
   quotationEmail,
+  carrierInquiryEmail,
   paymentReminderEmail,
   orderConfirmationEmail,
   statusUpdateEmail,

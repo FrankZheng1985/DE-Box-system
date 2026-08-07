@@ -16,13 +16,14 @@ import { withTransaction, query } from '../../core/db.js'
 import carrierInquiryService, {
   CARRIER_INQUIRY_STATUS, ACTIVE_STATUSES,
 } from './service.js'
+import { queueCarrierInquiryEmail } from './email.js'
 
 const router = Router()
 router.use(authenticateToken)
 // 服务商成本只对运营端开放，客户和承运商账号一律挡在门外
 router.use(requireUserType('OPERATOR'))
 
-/** 列表/详情统一的查询主体，带上服务商名称和客户询价号 */
+/** 列表/详情统一的查询主体，带上服务商名称、客户询价号和询价邮件状态 */
 const BASE_SELECT = `
   SELECT ci.*,
          c.company_name   AS carrier_name,
@@ -30,13 +31,31 @@ const BASE_SELECT = `
          c.contact_name   AS carrier_contact_name,
          c.contact_phone  AS carrier_contact_phone,
          c.contact_email  AS carrier_contact_email,
+         c.inquiry_emails AS carrier_inquiry_emails,
          i.inquiry_number,
          i.business_type,
-         u.display_name   AS created_by_name
+         u.display_name   AS created_by_name,
+         n.email_status,
+         n.email_sent_at,
+         n.email_error
   FROM carrier_inquiries ci
   LEFT JOIN carriers c ON c.id = ci.carrier_id
   LEFT JOIN inquiries i ON i.id = ci.inquiry_id
-  LEFT JOIN users u ON u.id = ci.created_by`
+  LEFT JOIN users u ON u.id = ci.created_by
+  LEFT JOIN notifications n ON n.id = ci.email_notification_id`
+
+/**
+ * 发邮件要用的询价单查询：把特殊要求 code 换成英/德文名
+ * （special_requirements 存的是 md_special_requirements.code，见迁移 120，
+ *   邮件里发 code 给服务商没人看得懂）
+ */
+const INQUIRY_FOR_EMAIL_SQL = `
+  SELECT i.*,
+         md.name_en AS special_req_en,
+         COALESCE(md.name_de, md.name_en) AS special_req_de
+  FROM inquiries i
+  LEFT JOIN md_special_requirements md ON md.code = i.special_requirements
+  WHERE i.id = $1`
 
 /**
  * 服务商询价列表
@@ -82,15 +101,19 @@ router.get('/', requirePermission('carrier_inquiry:view'), async (req, res) => {
 /**
  * 批量发起服务商询价
  * POST /api/v1/carrier-inquiries/batch
- * body: { inquiryId, carrierIds: [], requestRemarks }
+ * body: { inquiryId, carrierIds: [], requestRemarks, sendEmails }
  *
- * 本阶段只在系统内建记录，实际询价内容由运营用询价详情页的「复制摘要」
- * 粘给服务商（Frank 2026-08-02 定：不自动发邮件、服务商也不在门户自助回价）
+ * 2026-08-07 起支持系统直发询价邮件（sendEmails 默认 true）：
+ * 每家服务商发一封英德双语询价邮件，收件人 = 登记的询价邮箱（可多个），
+ * 没登记则回退联系邮箱；一个邮箱都没有的照样建记录，但在 summary 里如实报告。
+ * 邮件走 notifications 队列异步发送，SMTP 慢/挂了不拖住本接口。
  */
 router.post('/batch', requirePermission('carrier_inquiry:manage'), async (req, res) => {
   try {
     const inquiryId = req.body.inquiryId
     const carrierIds = Array.isArray(req.body.carrierIds) ? req.body.carrierIds.filter(Boolean) : []
+    // 显式传 false 才不发邮件；不传（老前端）按发处理
+    const sendEmails = req.body.sendEmails !== false
     if (!inquiryId) {
       return res.status(400).json({ code: 400, message: '缺少询价单 inquiryId', data: null })
     }
@@ -98,10 +121,18 @@ router.post('/batch', requirePermission('carrier_inquiry:manage'), async (req, r
       return res.status(400).json({ code: 400, message: '请至少选择一家服务商', data: null })
     }
 
-    const inquiry = await query(`SELECT id FROM inquiries WHERE id = $1`, [inquiryId])
-    if (inquiry.rows.length === 0) {
+    const inquiryResult = await query(INQUIRY_FOR_EMAIL_SQL, [inquiryId])
+    if (inquiryResult.rows.length === 0) {
       return res.status(404).json({ code: 404, message: '询价单不存在', data: null })
     }
+    const inquiry = inquiryResult.rows[0]
+
+    const carriersResult = await query(
+      `SELECT id, company_name, contact_email, inquiry_emails
+       FROM carriers WHERE id = ANY($1::uuid[])`,
+      [carrierIds]
+    )
+    const carrierById = new Map(carriersResult.rows.map((c) => [c.id, c]))
 
     const created = await withTransaction(async (client) => {
       // 已经在询的服务商不重复发起（同一家可以再询，但必须先取消上一轮）
@@ -113,6 +144,10 @@ router.post('/batch', requirePermission('carrier_inquiry:manage'), async (req, r
       const skip = new Set(existing.rows.map((r) => r.carrier_id))
 
       const rows = []
+      // 建了记录但没能发邮件的服务商（没登记任何邮箱），前端要点名提示
+      const noEmailCarriers = []
+      let emailQueued = 0
+
       for (const carrierId of carrierIds) {
         if (skip.has(carrierId)) continue
         const number = await carrierInquiryService.nextCarrierInquiryNumber(client)
@@ -124,9 +159,23 @@ router.post('/batch', requirePermission('carrier_inquiry:manage'), async (req, r
           [number, inquiryId, carrierId, CARRIER_INQUIRY_STATUS.PENDING,
            req.body.requestRemarks || null, req.user.id]
         )
-        rows.push(result.rows[0])
+        const row = result.rows[0]
+
+        if (sendEmails) {
+          const carrier = carrierById.get(carrierId)
+          const mail = await queueCarrierInquiryEmail(client, {
+            carrierInquiry: row, inquiry, carrier,
+          })
+          if (mail.queued) {
+            emailQueued++
+            row.email_recipients = mail.recipients
+          } else {
+            noEmailCarriers.push(carrier?.company_name || carrierId)
+          }
+        }
+        rows.push(row)
       }
-      return { rows, skipped: skip.size }
+      return { rows, skipped: skip.size, emailQueued, noEmailCarriers }
     })
 
     res.json({
@@ -135,9 +184,71 @@ router.post('/batch', requirePermission('carrier_inquiry:manage'), async (req, r
         ? `已发起 ${created.rows.length} 家，${created.skipped} 家已在询价中已跳过`
         : `已发起 ${created.rows.length} 家服务商询价`,
       data: created.rows,
+      // 前端按这些字段自己拼多语言提示，别去解析上面的中文 message（踩坑 032）
+      summary: {
+        created: created.rows.length,
+        skipped: created.skipped,
+        email_enabled: sendEmails,
+        email_queued: created.emailQueued,
+        no_email_carriers: created.noEmailCarriers,
+      },
     })
   } catch (error) {
     console.error('发起服务商询价失败:', error)
+    res.status(500).json({ code: 500, message: error.message, data: null })
+  }
+})
+
+/**
+ * 补发/重发询价邮件
+ * POST /api/v1/carrier-inquiries/:id/send-email
+ *
+ * 用在三种场合：发起时没勾发邮件、当时没登记邮箱后来补上了、上次发送失败。
+ * 只允许待回价状态——已回价/已选用再发一遍询价只会把服务商搞糊涂。
+ */
+router.post('/:id/send-email', requirePermission('carrier_inquiry:manage'), async (req, res) => {
+  try {
+    const current = await loadOrRespond(req.params.id, res)
+    if (!current) return
+    if (current.status !== CARRIER_INQUIRY_STATUS.PENDING) {
+      return res.status(400).json({ code: 400, message: '只有待回价的询价可以发送询价邮件', data: null })
+    }
+
+    const inquiryResult = await query(INQUIRY_FOR_EMAIL_SQL, [current.inquiry_id])
+    if (inquiryResult.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '询价单不存在', data: null })
+    }
+    const carrierResult = await query(
+      `SELECT id, company_name, contact_email, inquiry_emails FROM carriers WHERE id = $1`,
+      [current.carrier_id]
+    )
+    if (carrierResult.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '服务商不存在', data: null })
+    }
+
+    const mail = await withTransaction((client) =>
+      queueCarrierInquiryEmail(client, {
+        carrierInquiry: current,
+        inquiry: inquiryResult.rows[0],
+        carrier: carrierResult.rows[0],
+      })
+    )
+
+    if (!mail.queued) {
+      return res.status(400).json({
+        code: 400,
+        message: '该服务商没有登记询价邮箱，也没有联系邮箱，请先在服务商资料里补充',
+        data: null,
+      })
+    }
+
+    res.json({
+      code: 200,
+      message: '询价邮件已加入发送队列',
+      data: { recipients: mail.recipients },
+    })
+  } catch (error) {
+    console.error('发送询价邮件失败:', error)
     res.status(500).json({ code: 500, message: error.message, data: null })
   }
 })
