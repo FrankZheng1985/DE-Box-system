@@ -448,6 +448,11 @@ router.put('/:id', requirePermission('carrier:edit'), async (req, res) => {
           newData[snake] = req.body[camel]
         }
       }
+      // 这两个字段前端传的一定是数组，而**空数组 [] 在 JS 里是真值**，
+      // 所以 `if (xxx)` already 能让「取消全部勾选」正常落库（已实测验证）。
+      // 别照搬下面 inquiryEmails 的 `!== undefined` —— 那个字段前端传的是
+      // 逗号字符串，空串 '' 才是假值，情况不同；这里改成 !== undefined 反而会让
+      // 传 null 时把字符串 "null" 写进 jsonb 列。
       if (req.body.serviceCountries) {
         params.push(JSON.stringify(req.body.serviceCountries))
         setClauses.push(`service_countries = $${++idx}`)

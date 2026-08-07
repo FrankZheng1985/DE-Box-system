@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse } from '../utils/api'
+import { useMasterDataOptions } from '../hooks/useMasterDataOptions'
 
 // ==================== 类型定义 ====================
 
@@ -32,6 +33,10 @@ interface CarrierFormData {
   /** 询价邮箱，逗号分隔的多个地址（提交时拆成数组） */
   inquiryEmails: string
   address: string
+  /** 服务国家，逗号分隔（提交时拆成数组）。原来编辑页没有，新增时填了就再也改不了 */
+  serviceCountries: string
+  /** 车型代号数组（迁移 126 起存代号）。同上，原来编辑页缺这个字段 */
+  vehicleTypes: string[]
   carrierCategory: string
   carrierType: string
   remarks: string
@@ -50,6 +55,8 @@ const INITIAL_FORM: CarrierFormData = {
   contactPhone: '',
   inquiryEmails: '',
   address: '',
+  serviceCountries: '',
+  vehicleTypes: [],
   carrierCategory: 'EXTERNAL',
   carrierType: '',
   remarks: '',
@@ -81,6 +88,8 @@ export default function CarrierEdit() {
   const navigate = useNavigate()
 
   const [form, setForm] = useState<CarrierFormData>({ ...INITIAL_FORM })
+  // 车型选项来自基础数据：value 是代号，label 是当前语言的名称
+  const { options: vehicleTypeOptions } = useMasterDataOptions('vehicle-types')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -111,6 +120,11 @@ export default function CarrierEdit() {
             contactPhone: d.contact_phone || d.contactPhone || '',
             inquiryEmails: Array.isArray(d.inquiry_emails) ? d.inquiry_emails.join(', ') : '',
             address: d.address || '',
+            // 两个数组字段：后端存 jsonb 数组，回填时一个拼成逗号串给输入框、
+            // 一个原样给勾选框。**必须用 Array.isArray 兜底**——字段可能是
+            // null 或 '{}'，直接 .join 会崩（踩坑 037：回填读错字段会改坏数据）
+            serviceCountries: Array.isArray(d.service_countries) ? d.service_countries.join(', ') : '',
+            vehicleTypes: Array.isArray(d.vehicle_types) ? d.vehicle_types : [],
             carrierCategory: d.carrier_category || d.carrierCategory || 'EXTERNAL',
             // 类型允许为空（未分类），下拉里对应"暂不确定"
             carrierType: d.carrier_type || d.carrierType || '',
@@ -137,6 +151,16 @@ export default function CarrierEdit() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
+  // 车型勾选：存的是代号，勾一次加、再勾一次去
+  function toggleVehicleType(code: string) {
+    setForm((prev) => ({
+      ...prev,
+      vehicleTypes: prev.vehicleTypes.includes(code)
+        ? prev.vehicleTypes.filter((c) => c !== code)
+        : [...prev.vehicleTypes, code],
+    }))
+  }
+
   // 提交
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -148,13 +172,15 @@ export default function CarrierEdit() {
     setSubmitting(true)
     setError('')
     try {
-      // 询价邮箱在表单里是逗号分隔的字符串，后端要数组
+      // 询价邮箱和服务国家在表单里都是逗号分隔的字符串，后端要数组。
+      // vehicleTypes 本来就是数组，跟着 ...form 原样带过去即可。
+      const splitList = (s: string) =>
+        s.split(/[,;，；]/).map((x) => x.trim()).filter(Boolean)
+
       const payload = {
         ...form,
-        inquiryEmails: form.inquiryEmails
-          .split(/[,;，；]/)
-          .map((s) => s.trim())
-          .filter(Boolean),
+        inquiryEmails: splitList(form.inquiryEmails),
+        serviceCountries: splitList(form.serviceCountries),
       }
       const res = await api.put<ApiResponse<any>>(`/carriers/${id}`, payload)
       if (res.code === 200) {
@@ -286,6 +312,46 @@ export default function CarrierEdit() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.insuranceExpiry')}</label>
               <input type="date" value={form.insuranceExpiry} onChange={(e) => updateField('insuranceExpiry', e.target.value)} className={inputClass} />
             </div>
+          </div>
+        </div>
+
+        {/* 运力信息：车型 + 服务国家。
+            这两个字段原来只在「新增承运商」弹窗里有、编辑页没有，
+            于是建完就再也改不了（SGF / Eurosped 就是这么一直空着的）。 */}
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t('carrier.capacitySection')}</h2>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t('carrier.vehicleTypes')}</label>
+            <div className="flex flex-wrap gap-4">
+              {vehicleTypeOptions.length === 0 ? (
+                <span className="text-sm text-slate-400">{t('carrier.vehicleTypesEmpty')}</span>
+              ) : (
+                vehicleTypeOptions.map((opt) => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      // 存的是代号，显示的是本地化名称（迁移 126 起）
+                      checked={form.vehicleTypes.includes(opt.value)}
+                      onChange={() => toggleVehicleType(opt.value)}
+                    />
+                    <span className="text-sm text-slate-700">{opt.label}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="mt-1.5 text-xs text-slate-400">{t('carrier.vehicleTypesHint')}</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('carrier.serviceCountries')}</label>
+            <input
+              type="text"
+              value={form.serviceCountries}
+              onChange={(e) => updateField('serviceCountries', e.target.value)}
+              placeholder={t('placeholder.serviceCountries')}
+              className={inputClass}
+            />
           </div>
         </div>
 

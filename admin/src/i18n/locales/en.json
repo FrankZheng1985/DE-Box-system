@@ -1207,6 +1207,8 @@
     "vehicleTypes": "Vehicle types",
     "vehicleTypesEmpty": "No vehicle types defined yet — add them under Settings → Master Data first",
     "vehicleTypesUnset": "Not set",
+    "capacitySection": "Capacity",
+    "vehicleTypesHint": "Leave empty if not recorded — the dispatch filter will not exclude this carrier (unknown ≠ incapable)",
     "remarksLabel": "Notes (strengths / weaknesses)",
     "noRemarks": "No notes",
     "remarksPlaceholder": "e.g. competitive on southern Germany lanes but tight capacity in peak season; owner is flexible and can advance customs charges",

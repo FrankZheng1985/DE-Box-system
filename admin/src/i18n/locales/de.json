@@ -1207,6 +1207,8 @@
     "vehicleTypes": "Fahrzeugtypen",
     "vehicleTypesEmpty": "Noch keine Fahrzeugtypen hinterlegt – bitte zuerst unter Einstellungen → Stammdaten anlegen",
     "vehicleTypesUnset": "Nicht hinterlegt",
+    "capacitySection": "Kapazität",
+    "vehicleTypesHint": "Leer lassen, wenn nicht hinterlegt – der Fahrzeugtyp-Filter schließt diesen Frachtführer dann nicht aus (unbekannt ≠ ungeeignet)",
     "remarksLabel": "Notizen (Stärken / Schwächen)",
     "noRemarks": "Keine Notizen",
     "remarksPlaceholder": "z. B. günstig auf Strecken in Süddeutschland, in der Hochsaison aber knappe Kapazität; Inhaber ist flexibel und kann Zollgebühren vorstrecken",
