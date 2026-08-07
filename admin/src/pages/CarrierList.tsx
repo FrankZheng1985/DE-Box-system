@@ -354,6 +354,20 @@ export default function CarrierList() {
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
+            {/* 列宽按百分比固定（UI 规范：table-fixed + colgroup，不在 th 上写死 px）。
+                原来没有 colgroup，9 列平分会把「操作」挤出可视区、逼出横向滚动条。
+                改列数时记得同步这里。 */}
+            <colgroup>
+              <col className="w-[17%]" />{/* 公司名称 */}
+              <col className="w-[11%]" />{/* 分类 / 类型 */}
+              <col className="w-[9%]"  />{/* 国家 */}
+              <col className="w-[11%]" />{/* 评分 */}
+              <col className="w-[6%]"  />{/* 车辆数 */}
+              <col className="w-[12%]" />{/* 服务国家 */}
+              <col className="w-[16%]" />{/* 车辆类型 */}
+              <col className="w-[8%]"  />{/* 状态 */}
+              <col className="w-[10%]" />{/* 操作 */}
+            </colgroup>
             <colgroup>
               <col className="w-[18%]" />
               <col className="w-[14%]" />
