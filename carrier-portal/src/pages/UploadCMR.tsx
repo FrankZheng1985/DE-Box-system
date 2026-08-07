@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText, Upload, CheckCircle, Download } from 'lucide-react'
 import api, { ApiResponse, getAuthHeaders } from '../utils/api'
+import { downloadFile } from '../utils/fileDownload'
 import { useAuth } from '../contexts/AuthContext'
 
 // 与后端 /cmr 列表返回一致（snake_case）
@@ -45,6 +46,20 @@ export default function UploadCMR() {
   // 提示语原来靠 message.includes('成功') 判断成败来上色，
   // 换成英/德文案后这个判断必然失效，所以把成败单独存成布尔值（P9）
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
+  // 正在下载的那条 CMR，用来禁用按钮防止重复点
+  const [downloadingId, setDownloadingId] = useState('')
+
+  const handleDownload = async (cmr: CMRRecord) => {
+    setDownloadingId(cmr.id)
+    try {
+      await downloadFile(`/cmr/${cmr.id}/download`, cmr.cmr_number || 'CMR')
+    } catch (err) {
+      console.error('下载CMR失败:', err)
+      setMessage({ text: err instanceof Error ? err.message : t('common.downloadFailed'), ok: false })
+    } finally {
+      setDownloadingId('')
+    }
+  }
 
   useEffect(() => {
     fetchCMR()
@@ -223,16 +238,16 @@ export default function UploadCMR() {
                       {t(`signStatus.${cmr.sign_status}`, { defaultValue: cmr.sign_status })}
                     </span>
                     {cmr.file_url && (
-                      <a
-                        href={cmr.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50 transition-all duration-200"
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(cmr)}
+                        disabled={downloadingId === cmr.id}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50 transition-all duration-200 disabled:opacity-50"
                         title={t('cmr.viewFile')}
                         aria-label={t('cmr.viewFile')}
                       >
-                        <Download className="w-4 h-4" />
-                      </a>
+                        <Download className={`w-4 h-4 ${downloadingId === cmr.id ? 'animate-pulse' : ''}`} />
+                      </button>
                     )}
                   </div>
                 </div>

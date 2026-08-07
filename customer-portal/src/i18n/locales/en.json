@@ -36,6 +36,8 @@
     "refresh": "Refresh",
     "view": "View",
     "download": "Download",
+    "downloading": "Downloading...",
+    "downloadFailed": "Download failed, please try again",
     "viewAll": "View all",
     "close": "Close",
     "required": "*",

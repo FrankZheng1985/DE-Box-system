@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { FileText, Download, Eye, RefreshCw } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { formatDate } from '../utils/format'
+import { downloadFile, openFileInNewTab } from '../utils/fileDownload'
 
 interface CMRDocument {
   id: string
@@ -34,6 +35,9 @@ export default function CMRFiles() {
   const { t } = useTranslation()
   const [documents, setDocuments] = useState<CMRDocument[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  // 正在下载/预览的那一行 id，用来禁用按钮防止重复点
+  const [busyId, setBusyId] = useState('')
 
   useEffect(() => {
     loadCMR()
@@ -53,6 +57,32 @@ export default function CMRFiles() {
     }
   }
 
+  const handleDownload = async (doc: CMRDocument) => {
+    setError('')
+    setBusyId(doc.id)
+    try {
+      await downloadFile(`/cmr/${doc.id}/download`, doc.cmr_number || 'CMR')
+    } catch (err) {
+      console.error('下载CMR失败:', err)
+      setError(err instanceof Error ? err.message : t('common.downloadFailed'))
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handlePreview = async (doc: CMRDocument) => {
+    setError('')
+    setBusyId(doc.id)
+    try {
+      await openFileInNewTab(`/cmr/${doc.id}/download`)
+    } catch (err) {
+      console.error('预览CMR失败:', err)
+      setError(err instanceof Error ? err.message : t('common.downloadFailed'))
+    } finally {
+      setBusyId('')
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* 操作栏 */}
@@ -62,6 +92,12 @@ export default function CMRFiles() {
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {error && (
+        <div className="px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
+          {error}
+        </div>
+      )}
 
       {/* 列表 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
@@ -130,23 +166,24 @@ export default function CMRFiles() {
                         <div className="flex items-center justify-center gap-1">
                           {doc.file_url && (
                             <>
-                              <a
-                                href={doc.file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                              <button
+                                type="button"
+                                onClick={() => handlePreview(doc)}
+                                disabled={busyId === doc.id}
+                                className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-primary-600 hover:bg-primary-50 rounded transition-colors disabled:opacity-50"
                               >
                                 <Eye className="w-3 h-3" />
                                 {t('common.view')}
-                              </a>
-                              <a
-                                href={doc.file_url}
-                                download
-                                className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-slate-600 hover:bg-gray-100 rounded transition-colors"
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(doc)}
+                                disabled={busyId === doc.id}
+                                className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] text-slate-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                               >
                                 <Download className="w-3 h-3" />
-                                {t('common.download')}
-                              </a>
+                                {busyId === doc.id ? t('common.downloading') : t('common.download')}
+                              </button>
                             </>
                           )}
                           {!doc.file_url && (

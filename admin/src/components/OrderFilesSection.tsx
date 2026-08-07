@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import api, { type ApiResponse, getAuthHeaders } from '../utils/api'
+import { downloadFile, fileDownloadEndpoint } from '../utils/fileDownload'
 import StatusBadge from './StatusBadge'
 import { formatDateTime } from '../utils/format'
 import { BUSINESS_TYPES } from '../constants/businessTypes'
@@ -126,6 +127,22 @@ export default function OrderFilesSection({
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadRemarks, setUploadRemarks] = useState('')
   const [uploading, setUploading] = useState(false)
+
+  // 正在下载的那份文件（source-id），用来转菊花防止重复点
+  const [downloadingKey, setDownloadingKey] = useState('')
+
+  const handleDownload = async (file: OrderFileItem) => {
+    const key = `${file.source}-${file.id}`
+    setDownloadingKey(key)
+    try {
+      await downloadFile(fileDownloadEndpoint(file.source, file.id), file.file_name)
+    } catch (err) {
+      console.error('[OrderFiles] 下载失败:', err)
+      onToast(err instanceof Error ? err.message : t('common.downloadFailed'), 'error')
+    } finally {
+      setDownloadingKey('')
+    }
+  }
 
   const fetchFiles = useCallback(async () => {
     setLoading(true)
@@ -341,15 +358,20 @@ export default function OrderFilesSection({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <a
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(file)}
+                    disabled={downloadingKey === `${file.source}-${file.id}`}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 disabled:opacity-50"
                     title={t('orderFiles.downloadOrView')}
+                    aria-label={t('orderFiles.downloadOrView')}
                   >
-                    <Download className="w-4 h-4" />
-                  </a>
+                    {downloadingKey === `${file.source}-${file.id}` ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                  </button>
                   {canManage && file.source === 'ORDER_FILE' && (
                     <button
                       onClick={() => handleDelete(file)}

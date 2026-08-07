@@ -23,6 +23,7 @@
   "common": {
     "loading": "加载中...",
     "noData": "暂无数据",
+    "downloadFailed": "下载失败，请重试",
     "cancel": "取消",
     "empty": "-",
     "viewAll": "查看全部",

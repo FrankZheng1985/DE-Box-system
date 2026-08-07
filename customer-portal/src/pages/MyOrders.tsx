@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatMoney, formatNumber, formatDate, formatDateTime } from '../utils/format'
 import { BUSINESS_TYPES, getStatusLabel, getStatusStyle } from '../constants/businessTypes'
 import OrderImportModal from '../components/OrderImportModal'
+import { downloadFile, fileDownloadEndpoint } from '../utils/fileDownload'
 
 // 订单文件（与后端 GET /orders/:id/files 统一视图一致）
 interface OrderFileItem {
@@ -74,9 +75,27 @@ export default function MyOrders() {
   const [filesOrder, setFilesOrder] = useState<Order | null>(null)
   const [orderFiles, setOrderFiles] = useState<OrderFileItem[]>([])
   const [filesLoading, setFilesLoading] = useState(false)
+  const [filesError, setFilesError] = useState('')
+  // 正在下载的那份文件（source-id），用来禁用按钮防止重复点
+  const [downloadingKey, setDownloadingKey] = useState('')
+
+  const handleDownloadFile = async (file: OrderFileItem) => {
+    const key = `${file.source}-${file.id}`
+    setFilesError('')
+    setDownloadingKey(key)
+    try {
+      await downloadFile(fileDownloadEndpoint(file.source, file.id), file.file_name)
+    } catch (err) {
+      console.error('下载订单文件失败:', err)
+      setFilesError(err instanceof Error ? err.message : t('common.downloadFailed'))
+    } finally {
+      setDownloadingKey('')
+    }
+  }
 
   const openFilesModal = async (order: Order) => {
     setFilesOrder(order)
+    setFilesError('')
     setFilesLoading(true)
     try {
       const res = await api.get<ApiResponse<OrderFileItem[]>>(`/orders/${order.id}/files`)
@@ -324,6 +343,11 @@ export default function MyOrders() {
               </button>
             </div>
             <div className="p-5 overflow-y-auto">
+              {filesError && (
+                <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg">
+                  {filesError}
+                </div>
+              )}
               {filesLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map((i) => (
@@ -355,15 +379,17 @@ export default function MyOrders() {
                           {formatDateTime(file.uploaded_at)}
                         </p>
                       </div>
-                      <a
-                        href={file.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="shrink-0 inline-flex items-center gap-1 px-2 py-1.5 text-xs text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadFile(file)}
+                        disabled={downloadingKey === `${file.source}-${file.id}`}
+                        className="shrink-0 inline-flex items-center gap-1 px-2 py-1.5 text-xs text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        {t('common.download')}
-                      </a>
+                        {downloadingKey === `${file.source}-${file.id}`
+                          ? t('common.downloading')
+                          : t('common.download')}
+                      </button>
                     </div>
                   ))}
                 </div>

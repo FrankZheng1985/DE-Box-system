@@ -51,6 +51,7 @@
     "delete": "Löschen",
     "view": "Ansehen",
     "download": "Herunterladen",
+    "downloadFailed": "Download fehlgeschlagen, bitte erneut versuchen",
     "upload": "Hochladen",
     "close": "Schließen",
     "back": "Zurück",

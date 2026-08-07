@@ -9,6 +9,7 @@ import { withTransaction, query } from '../../core/db.js'
 import { documentEngine, documentFlow, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import multer from 'multer'
 import { uploadToOSS } from '../../utils/oss-service.js'
+import { sendStoredFile } from '../../utils/file-response.js'
 import fs from 'fs'
 import path from 'path'
 
@@ -117,21 +118,89 @@ router.get('/stats', requireUserType('OPERATOR'), requirePermission('cmr:view'),
   }
 })
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * 按 id 取 CMR，并校验当前登录方有没有权限碰它
+ *
+ * 列表接口是按登录身份强制收窄的，但按 id 取的接口不加这道校验，
+ * 客户拿着别家的 CMR id 一样能读到（踩坑 016 / 023 同族）。
+ * 查不到和无权访问都回 404 —— 回 403 等于告诉对方这个 UUID 是有效记录。
+ *
+ * @returns {Promise<object|null>} 无权限/不存在时返回 null 并且已经写过响应
+ */
+async function loadCmrWithAccessCheck(cmrId, user, res) {
+  if (!UUID_RE.test(String(cmrId))) {
+    res.status(404).json({ code: 404, message: 'CMR不存在', data: null })
+    return null
+  }
+
+  const result = await query(
+    `SELECT cmr.*, o.order_number, o.client_id, o.carrier_id, c.company_name as client_name
+     FROM cmr_documents cmr
+     LEFT JOIN orders o ON o.id = cmr.order_id
+     LEFT JOIN clients c ON c.id = o.client_id
+     WHERE cmr.id = $1`, [cmrId])
+
+  if (result.rows.length === 0) {
+    res.status(404).json({ code: 404, message: 'CMR不存在', data: null })
+    return null
+  }
+
+  const cmr = result.rows[0]
+  const userType = user.userType || user.roleCode
+  if (
+    (userType === 'CLIENT' && cmr.client_id !== user.linkedEntityId) ||
+    (userType === 'CARRIER' && cmr.carrier_id !== user.linkedEntityId)
+  ) {
+    res.status(404).json({ code: 404, message: 'CMR不存在', data: null })
+    return null
+  }
+  return cmr
+}
+
 /**
  * CMR 详情
  */
 router.get('/:id', requirePermission('cmr:view', 'portal:file_download', 'carrier_portal:task_view'), async (req, res) => {
   try {
-    const result = await query(
-      `SELECT cmr.*, o.order_number, c.company_name as client_name
-       FROM cmr_documents cmr
-       LEFT JOIN orders o ON o.id = cmr.order_id
-       LEFT JOIN clients c ON c.id = o.client_id
-       WHERE cmr.id = $1`, [req.params.id])
-    if (result.rows.length === 0) return res.status(404).json({ code: 404, message: 'CMR不存在', data: null })
-    res.json({ code: 200, message: 'success', data: result.rows[0] })
+    const cmr = await loadCmrWithAccessCheck(req.params.id, req.user, res)
+    if (!cmr) return
+    // client_id / carrier_id 只是校验用的，别顺手加进对外响应里（踩坑 026）
+    const { client_id: _clientId, carrier_id: _carrierId, ...detail } = cmr
+    res.json({ code: 200, message: 'success', data: detail })
   } catch (error) {
     res.status(500).json({ code: 500, message: '获取CMR详情失败', data: null })
+  }
+})
+
+/**
+ * 下载 CMR 文件
+ * GET /api/v1/cmr/:id/download?inline=1
+ *
+ * ⚠️ 前端不要再拿 file_url 直接下载：那是 http:// 的 OSS 直链，
+ *    在 https 页面上会被浏览器当"不安全下载"拦掉，而且 <a download> 对跨域地址无效。
+ */
+router.get('/:id/download', requirePermission('cmr:view', 'portal:file_download', 'carrier_portal:task_view'), async (req, res) => {
+  try {
+    const cmr = await loadCmrWithAccessCheck(req.params.id, req.user, res)
+    if (!cmr) return
+
+    if (!cmr.file_url) {
+      return res.status(404).json({ code: 404, message: '该 CMR 还没有上传文件', data: null })
+    }
+
+    await sendStoredFile(res, {
+      fileUrl: cmr.file_url,
+      // cmr_documents 表没有 oss_path 列，交给 sendStoredFile 从 file_url 反推
+      fileName: cmr.cmr_number || 'CMR',
+      inline: req.query.inline === '1',
+    })
+  } catch (error) {
+    console.error('下载CMR文件失败:', error)
+    if (!res.headersSent) {
+      res.status(500).json({ code: 500, message: '下载CMR文件失败', data: null })
+    }
   }
 })
 

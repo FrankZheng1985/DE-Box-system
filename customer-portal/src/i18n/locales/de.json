@@ -36,6 +36,8 @@
     "refresh": "Aktualisieren",
     "view": "Ansehen",
     "download": "Herunterladen",
+    "downloading": "Wird heruntergeladen...",
+    "downloadFailed": "Download fehlgeschlagen, bitte erneut versuchen",
     "viewAll": "Alle anzeigen",
     "close": "Schließen",
     "required": "*",

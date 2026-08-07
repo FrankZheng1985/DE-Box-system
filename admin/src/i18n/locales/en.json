@@ -51,6 +51,7 @@
     "delete": "Delete",
     "view": "View",
     "download": "Download",
+    "downloadFailed": "Download failed, please try again",
     "upload": "Upload",
     "close": "Close",
     "back": "Back",

@@ -23,6 +23,7 @@
   "common": {
     "loading": "Wird geladen...",
     "noData": "Keine Daten",
+    "downloadFailed": "Download fehlgeschlagen, bitte erneut versuchen",
     "cancel": "Abbrechen",
     "empty": "-",
     "viewAll": "Alle anzeigen",

@@ -13,6 +13,7 @@ import { getPool, withTransaction } from '../../core/db.js'
 import { notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import { resolveLang, t } from '../../utils/i18n.js'
 import { uploadToOSS, deleteFromOSS } from '../../utils/oss-service.js'
+import { sendStoredFile } from '../../utils/file-response.js'
 import orderController from './controller.js'
 import { orderService, BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
 import importService from './import-service.js'
@@ -240,6 +241,51 @@ router.get('/:id/files', requirePermission(...CAN_VIEW_ORDER, 'portal:file_downl
   } catch (error) {
     console.error('获取订单文件失败:', error)
     res.status(500).json({ code: 500, message: '获取订单文件失败', data: null })
+  }
+})
+
+/**
+ * 下载订单文件（装车图 / 签收凭证 / 其他）
+ * GET /api/v1/orders/files/:fileId/download?inline=1
+ *
+ * ⚠️ 前端不要再拿列表里的 file_url 直接下载：那是 http:// 的 OSS 直链，
+ *    在 https 页面上会被浏览器当"不安全下载"拦掉，而且 <a download> 对跨域地址无效。
+ *    一律走这个接口（同源 + 带 JWT + 后端控制 Content-Disposition）。
+ *
+ * 路径是三段（/files/:fileId/download），不会和 /:id、/:id/files 撞。
+ */
+router.get('/files/:fileId/download', requirePermission(...CAN_VIEW_ORDER, 'portal:file_download'), async (req, res) => {
+  try {
+    // 不是合法 UUID 直接当"不存在"，否则 pg 会因为类型转换失败抛 500
+    if (!UUID_RE.test(String(req.params.fileId))) {
+      return res.status(404).json({ code: 404, message: '文件不存在', data: null })
+    }
+
+    const pool = getPool()
+    const result = await pool.query(
+      `SELECT order_id, file_name, file_url, oss_path FROM order_files WHERE id = $1`,
+      [req.params.fileId]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ code: 404, message: '文件不存在', data: null })
+    }
+    const file = result.rows[0]
+
+    // 租户校验：客户/承运商只能下载自己订单下的文件
+    const order = await loadOrderWithAccessCheck(file.order_id, req.user, res)
+    if (!order) return
+
+    await sendStoredFile(res, {
+      fileUrl: file.file_url,
+      ossPath: file.oss_path,
+      fileName: file.file_name,
+      inline: req.query.inline === '1',
+    })
+  } catch (error) {
+    console.error('下载订单文件失败:', error)
+    if (!res.headersSent) {
+      res.status(500).json({ code: 500, message: '下载订单文件失败', data: null })
+    }
   }
 })
 

@@ -23,6 +23,7 @@
   "common": {
     "loading": "Loading...",
     "noData": "No data",
+    "downloadFailed": "Download failed, please try again",
     "cancel": "Cancel",
     "empty": "-",
     "viewAll": "View all",
