@@ -261,13 +261,23 @@ ssh eu-tms "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-
 
 ```
 /                → 官网主页 (homepage.html)
-/login, /orders  → 管理端 SPA (admin/dist/index.html)
-/admin/          → 管理端 SPA
+/login, /orders  → 管理端 SPA (admin/dist/index.html)，管理端就在【根路径】
+/admin/*         → 301 到去掉 /admin 前缀的根路径版本（/admin/ → /dashboard）
 /customer/       → 客户门户 SPA
 /carrier/        → 承运商门户 SPA
 /api/*           → 后端 API (proxy to :3002)
 /uploads/*       → 后端静态文件
 ```
+
+> **管理端没有 `/admin` 前缀**：`admin/vite.config.ts` 是 `base:'/'`，`App.tsx` 的路由
+> 也全是 `/dashboard`、`/orders` 这类无前缀路径，React Router 没设 basename。
+> 历史上 nginx 给 `/admin/` 挂过 alias 返回同一份 index.html，结果 SPA 能加载、
+> 侧边栏和登录态全正常，但前端路由匹配不到任何一条，内容区显示「页面不存在」——
+> 2026-08-07 已改成 301。**别再给管理端加 `/admin` 前缀的 location**，
+> 要加就得同时改 vite base + Router basename，三处必须一致（踩坑 007、058）。
+>
+> 配置源文件在 `deploy/nginx-eutms-app.conf`（线上 `/etc/nginx/snippets/eutms-app.conf`
+> 的版本管理副本），**不在 CI 里，改了必须手工 scp 上去**。
 
 ---
 
