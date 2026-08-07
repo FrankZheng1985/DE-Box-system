@@ -18,7 +18,8 @@
     "build:customer": "cd customer-portal && npm run build",
     "check:i18n": "node scripts/check-i18n-keys.js",
     "server:init": "cd server && npm run init-db",
-    "install:all": "npm install && cd admin && npm install && cd ../customer-portal && npm install && cd ../carrier-portal && npm install && cd ../server && npm install"
+    "install:all": "npm install && cd admin && npm install && cd ../customer-portal && npm install && cd ../carrier-portal && npm install && cd ../server && npm install",
+    "next:num": "node scripts/next-numbers.js --fetch"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
