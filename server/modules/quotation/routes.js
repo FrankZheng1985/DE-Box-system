@@ -322,10 +322,11 @@ router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:creat
         }
       }
 
-      // 如果来源于询价，更新询价状态
-      if (req.body.inquiryId) {
-        await client.query(`UPDATE inquiries SET status = 'QUOTED', updated_at = NOW() WHERE id = $1`, [req.body.inquiryId])
-      }
+      // ⚠️ 这里【不能】把询价改成 QUOTED：新建的报价固定是 DRAFT，客户根本看不到
+      //    （踩坑 054 已把草稿从客户的接口里挡掉）。一建草稿就标"已报价"，
+      //    客户门户会显示「已报价」但报价时效列是横杠——时效只认非草稿报价，
+      //    运营也以为这单已经回过价了。询价状态改成 QUOTED 放在真正发送时
+      //    （POST /:id/send）—— 踩坑 056
 
       return result.rows[0]
     })
@@ -387,13 +388,25 @@ router.post('/:id/send', requireUserType('OPERATOR'), requirePermission('quotati
       const updated = await client.query(
         `UPDATE quotations SET status = $1, updated_at = NOW()
          WHERE id = $2 AND status = $3
-         RETURNING id`,
+         RETURNING id, inquiry_id`,
         [QUOTATION_STATUS.SENT, req.params.id, QUOTATION_STATUS.DRAFT]
       )
       if (updated.rowCount === 0) {
         const current = await client.query(`SELECT status FROM quotations WHERE id = $1`, [req.params.id])
         if (current.rows.length === 0) return { notFound: true }
         return { badStatus: current.rows[0].status }
+      }
+
+      // 客户这时才真正拿到价，询价单在这里才变「已报价」（踩坑 056）。
+      // 只动 PENDING_QUOTE 的单：已 ACCEPTED / REJECTED / CANCELLED 的不能被倒回去
+      // （补发历史报价、发新版本报价都会走到这里）。
+      const inquiryId = updated.rows[0].inquiry_id
+      if (inquiryId) {
+        await client.query(
+          `UPDATE inquiries SET status = 'QUOTED', updated_at = NOW()
+           WHERE id = $1 AND status = 'PENDING_QUOTE'`,
+          [inquiryId]
+        )
       }
 
       // 签发一次性确认 token 并把邮件排进队列（真正发信由 cron 每 2 分钟处理）。
