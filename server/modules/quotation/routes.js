@@ -13,6 +13,10 @@ import quotationService, {
   createOrderFromQuotation,
 } from './service.js'
 import { queueQuotationEmail } from './email.js'
+import { normalizeDateFields } from '../../utils/normalize-date.js'
+
+/** 报价表里的 date 列（踩坑 059：空串进 date 列会让整条语句失败） */
+const DATE_FIELDS = ['validUntil']
 
 const router = Router()
 router.use(authenticateToken)
@@ -260,6 +264,7 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
  */
 router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:create'), async (req, res) => {
   try {
+    normalizeDateFields(req.body, DATE_FIELDS)
     // 成本只有服务商管理岗能带进来；没权限的人即使前端改了请求体也写不进去
     const costAllowed = await canSeeCarrierCost(req)
     const carrierCost = costAllowed ? toNumberOrNull(req.body.carrierCost) : null
@@ -342,6 +347,7 @@ router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:creat
  */
 router.put('/:id', requireUserType('OPERATOR'), requirePermission('quotation:edit'), async (req, res) => {
   try {
+    normalizeDateFields(req.body, DATE_FIELDS)
     await withTransaction(async (client) => {
       const old = await client.query(`SELECT * FROM quotations WHERE id = $1`, [req.params.id])
       if (old.rows.length === 0) throw new Error('报价不存在')
@@ -536,6 +542,9 @@ router.post('/:id/reject', requireUserType('OPERATOR', 'CLIENT'), requirePermiss
  */
 router.post('/:id/new-version', requireUserType('OPERATOR'), requirePermission('quotation:edit'), async (req, res) => {
   try {
+    // 这里下面是 `req.body.validUntil || prev.valid_until`，空串本来就会回退到旧值，
+    // 归一化后是 `null || prev`，行为完全一致；一并兜住只为让入口口径统一。
+    normalizeDateFields(req.body, DATE_FIELDS)
     const newQuo = await withTransaction(async (client) => {
       const old = await client.query(`SELECT * FROM quotations WHERE id = $1`, [req.params.id])
       if (old.rows.length === 0) throw new Error('报价不存在')

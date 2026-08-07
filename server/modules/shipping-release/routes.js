@@ -6,6 +6,10 @@
 import { Router } from 'express'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
+import { normalizeDateFields } from '../../utils/normalize-date.js'
+
+/** 放单表里的 date 列（踩坑 059：空串进 date 列会让整条语句失败） */
+const DATE_FIELDS = ['releaseValidUntil']
 
 const router = Router()
 router.use(authenticateToken)
@@ -95,6 +99,7 @@ router.get('/:orderId', requirePermission('shipping_release:view'), async (req, 
  */
 router.put('/:orderId/status', requirePermission('shipping_release:manage'), async (req, res) => {
   try {
+    normalizeDateFields(req.body, DATE_FIELDS)
     const { releaseStatus, courierService, courierAddress, releaseValidUntil } = req.body
     const validStatuses = ['NOT_REQUIRED', 'ORIGINAL_PENDING', 'ORIGINAL_SENT', 'PENDING_RELEASE', 'RELEASED']
     if (!validStatuses.includes(releaseStatus)) {

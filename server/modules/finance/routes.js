@@ -11,6 +11,13 @@ import { withTransaction, query } from '../../core/db.js'
 import { resolveLang, t } from '../../utils/i18n.js'
 import { getPool } from '../../core/db.js'
 import { documentEngine, accountDetermination, documentFlow } from '../../core/index.js'
+import { normalizeDateFields } from '../../utils/normalize-date.js'
+
+/**
+ * 财务记录里**接收前端输入**的 date 列（踩坑 059：空串进 date 列会让整条语句失败）。
+ * 另一个 date 列 `paid_date` 不在这里——它是收付款时后端用 NOW() 自己写的，前端传不进来。
+ */
+const DATE_FIELDS = ['dueDate']
 
 const router = Router()
 router.use(authenticateToken)
@@ -225,6 +232,7 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
 // === 创建财务记录（应收/应付发票） ===
 router.post('/records', requireUserType('OPERATOR'), requirePermission('finance:create'), async (req, res) => {
   try {
+    normalizeDateFields(req.body, DATE_FIELDS)
     const record = await withTransaction(async (client) => {
       const { type, orderId, amount, currency, dueDate, remarks } = req.body
       let { counterpartyType, counterpartyId } = req.body

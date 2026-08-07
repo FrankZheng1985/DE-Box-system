@@ -9,6 +9,13 @@
 import { documentEngine, creditManager, changeTracker, documentFlow, accountDetermination, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import { getPool } from '../../core/db.js'
 import orderModel, { ORDER_TRACKED_FIELDS } from './model.js'
+import { normalizeDateFields } from '../../utils/normalize-date.js'
+
+/**
+ * 订单里接收前端输入的日期时间列（踩坑 059：空串进 date/timestamp 列会让整条语句失败）。
+ * `eta` 是 timestamp，同样拒收空串，一并兜住。
+ */
+const DATE_FIELDS = ['pickupDate', 'deliveryDate', 'expectedDeliveryDate', 'eta']
 
 /** 信用预警通知发给这些内部角色（P7：刻意不发客户） */
 const CREDIT_ALERT_ROLES = ['finance', 'op_manager', 'sys_admin']
@@ -192,6 +199,8 @@ export const orderService = {
    *        由调用方在最后发一条汇总。200 单逐条发会把每个操作员的通知中心刷爆。
    */
   async createOrder(client, orderData, userId, options = {}) {
+    normalizeDateFields(orderData, DATE_FIELDS)
+
     // 步骤 0：业务类型校验，防止旧值（CURTAIN_SIDE/CONTAINER）或非法值再进库
     if (!Object.values(BUSINESS_TYPES).includes(orderData.businessType)) {
       throw new Error(`无效的业务类型: ${orderData.businessType}，允许值: ${Object.values(BUSINESS_TYPES).join(' / ')}`)
@@ -707,6 +716,8 @@ export const orderService = {
    * 编辑订单（仅允许编辑待审核/已确认状态的订单）
    */
   async editOrder(client, orderId, updateData, userId) {
+    normalizeDateFields(updateData, DATE_FIELDS)
+
     const order = await orderModel.getById(client, orderId)
     if (!order) throw new Error('订单不存在')
 

@@ -7,6 +7,7 @@ import ExcelJS from 'exceljs'
 import { authenticateToken, requireUserType, requirePermission } from '../../middleware/auth.js'
 import { withTransaction, query } from '../../core/db.js'
 import { resolveLang, t } from '../../utils/i18n.js'
+import { normalizeDateFields } from '../../utils/normalize-date.js'
 import { getPool } from '../../core/db.js'
 import { changeTracker, numberRange } from '../../core/index.js'
 
@@ -77,24 +78,8 @@ function parseInquiryEmails(value) {
   return emails
 }
 
-/** 承运商表里的 date 列（对应前端的驼峰字段名） */
+/** 承运商表里的 date 列（对应前端的驼峰字段名，踩坑 059） */
 const DATE_FIELDS = ['licenseExpiry', 'insuranceExpiry']
-
-/**
- * 把请求体里的空日期统一转成 null。
- *
- * `<input type="date">` 留空时提交的是空字符串 ''，直接进 SQL 会让 Postgres 报
- * `invalid input syntax for type date: ""`，**整条保存失败** —— 用户以为只是日期没填，
- * 结果连同一次提交的车型、服务国家也一起没存进去。统一在后端兜住，
- * 前端各页面就不用各自记得转换了。
- */
-function normalizeDateFields(body) {
-  for (const field of DATE_FIELDS) {
-    if (typeof body[field] === 'string' && body[field].trim() === '') {
-      body[field] = null
-    }
-  }
-}
 
 /**
  * 承运商列表
@@ -383,7 +368,7 @@ router.get('/:id', requirePermission('carrier:view'), async (req, res) => {
  */
 router.post('/', requirePermission('carrier:create'), async (req, res) => {
   try {
-    normalizeDateFields(req.body)
+    normalizeDateFields(req.body, DATE_FIELDS)
     const carrier = await withTransaction(async (tx) => {
       const { docNumber } = await numberRange.getNextNumber(tx, 'CAR', 'DE01')
       const result = await tx.query(
@@ -431,7 +416,7 @@ router.post('/', requirePermission('carrier:create'), async (req, res) => {
  */
 router.put('/:id', requirePermission('carrier:edit'), async (req, res) => {
   try {
-    normalizeDateFields(req.body)
+    normalizeDateFields(req.body, DATE_FIELDS)
     await withTransaction(async (tx) => {
       const old = await tx.query(`SELECT * FROM carriers WHERE id = $1`, [req.params.id])
       if (old.rows.length === 0) throw new Error('承运商不存在')
