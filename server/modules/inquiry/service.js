@@ -264,7 +264,11 @@ export function buildSummaryText(inquiry, items = [], lang = 'en') {
   }
 
   lines.push(section('totals'))
-  lines.push(field('totalQuantity', `${inquiry.cargo_quantity ?? '-'} ${t(lang, 'inquirySummary.pieces')}`))
+  // 合计件数的单位跟着语言走：英文标签已经是 "Total pieces"，再跟个 pcs 就重复了，
+  // 所以英文包里这个单位是空串；中文「件数：9 件」、德文「Packstücke: 9 Stk.」照旧
+  const totalQtyUnit = t(lang, 'inquirySummary.totalQuantityUnit')
+  const totalQty = `${inquiry.cargo_quantity ?? '-'}${totalQtyUnit ? ' ' + totalQtyUnit : ''}`
+  lines.push(field('totalQuantity', totalQty))
   lines.push(field('totalWeight', inquiry.cargo_weight_kg !== null && inquiry.cargo_weight_kg !== undefined ? trimNumber(inquiry.cargo_weight_kg) + ' kg' : '-'))
   lines.push(field('totalVolume', inquiry.cargo_volume_m3 !== null && inquiry.cargo_volume_m3 !== undefined ? trimNumber(inquiry.cargo_volume_m3) + ' m³' : '-'))
   lines.push(field('totalLdm', inquiry.ldm !== null && inquiry.ldm !== undefined ? trimNumber(inquiry.ldm) : '-'))

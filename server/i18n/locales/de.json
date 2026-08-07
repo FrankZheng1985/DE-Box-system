@@ -253,6 +253,7 @@
     "notStackable": "nicht stapelbar",
     "totals": "GESAMT",
     "totalQuantity": "Packstücke",
+    "totalQuantityUnit": "Stk.",
     "totalWeight": "Gewicht",
     "totalVolume": "Volumen",
     "totalLdm": "LDM",

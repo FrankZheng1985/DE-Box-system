@@ -253,6 +253,7 @@
     "notStackable": "不可堆叠",
     "totals": "合计",
     "totalQuantity": "件数",
+    "totalQuantityUnit": "件",
     "totalWeight": "实重",
     "totalVolume": "体积",
     "totalLdm": "LDM",
