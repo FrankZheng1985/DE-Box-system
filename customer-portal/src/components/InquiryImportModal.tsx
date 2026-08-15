@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Upload, FileSpreadsheet, Download, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import i18n from '../i18n'
 import { getAuthHeaders } from '../utils/api'
+import { BUSINESS_TYPES, type BusinessType } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
@@ -32,11 +33,26 @@ interface ImportPreviewInquiry {
   duplicateOfExisting: boolean
 }
 
+/** 本地派送预览里每个柜带的一票派送 */
+interface ImportPreviewDrop {
+  subRef: string
+  deliveryAddress: { companyName?: string; country?: string; city?: string }
+  itemCount: number
+  totalQuantity: number
+  totalWeightKg: number
+}
+
 interface ImportPreview {
+  /** 只有本地派送会带这个字段，用它决定预览表格用哪一套列 */
+  businessType?: string
   totalRows: number
   inquiryCount: number
   itemCount: number
-  inquiries: ImportPreviewInquiry[]
+  inquiries: (ImportPreviewInquiry & {
+    containerNo?: string
+    orderCount?: number
+    deliveryOrders?: ImportPreviewDrop[]
+  })[]
   errors: ImportIssue[]
   warnings: ImportIssue[]
 }
@@ -46,6 +62,18 @@ interface Props {
   /** 导入成功后回调，参数是成功导入的询价单张数 */
   onImported: (count: number) => void
 }
+
+/**
+ * 导入前必须先选服务类型（开发意见 #7）
+ *
+ * 三种服务要填的内容差得远，本地派送更是「柜 → 子订单 → 件」三层，
+ * 用同一份模板必然填错。选了类型再下模板，模板和解析都按类型走。
+ */
+const IMPORT_BUSINESS_TYPES = [
+  BUSINESS_TYPES.TRUCK_LTL,
+  BUSINESS_TYPES.TRUCK_FTL,
+  BUSINESS_TYPES.LOCAL_DELIVERY,
+] as const
 
 // ==================== 工具 ====================
 
@@ -86,6 +114,7 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [businessType, setBusinessType] = useState<BusinessType>(BUSINESS_TYPES.TRUCK_LTL)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -96,7 +125,7 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
   const handleDownloadTemplate = async () => {
     setError('')
     try {
-      const res = await fetch('/api/v1/inquiries/import-template', {
+      const res = await fetch(`/api/v1/inquiries/import-template?businessType=${businessType}`, {
         headers: { ...getAuthHeaders(), 'Accept-Language': i18n.language || 'zh' },
       })
       if (!res.ok) throw new Error(t('inquiryImport.templateFailed'))
@@ -131,7 +160,7 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
     setFile(selected)
     setParsing(true)
     try {
-      const { body } = await postFile('/inquiries/import/preview', selected)
+      const { body } = await postFile('/inquiries/import/preview', selected, { businessType })
       // 400 也可能带着完整的错误清单回来，有 data 就照常显示，让客户知道错在哪一行
       if (body?.data) {
         setPreview(body.data as ImportPreview)
@@ -152,7 +181,7 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
     setImporting(true)
     setError('')
     try {
-      const { body } = await postFile('/inquiries/import', file)
+      const { body } = await postFile('/inquiries/import', file, { businessType })
       if (body?.code === 200) {
         onImported(body.data?.count ?? preview.inquiryCount)
       } else {
@@ -169,6 +198,8 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
   }
 
   const canImport = !!preview && preview.errors.length === 0 && preview.inquiryCount > 0 && !importing
+  /** 认后端回的 businessType，不认前端选的——万一两者不一致，以实际解析出来的为准 */
+  const isLocalDeliveryPreview = preview?.businessType === BUSINESS_TYPES.LOCAL_DELIVERY
 
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
@@ -182,9 +213,45 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* 第一步：选服务类型（开发意见 #7）——模板和解析都跟着它走 */}
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5">
+              {t('inquiryImport.chooseService')} {t('common.required')}
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              {IMPORT_BUSINESS_TYPES.map((bt) => (
+                <button
+                  key={bt}
+                  type="button"
+                  onClick={() => {
+                    if (bt === businessType) return
+                    // 换了服务类型，已选的文件和预览就作废了——它们是按上一种类型解析的，
+                    // 留着会让客户以为那份预览还算数
+                    setBusinessType(bt)
+                    setFile(null)
+                    setPreview(null)
+                    setError('')
+                    if (fileInputRef.current) fileInputRef.current.value = ''
+                  }}
+                  className={`h-8 px-3 text-xs rounded-lg border transition-all duration-200 ease-in-out ${
+                    businessType === bt
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 font-medium'
+                      : 'border-gray-200 bg-white text-slate-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {t(`businessType.${bt}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* 说明 + 下载模板 */}
           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl">
-            <p className="text-[11px] text-blue-800 leading-relaxed">{t('inquiryImport.hint')}</p>
+            <p className="text-[11px] text-blue-800 leading-relaxed">
+              {businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+                ? t('inquiryImport.hintLocalDelivery')
+                : t('inquiryImport.hint')}
+            </p>
             <button
               onClick={handleDownloadTemplate}
               className="h-8 px-3 text-xs text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 ease-in-out"
@@ -288,8 +355,67 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
                 </div>
               )}
 
-              {/* 将要生成的询价单 */}
-              {preview.inquiries.length > 0 && (
+              {/* 将要生成的询价单 —— 本地派送是「一个柜一张单」，列的口径不一样，单独一套 */}
+              {preview.inquiries.length > 0 && isLocalDeliveryPreview && (
+                <div className="space-y-3">
+                  {preview.inquiries.map((item, i) => (
+                    <div key={`${item.containerNo}-${i}`} className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-gray-50 border-b border-gray-200">
+                        <span className="text-xs font-medium text-slate-900">{item.containerNo || '-'}</span>
+                        {item.customerRef && (
+                          <span className="text-[11px] text-slate-500">{item.customerRef}</span>
+                        )}
+                        {item.duplicateOfExisting && (
+                          <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 rounded-full">
+                            {t('inquiryImport.duplicateBadge')}
+                          </span>
+                        )}
+                        <span className="ml-auto text-[11px] text-slate-500">
+                          {t('inquiryImport.ldSummary', {
+                            drops: item.orderCount ?? item.deliveryOrders?.length ?? 0,
+                            qty: item.totalQuantity,
+                            weight: item.totalWeightKg.toFixed(2),
+                          })}
+                        </span>
+                      </div>
+                      <table className="w-full table-fixed">
+                        <colgroup>
+                          <col className="w-[22%]" />
+                          <col className="w-[46%]" />
+                          <col className="w-[10%]" />
+                          <col className="w-[10%]" />
+                          <col className="w-[12%]" />
+                        </colgroup>
+                        <thead>
+                          <tr className="text-[11px] text-slate-500 border-b border-gray-100">
+                            <th className="text-left px-2 py-1.5 font-medium">{t('inquiryImport.colSubRef')}</th>
+                            <th className="text-left px-2 py-1.5 font-medium">{t('inquiryImport.colDropTo')}</th>
+                            <th className="text-right px-2 py-1.5 font-medium">{t('inquiryImport.colLines')}</th>
+                            <th className="text-right px-2 py-1.5 font-medium">{t('inquiryImport.colQty')}</th>
+                            <th className="text-right px-2 py-1.5 font-medium">{t('inquiryImport.colWeight')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(item.deliveryOrders || []).map((drop, j) => (
+                            <tr key={`${drop.subRef}-${j}`} className="border-b border-gray-50 last:border-0">
+                              <td className="text-left px-2 py-1.5 text-xs text-slate-900 truncate">{drop.subRef || '-'}</td>
+                              <td className="text-left px-2 py-1.5 text-xs text-slate-600 truncate">
+                                {[drop.deliveryAddress?.companyName, routeText(drop.deliveryAddress)]
+                                  .filter(Boolean).join(' · ')}
+                              </td>
+                              <td className="text-right px-2 py-1.5 text-xs text-slate-600">{drop.itemCount}</td>
+                              <td className="text-right px-2 py-1.5 text-xs text-slate-600">{drop.totalQuantity}</td>
+                              <td className="text-right px-2 py-1.5 text-xs text-slate-600">{drop.totalWeightKg.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {preview.inquiries.length > 0 && !isLocalDeliveryPreview && (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed min-w-[760px]">
                     <colgroup>

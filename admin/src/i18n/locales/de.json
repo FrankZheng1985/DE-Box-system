@@ -822,6 +822,7 @@
     "colUnitWeightKg": "Gewicht/Stück (kg)",
     "colUnitVolumeM3": "Volumen/Stück (m³)",
     "colStackable": "Stapelbar",
+    "piecesUnit": "Stk.",
     "manualAdjusted": "Manuell",
     "manualAdjustedTitle": "Manuell angepasst",
     "manualLdmTitle": "Ankreuzen, um die LDM manuell einzugeben",
@@ -840,6 +841,10 @@
     "deleteConfirm": "Anfrage {{number}} wirklich löschen? Das lässt sich nicht rückgängig machen.",
     "deleted": "Anfrage gelöscht",
     "noCargoItems": "Keine Positionsliste erfasst. Die Summen oben stammen aus den Angaben des Kunden.",
+    "destinationSeeDrops": "Siehe die {{count}} Zustellungen unten",
+    "editLocalDeliveryUnsupported": "Das Bearbeiten von Nahverkehr (Container + Zustellungen) ist noch in Arbeit — bitte den Kunden vorerst im Portal ändern lassen",
+    "deliveryOrdersTitle": "Zustellungen ({{count}})",
+    "dropNo": "Zustellung {{index}}",
     "relatedQuotations": "Verknüpfte Angebote ({{count}})",
     "noQuotations": "Zu dieser Anfrage wurde noch kein Angebot erstellt.",
     "noQuotationsHint": "Oben rechts über „Angebot erstellen“ anlegen."

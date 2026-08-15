@@ -10,6 +10,10 @@ import { useTranslation } from 'react-i18next'
 import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock, MapPin, Truck } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import InquiryImportModal from '../components/InquiryImportModal'
+import LocalDeliveryForm from '../components/LocalDeliveryForm'
+import {
+  type LocalDeliveryFormValue, newLocalDeliveryValue, buildCargoItems, mergeContact,
+} from '../components/inquiryForm'
 import { BUSINESS_TYPES, BUSINESS_TYPE_VALUES, type BusinessType } from '../constants/businessTypes'
 import {
   INQUIRY_STATUS_STYLES,
@@ -131,20 +135,6 @@ function resolveTransportType(businessType: BusinessType, picked: TransportType)
   return picked
 }
 
-/** 联系人并进地址对象；三个都没填就原样返回，不造出一堆空串键 */
-function mergeContact(address: AddressForm, contact: ContactForm) {
-  const name = contact.name.trim()
-  const phone = contact.phone.trim()
-  const email = contact.email.trim()
-  if (!name && !phone && !email) return address
-  return {
-    ...address,
-    ...(name ? { contactName: name } : {}),
-    ...(phone ? { contactPhone: phone } : {}),
-    ...(email ? { contactEmail: email } : {}),
-  }
-}
-
 function routeText(addr: Inquiry['route_from']): string {
   if (!addr) return '-'
   return [addr.country, addr.city].filter(Boolean).join(' ') || '-'
@@ -217,6 +207,8 @@ export default function InquiryList() {
   const [notice, setNotice] = useState('')
   const [form, setForm] = useState(INITIAL_FORM)
   const [rows, setRows] = useState<CargoRow[]>([newRow()])
+  /** 本地派送的三层表单自成一套状态，和上面那套两层的互不干扰 */
+  const [ld, setLd] = useState<LocalDeliveryFormValue>(newLocalDeliveryValue())
   /** 正在确认删除的那张单，null=没有弹确认框 */
   const [deleteTarget, setDeleteTarget] = useState<Inquiry | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -314,6 +306,7 @@ export default function InquiryList() {
   const resetForm = () => {
     setForm(INITIAL_FORM)
     setRows([newRow()])
+    setLd(newLocalDeliveryValue())
     setError('')
   }
 
@@ -351,9 +344,83 @@ export default function InquiryList() {
     }
   }
 
+  const isLocalDelivery = form.businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+
+  /**
+   * 提交本地派送（三层：柜 → 派送子订单 → 件）
+   *
+   * 和两层那条路分开写而不是加一堆 if：两者的必填项、字段名和结构整个不一样，
+   * 混在一个函数里迟早会出现「改了这条忘了那条」。
+   */
+  const submitLocalDelivery = async () => {
+    if (!ld.containerNo.trim()) {
+      setError(t('inquiry.errorContainerNo'))
+      return
+    }
+    if (!ld.pickupAddress.city && !ld.pickupAddress.country) {
+      setError(t('inquiry.errorFrom'))
+      return
+    }
+    // 每一票都要有派送地址；没有货物明细的票会被后端拒，这里先拦一道给出行号
+    for (let i = 0; i < ld.deliveryOrders.length; i++) {
+      const o = ld.deliveryOrders[i]
+      if (!o.address.city && !o.address.country) {
+        setError(t('inquiry.errorDropAddress', { index: i + 1 }))
+        return
+      }
+      if (buildCargoItems(o.rows).length === 0) {
+        setError(t('inquiry.errorDropCargo', { index: i + 1 }))
+        return
+      }
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await api.post<ApiResponse<any>>('/inquiries', {
+        businessType: BUSINESS_TYPES.LOCAL_DELIVERY,
+        // 本地派送没有专车/拼车之分，也没有车型
+        transportType: null,
+        containerNo: ld.containerNo.trim(),
+        customerRef: ld.customerRef.trim() || null,
+        routeFrom: mergeContact(ld.pickupAddress, ld.pickupContact),
+        // 派送地址在各票上，表头的 routeTo 留空
+        routeTo: {},
+        deliveryOrders: ld.deliveryOrders.map((o) => ({
+          customerSubRef: o.customerSubRef.trim() || null,
+          deliveryAddress: {
+            ...mergeContact(o.address, o.contact),
+            ...(o.companyName.trim() ? { companyName: o.companyName.trim() } : {}),
+          },
+          remarks: o.remarks.trim() || null,
+          cargoItems: buildCargoItems(o.rows),
+        })),
+      })
+
+      if (res.code === 200 || res.code === 201) {
+        setShowCreate(false)
+        resetForm()
+        loadInquiries()
+      } else {
+        // 必须有 else 分支显示后端 message，否则失败会被伪装成成功（踩坑 011）
+        setError(res.message || t('inquiry.submitFailed'))
+      }
+    } catch (err) {
+      console.error('创建本地派送询价失败:', err)
+      setError(err instanceof Error ? err.message : t('inquiry.submitFailed'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (isLocalDelivery) {
+      await submitLocalDelivery()
+      return
+    }
+
     if (!form.routeFrom.city && !form.routeFrom.country) {
       setError(t('inquiry.errorFrom'))
       return
@@ -534,18 +601,26 @@ export default function InquiryList() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1">{t('inquiry.customerRef')}</label>
-                  <input
-                    type="text"
-                    value={form.customerRef}
-                    onChange={(e) => setForm((f) => ({ ...f, customerRef: e.target.value }))}
-                    placeholder={t('inquiry.phCustomerRef')}
-                    className={inputClass}
-                  />
-                </div>
+                {/* 本地派送的客户单号在三层表单里跟柜号放一起，这里不重复显示 */}
+                {!isLocalDelivery && (
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">{t('inquiry.customerRef')}</label>
+                    <input
+                      type="text"
+                      value={form.customerRef}
+                      onChange={(e) => setForm((f) => ({ ...f, customerRef: e.target.value }))}
+                      placeholder={t('inquiry.phCustomerRef')}
+                      className={inputClass}
+                    />
+                  </div>
+                )}
               </div>
 
+              {/* 本地派送走「柜 → 派送子订单 → 件」三层，和另外两种服务的表单完全不同（开发意见 #7） */}
+              {isLocalDelivery && <LocalDeliveryForm value={ld} onChange={setLd} />}
+
+              {!isLocalDelivery && (
+                <>
               {/* 专车 / 拼车 + 车型（开发意见 #10）
                   本地派送没有这个概念，整块不显示；卡车运输 FTL 本身就是专车，只让选车型 */}
               {form.businessType !== BUSINESS_TYPES.LOCAL_DELIVERY && (
@@ -731,6 +806,8 @@ export default function InquiryList() {
                   />
                 </div>
               </div>
+                </>
+              )}
             </form>
 
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">

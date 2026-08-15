@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Copy, Tag, Package, MapPin, User, FileText,
+  ArrowLeft, Copy, Tag, Package, PackageOpen, MapPin, User, FileText,
   Loader2, Pencil, Trash2,
 } from 'lucide-react'
 import api, { type ApiResponse } from '../utils/api'
@@ -26,6 +26,23 @@ import {
 } from '../constants/inquiryQuotation'
 
 // ==================== 类型定义 ====================
+
+/** 一票派送（本地派送专用，开发意见 #7） */
+interface DeliveryOrder {
+  id: string
+  line_number: number
+  customer_sub_ref: string | null
+  delivery_address: {
+    companyName?: string; country?: string; zipCode?: string; city?: string; address?: string
+    contactName?: string; contactPhone?: string; contactEmail?: string
+  } | null
+  quantity: number | null
+  weight_kg: string | null
+  volume_m3: string | null
+  ldm: string | null
+  remarks: string | null
+  cargoItems: CargoItem[]
+}
 
 interface CargoItem {
   id: string
@@ -65,6 +82,8 @@ interface InquiryDetailData {
   transport_type: string | null
   /** 车型（车长）代号，只有专车才有值 */
   vehicle_length_code: string | null
+  /** 柜号，只有本地派送有 */
+  container_no: string | null
   /** 取件地址的 JSONB 里还带着发货联系人（contactName / contactPhone / contactEmail） */
   route_from: {
     country?: string; city?: string; zipCode?: string; address?: string
@@ -84,6 +103,8 @@ interface InquiryDetailData {
   status: string
   created_at: string
   cargoItems: CargoItem[]
+  /** 本地派送的派送子订单（柜 → 票 → 件）；其余服务是空数组 */
+  deliveryOrders: DeliveryOrder[]
   quotations: QuotationBrief[]
 }
 
@@ -255,6 +276,12 @@ export default function InquiryDetail() {
 
   const canQuote = data.status === INQUIRY_STATUS.PENDING_QUOTE
   const canEdit = data.status === INQUIRY_STATUS.PENDING_QUOTE
+  /**
+   * 有派送子订单就按三层渲染（开发意见 #7）
+   * 认数据而不认 business_type：万一有单类型是本地派送却还没录子订单，
+   * 按两层渲染至少还能看见东西，反过来会渲染出一片空
+   */
+  const isLocalDelivery = (data.deliveryOrders?.length ?? 0) > 0
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -284,10 +311,15 @@ export default function InquiryDetail() {
             <Copy className="w-4 h-4" />
             {t('inquiry.copySummary')}
           </button>
+          {/* 编辑页目前只会两层结构：拿它打开一张有派送子订单的单，保存时后端会拒
+              （拒是对的，否则子订单会被洗成空壳）。与其让运营填半天再看到报错，
+              不如这里就禁掉并说明原因 —— 三层编辑排在下一批 */}
           {canEdit && (
             <button
               onClick={() => navigate(`/inquiries/${data.id}/edit`)}
-              className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
+              disabled={isLocalDelivery}
+              title={isLocalDelivery ? t('inquiryDetail.editLocalDeliveryUnsupported') : undefined}
+              className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all duration-200 ease-in-out"
             >
               <Pencil className="w-4 h-4" />
               {t('common.edit')}
@@ -349,14 +381,22 @@ export default function InquiryDetail() {
               value={t(`vehicleLength.${data.vehicle_length_code}`, { defaultValue: data.vehicle_length_code })}
             />
           )}
+          {/* 柜号只有本地派送有，运营按它跟码头和仓库对单（开发意见 #7） */}
+          {data.container_no && (
+            <InfoRow label={t('field.containerNo')} value={data.container_no} />
+          )}
           <InfoRow label={t('common.createdAt')} value={formatDateTime(data.created_at)} />
         </Section>
 
-        <Section title={t('section.receiverContact')} icon={User}>
-          <InfoRow label={t('field.name')} value={data.contact_name} />
-          <InfoRow label={t('field.phone')} value={data.contact_phone} />
-          <InfoRow label={t('field.email')} value={data.contact_email} />
-        </Section>
+        {/* 本地派送的收货联系人在每一票上，表头这三个字段永远是空的，
+            显示出来只会是三行「-」，让人以为客户漏填（开发意见 #7） */}
+        {!isLocalDelivery && (
+          <Section title={t('section.receiverContact')} icon={User}>
+            <InfoRow label={t('field.name')} value={data.contact_name} />
+            <InfoRow label={t('field.phone')} value={data.contact_phone} />
+            <InfoRow label={t('field.email')} value={data.contact_email} />
+          </Section>
+        )}
       </div>
 
       {/* 路线 */}
@@ -378,12 +418,108 @@ export default function InquiryDetail() {
           </div>
           <div>
             <p className="text-xs text-slate-400 mb-1">{t('field.destination')}</p>
-            <p className="text-sm text-slate-700 break-words">{addressLines(data.route_to)}</p>
+            {/* 一个柜派往多个地址，没有单一目的地——指到下面的派送明细，别显示一个「-」 */}
+            <p className="text-sm text-slate-700 break-words">
+              {isLocalDelivery
+                ? t('inquiryDetail.destinationSeeDrops', { count: data.deliveryOrders.length })
+                : addressLines(data.route_to)}
+            </p>
           </div>
         </div>
       </Section>
 
-      {/* 按件货物明细 */}
+      {/* 本地派送：柜下的每一票派送各成一块，票内再列自己的件明细（开发意见 #7）。
+          客户填的派送地址和收件人全在这里，不展示等于白填 */}
+      {data.deliveryOrders?.length > 0 && (
+        <Section
+          title={t('inquiryDetail.deliveryOrdersTitle', { count: data.deliveryOrders.length })}
+          icon={PackageOpen}
+          action={
+            <div className="flex items-center gap-4 text-xs text-slate-500">
+              <span>{t('cargo.totalPieces')} <b className="text-slate-900">{data.cargo_quantity ?? '-'}</b></span>
+              <span>{t('cargo.totalWeight')} <b className="text-slate-900">{fmt(data.cargo_weight_kg)}</b> kg</span>
+              <span>LDM <b className="text-slate-900">{fmt(data.ldm)}</b></span>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            {data.deliveryOrders.map((order) => {
+              const addr = order.delivery_address || {}
+              const contact = [addr.contactName, addr.contactPhone, addr.contactEmail].filter(Boolean)
+              return (
+                <div key={order.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-b border-slate-200">
+                    <span className="text-xs font-medium text-slate-900">
+                      {t('inquiryDetail.dropNo', { index: order.line_number })}
+                    </span>
+                    {order.customer_sub_ref && (
+                      <span className="text-[11px] text-slate-500">{order.customer_sub_ref}</span>
+                    )}
+                    <span className="ml-auto text-[11px] text-slate-500">
+                      {order.quantity ?? 0} {t('cargo.piecesUnit')} · {fmt(order.weight_kg)} kg · LDM {fmt(order.ldm)}
+                    </span>
+                  </div>
+
+                  <div className="px-3 py-2 space-y-1 border-b border-slate-100">
+                    <p className="text-xs text-slate-700">
+                      {[addr.companyName, addr.country, addr.zipCode, addr.city, addr.address]
+                        .filter(Boolean).join(' · ') || '-'}
+                    </p>
+                    {contact.length > 0 && (
+                      <p className="text-[11px] text-slate-500">{contact.join(' · ')}</p>
+                    )}
+                    {order.remarks && (
+                      <p className="text-[11px] text-amber-700">{order.remarks}</p>
+                    )}
+                  </div>
+
+                  {order.cargoItems.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full table-fixed min-w-[640px]">
+                        <colgroup>
+                          <col className="w-[16%]" />
+                          <col className="w-[24%]" />
+                          <col className="w-[10%]" />
+                          <col className="w-[20%]" />
+                          <col className="w-[15%]" />
+                          <col className="w-[15%]" />
+                        </colgroup>
+                        <thead>
+                          <tr className="text-[11px] text-slate-500 border-b border-slate-100">
+                            <th className="text-left px-3 py-2 font-medium">{t('cargo.colItemNo')}</th>
+                            <th className="text-left px-3 py-2 font-medium">{t('field.cargoDescription')}</th>
+                            <th className="text-right px-3 py-2 font-medium">{t('cargo.colPieces')}</th>
+                            <th className="text-center px-3 py-2 font-medium">{t('cargo.colDimensions')}</th>
+                            <th className="text-right px-3 py-2 font-medium">{t('cargo.colUnitWeightKg')}</th>
+                            <th className="text-right px-3 py-2 font-medium">LDM</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.cargoItems.map((it) => (
+                            <tr key={it.id} className="border-b border-slate-50 last:border-0">
+                              <td className="text-left px-3 py-2 text-xs text-slate-900 truncate">{it.reference_no || '-'}</td>
+                              <td className="text-left px-3 py-2 text-xs text-slate-600 truncate">{it.description || '-'}</td>
+                              <td className="text-right px-3 py-2 text-xs text-slate-600">{it.quantity}</td>
+                              <td className="text-center px-3 py-2 text-xs text-slate-600">
+                                {[it.length_cm, it.width_cm, it.height_cm].map((v) => (v ? Number(v) : '?')).join('×')}
+                              </td>
+                              <td className="text-right px-3 py-2 text-xs text-slate-600">{fmt(it.unit_weight_kg)}</td>
+                              <td className="text-right px-3 py-2 text-xs text-slate-600">{fmt(it.ldm)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Section>
+      )}
+
+      {/* 按件货物明细（两层结构；本地派送的件明细在上面各票里，这块不显示） */}
+      {data.deliveryOrders?.length === 0 && (
       <Section
         title={t('cargo.itemsTitleWithCount', { count: data.cargoItems.length })}
         icon={Package}
@@ -459,6 +595,7 @@ export default function InquiryDetail() {
           </div>
         )}
       </Section>
+      )}
 
       {/* 服务商询价（需求 5.3，仅服务商管理岗可见） */}
       {canSeeCarrierInquiry && (

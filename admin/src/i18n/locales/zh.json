@@ -822,6 +822,7 @@
     "colUnitWeightKg": "单件实重 (kg)",
     "colUnitVolumeM3": "单件体积 (m³)",
     "colStackable": "可堆叠",
+    "piecesUnit": "件",
     "manualAdjusted": "手改",
     "manualAdjustedTitle": "人工调整过",
     "manualLdmTitle": "勾选后可手工填写 LDM",
@@ -840,6 +841,10 @@
     "deleteConfirm": "确定删除询价单 {{number}} 吗？此操作不可撤销。",
     "deleted": "询价已删除",
     "noCargoItems": "未录入按件明细。表头合计值来自客户填写的总量。",
+    "destinationSeeDrops": "见下方派送明细（{{count}} 票）",
+    "editLocalDeliveryUnsupported": "本地派送（柜 + 派送子订单）的编辑还在开发中，暂时请客户在门户里修改",
+    "deliveryOrdersTitle": "派送明细（{{count}} 票）",
+    "dropNo": "第 {{index}} 票",
     "relatedQuotations": "关联报价（{{count}} 张）",
     "noQuotations": "还没有为这张询价开出报价。",
     "noQuotationsHint": "点右上角「由此报价」创建。"

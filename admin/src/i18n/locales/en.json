@@ -822,6 +822,7 @@
     "colUnitWeightKg": "Weight per piece (kg)",
     "colUnitVolumeM3": "Volume per piece (m³)",
     "colStackable": "Stackable",
+    "piecesUnit": "pcs",
     "manualAdjusted": "Manual",
     "manualAdjustedTitle": "Manually adjusted",
     "manualLdmTitle": "Tick to enter the LDM by hand",
@@ -840,6 +841,10 @@
     "deleteConfirm": "Delete inquiry {{number}}? This cannot be undone.",
     "deleted": "Inquiry deleted",
     "noCargoItems": "No itemised cargo lines. The totals above come from what the client entered.",
+    "destinationSeeDrops": "See the {{count}} deliveries below",
+    "editLocalDeliveryUnsupported": "Editing local delivery (container + deliveries) is still in development — please ask the client to change it in the portal for now",
+    "deliveryOrdersTitle": "Deliveries ({{count}})",
+    "dropNo": "Delivery {{index}}",
     "relatedQuotations": "Linked quotations ({{count}})",
     "noQuotations": "No quotation has been issued for this inquiry yet.",
     "noQuotationsHint": "Use \"Quote from this\" in the top right to create one."
