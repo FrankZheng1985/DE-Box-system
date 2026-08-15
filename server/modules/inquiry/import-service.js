@@ -14,6 +14,10 @@
 import ExcelJS from 'exceljs'
 import { t } from '../../utils/i18n.js'
 import { calcUnitVolumeM3, calcLineLdm, createInquiryRecord } from './service.js'
+import {
+  TRANSPORT_TYPE_ALIASES, TRANSPORT_TYPE_VALUES,
+  VEHICLE_LENGTH_ALIASES, VEHICLE_LENGTH_CODES, normalizeCode,
+} from './constants.js'
 
 /** 单次导入的上限，防止一份几万行的表把内存和事务撑爆 */
 export const MAX_DATA_ROWS = 500
@@ -31,17 +35,26 @@ const VALID_BUSINESS_TYPES = ['TRUCK_LTL', 'TRUCK_FTL', 'LOCAL_DELIVERY']
 export const IMPORT_COLUMNS = [
   { field: 'customerRef', labelKey: 'excel.customerRef', width: 18, scope: 'header', required: true },
   { field: 'businessType', labelKey: 'excel.serviceType', width: 18, scope: 'header', required: true },
+  // 专车/拼车 + 车型（开发意见 #10）：只对卡车派送有意义，本地派送留空
+  { field: 'transportType', labelKey: 'excel.transportType', width: 14, scope: 'header' },
+  { field: 'vehicleLength', labelKey: 'excel.vehicleLength', width: 16, scope: 'header' },
   { field: 'fromCountry', labelKey: 'excel.fromCountry', width: 12, scope: 'header' },
   { field: 'fromZip', labelKey: 'excel.fromZip', width: 12, scope: 'header' },
   { field: 'fromCity', labelKey: 'excel.fromCity', width: 14, scope: 'header' },
   { field: 'fromAddress', labelKey: 'excel.fromAddress', width: 26, scope: 'header' },
+  // 发件人联系方式（开发意见 #8）：跟着取件地址走，落进 route_from
+  { field: 'fromContactName', labelKey: 'excel.senderContactName', width: 14, scope: 'header' },
+  { field: 'fromContactPhone', labelKey: 'excel.senderPhone', width: 18, scope: 'header' },
+  { field: 'fromContactEmail', labelKey: 'excel.senderEmail', width: 24, scope: 'header' },
   { field: 'toCountry', labelKey: 'excel.toCountry', width: 12, scope: 'header' },
   { field: 'toZip', labelKey: 'excel.toZip', width: 12, scope: 'header' },
   { field: 'toCity', labelKey: 'excel.toCity', width: 14, scope: 'header' },
   { field: 'toAddress', labelKey: 'excel.toAddress', width: 26, scope: 'header' },
-  { field: 'contactName', labelKey: 'excel.contactName', width: 14, scope: 'header' },
-  { field: 'contactPhone', labelKey: 'excel.phone', width: 18, scope: 'header' },
-  { field: 'contactEmail', labelKey: 'excel.email', width: 24, scope: 'header' },
+  // 收件人联系方式：原来叫「联系人 / 电话 / 邮箱」，加了发件人一侧后必须点明是收件侧，
+  // 否则两组三列的表头一模一样。旧表头文本在 EXTRA_HEADER_ALIASES 里继续认。
+  { field: 'contactName', labelKey: 'excel.receiverContactName', width: 14, scope: 'header' },
+  { field: 'contactPhone', labelKey: 'excel.receiverPhone', width: 18, scope: 'header' },
+  { field: 'contactEmail', labelKey: 'excel.receiverEmail', width: 24, scope: 'header' },
   { field: 'referenceNo', labelKey: 'excel.itemNo', width: 16, scope: 'item' },
   { field: 'description', labelKey: 'excel.cargoDescription', width: 22, scope: 'item' },
   { field: 'quantity', labelKey: 'excel.quantity', width: 10, scope: 'item', numeric: true },
@@ -71,6 +84,26 @@ const EXTRA_HEADER_ALIASES = {
   收货地址: 'toAddress',
   联系电话: 'contactPhone',
   联系邮箱: 'contactEmail',
+  // 旧模板（只有一组联系人时）的三语表头：客户手上那份表还在用，必须继续认，
+  // 一律按「收件人」落 —— 旧模板里这三列本来就是填的收货联系人
+  联系人: 'contactName',
+  contact: 'contactName',
+  ansprechpartner: 'contactName',
+  电话: 'contactPhone',
+  phone: 'contactPhone',
+  telefon: 'contactPhone',
+  邮箱: 'contactEmail',
+  email: 'contactEmail',
+  发件人: 'fromContactName',
+  发货联系人: 'fromContactName',
+  发货电话: 'fromContactPhone',
+  发货邮箱: 'fromContactEmail',
+  收件人: 'contactName',
+  收货联系人: 'contactName',
+  专车拼车: 'transportType',
+  运输方式: 'transportType',
+  车型: 'vehicleLength',
+  车长: 'vehicleLength',
   货物单号: 'referenceNo',
   件号: 'referenceNo',
   品名: 'description',
@@ -126,14 +159,20 @@ export function buildTemplateWorkbook(lang) {
   // 冻结表头，往下填几十行也看得见列名
   sheet.views = [{ state: 'frozen', ySplit: 1 }]
 
-  // 服务类型列给个下拉，省得客户自己造词
-  const btIndex = IMPORT_COLUMNS.findIndex((c) => c.field === 'businessType') + 1
-  const btLetter = sheet.getColumn(btIndex).letter
-  for (let row = 2; row <= MAX_DATA_ROWS + 1; row++) {
-    sheet.getCell(`${btLetter}${row}`).dataValidation = {
-      type: 'list',
-      allowBlank: true,
-      formulae: [`"${VALID_BUSINESS_TYPES.join(',')}"`],
+  // 枚举列给下拉，省得客户自己造词
+  const dropdowns = [
+    { field: 'businessType', options: VALID_BUSINESS_TYPES },
+    { field: 'transportType', options: TRANSPORT_TYPE_VALUES },
+    { field: 'vehicleLength', options: VEHICLE_LENGTH_CODES },
+  ]
+  for (const { field, options } of dropdowns) {
+    const letter = sheet.getColumn(IMPORT_COLUMNS.findIndex((c) => c.field === field) + 1).letter
+    for (let row = 2; row <= MAX_DATA_ROWS + 1; row++) {
+      sheet.getCell(`${letter}${row}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [`"${options.join(',')}"`],
+      }
     }
   }
 
@@ -155,6 +194,7 @@ function buildGuideSheet(workbook, lang) {
     'excel.importRuleHeaderFirstRow',
     'excel.importRuleRequired',
     'excel.importRuleBusinessType',
+    'excel.importRuleTransportType',
     'excel.importRuleAutoCalc',
     'excel.importRuleLimit',
     'excel.importRulePreview',
@@ -179,8 +219,9 @@ function buildGuideSheet(workbook, lang) {
   }))
   sample.getRow(1).font = { bold: true }
   sample.addRow({
-    customerRef: 'ABC-0001', businessType: 'TRUCK_LTL',
+    customerRef: 'ABC-0001', businessType: 'TRUCK_LTL', transportType: 'LTL',
     fromCountry: 'DE', fromZip: '44532', fromCity: 'Lünen', fromAddress: 'Industriestr. 1',
+    fromContactName: 'Erika Musterfrau', fromContactPhone: '+49 231 7654321', fromContactEmail: 'erika@example.com',
     toCountry: 'ES', toZip: '28001', toCity: 'Madrid', toAddress: 'Calle Mayor 3',
     contactName: 'Max Mustermann', contactPhone: '+49 231 1234567', contactEmail: 'max@example.com',
     referenceNo: 'PKG-001', description: t(lang, 'excel.importExampleGoodsA'),
@@ -191,9 +232,11 @@ function buildGuideSheet(workbook, lang) {
     referenceNo: 'PKG-002', description: t(lang, 'excel.importExampleGoodsB'),
     quantity: 1, lengthCm: 100, widthCm: 60, heightCm: 80, unitWeightKg: 50, remarks: '',
   })
+  // 第三行演示专车：填了 FTL 才轮得到车型列
   sample.addRow({
-    customerRef: 'ABC-0002', businessType: 'TRUCK_FTL',
+    customerRef: 'ABC-0002', businessType: 'TRUCK_FTL', transportType: 'FTL', vehicleLength: 'TRUCK_13_6M',
     fromCountry: 'DE', fromZip: '40472', fromCity: 'Düsseldorf', fromAddress: 'Niederbeckstr. 35',
+    fromContactName: 'Jan Schmidt', fromContactPhone: '+49 211 9876543', fromContactEmail: 'jan@example.com',
     toCountry: 'PL', toZip: '00-001', toCity: 'Warszawa', toAddress: 'ul. Prosta 5',
     contactName: 'Anna Kowalska', contactPhone: '+48 22 1234567', contactEmail: 'anna@example.com',
     referenceNo: 'PLT-01', description: t(lang, 'excel.importExampleGoodsC'),
@@ -301,8 +344,16 @@ export async function analyzeImportFile(buffer, lang) {
     if (group.cargoItems.length === 0) {
       errors.push(rowError(firstRow, lang, 'excel.quantity', 'excel.importErrNoCargo'))
     }
-    if (group.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(group.contactEmail)) {
-      warnings.push(rowError(firstRow, lang, 'excel.email', 'excel.importWarnEmail'))
+    if (group.contactEmail && !isEmailLike(group.contactEmail)) {
+      warnings.push(rowError(firstRow, lang, 'excel.receiverEmail', 'excel.importWarnEmail'))
+    }
+    if (group.fromContactEmail && !isEmailLike(group.fromContactEmail)) {
+      warnings.push(rowError(firstRow, lang, 'excel.senderEmail', 'excel.importWarnEmail'))
+    }
+    // 拼车填了车型 = 客户填串了，车型丢掉但要说一声（落库时同样只在专车下存）
+    if (group.vehicleLength && group.transportType !== 'FTL') {
+      warnings.push(rowError(firstRow, lang, 'excel.vehicleLength', 'excel.importWarnVehicleLengthIgnored'))
+      group.vehicleLength = null
     }
 
     Object.assign(group, summarize(group.cargoItems))
@@ -361,10 +412,12 @@ export async function createInquiriesFromGroups(client, groups, { clientId, crea
       createdBy,
       payload: {
         businessType: group.businessType,
-        // 和门户单张新建保持一致：本地派送没有运输类型，其余按 LTL 落
-        transportType: group.businessType === 'LOCAL_DELIVERY' ? null : 'LTL',
+        transportType: resolveTransportType(group),
+        vehicleLengthCode: group.vehicleLength || null,
         customerRef: group.customerRef,
-        routeFrom: group.routeFrom,
+        // 发件人联系方式并进取件地址 JSONB —— 表里没有发件人联系人列，
+        // 直接当顶层字段传后端根本不接，会静默丢掉（踩坑 047）
+        routeFrom: mergeSenderContact(group),
         routeTo: group.routeTo,
         contactName: group.contactName || null,
         contactPhone: group.contactPhone || null,
@@ -386,12 +439,48 @@ export async function createInquiriesFromGroups(client, groups, { clientId, crea
 
 // ==================== 内部工具 ====================
 
+/**
+ * 一组数据最终落库的运输方式
+ *
+ * 客户填了就用客户的（专车/拼车）；没填时保持老口径：
+ * 本地派送没有运输方式，其余按拼车（LTL）落 —— 这是历史上默认的走法，
+ * 突然改成空会让存量导入流程的下游（服务商询价文案）少一行。
+ */
+function resolveTransportType(group) {
+  if (group.transportType) return group.transportType
+  return group.businessType === 'LOCAL_DELIVERY' ? null : 'LTL'
+}
+
+/** 发件人联系方式并进取件地址；三个都没填就原样返回，不造出一堆空串键 */
+function mergeSenderContact(group) {
+  const name = (group.fromContactName || '').trim()
+  const phone = (group.fromContactPhone || '').trim()
+  const email = (group.fromContactEmail || '').trim()
+  if (!name && !phone && !email) return group.routeFrom
+  return {
+    ...group.routeFrom,
+    ...(name ? { contactName: name } : {}),
+    ...(phone ? { contactPhone: phone } : {}),
+    ...(email ? { contactEmail: email } : {}),
+  }
+}
+
+/** 只做"看着像不像邮箱"的粗校验，用来出警告，不阻断导入 */
+function isEmailLike(text) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)
+}
+
 function createGroup(customerRef, firstRowNumber) {
   return {
     customerRef,
     businessType: null,
+    transportType: null,
+    vehicleLength: null,
     routeFrom: { country: '', zipCode: '', city: '', address: '' },
     routeTo: { country: '', zipCode: '', city: '', address: '' },
+    fromContactName: '',
+    fromContactPhone: '',
+    fromContactEmail: '',
     contactName: '',
     contactPhone: '',
     contactEmail: '',
@@ -430,17 +519,39 @@ function applyHeaderFields(group, raw, rowNumber, lang, warnings) {
     }
   }
 
+  // 专车/拼车 和 车型：认不出来的写法给警告后按"没填"处理，不阻断整张单 ——
+  // 这两列都不是必填，为一个填花了的可选列把 200 行退回去不值当
+  if (!group.transportType) {
+    const code = normalizeCode(raw.transportType, TRANSPORT_TYPE_ALIASES)
+    if (code) {
+      group.transportType = code
+    } else if ((raw.transportType || '').trim()) {
+      warnings.push(rowError(rowNumber, lang, 'excel.transportType', 'excel.importWarnTransportType'))
+    }
+  }
+  if (!group.vehicleLength) {
+    const code = normalizeCode(raw.vehicleLength, VEHICLE_LENGTH_ALIASES)
+    if (code) {
+      group.vehicleLength = code
+    } else if ((raw.vehicleLength || '').trim()) {
+      warnings.push(rowError(rowNumber, lang, 'excel.vehicleLength', 'excel.importWarnVehicleLength'))
+    }
+  }
+
   assign(group.routeFrom, 'country', raw.fromCountry, 'excel.fromCountry')
   assign(group.routeFrom, 'zipCode', raw.fromZip, 'excel.fromZip')
   assign(group.routeFrom, 'city', raw.fromCity, 'excel.fromCity')
   assign(group.routeFrom, 'address', raw.fromAddress, 'excel.fromAddress')
+  assign(group, 'fromContactName', raw.fromContactName, 'excel.senderContactName')
+  assign(group, 'fromContactPhone', raw.fromContactPhone, 'excel.senderPhone')
+  assign(group, 'fromContactEmail', raw.fromContactEmail, 'excel.senderEmail')
   assign(group.routeTo, 'country', raw.toCountry, 'excel.toCountry')
   assign(group.routeTo, 'zipCode', raw.toZip, 'excel.toZip')
   assign(group.routeTo, 'city', raw.toCity, 'excel.toCity')
   assign(group.routeTo, 'address', raw.toAddress, 'excel.toAddress')
-  assign(group, 'contactName', raw.contactName, 'excel.contactName')
-  assign(group, 'contactPhone', raw.contactPhone, 'excel.phone')
-  assign(group, 'contactEmail', raw.contactEmail, 'excel.email')
+  assign(group, 'contactName', raw.contactName, 'excel.receiverContactName')
+  assign(group, 'contactPhone', raw.contactPhone, 'excel.receiverPhone')
+  assign(group, 'contactEmail', raw.contactEmail, 'excel.receiverEmail')
 }
 
 /**

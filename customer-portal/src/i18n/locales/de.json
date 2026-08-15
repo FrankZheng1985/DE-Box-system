@@ -168,6 +168,15 @@
     "TRUCK_FTL": "LKW-Komplettladung (FTL)",
     "LOCAL_DELIVERY": "Nahverkehr"
   },
+  "vehicleLength": {
+    "TRUCK_4M": "4 m",
+    "TRUCK_6_2M": "6,2 m",
+    "TRUCK_7_2M": "7,2–7,45 m",
+    "TRUCK_7_8M": "7,8–8,2 m",
+    "TRUCK_9M": "9,0–9,6 m",
+    "TRUCK_12M": "12 m",
+    "TRUCK_13_6M": "13,6 m"
+  },
   "gpsStatus": {
     "LOADING": "Beladung",
     "IN_TRANSIT": "Unterwegs",
@@ -301,6 +310,12 @@
     "phCustomerRef": "Referenznummer für den Abgleich",
     "routeFrom": "Versandort",
     "routeTo": "Zielort",
+    "pickupSection": "Abholadresse (Versender)",
+    "deliverySection": "Lieferadresse (Empfänger)",
+    "transportType": "Transportart",
+    "transportTypeFixedHint": "(Komplettladung ist immer ein eigener LKW)",
+    "vehicleLength": "Fahrzeuglänge",
+    "vehicleLengthAny": "Keine Vorgabe (wir disponieren)",
     "contact": "Ansprechpartner",
     "phCountry": "Land (z. B. DE)",
     "phZip": "PLZ",

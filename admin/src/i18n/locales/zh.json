@@ -433,6 +433,15 @@
     "FTL": "整车运输 (FTL)",
     "LTL": "零担运输 (LTL)"
   },
+  "vehicleLength": {
+    "TRUCK_4M": "4 m",
+    "TRUCK_6_2M": "6.2 m",
+    "TRUCK_7_2M": "7.2–7.45 m",
+    "TRUCK_7_8M": "7.8–8.2 m",
+    "TRUCK_9M": "9.0–9.6 m",
+    "TRUCK_12M": "12 m",
+    "TRUCK_13_6M": "13.6 m"
+  },
   "releaseMethod": {
     "TELEX": "电放 (Telex)",
     "ORIGINAL": "正本提单 (Original B/L)"
@@ -473,6 +482,8 @@
     "destinationInfo": "目的地信息",
     "otherInfo": "其他信息",
     "contact": "联系人",
+    "senderContact": "发货联系人",
+    "receiverContact": "收货联系人",
     "additionalNotes": "补充说明",
     "pickupFtl": "提柜地点（选填）"
   },
@@ -503,6 +514,8 @@
     "shippingLine": "船司",
     "specialRequirements": "特殊要求",
     "transportType": "运输类型",
+    "vehicleLength": "车型（车长）",
+    "senderContactName": "发货联系人",
     "volume": "体积",
     "volumeM3": "体积 (m³)",
     "weight": "重量",

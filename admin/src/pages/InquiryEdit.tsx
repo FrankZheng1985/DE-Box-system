@@ -34,6 +34,13 @@ interface AddressForm {
   address: string
 }
 
+/** 一侧的联系人（发货侧存进 route_from 的 JSONB，收货侧走 contact_* 列） */
+interface ContactForm {
+  name: string
+  phone: string
+  email: string
+}
+
 /** 表格里每行都用字符串存，避免受控 number input 在清空时跳成 0 */
 interface CargoItemForm {
   key: string
@@ -55,8 +62,11 @@ interface InquiryForm {
   customerRef: string
   businessType: BusinessType | ''
   transportType: string
+  /** 车型（车长），只有专车（FTL）才有值 */
+  vehicleLengthCode: string
   routeFrom: AddressForm
   routeTo: AddressForm
+  senderContact: ContactForm
   contactName: string
   contactPhone: string
   contactEmail: string
@@ -66,14 +76,17 @@ interface InquiryForm {
 }
 
 const EMPTY_ADDRESS: AddressForm = { country: '', zipCode: '', city: '', address: '' }
+const EMPTY_CONTACT: ContactForm = { name: '', phone: '', email: '' }
 
 const INITIAL_FORM: InquiryForm = {
   clientId: '',
   customerRef: '',
   businessType: '',
   transportType: '',
+  vehicleLengthCode: '',
   routeFrom: { ...EMPTY_ADDRESS },
   routeTo: { ...EMPTY_ADDRESS },
+  senderContact: { ...EMPTY_CONTACT },
   contactName: '',
   contactPhone: '',
   contactEmail: '',
@@ -87,6 +100,38 @@ const TRANSPORT_TYPES = [
   { value: 'FTL', labelKey: 'transportTypeLong.FTL' },
   { value: 'LTL', labelKey: 'transportTypeLong.LTL' },
 ]
+
+/**
+ * 车型（车长）代号，顺序由短到长
+ * 必须和后端 server/modules/inquiry/constants.js 一致，显示名走语言包 vehicleLength.*
+ */
+const VEHICLE_LENGTH_CODES = [
+  'TRUCK_4M', 'TRUCK_6_2M', 'TRUCK_7_2M', 'TRUCK_7_8M', 'TRUCK_9M', 'TRUCK_12M', 'TRUCK_13_6M',
+]
+
+/** 只挑地址那四个字段，把 JSONB 里混着的联系人挡在外面 */
+function pickAddress(raw: any): AddressForm {
+  return {
+    country: raw?.country || '',
+    zipCode: raw?.zipCode || '',
+    city: raw?.city || '',
+    address: raw?.address || '',
+  }
+}
+
+/** 联系人并进地址对象；三个都没填就原样返回，不造出一堆空串键 */
+function mergeContact(address: AddressForm, contact: ContactForm) {
+  const name = contact.name.trim()
+  const phone = contact.phone.trim()
+  const email = contact.email.trim()
+  if (!name && !phone && !email) return address
+  return {
+    ...address,
+    ...(name ? { contactName: name } : {}),
+    ...(phone ? { contactPhone: phone } : {}),
+    ...(email ? { contactEmail: email } : {}),
+  }
+}
 
 let rowSeq = 0
 function newRow(): CargoItemForm {
@@ -233,8 +278,16 @@ export default function InquiryEdit() {
           customerRef: d.customer_ref || '',
           businessType: d.business_type || '',
           transportType: d.transport_type || '',
-          routeFrom: { ...EMPTY_ADDRESS, ...(d.route_from || {}) },
-          routeTo: { ...EMPTY_ADDRESS, ...(d.route_to || {}) },
+          vehicleLengthCode: d.vehicle_length_code || '',
+          // 地址只取四个地址字段：route_from 的 JSONB 里还混着发货联系人，
+          // 整个展开进来会让联系人跟着地址走两遍，保存时互相覆盖（踩坑 037）
+          routeFrom: pickAddress(d.route_from),
+          routeTo: pickAddress(d.route_to),
+          senderContact: {
+            name: d.route_from?.contactName || '',
+            phone: d.route_from?.contactPhone || '',
+            email: d.route_from?.contactEmail || '',
+          },
           contactName: d.contact_name || '',
           contactPhone: d.contact_phone || '',
           contactEmail: d.contact_email || '',
@@ -344,7 +397,11 @@ export default function InquiryEdit() {
         businessType: form.businessType,
         // 本地派送没有整车/零担之分，明确传 null 而不是留空字符串
         transportType: isLocalDelivery ? null : (form.transportType || null),
-        routeFrom: form.routeFrom,
+        // 车型只有专车才有意义；改成拼车时明确传 null 把旧值清掉
+        vehicleLengthCode: !isLocalDelivery && form.transportType === 'FTL'
+          ? (form.vehicleLengthCode || null) : null,
+        // 发货联系人并进取件地址 JSONB（表里没有这几列，当顶层字段传会被静默丢掉 —— 踩坑 047）
+        routeFrom: mergeContact(form.routeFrom, form.senderContact),
         routeTo: form.routeTo,
         contactName: form.contactName.trim() || null,
         contactPhone: form.contactPhone.trim() || null,
@@ -451,11 +508,31 @@ export default function InquiryEdit() {
             <Field label={t('field.transportType')}>
               <select
                 value={form.transportType}
-                onChange={(e) => setForm((f) => ({ ...f, transportType: e.target.value }))}
+                onChange={(e) => setForm((f) => ({
+                  ...f,
+                  transportType: e.target.value,
+                  // 不是专车了就把车型清掉，不留看不见却会被提交的值
+                  vehicleLengthCode: e.target.value === 'FTL' ? f.vehicleLengthCode : '',
+                }))}
                 className={`${inputClass} bg-white`}
               >
                 {TRANSPORT_TYPES.map((opt) => (
                   <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {/* 车型只有专车才用得上（开发意见 #10） */}
+          {!isLocalDelivery && form.transportType === 'FTL' && (
+            <Field label={t('field.vehicleLength')}>
+              <select
+                value={form.vehicleLengthCode}
+                onChange={(e) => setForm((f) => ({ ...f, vehicleLengthCode: e.target.value }))}
+                className={`${inputClass} bg-white`}
+              >
+                <option value="">{t('common.unspecified')}</option>
+                {VEHICLE_LENGTH_CODES.map((code) => (
+                  <option key={code} value={code}>{t(`vehicleLength.${code}`)}</option>
                 ))}
               </select>
             </Field>
@@ -467,14 +544,26 @@ export default function InquiryEdit() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Section title={t('field.origin')} icon={MapPin}>
           <AddressFields value={form.routeFrom} onChange={(v) => setForm((f) => ({ ...f, routeFrom: v }))} />
+          {/* 发货联系人（开发意见 #8）：跟着取件地址放，和下面的收货联系人分开 */}
+          <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field label={t('field.senderContactName')}>
+              <input type="text" value={form.senderContact.name} onChange={(e) => setForm((f) => ({ ...f, senderContact: { ...f.senderContact, name: e.target.value } }))} className={inputClass} />
+            </Field>
+            <Field label={t('field.phone')}>
+              <input type="tel" value={form.senderContact.phone} onChange={(e) => setForm((f) => ({ ...f, senderContact: { ...f.senderContact, phone: e.target.value } }))} className={inputClass} />
+            </Field>
+            <Field label={t('field.email')}>
+              <input type="email" value={form.senderContact.email} onChange={(e) => setForm((f) => ({ ...f, senderContact: { ...f.senderContact, email: e.target.value } }))} className={inputClass} />
+            </Field>
+          </div>
         </Section>
         <Section title={t('field.destination')} icon={MapPin}>
           <AddressFields value={form.routeTo} onChange={(v) => setForm((f) => ({ ...f, routeTo: v }))} />
         </Section>
       </div>
 
-      {/* 联系人 */}
-      <Section title={t('section.contact')} icon={User}>
+      {/* 收货联系人：有了发货侧之后，这一组必须点明是收货侧，否则两组分不清 */}
+      <Section title={t('section.receiverContact')} icon={User}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Field label={t('field.name')}>
             <input type="text" value={form.contactName} onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))} className={inputClass} />

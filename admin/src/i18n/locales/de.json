@@ -433,6 +433,15 @@
     "FTL": "Komplettladung (FTL)",
     "LTL": "Teilladung (LTL)"
   },
+  "vehicleLength": {
+    "TRUCK_4M": "4 m",
+    "TRUCK_6_2M": "6,2 m",
+    "TRUCK_7_2M": "7,2–7,45 m",
+    "TRUCK_7_8M": "7,8–8,2 m",
+    "TRUCK_9M": "9,0–9,6 m",
+    "TRUCK_12M": "12 m",
+    "TRUCK_13_6M": "13,6 m"
+  },
   "releaseMethod": {
     "TELEX": "Telex Release",
     "ORIGINAL": "Original-Konnossement"
@@ -473,6 +482,8 @@
     "destinationInfo": "Zielangaben",
     "otherInfo": "Sonstige Angaben",
     "contact": "Ansprechpartner",
+    "senderContact": "Ansprechpartner Versand",
+    "receiverContact": "Ansprechpartner Empfang",
     "additionalNotes": "Ergänzende Angaben",
     "pickupFtl": "Abholort Container (optional)"
   },
@@ -503,6 +514,8 @@
     "shippingLine": "Reederei",
     "specialRequirements": "Besondere Anforderungen",
     "transportType": "Transportart",
+    "vehicleLength": "Fahrzeuglänge",
+    "senderContactName": "Ansprechpartner Versand",
     "volume": "Volumen",
     "volumeM3": "Volumen (m³)",
     "weight": "Gewicht",

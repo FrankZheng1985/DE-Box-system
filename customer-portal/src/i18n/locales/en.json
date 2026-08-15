@@ -168,6 +168,15 @@
     "TRUCK_FTL": "Truck FTL",
     "LOCAL_DELIVERY": "Local delivery"
   },
+  "vehicleLength": {
+    "TRUCK_4M": "4 m",
+    "TRUCK_6_2M": "6.2 m",
+    "TRUCK_7_2M": "7.2–7.45 m",
+    "TRUCK_7_8M": "7.8–8.2 m",
+    "TRUCK_9M": "9.0–9.6 m",
+    "TRUCK_12M": "12 m",
+    "TRUCK_13_6M": "13.6 m"
+  },
   "gpsStatus": {
     "LOADING": "Loading",
     "IN_TRANSIT": "In transit",
@@ -301,6 +310,12 @@
     "phCustomerRef": "Reference number for reconciliation",
     "routeFrom": "Origin",
     "routeTo": "Destination",
+    "pickupSection": "Pickup address (sender)",
+    "deliverySection": "Delivery address (receiver)",
+    "transportType": "Transport mode",
+    "transportTypeFixedHint": "(full truckload is always dedicated)",
+    "vehicleLength": "Vehicle length",
+    "vehicleLengthAny": "No preference (we arrange it)",
     "contact": "Contact",
     "phCountry": "Country (e.g. DE)",
     "phZip": "Postal code",

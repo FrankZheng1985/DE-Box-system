@@ -15,6 +15,7 @@ import { withTransaction, query } from '../../core/db.js'
 import { resolveLang, normalizeLang, t } from '../../utils/i18n.js'
 import inquiryService from './service.js'
 import importService from './import-service.js'
+import { TRANSPORT_TYPE_VALUES, VEHICLE_LENGTH_CODES } from './constants.js'
 import { CLIENT_HIDDEN_STATUSES } from '../quotation/service.js'
 
 const router = Router()
@@ -342,18 +343,24 @@ router.get('/export', requireUserType('OPERATOR'), requirePermission('inquiry:ex
       { header: t(lang, 'excel.customerRef'), key: 'customer_ref', width: 16 },
       { header: t(lang, 'excel.client'), key: 'client_name', width: 20 },
       { header: t(lang, 'excel.serviceType'), key: 'business_type', width: 14 },
+      { header: t(lang, 'excel.transportType'), key: 'transport_type', width: 12 },
+      { header: t(lang, 'excel.vehicleLength'), key: 'vehicle_length', width: 14 },
       { header: t(lang, 'excel.status'), key: 'status', width: 10 },
       { header: t(lang, 'excel.fromCountry'), key: 'from_country', width: 10 },
       { header: t(lang, 'excel.fromZip'), key: 'from_zip', width: 10 },
       { header: t(lang, 'excel.fromCity'), key: 'from_city', width: 14 },
       { header: t(lang, 'excel.fromAddress'), key: 'from_address', width: 26 },
+      // 发件人联系方式紧跟取件地址，收件人的紧跟派送地址 —— 两侧对称，不混成一组
+      { header: t(lang, 'excel.senderContactName'), key: 'from_contact_name', width: 12 },
+      { header: t(lang, 'excel.senderPhone'), key: 'from_contact_phone', width: 18 },
+      { header: t(lang, 'excel.senderEmail'), key: 'from_contact_email', width: 24 },
       { header: t(lang, 'excel.toCountry'), key: 'to_country', width: 10 },
       { header: t(lang, 'excel.toZip'), key: 'to_zip', width: 10 },
       { header: t(lang, 'excel.toCity'), key: 'to_city', width: 14 },
       { header: t(lang, 'excel.toAddress'), key: 'to_address', width: 26 },
-      { header: t(lang, 'excel.contactName'), key: 'contact_name', width: 12 },
-      { header: t(lang, 'excel.phone'), key: 'contact_phone', width: 18 },
-      { header: t(lang, 'excel.email'), key: 'contact_email', width: 24 },
+      { header: t(lang, 'excel.receiverContactName'), key: 'contact_name', width: 12 },
+      { header: t(lang, 'excel.receiverPhone'), key: 'contact_phone', width: 18 },
+      { header: t(lang, 'excel.receiverEmail'), key: 'contact_email', width: 24 },
       { header: t(lang, 'excel.lineNo'), key: 'line_number', width: 6 },
       { header: t(lang, 'excel.itemNo'), key: 'reference_no', width: 16 },
       { header: t(lang, 'excel.cargoDescription'), key: 'description', width: 20 },
@@ -601,6 +608,10 @@ router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('inqui
         data: null,
       })
     }
+    const enumError = validateTransportEnums(req.body)
+    if (enumError) {
+      return res.status(400).json({ code: 400, message: enumError, data: null })
+    }
 
     // 建单逻辑收在 service 里，和批量导入共用同一条路径（两条 INSERT 迟早写岔）
     const inquiry = await withTransaction(async (client) =>
@@ -636,6 +647,10 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
         data: null,
       })
     }
+    const enumError = validateTransportEnums(req.body)
+    if (enumError) {
+      return res.status(400).json({ code: 400, message: enumError, data: null })
+    }
 
     await withTransaction(async (client) => {
       const map = {
@@ -646,6 +661,7 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
         contactName: 'contact_name', contactPhone: 'contact_phone',
         contactEmail: 'contact_email', customerRef: 'customer_ref',
         pod: 'pod', containerType: 'container_type',
+        vehicleLengthCode: 'vehicle_length_code',
       }
       const setClauses = []
       const params = []
@@ -655,6 +671,13 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
           params.push(req.body[camel])
           setClauses.push(`${snake} = $${++idx}`)
         }
+      }
+      // 改成拼车（或本地派送）时，原来的车型必须一起清掉，
+      // 否则库里会留下「拼车 + 13.6m 专车」这种自相矛盾的数据（建单时同样只在 FTL 下存）
+      if (req.body.transportType !== undefined && req.body.transportType !== 'FTL'
+          && req.body.vehicleLengthCode === undefined) {
+        params.push(null)
+        setClauses.push(`vehicle_length_code = $${++idx}`)
       }
       if (req.body.routeFrom) { params.push(JSON.stringify(req.body.routeFrom)); setClauses.push(`route_from = $${++idx}`) }
       if (req.body.routeTo) { params.push(JSON.stringify(req.body.routeTo)); setClauses.push(`route_to = $${++idx}`) }
@@ -815,6 +838,28 @@ async function loadInquiriesForExport(req, ids) {
   return result.rows
 }
 
+/**
+ * 校验「专车/拼车」和「车型」两个枚举（建单和编辑共用）
+ *
+ * 只校验**显式传了**的字段：编辑接口是增量更新，没传 ≠ 传了空值。
+ * 空串和 null 都当"清空"放行，不然客户想把车型改回"不指定"就改不了。
+ *
+ * @returns {string|null} 错误消息；null 表示通过
+ */
+function validateTransportEnums(body) {
+  if (body.transportType !== undefined && body.transportType !== null && body.transportType !== '') {
+    if (!TRANSPORT_TYPE_VALUES.includes(body.transportType)) {
+      return `无效的运输方式，允许值：${TRANSPORT_TYPE_VALUES.join(' / ')}`
+    }
+  }
+  if (body.vehicleLengthCode !== undefined && body.vehicleLengthCode !== null && body.vehicleLengthCode !== '') {
+    if (!VEHICLE_LENGTH_CODES.includes(body.vehicleLengthCode)) {
+      return `无效的车型，允许值：${VEHICLE_LENGTH_CODES.join(' / ')}`
+    }
+  }
+  return null
+}
+
 function buildExportHeaderCells(inquiry, lang = 'en') {
   const from = inquiryService.parseAddress(inquiry.route_from)
   const to = inquiryService.parseAddress(inquiry.route_to)
@@ -823,11 +868,18 @@ function buildExportHeaderCells(inquiry, lang = 'en') {
     customer_ref: inquiry.customer_ref || '',
     client_name: inquiry.client_name || '',
     business_type: enumLabel('businessType', inquiry.business_type, lang),
+    transport_type: inquiry.transport_type
+      ? enumLabel('transportType', inquiry.transport_type, lang) : '',
+    vehicle_length: inquiry.vehicle_length_code
+      ? enumLabel('vehicleLength', inquiry.vehicle_length_code, lang) : '',
     status: enumLabel('inquiryStatus', inquiry.status, lang),
     from_country: from.country || '',
     from_zip: from.zipCode || '',
     from_city: from.city || '',
     from_address: from.address || '',
+    from_contact_name: from.contactName || '',
+    from_contact_phone: from.contactPhone || '',
+    from_contact_email: from.contactEmail || '',
     to_country: to.country || '',
     to_zip: to.zipCode || '',
     to_city: to.city || '',

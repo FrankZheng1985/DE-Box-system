@@ -63,7 +63,13 @@ interface InquiryDetailData {
   client_name: string | null
   business_type: string
   transport_type: string | null
-  route_from: { country?: string; city?: string; zipCode?: string; address?: string } | null
+  /** 车型（车长）代号，只有专车才有值 */
+  vehicle_length_code: string | null
+  /** 取件地址的 JSONB 里还带着发货联系人（contactName / contactPhone / contactEmail） */
+  route_from: {
+    country?: string; city?: string; zipCode?: string; address?: string
+    contactName?: string; contactPhone?: string; contactEmail?: string
+  } | null
   route_to: { country?: string; city?: string; zipCode?: string; address?: string } | null
   cargo_description: string | null
   cargo_quantity: number | null
@@ -100,6 +106,12 @@ function fmtMoney(value: string | number | null, currency = 'EUR'): string {
 function addressLines(addr: InquiryDetailData['route_from']): string {
   if (!addr) return '-'
   return [addr.country, addr.zipCode, addr.city, addr.address].filter(Boolean).join(' · ') || '-'
+}
+
+/** 取件地址里带的发货联系人，一个都没填就返回空数组（整块不显示） */
+function senderContactLines(addr: InquiryDetailData['route_from']): string[] {
+  if (!addr) return []
+  return [addr.contactName, addr.contactPhone, addr.contactEmail].filter(Boolean) as string[]
 }
 
 // ==================== 小组件 ====================
@@ -330,10 +342,17 @@ export default function InquiryDetail() {
             value={t(businessTypeLabelKey(data.business_type), { defaultValue: data.business_type })}
           />
           <InfoRow label={t('field.transportType')} value={data.transport_type} />
+          {/* 车型只有专车才有值，没有就不占一行 */}
+          {data.vehicle_length_code && (
+            <InfoRow
+              label={t('field.vehicleLength')}
+              value={t(`vehicleLength.${data.vehicle_length_code}`, { defaultValue: data.vehicle_length_code })}
+            />
+          )}
           <InfoRow label={t('common.createdAt')} value={formatDateTime(data.created_at)} />
         </Section>
 
-        <Section title={t('section.contact')} icon={User}>
+        <Section title={t('section.receiverContact')} icon={User}>
           <InfoRow label={t('field.name')} value={data.contact_name} />
           <InfoRow label={t('field.phone')} value={data.contact_phone} />
           <InfoRow label={t('field.email')} value={data.contact_email} />
@@ -346,6 +365,16 @@ export default function InquiryDetail() {
           <div>
             <p className="text-xs text-slate-400 mb-1">{t('field.origin')}</p>
             <p className="text-sm text-slate-700 break-words">{addressLines(data.route_from)}</p>
+            {/* 发货联系人存在取件地址的 JSONB 里（开发意见 #8），
+                不显示的话客户填了运营也看不见，等于白填 */}
+            {senderContactLines(data.route_from).length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-xs text-slate-400 mb-1">{t('section.senderContact')}</p>
+                {senderContactLines(data.route_from).map((line) => (
+                  <p key={line} className="text-sm text-slate-700 break-words">{line}</p>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs text-slate-400 mb-1">{t('field.destination')}</p>

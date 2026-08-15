@@ -168,6 +168,15 @@
     "TRUCK_FTL": "卡车运输 FTL",
     "LOCAL_DELIVERY": "本地派送"
   },
+  "vehicleLength": {
+    "TRUCK_4M": "4 m",
+    "TRUCK_6_2M": "6.2 m",
+    "TRUCK_7_2M": "7.2–7.45 m",
+    "TRUCK_7_8M": "7.8–8.2 m",
+    "TRUCK_9M": "9.0–9.6 m",
+    "TRUCK_12M": "12 m",
+    "TRUCK_13_6M": "13.6 m"
+  },
   "gpsStatus": {
     "LOADING": "装货中",
     "IN_TRANSIT": "运输中",
@@ -289,7 +298,7 @@
     "phPickupRef": "如：APPT-88123"
   },
   "transportType": {
-    "FTL": "整车 (FTL)",
+    "FTL": "专车 (FTL)",
     "LTL": "拼车 (LTL)",
     "FCL": "整箱 (FCL)",
     "LCL": "拼箱 (LCL)"
@@ -301,6 +310,12 @@
     "phCustomerRef": "便于双方对账的参考号",
     "routeFrom": "起运地",
     "routeTo": "目的地",
+    "pickupSection": "取件地址（发货方）",
+    "deliverySection": "派送地址（收货方）",
+    "transportType": "运输方式",
+    "transportTypeFixedHint": "（整车服务固定专车）",
+    "vehicleLength": "车型（车长）",
+    "vehicleLengthAny": "不指定（由我们安排）",
     "contact": "联系人",
     "phCountry": "国家（如 DE）",
     "phZip": "邮编",

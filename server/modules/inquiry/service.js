@@ -102,8 +102,9 @@ export async function createInquiryRecord(client, { clientId, createdBy, payload
       route_from, route_to, cargo_description, cargo_weight_kg,
       cargo_volume_m3, cargo_quantity, special_requirements,
       pod, container_type, remarks, status,
-      contact_name, contact_phone, contact_email, customer_ref)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      contact_name, contact_phone, contact_email, customer_ref,
+      vehicle_length_code)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
      RETURNING *`,
     [doc.id, doc.docNumber, clientId,
      payload.businessType, payload.transportType,
@@ -113,7 +114,9 @@ export async function createInquiryRecord(client, { clientId, createdBy, payload
      payload.specialRequirements, payload.pod, payload.containerType,
      payload.remarks, 'PENDING_QUOTE',
      payload.contactName, payload.contactPhone, payload.contactEmail,
-     payload.customerRef]
+     payload.customerRef,
+     // 车型只在专车下有意义，拼车/本地派送传了也不存（避免留下自相矛盾的数据）
+     payload.transportType === 'FTL' ? (payload.vehicleLengthCode || null) : null]
   )
   const created = result.rows[0]
 
@@ -227,20 +230,30 @@ export function buildSummaryText(inquiry, items = [], lang = 'en') {
   // 刻意不输出「客户」和「服务类型」：这份摘要是直接粘给欧洲服务商询价的，
   // 客户名是我们自己的商业信息（等于把货主直接告诉承运商），服务类型是我们内部
   // 的渠道口径，服务商既看不懂也用不上。两者都要删（开发意见 #4）。
+  //
+  // 「专车/拼车」和车型反过来必须给：服务商就是按这个报价的（开发意见 #10）。
+  if (inquiry.transport_type) {
+    lines.push(field('transportType', t(lang, `transportType.${inquiry.transport_type}`)))
+  }
+  if (inquiry.vehicle_length_code) {
+    lines.push(field('vehicleLength', t(lang, `vehicleLength.${inquiry.vehicle_length_code}`)))
+  }
   lines.push('')
 
+  // 取件方和派送方各自成段，联系人跟着自己那一侧走 ——
+  // 服务商拿到摘要要分别打给发货人和收货人约时间，混在一个「联系人」段里等于没写
   lines.push(section('origin'))
   lines.push(...formatAddressLines(from, lang))
+  lines.push(...formatContactLines({
+    name: from.contactName, phone: from.contactPhone, email: from.contactEmail,
+  }, lang, 'sender'))
   lines.push('')
 
   lines.push(section('destination'))
   lines.push(...formatAddressLines(to, lang))
-  lines.push('')
-
-  lines.push(section('contact'))
-  lines.push(field('contactName', inquiry.contact_name || '-'))
-  lines.push(field('contactPhone', inquiry.contact_phone || '-'))
-  lines.push(field('contactEmail', inquiry.contact_email || '-'))
+  lines.push(...formatContactLines({
+    name: inquiry.contact_name, phone: inquiry.contact_phone, email: inquiry.contact_email,
+  }, lang, 'receiver'))
   lines.push('')
 
   if (items.length > 0) {
@@ -310,6 +323,32 @@ export function parseAddress(value) {
     try { return JSON.parse(value) || {} } catch { return {} }
   }
   return value
+}
+
+/**
+ * 一侧的联系人三行（姓名 / 电话 / 邮箱）
+ *
+ * 三个都没填就一行都不输出 —— 摘要里连着三行 "-" 只会让服务商以为是漏发了；
+ * 填了一部分就把没填的显示成 "-"，让人看得出是「确实没有」而不是「忘了写」。
+ *
+ * @param {{name?: string, phone?: string, email?: string}} contact
+ * @param {'zh'|'en'|'de'} lang
+ * @param {'sender'|'receiver'} role 决定标签是「发货联系人」还是「收货联系人」
+ */
+function formatContactLines(contact, lang, role) {
+  const name = (contact.name || '').trim()
+  const phone = (contact.phone || '').trim()
+  const email = (contact.email || '').trim()
+  if (!name && !phone && !email) return []
+
+  const p = PUNCTUATION[lang] || PUNCTUATION.en
+  const line = (key, value) => `${t(lang, `inquirySummary.${key}`)}${p.colon}${value || '-'}`
+  const cap = role === 'sender' ? 'Sender' : 'Receiver'
+  return [
+    line(`contactName${cap}`, name),
+    line(`contactPhone${cap}`, phone),
+    line(`contactEmail${cap}`, email),
+  ]
 }
 
 function formatAddressLines(addr, lang = 'en') {

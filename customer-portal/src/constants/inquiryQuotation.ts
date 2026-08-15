@@ -45,6 +45,36 @@ export const CLIENT_DECIDABLE: string[] = [
   QUOTATION_STATUS.PENDING_DECISION,
 ]
 
+/**
+ * 运输方式：FTL = 专车（整车），LTL = 拼车（零担）
+ *
+ * ⚠️ 别和服务类型 businessType 的 TRUCK_FTL / TRUCK_LTL 混 —— 那是走哪条业务线，
+ *    这里是同一条线下包一辆车还是拼一辆车（踩坑 013）。值必须和后端
+ *    server/modules/inquiry/constants.js 完全一致。
+ */
+export const TRANSPORT_TYPES = {
+  FTL: 'FTL',
+  LTL: 'LTL',
+} as const
+
+export type TransportType = typeof TRANSPORT_TYPES[keyof typeof TRANSPORT_TYPES]
+
+export const TRANSPORT_TYPE_VALUES: TransportType[] = [TRANSPORT_TYPES.FTL, TRANSPORT_TYPES.LTL]
+
+/**
+ * 车型（车长）代号，顺序即下拉顺序，由短到长
+ * 显示名走语言包 vehicleLength.*，不在这里写死中文（踩坑 013）
+ */
+export const VEHICLE_LENGTH_CODES = [
+  'TRUCK_4M',
+  'TRUCK_6_2M',
+  'TRUCK_7_2M',
+  'TRUCK_7_8M',
+  'TRUCK_9M',
+  'TRUCK_12M',
+  'TRUCK_13_6M',
+] as const
+
 /** 欧洲标准车厢内宽（米），LDM 换算分母，与后端 inquiry/service.js 一致 */
 export const TRUCK_INNER_WIDTH_M = 2.4
 
