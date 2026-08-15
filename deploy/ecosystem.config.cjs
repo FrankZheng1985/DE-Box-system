@@ -21,6 +21,11 @@ module.exports = {
       },
 
       // 日志配置
+      // ⚠️ time: true 必须有，否则 log_date_format 是空转的 —— pm2 只有在
+      //    time 打开（等价于命令行 --time）时才给每行日志加时间戳前缀。
+      //    没有时间戳的后果见踩坑 064：日志四个月不轮转又无时间，
+      //    grep 到的旧报错看起来像"现在还在发生"，白查一轮。
+      time: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       error_file: '/var/log/pm2/germany-box-error.log',
       out_file: '/var/log/pm2/germany-box-out.log',
@@ -37,7 +42,13 @@ module.exports = {
       
       // 优雅关闭
       kill_timeout: 5000,
-      wait_ready: true,
+      // ⚠️ wait_ready 必须是 false：server/app.js 没有调用 process.send('ready')。
+      //    开着的话 pm2 会一直等这个信号，直到 listen_timeout 超时才认为启动完成，
+      //    每个实例白等 10 秒。这份配置在 2026-04-12 之后一直没被真正加载过
+      //    （CI 走的是 reload 分支），所以这个坑一直没暴露；本次让配置生效前先关掉，
+      //    保证「启用 ecosystem」只改变日志行为、不改变启动语义。
+      //    以后要开它，得先在 app.js 里补 process.send('ready')。
+      wait_ready: false,
       listen_timeout: 10000,
 
       // 健康检查（可选）
