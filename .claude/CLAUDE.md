@@ -263,7 +263,11 @@ ssh eu-tms "cd /var/www/germany-box-system/server && export \$(grep '^DATABASE_U
 scp -i ~/.ssh/id_ed25519 文件 root@47.83.241.117:/var/www/germany-box-system/server/
 
 # 重启（必须删除重建，否则环境变量不更新）
-ssh eu-tms "pm2 delete all && cd /var/www/germany-box-system && pm2 start server/app.js --name germany-box-server -i 2"
+# ⚠️ 一律用 ecosystem 配置启动，不要用裸的 pm2 start server/app.js。
+#    裸命令起来的进程不带 time/merge_logs/日志路径设置，会把日志静默打回
+#    ~/.pm2/logs/ 且没有时间戳，等于把 2026-08-16 的治理成果冲掉（踩坑 064）。
+ssh eu-tms "cd /var/www/germany-box-system && pm2 delete germany-box-server \
+  && pm2 start deploy/ecosystem.config.cjs --env production && pm2 save"
 ```
 
 ### 前端手工部署（应急用，正常走 CI）
@@ -281,12 +285,17 @@ scp -r admin/dist/* root@47.83.241.117:/var/www/germany-box-system/admin/dist/
 ```bash
 gh run list --limit 3                     # CI 是否成功
 curl -s -o /dev/null -w '%{http_code}' https://kalunasped.com/api/health   # 应为 200
-ssh eu-tms "tail -40 ~/.pm2/logs/germany-box-server-error-0.log"           # 关键：500 只在这里
+ssh eu-tms "tail -40 /var/log/pm2/germany-box-error.log"                    # 关键：500 只在这里
 ```
 
 **`/api/health` 200 不代表功能正常** —— 它走的是不碰业务表的路径。
-`console.error` 走 stderr，进的是 `germany-box-server-error*.log`，
+`console.error` 走 stderr，进的是 `germany-box-error.log`，
 out 日志里看不到（全局 CLAUDE.md 也记了这条）。
+
+> **日志位置 2026-08-16 变过**（踩坑 064）：现在是 `/var/log/pm2/germany-box-{out,error}.log`，
+> 两个实例合并写一份，每行带时间戳。旧路径 `~/.pm2/logs/germany-box-server-*-{0,1}.log`
+> **已停止更新**，去那里 tail 会看到一个静止在 2026-08-16 06:09 的旧文件，
+> 很容易把陈年报错当成刚发生的。日志由 pm2-logrotate 每天 0:00 或满 10M 切分、留 30 份。
 
 ### 官网部署
 ```bash
@@ -370,5 +379,6 @@ ssh eu-tms "cp /var/www/germany-box-system/homepage/index.html /var/www/germany-
 
 - 全部走环境变量（`SMTP_HOST/PORT/USER/PASS/FROM`），**换服务商不用改代码**
 - 客户咨询通知自动发送到 `ADMIN_EMAIL`
-- 改完 `.env` 必须 `pm2 delete all` 再 `pm2 start`（踩坑 005）
+- 改完 `.env` 必须删除重建才会重读环境变量，`pm2 restart` 无效（踩坑 005）。
+  用上面「后端手工部署」那条 ecosystem 命令重启，别用裸 `pm2 start server/app.js`（踩坑 064）
 - **验证发信一律以真人收件箱为准**，不能只看队列日志说"成功"（踩坑 012）
