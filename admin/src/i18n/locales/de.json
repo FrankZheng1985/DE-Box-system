@@ -515,6 +515,8 @@
     "specialRequirements": "Besondere Anforderungen",
     "transportType": "Transportart",
     "vehicleLength": "Fahrzeuglänge",
+    "receiverCompany": "Empfängerfirma",
+    "receiverName": "Name des Empfängers",
     "senderContactName": "Ansprechpartner Versand",
     "volume": "Volumen",
     "volumeM3": "Volumen (m³)",
@@ -842,7 +844,6 @@
     "deleted": "Anfrage gelöscht",
     "noCargoItems": "Keine Positionsliste erfasst. Die Summen oben stammen aus den Angaben des Kunden.",
     "destinationSeeDrops": "Siehe die {{count}} Zustellungen unten",
-    "editLocalDeliveryUnsupported": "Das Bearbeiten von Nahverkehr (Container + Zustellungen) ist noch in Arbeit — bitte den Kunden vorerst im Portal ändern lassen",
     "deliveryOrdersTitle": "Zustellungen ({{count}})",
     "dropNo": "Zustellung {{index}}",
     "relatedQuotations": "Verknüpfte Angebote ({{count}})",
@@ -918,6 +919,14 @@
     "emailQueuedTo": "Anfrage-E-Mail eingereiht: {{emails}}",
     "sendEmailFailed": "Anfrage-E-Mail konnte nicht gesendet werden",
     "emailRecipients": "Empfänger: {{emails}}"
+  },
+  "deliveryOrdersEditor": {
+    "addDrop": "Zustellung hinzufügen",
+    "removeDrop": "Diese Zustellung entfernen",
+    "subRef": "Zustellreferenz",
+    "phContainerNo": "z. B. TEMU1234567",
+    "containerTotals": "Container gesamt",
+    "dropCount": "Zustellungen"
   },
   "quotationDeliveryLines": {
     "title": "Preis je Zustellung ({{count}})",

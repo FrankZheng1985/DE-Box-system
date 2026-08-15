@@ -6,10 +6,10 @@
  * 计算公式必须和后端 server/modules/inquiry/service.js 完全一致。
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Save, Plus, Trash2, Loader2,
+  ArrowLeft, Save, Loader2,
   Package, MapPin, User, FileText,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +18,13 @@ import Toast from '../components/Toast'
 import {
   BUSINESS_TYPES, BUSINESS_TYPE_LIST, businessTypeLabelKey, type BusinessType,
 } from '../constants/businessTypes'
-import { calcUnitVolumeM3, calcLineLdm } from '../constants/inquiryQuotation'
+import CargoItemsEditor from '../components/CargoItemsEditor'
+import DeliveryOrdersEditor, {
+  type DeliveryOrderForm, deliveryOrderFromApi,
+} from '../components/DeliveryOrdersEditor'
+import {
+  type CargoItemForm, newCargoRow, cargoRowFromApi, buildCargoItems,
+} from '../components/cargoItemForm'
 
 // ==================== 类型定义 ====================
 
@@ -39,22 +45,6 @@ interface ContactForm {
   name: string
   phone: string
   email: string
-}
-
-/** 表格里每行都用字符串存，避免受控 number input 在清空时跳成 0 */
-interface CargoItemForm {
-  key: string
-  referenceNo: string
-  description: string
-  quantity: string
-  lengthCm: string
-  widthCm: string
-  heightCm: string
-  unitWeightKg: string
-  ldm: string
-  ldmManual: boolean
-  stackable: boolean
-  remarks: string
 }
 
 interface InquiryForm {
@@ -131,24 +121,6 @@ function mergeContact(address: AddressForm, contact: ContactForm) {
     ...(phone ? { contactPhone: phone } : {}),
     ...(email ? { contactEmail: email } : {}),
   }
-}
-
-let rowSeq = 0
-function newRow(): CargoItemForm {
-  rowSeq += 1
-  return {
-    key: `row-${rowSeq}`,
-    referenceNo: '', description: '', quantity: '1',
-    lengthCm: '', widthCm: '', heightCm: '', unitWeightKg: '',
-    ldm: '', ldmManual: false, stackable: true, remarks: '',
-  }
-}
-
-/** 空字符串转 null，其余转数字；非法输入也返回 null */
-function toNum(value: string): number | null {
-  if (value === null || value === undefined || value.trim() === '') return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
 }
 
 // ==================== 小组件 ====================
@@ -245,7 +217,10 @@ export default function InquiryEdit() {
   const isEdit = Boolean(id)
 
   const [form, setForm] = useState<InquiryForm>(INITIAL_FORM)
-  const [items, setItems] = useState<CargoItemForm[]>([newRow()])
+  const [items, setItems] = useState<CargoItemForm[]>([newCargoRow()])
+  /** 本地派送的三层数据（柜号 + 若干票派送），开发意见 #7 */
+  const [containerNo, setContainerNo] = useState('')
+  const [deliveryOrders, setDeliveryOrders] = useState<DeliveryOrderForm[]>([])
   const [clients, setClients] = useState<ClientOption[]>([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
@@ -295,24 +270,15 @@ export default function InquiryEdit() {
           specialRequirements: d.special_requirements || '',
           remarks: d.remarks || '',
         })
-        const rows: CargoItemForm[] = (d.cargoItems || []).map((it: any) => {
-          rowSeq += 1
-          return {
-            key: `row-${rowSeq}`,
-            referenceNo: it.reference_no || '',
-            description: it.description || '',
-            quantity: String(it.quantity ?? 1),
-            lengthCm: it.length_cm !== null ? String(Number(it.length_cm)) : '',
-            widthCm: it.width_cm !== null ? String(Number(it.width_cm)) : '',
-            heightCm: it.height_cm !== null ? String(Number(it.height_cm)) : '',
-            unitWeightKg: it.unit_weight_kg !== null ? String(Number(it.unit_weight_kg)) : '',
-            ldm: it.ldm !== null ? String(Number(it.ldm)) : '',
-            ldmManual: Boolean(it.ldm_manual),
-            stackable: it.stackable !== false,
-            remarks: it.remarks || '',
-          }
-        })
-        setItems(rows.length > 0 ? rows : [newRow()])
+        const rows = (d.cargoItems || []).map(cargoRowFromApi)
+        setItems(rows.length > 0 ? rows : [newCargoRow()])
+
+        // 本地派送的三层数据（开发意见 #7）：每一票各带自己的件明细
+        setContainerNo(d.container_no || '')
+        const drops = (d.deliveryOrders || []).map((o: any) =>
+          deliveryOrderFromApi(o, (o.cargoItems || []).map(cargoRowFromApi))
+        )
+        setDeliveryOrders(drops)
       } else {
         showToast(res.message || t('inquiryEdit.loadFailed'), 'error')
       }
@@ -328,61 +294,8 @@ export default function InquiryEdit() {
 
   const isLocalDelivery = form.businessType === BUSINESS_TYPES.LOCAL_DELIVERY
 
-  const updateItem = (key: string, patch: Partial<CargoItemForm>) => {
-    setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)))
-  }
-
-  /** 一行的派生值（体积 / 自动 LDM），显示用 */
-  const derive = (it: CargoItemForm) => {
-    const qty = toNum(it.quantity) ?? 1
-    const l = toNum(it.lengthCm)
-    const w = toNum(it.widthCm)
-    const h = toNum(it.heightCm)
-    const unitVolume = calcUnitVolumeM3(l, w, h)
-    const autoLdm = calcLineLdm(l, w, qty)
-    const effectiveLdm = it.ldmManual ? toNum(it.ldm) : autoLdm
-    return { qty, unitVolume, autoLdm, effectiveLdm }
-  }
-
-  /** 表头合计，和后端 recalcInquiryTotals 同口径 */
-  const totals = useMemo(() => {
-    let quantity = 0
-    let weight = 0
-    let volume = 0
-    let ldm = 0
-    for (const it of items) {
-      const { qty, unitVolume, effectiveLdm } = derive(it)
-      const unitWeight = toNum(it.unitWeightKg)
-      quantity += qty
-      if (unitWeight !== null) weight += unitWeight * qty
-      if (unitVolume !== null) volume += unitVolume * qty
-      if (effectiveLdm !== null) ldm += effectiveLdm
-    }
-    return {
-      quantity,
-      weight: Math.round(weight * 100) / 100,
-      volume: Math.round(volume * 10000) / 10000,
-      ldm: Math.round(ldm * 100) / 100,
-    }
-  }, [items])
-
-  /** 只把填了内容的行提交上去，空行直接丢弃 */
-  const buildCargoItems = () =>
-    items
-      .filter((it) => it.referenceNo.trim() || it.description.trim() || toNum(it.lengthCm) !== null || toNum(it.unitWeightKg) !== null)
-      .map((it) => ({
-        referenceNo: it.referenceNo.trim() || null,
-        description: it.description.trim() || null,
-        quantity: toNum(it.quantity) ?? 1,
-        lengthCm: toNum(it.lengthCm),
-        widthCm: toNum(it.widthCm),
-        heightCm: toNum(it.heightCm),
-        unitWeightKg: toNum(it.unitWeightKg),
-        ldm: it.ldmManual ? toNum(it.ldm) : null,
-        ldmManual: it.ldmManual,
-        stackable: it.stackable,
-        remarks: it.remarks.trim() || null,
-      }))
+  /** 有派送票就是三层单（本地派送），走另一套编辑器 */
+  const hasDeliveryOrders = deliveryOrders.length > 0
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -409,7 +322,28 @@ export default function InquiryEdit() {
         cargoDescription: form.cargoDescription.trim() || null,
         specialRequirements: form.specialRequirements.trim() || null,
         remarks: form.remarks.trim() || null,
-        cargoItems: buildCargoItems(),
+        // 三层单整体用 deliveryOrders 提交；后端会拒绝只传 cargoItems 的三层单
+        //（那样会把子订单洗成空壳），所以两者互斥、不能同时给
+        ...(hasDeliveryOrders ? {
+          containerNo: containerNo.trim() || null,
+          deliveryOrders: deliveryOrders.map((o) => ({
+            customerSubRef: o.customerSubRef.trim() || null,
+            deliveryAddress: {
+              ...(o.companyName.trim() ? { companyName: o.companyName.trim() } : {}),
+              country: o.country.trim(),
+              zipCode: o.zipCode.trim(),
+              city: o.city.trim(),
+              address: o.address.trim(),
+              ...(o.contactName.trim() ? { contactName: o.contactName.trim() } : {}),
+              ...(o.contactPhone.trim() ? { contactPhone: o.contactPhone.trim() } : {}),
+              ...(o.contactEmail.trim() ? { contactEmail: o.contactEmail.trim() } : {}),
+            },
+            remarks: o.remarks.trim() || null,
+            cargoItems: buildCargoItems(o.items),
+          })),
+        } : {
+          cargoItems: buildCargoItems(items),
+        }),
       }
 
       const res = isEdit
@@ -577,137 +511,19 @@ export default function InquiryEdit() {
         </div>
       </Section>
 
-      {/* 按件货物明细 */}
-      <Section
-        title={t('cargo.itemsTitle')}
-        icon={Package}
-        action={
-          <button
-            type="button"
-            onClick={() => setItems((prev) => [...prev, newRow()])}
-            className="h-8 px-3 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center gap-1 transition-all duration-200 ease-in-out"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {t('cargo.addRow')}
-          </button>
-        }
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[1150px]">
-            <colgroup>
-              <col className="w-[11%]" />
-              <col className="w-[14%]" />
-              <col className="w-[7%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[10%]" />
-              <col className="w-[10%]" />
-              <col className="w-[13%]" />
-              <col className="w-[7%]" />
-              <col className="w-[4%]" />
-            </colgroup>
-            <thead>
-              <tr className="text-xs text-slate-500 border-b border-slate-100">
-                <th className="text-left px-2 py-2.5 font-medium">{t('cargo.colItemNo')}</th>
-                <th className="text-left px-2 py-2.5 font-medium">{t('field.cargoDescription')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colPieces')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colLengthCm')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colWidthCm')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colHeightCm')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colUnitWeightKg')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">{t('cargo.colUnitVolumeM3')}</th>
-                <th className="text-right px-2 py-2.5 font-medium">LDM</th>
-                <th className="text-center px-2 py-2.5 font-medium">{t('cargo.colStackable')}</th>
-                <th className="text-center px-2 py-2.5 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it) => {
-                const { unitVolume, autoLdm } = derive(it)
-                return (
-                  <tr key={it.key} className="border-b border-slate-50">
-                    <td className="px-2 py-2">
-                      <input type="text" value={it.referenceNo} onChange={(e) => updateItem(it.key, { referenceNo: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input type="text" value={it.description} onChange={(e) => updateItem(it.key, { description: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input type="number" min="1" value={it.quantity} onChange={(e) => updateItem(it.key, { quantity: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input type="number" min="0" step="0.1" value={it.lengthCm} onChange={(e) => updateItem(it.key, { lengthCm: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input type="number" min="0" step="0.1" value={it.widthCm} onChange={(e) => updateItem(it.key, { widthCm: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input type="number" min="0" step="0.1" value={it.heightCm} onChange={(e) => updateItem(it.key, { heightCm: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input type="number" min="0" step="0.01" value={it.unitWeightKg} onChange={(e) => updateItem(it.key, { unitWeightKg: e.target.value })} className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500" />
-                    </td>
-                    {/* 体积纯自动，不给编辑入口 */}
-                    <td className="px-2 py-2 text-right text-xs text-slate-500">
-                      {unitVolume !== null ? unitVolume.toFixed(3) : '-'}
-                    </td>
-                    {/* LDM 自动算，勾「手改」后才可编辑 */}
-                    <td className="px-2 py-2">
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={it.ldmManual ? it.ldm : (autoLdm !== null ? String(autoLdm) : '')}
-                          disabled={!it.ldmManual}
-                          onChange={(e) => updateItem(it.key, { ldm: e.target.value })}
-                          className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs text-right outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
-                        />
-                        <label className="flex items-center gap-0.5 text-[10px] text-slate-400 whitespace-nowrap cursor-pointer" title={t('cargo.manualLdmTitle')}>
-                          <input
-                            type="checkbox"
-                            checked={it.ldmManual}
-                            onChange={(e) => updateItem(it.key, {
-                              ldmManual: e.target.checked,
-                              // 勾上时把当前自动值填进去当起点，取消时清掉
-                              ldm: e.target.checked ? (autoLdm !== null ? String(autoLdm) : '') : '',
-                            })}
-                            className="rounded border-slate-300"
-                          />
-                          {t('cargo.manualAdjusted')}
-                        </label>
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <input type="checkbox" checked={it.stackable} onChange={(e) => updateItem(it.key, { stackable: e.target.checked })} className="rounded border-slate-300" />
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setItems((prev) => (prev.length === 1 ? [newRow()] : prev.filter((r) => r.key !== it.key)))}
-                        title={t('cargo.deleteRow')}
-                        className="h-7 w-7 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 ease-in-out"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* 实时合计，和保存后后端算出来的表头值一致 */}
-        <div className="flex flex-wrap items-center gap-6 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
-          <span>{t('cargo.totalPieces')} <b className="text-slate-900 text-sm">{totals.quantity}</b></span>
-          <span>{t('cargo.totalWeight')} <b className="text-slate-900 text-sm">{totals.weight.toFixed(2)}</b> kg</span>
-          <span>{t('cargo.totalVolume')} <b className="text-slate-900 text-sm">{totals.volume.toFixed(3)}</b> m³</span>
-          <span>LDM <b className="text-slate-900 text-sm">{totals.ldm.toFixed(2)}</b></span>
-          <span className="text-slate-400">{t('cargo.ldmFormula')}</span>
-        </div>
-      </Section>
+      {/* 货物明细：三层单（本地派送）按票编辑，其余走原来的单张表格 */}
+      {hasDeliveryOrders ? (
+        <DeliveryOrdersEditor
+          containerNo={containerNo}
+          onContainerNoChange={setContainerNo}
+          orders={deliveryOrders}
+          onChange={setDeliveryOrders}
+        />
+      ) : (
+        <Section title={t('cargo.itemsTitle')} icon={Package}>
+          <CargoItemsEditor rows={items} onChange={setItems} />
+        </Section>
+      )}
 
       {/* 补充说明 */}
       <Section title={t('section.additionalNotes')} icon={FileText}>

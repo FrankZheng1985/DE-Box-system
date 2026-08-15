@@ -515,6 +515,8 @@
     "specialRequirements": "特殊要求",
     "transportType": "运输类型",
     "vehicleLength": "车型（车长）",
+    "receiverCompany": "收货公司名",
+    "receiverName": "收件人",
     "senderContactName": "发货联系人",
     "volume": "体积",
     "volumeM3": "体积 (m³)",
@@ -842,7 +844,6 @@
     "deleted": "询价已删除",
     "noCargoItems": "未录入按件明细。表头合计值来自客户填写的总量。",
     "destinationSeeDrops": "见下方派送明细（{{count}} 票）",
-    "editLocalDeliveryUnsupported": "本地派送（柜 + 派送子订单）的编辑还在开发中，暂时请客户在门户里修改",
     "deliveryOrdersTitle": "派送明细（{{count}} 票）",
     "dropNo": "第 {{index}} 票",
     "relatedQuotations": "关联报价（{{count}} 张）",
@@ -918,6 +919,14 @@
     "emailQueuedTo": "询价邮件已进入发送队列：{{emails}}",
     "sendEmailFailed": "发送询价邮件失败",
     "emailRecipients": "收件人：{{emails}}"
+  },
+  "deliveryOrdersEditor": {
+    "addDrop": "添加一票",
+    "removeDrop": "删除这一票",
+    "subRef": "子单号",
+    "phContainerNo": "如 TEMU1234567",
+    "containerTotals": "整柜合计",
+    "dropCount": "票数"
   },
   "quotationDeliveryLines": {
     "title": "逐票报价（{{count}} 票）",

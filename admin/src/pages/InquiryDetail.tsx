@@ -311,15 +311,10 @@ export default function InquiryDetail() {
             <Copy className="w-4 h-4" />
             {t('inquiry.copySummary')}
           </button>
-          {/* 编辑页目前只会两层结构：拿它打开一张有派送子订单的单，保存时后端会拒
-              （拒是对的，否则子订单会被洗成空壳）。与其让运营填半天再看到报错，
-              不如这里就禁掉并说明原因 —— 三层编辑排在下一批 */}
           {canEdit && (
             <button
               onClick={() => navigate(`/inquiries/${data.id}/edit`)}
-              disabled={isLocalDelivery}
-              title={isLocalDelivery ? t('inquiryDetail.editLocalDeliveryUnsupported') : undefined}
-              className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all duration-200 ease-in-out"
+              className="h-9 px-4 text-sm text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-1.5 transition-all duration-200 ease-in-out"
             >
               <Pencil className="w-4 h-4" />
               {t('common.edit')}

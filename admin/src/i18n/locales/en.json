@@ -515,6 +515,8 @@
     "specialRequirements": "Special requirements",
     "transportType": "Transport type",
     "vehicleLength": "Vehicle length",
+    "receiverCompany": "Receiver company",
+    "receiverName": "Receiver name",
     "senderContactName": "Sender contact",
     "volume": "Volume",
     "volumeM3": "Volume (m³)",
@@ -842,7 +844,6 @@
     "deleted": "Inquiry deleted",
     "noCargoItems": "No itemised cargo lines. The totals above come from what the client entered.",
     "destinationSeeDrops": "See the {{count}} deliveries below",
-    "editLocalDeliveryUnsupported": "Editing local delivery (container + deliveries) is still in development — please ask the client to change it in the portal for now",
     "deliveryOrdersTitle": "Deliveries ({{count}})",
     "dropNo": "Delivery {{index}}",
     "relatedQuotations": "Linked quotations ({{count}})",
@@ -918,6 +919,14 @@
     "emailQueuedTo": "Inquiry email queued: {{emails}}",
     "sendEmailFailed": "Failed to send inquiry email",
     "emailRecipients": "Recipients: {{emails}}"
+  },
+  "deliveryOrdersEditor": {
+    "addDrop": "Add a delivery",
+    "removeDrop": "Remove this delivery",
+    "subRef": "Delivery ref.",
+    "phContainerNo": "e.g. TEMU1234567",
+    "containerTotals": "Container total",
+    "dropCount": "Deliveries"
   },
   "quotationDeliveryLines": {
     "title": "Price per delivery ({{count}})",
