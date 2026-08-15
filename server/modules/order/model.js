@@ -42,9 +42,9 @@ export const orderModel = {
         eta, shipping_line, cnee, container_no, container_type, seal_no,
         bl_number, pod, final_destination, final_dest_address,
         expected_delivery_date, release_method, needs_clearance, needs_release,
-        client_price, carrier_cost, currency)
+        client_price, carrier_cost, currency, source_quotation_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
-               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
+               $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
        RETURNING *`,
       [
         data.documentId, data.orderNumber, data.customerRef || null,
@@ -61,7 +61,9 @@ export const orderModel = {
         data.sealNo, data.blNumber, data.pod, data.finalDestination,
         data.finalDestAddress, data.expectedDeliveryDate, data.releaseMethod,
         data.needsClearance || false, data.needsRelease || false,
-        data.clientPrice, data.carrierCost, data.currency || 'EUR'
+        data.clientPrice, data.carrierCost, data.currency || 'EUR',
+        // 本地派送一柜转 N 单时，N 张订单靠它反查同一张报价（迁移 131）
+        data.sourceQuotationId || null
       ]
     )
     return result.rows[0]

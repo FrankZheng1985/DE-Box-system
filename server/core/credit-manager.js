@@ -51,28 +51,35 @@ export class CreditManager {
         `客户 ${clientData.company_name} 信用已冻结`)
     }
 
+    // ⚠️ credit_limit 是 NUMERIC，pg 驱动回来是**字符串**（踩坑 002）。
+    //    直接 clientData.credit_limit.toFixed() 会抛 TypeError，而这一句正好在
+    //    「超额」分支里 —— 平时跑不到，一旦客户真的超额，客户看到的就是
+    //    「credit_limit.toFixed is not a function」而不是超额说明。
+    //    上面的 <= 0 和后面的比较靠 JS 隐式转换侥幸能用，这里必须显式转。
+    const creditLimit = Number(clientData.credit_limit)
+
     // 计算信用敞口
     const exposure = await this._calculateExposure(client, clientId, clientData.risk_category)
     const totalExposure = exposure + orderAmount
 
     // 检查
-    if (totalExposure <= clientData.credit_limit) {
+    if (totalExposure <= creditLimit) {
       return await this._logAndReturn(client, clientId, checkPoint, orderId,
-        clientData.credit_limit, totalExposure, orderAmount, 'PASSED', '')
+        creditLimit, totalExposure, orderAmount, 'PASSED', '')
     }
 
     // 超额：根据超额比例决定 WARNING 还是 BLOCKED
-    const overPct = ((totalExposure - clientData.credit_limit) / clientData.credit_limit * 100).toFixed(1)
+    const overPct = ((totalExposure - creditLimit) / creditLimit * 100).toFixed(1)
 
     if (parseFloat(overPct) <= 10) {
       return await this._logAndReturn(client, clientId, checkPoint, orderId,
-        clientData.credit_limit, totalExposure, orderAmount, 'WARNING',
-        `信用敞口 €${totalExposure.toFixed(2)} 超出额度 €${clientData.credit_limit.toFixed(2)} (${overPct}%)，建议主管审批`)
+        creditLimit, totalExposure, orderAmount, 'WARNING',
+        `信用敞口 €${totalExposure.toFixed(2)} 超出额度 €${creditLimit.toFixed(2)} (${overPct}%)，建议主管审批`)
     }
 
     return await this._logAndReturn(client, clientId, checkPoint, orderId,
-      clientData.credit_limit, totalExposure, orderAmount, 'BLOCKED',
-      `信用敞口 €${totalExposure.toFixed(2)} 严重超出额度 €${clientData.credit_limit.toFixed(2)} (${overPct}%)，订单被阻止`)
+      creditLimit, totalExposure, orderAmount, 'BLOCKED',
+      `信用敞口 €${totalExposure.toFixed(2)} 严重超出额度 €${creditLimit.toFixed(2)} (${overPct}%)，订单被阻止`)
   }
 
   /**

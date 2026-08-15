@@ -281,12 +281,24 @@ export default function MyQuotations() {
     const { quotation, type } = decision
     setSubmitting(true)
     try {
-      const res = await api.post<ApiResponse<{ orderId?: string; orderNumber?: string }>>(
+      // orderCount / orders 只有本地派送一柜转 N 单时才有（开发意见 #7 第 3 步）
+      const res = await api.post<ApiResponse<{
+        orderId?: string
+        orderNumber?: string
+        orderCount?: number
+        orders?: { id: string; order_number: string }[]
+      }>>(
         `/quotations/${quotation.id}/${DECISION_META[type].endpoint}`,
         { note }
       )
       if (res.code === 200) {
-        setMessage({ text: res.message || t('quotations.actionSuccess'), type: 'success' })
+        // 本地派送一柜转 N 单：后端的 message 是中文硬编码（带数量，进不了 messageCode 表），
+        // 德语客户会看到中文。数量在 data 里，前端自己组装本地化文案（开发意见 #7 第 3 步）
+        const count = res.data?.orderCount ?? 1
+        const text = count > 1
+          ? t('quotations.acceptedBatch', { count })
+          : (res.message || t('quotations.actionSuccess'))
+        setMessage({ text, type: 'success' })
         setDecision(null)
         await load()
         // 接受后后端会带回自动创建的订单号，直接引导客户去看订单

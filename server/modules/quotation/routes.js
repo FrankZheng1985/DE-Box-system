@@ -498,10 +498,23 @@ router.post('/:id/accept', requireUserType('OPERATOR', 'CLIENT'), requirePermiss
     )
     const order = result.order
 
+    // 本地派送一柜转 N 单：把整批订单号都给出去，否则客户只看到第一张，
+    // 会以为另外几票没建（开发意见 #7 第 3 步）
+    const siblings = order.siblingOrders || []
+    const isBatch = siblings.length > 1
+
     res.json({
       code: 200,
-      message: `报价已接受，订单 ${order.order_number} 已自动创建`,
-      data: { orderId: order.id, orderNumber: order.order_number, status: order.status },
+      message: isBatch
+        ? `报价已接受，已按票自动创建 ${siblings.length} 张订单`
+        : `报价已接受，订单 ${order.order_number} 已自动创建`,
+      data: {
+        orderId: order.id,
+        orderNumber: order.order_number,
+        status: order.status,
+        orderCount: siblings.length || 1,
+        orders: isBatch ? siblings : undefined,
+      },
     })
   } catch (error) {
     console.error('接受报价失败:', error)

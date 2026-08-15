@@ -168,22 +168,11 @@ export function parseJsonColumn(value) {
  * @returns {Promise<object>} 新建的订单
  */
 export async function createOrderFromQuotation(client, quotation, userId, extra = {}) {
-  // ⚠️ 本地派送的三层单（柜 → 多票派送）要转成 **N 张订单**，一票一张
-  //    （Frank 2026-08-15 拍板）。那是第 3 步的活，还没做。
-  //
-  //    在做完之前必须挡住：这条路径会拿柜级的 route_to 建**一张**订单，
-  //    而三层单的 route_to 是空的 —— 建出来是一张没有派送地址、金额是整柜合计的
-  //    畸形订单，而且订单是已过账凭证，只能冲销不能删。
-  //    与其留个坑等人踩，不如让这次确认失败并说清原因。
+  // 本地派送的三层单（柜 → 多票派送）转成 **N 张订单**，一票一张（开发意见 #7 第 3 步）
   if (quotation.inquiry_id) {
-    const drops = await client.query(
-      `SELECT COUNT(*)::int AS c FROM inquiry_delivery_orders WHERE inquiry_id = $1`,
-      [quotation.inquiry_id]
-    )
-    if (drops.rows[0].c > 0) {
-      throw new Error(
-        '本地派送（柜 + 派送子订单）的自动建单还在开发中：这一版报价会生成多张订单，功能上线前请先不要确认，或联系运营人工处理'
-      )
+    const drops = await loadDeliveryOrdersForConversion(client, quotation)
+    if (drops.length > 0) {
+      return createOrdersFromDeliveryOrders(client, quotation, drops, userId, extra)
     }
   }
 
@@ -244,6 +233,110 @@ export async function createOrderFromQuotation(client, quotation, userId, extra 
   )
 
   return order
+}
+
+/**
+ * 取这张报价对应的派送票（本地派送三层单专用）
+ *
+ * 价格取**这一版报价**的逐票行；某一票没有报价行时按 0 算 ——
+ * 那说明运营漏报了这一票，但已经被客户接受了，
+ * 建单时静默跳过会让这票的货没人管，宁可建一张 0 元订单让人看见。
+ *
+ * @returns {Promise<Array>} 空数组 = 不是三层单，走原来的单张路径
+ */
+async function loadDeliveryOrdersForConversion(client, quotation) {
+  const result = await client.query(
+    `SELECT d.id, d.line_number, d.customer_sub_ref, d.delivery_address,
+            d.quantity, d.weight_kg, d.volume_m3, d.remarks,
+            COALESCE(l.price, 0) AS price
+     FROM inquiry_delivery_orders d
+     LEFT JOIN quotation_delivery_lines l
+       ON l.delivery_order_id = d.id AND l.quotation_id = $2
+     WHERE d.inquiry_id = $1
+     ORDER BY d.line_number`,
+    [quotation.inquiry_id, quotation.id]
+  )
+  return result.rows
+}
+
+/**
+ * 一个柜转成 N 张订单，一票派送一张（开发意见 #7 第 3 步）
+ *
+ * 每张订单：取件地址是柜的（N 张相同），派送地址是这一票的，
+ * 金额是这一票的报价，货量是这一票的汇总，柜号写进 orders.container_no
+ * —— 订单列表按柜号搜索就能把一个柜的 N 张单一次筛出来。
+ *
+ * ⚠️ 全程在**同一个事务**里：任何一票失败（信用超额、编号取号失败…）
+ *    整批回滚，报价退回原状态。绝不允许「转了一半」——
+ *    订单是已过账凭证，只能冲销不能删，半批订单没法自动收拾。
+ *
+ * ⚠️ 逐单的「新订单」站内通知全部跳过，最后由调用方发一条汇总：
+ *    一个柜三十票就是三十条通知，会把每个运营的通知中心刷爆。
+ *
+ * @returns {Promise<object>} 第一张订单，并挂上 `siblingOrders`（全部 N 张的编号）
+ */
+async function createOrdersFromDeliveryOrders(client, quotation, drops, userId, extra = {}) {
+  const routeFrom = parseJsonColumn(quotation.route_from)
+
+  // 柜级信息：柜号和特殊要求跟着每一张订单走
+  const inq = await client.query(
+    `SELECT container_no, special_requirements, remarks FROM inquiries WHERE id = $1`,
+    [quotation.inquiry_id]
+  )
+  const container = inq.rows[0] || {}
+
+  const orders = []
+  for (const drop of drops) {
+    const deliveryAddress = parseJsonColumn(drop.delivery_address)
+    // 这一票的备注优先，没有就用柜级的
+    const remarks = drop.remarks || container.remarks || null
+
+    const order = await orderService.createOrder(client, {
+      clientId: quotation.client_id,
+      businessType: quotation.business_type,
+      transportType: quotation.transport_type,
+      pickupAddress: routeFrom,
+      deliveryAddress,
+      // 这一票的货量，不是整柜的
+      cargoQuantity: drop.quantity,
+      cargoWeightKg: drop.weight_kg,
+      cargoVolumeM3: drop.volume_m3,
+      cargoDescription: drop.customer_sub_ref
+        ? `${container.container_no || ''} / ${drop.customer_sub_ref}`.trim()
+        : container.container_no || null,
+      specialRequirements: container.special_requirements,
+      remarks,
+      containerNo: container.container_no || null,
+      clientPrice: parseFloat(drop.price) || 0,
+      currency: quotation.currency,
+      quotationDocId: quotation.document_id,  // createOrder 据此建报价→订单单据流
+      sourceQuotationId: quotation.id,        // 迁移 131：N 张订单靠它反查同一张报价
+      ...extra,
+    }, userId, { skipNewOrderNotify: true })
+
+    // 本地派送的初始状态是 PENDING_QUOTE（待报价），报价已被接受，
+    // 停在「待报价」是自相矛盾的 —— 推进一格到待派送
+    await orderService.updateStatus(
+      client, order.id, 'PENDING_DISPATCH', userId,
+      `客户接受报价，按票自动建单（${drop.customer_sub_ref || '#' + drop.line_number}）`
+    )
+    orders.push(order)
+  }
+
+  // converted_order_id 上有部分唯一索引，只装得下一张 —— 记第一张，
+  // 前端「跳转到订单」的既有逻辑不用改；N 张靠 orders.source_quotation_id 反查
+  await client.query(
+    `UPDATE quotations
+     SET status = $1, converted_order_id = $2, updated_at = NOW()
+     WHERE id = $3`,
+    [QUOTATION_STATUS.CONVERTED, orders[0].id, quotation.id]
+  )
+
+  // 返回第一张，但把这一批的编号一并带上，调用方要拿它提示客户「生成了 N 张」
+  return {
+    ...orders[0],
+    siblingOrders: orders.map((o) => ({ id: o.id, order_number: o.order_number })),
+  }
 }
 
 /**

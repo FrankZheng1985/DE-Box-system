@@ -1981,7 +1981,6 @@
     "CANCELLED_INQUIRY_NO_QUOTE": "已取消的询价不能回填报价",
     "CARRIER_INQUIRY_DELETE_LIMITED": "只有待回价或已取消的记录可以删除",
     "SELECT_AT_LEAST_ONE_CARRIER": "请至少选择一家服务商",
-    "LOCAL_DELIVERY_CONVERT_NOT_READY": "本地派送（柜 + 派送子订单）的自动建单还在开发中：这一版报价会生成多张订单，功能上线前请先不要确认，或人工处理",
     "INQUIRY_NEEDS_DELIVERY_ORDERS": "这张询价单有派送子订单，请整体提交，不能只传货物明细",
     "CARRIER_INQUIRIES_LOAD_FAILED": "获取服务商询价列表失败",
     "CARRIER_INQUIRY_DETAIL_LOAD_FAILED": "获取服务商询价详情失败",

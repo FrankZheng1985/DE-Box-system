@@ -1981,7 +1981,6 @@
     "CANCELLED_INQUIRY_NO_QUOTE": "A cancelled inquiry cannot take a quote",
     "CARRIER_INQUIRY_DELETE_LIMITED": "Only inquiries awaiting a quote or already cancelled can be deleted",
     "SELECT_AT_LEAST_ONE_CARRIER": "Please select at least one carrier",
-    "LOCAL_DELIVERY_CONVERT_NOT_READY": "Automatic order creation for local delivery (container + deliveries) is still in development: this quotation would create several orders. Hold off on confirming, or handle it manually.",
     "INQUIRY_NEEDS_DELIVERY_ORDERS": "This inquiry has deliveries — submit it as a whole rather than only the cargo lines",
     "CARRIER_INQUIRIES_LOAD_FAILED": "Could not load the carrier inquiries",
     "CARRIER_INQUIRY_DETAIL_LOAD_FAILED": "Could not load the carrier inquiry details",
