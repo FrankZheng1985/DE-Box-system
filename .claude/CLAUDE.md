@@ -228,7 +228,36 @@ carrier-portal/src/    ← 承运商门户（7 页面）
 
 ## 部署规范
 
-### 后端部署
+### ⚠️ push 到 main = 立刻上生产
+
+`.github/workflows/deploy.yml` 的触发条件是 `on: push: branches: [main]`，
+流程为「装依赖 → 四包 lint → 构建三端 → rsync 上传后端与前端 → pm2 重启」。
+**没有「只提交不部署」这回事** —— 推上去两分半钟后就在生产跑了。
+
+**但这条流水线不跑数据库迁移。** `database/migrations/` 会被 rsync 传上去，
+只是躺在那儿，得有人手工 `psql -f` 才生效。
+
+所以**带迁移的改动，顺序只能是「先迁移、后 push」**：
+
+```bash
+# 1. 结构变更前必须备份
+ssh eu-tms "cd /var/www/germany-box-system/server && export \$(grep '^DATABASE_URL' .env | xargs) \
+  && pg_dump \"\$DATABASE_URL\" | gzip > /var/backups/germany-box-db/germany_box_transport_\$(date +%Y%m%d_%H%M%S).sql.gz"
+
+# 2. 跑迁移（按编号顺序，一个一个来）
+ssh eu-tms "cd /var/www/germany-box-system/server && export \$(grep '^DATABASE_URL' .env | xargs) \
+  && psql \"\$DATABASE_URL\" -f database/migrations/1XX_xxx.sql"
+
+# 3. 确认库结构到位后再 push，让 CI 部署代码
+```
+
+反过来做的后果见踩坑 063：2026-08-15 三次 push 把需要新列的代码推上生产而迁移没跑，
+建询价和批量导入 500 了约 14 小时，期间有真实用户在用，运营侧毫无察觉
+（接口 500 只在 pm2 的 **error** 日志里，`/api/health` 照样 200）。
+
+**判断生产上跑的是哪一版，看 `gh run list` 和服务器文件时间，不要靠"我有没有手工 scp"推断。**
+
+### 后端手工部署（应急用，正常走 CI）
 ```bash
 # 上传文件
 scp -i ~/.ssh/id_ed25519 文件 root@47.83.241.117:/var/www/germany-box-system/server/
@@ -237,7 +266,7 @@ scp -i ~/.ssh/id_ed25519 文件 root@47.83.241.117:/var/www/germany-box-system/s
 ssh eu-tms "pm2 delete all && cd /var/www/germany-box-system && pm2 start server/app.js --name germany-box-server -i 2"
 ```
 
-### 前端部署
+### 前端手工部署（应急用，正常走 CI）
 ```bash
 # 构建
 cd admin && npm run build
@@ -246,6 +275,18 @@ cd admin && npm run build
 ssh eu-tms "rm -rf /var/www/germany-box-system/admin/dist/assets/*"
 scp -r admin/dist/* root@47.83.241.117:/var/www/germany-box-system/admin/dist/
 ```
+
+### 部署后必查
+
+```bash
+gh run list --limit 3                     # CI 是否成功
+curl -s -o /dev/null -w '%{http_code}' https://kalunasped.com/api/health   # 应为 200
+ssh eu-tms "tail -40 ~/.pm2/logs/germany-box-server-error-0.log"           # 关键：500 只在这里
+```
+
+**`/api/health` 200 不代表功能正常** —— 它走的是不碰业务表的路径。
+`console.error` 走 stderr，进的是 `germany-box-server-error*.log`，
+out 日志里看不到（全局 CLAUDE.md 也记了这条）。
 
 ### 官网部署
 ```bash
