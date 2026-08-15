@@ -15,7 +15,8 @@ import { withTransaction, query } from '../../core/db.js'
 import { resolveLang, normalizeLang, t } from '../../utils/i18n.js'
 import inquiryService from './service.js'
 import importService from './import-service.js'
-import { TRANSPORT_TYPE_VALUES, VEHICLE_LENGTH_CODES } from './constants.js'
+import ldImportService from './import-local-delivery.js'
+import { TRANSPORT_TYPE_VALUES, VEHICLE_LENGTH_CODES, LOCAL_DELIVERY } from './constants.js'
 import { CLIENT_HIDDEN_STATUSES } from '../quotation/service.js'
 
 const router = Router()
@@ -309,8 +310,11 @@ router.post('/summary', requireUserType('OPERATOR'), requirePermission('inquiry:
     const summaryLang = resolveCarrierDocLang(req)
     const blocks = []
     for (const inquiry of rows) {
-      const items = await inquiryService.getCargoItems(inquiry.id)
-      blocks.push(inquiryService.buildSummaryText(inquiry, items, summaryLang))
+      const [items, deliveryOrders] = await Promise.all([
+        inquiryService.getCargoItems(inquiry.id),
+        inquiryService.getDeliveryOrders(inquiry.id),
+      ])
+      blocks.push(inquiryService.buildSummaryText(inquiry, items, summaryLang, deliveryOrders))
     }
     // 多张单之间用分隔线隔开，粘到聊天窗口里一眼能分清
     const text = blocks.join('\n\n' + '─'.repeat(32) + '\n\n')
@@ -434,8 +438,13 @@ router.get('/import-template',
   async (req, res) => {
     const lang = resolveLang(req)
     try {
-      const workbook = importService.buildTemplateWorkbook(lang)
-      const filename = `inquiry_import_template_${new Date().toISOString().slice(0, 10)}.xlsx`
+      // 本地派送是「柜 → 子订单 → 件」三层，模板和其余两种服务完全不同（开发意见 #7）
+      const localDelivery = isLocalDeliveryImport(req)
+      const workbook = localDelivery
+        ? ldImportService.buildTemplateWorkbook(lang)
+        : importService.buildTemplateWorkbook(lang)
+      const prefix = localDelivery ? 'local_delivery_import_template' : 'inquiry_import_template'
+      const filename = `${prefix}_${new Date().toISOString().slice(0, 10)}.xlsx`
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
       await workbook.xlsx.write(res)
@@ -464,6 +473,18 @@ router.post('/import/preview',
       if (!clientId) return
       if (!req.file) {
         return res.status(400).json({ code: 400, message: '请选择要导入的 Excel 文件', data: null })
+      }
+
+      if (isLocalDeliveryImport(req)) {
+        const ldResult = await ldImportService.analyzeImportFile(req.file.buffer, lang)
+        const ldDup = await ldImportService.markExistingContainers(
+          { query }, clientId, ldResult.groups, lang
+        )
+        return res.json({
+          code: 200,
+          message: 'success',
+          data: buildLocalDeliveryPreviewPayload(ldResult, ldDup),
+        })
       }
 
       const result = await importService.analyzeImportFile(req.file.buffer, lang)
@@ -503,21 +524,27 @@ router.post('/import',
         return res.status(400).json({ code: 400, message: '请选择要导入的 Excel 文件', data: null })
       }
 
-      const result = await importService.analyzeImportFile(req.file.buffer, lang)
-      const dupWarnings = await importService.markExistingCustomerRefs(
-        { query }, clientId, result.groups, lang
-      )
+      // 本地派送走三层那套解析和落库，其余不变
+      const localDelivery = isLocalDeliveryImport(req)
+      const svc = localDelivery ? ldImportService : importService
+      const result = await svc.analyzeImportFile(req.file.buffer, lang)
+      const dupWarnings = localDelivery
+        ? await ldImportService.markExistingContainers({ query }, clientId, result.groups, lang)
+        : await importService.markExistingCustomerRefs({ query }, clientId, result.groups, lang)
+      const payload = localDelivery
+        ? buildLocalDeliveryPreviewPayload(result, dupWarnings)
+        : buildPreviewPayload(result, dupWarnings)
 
       if (result.errors.length > 0 || result.groups.length === 0) {
         return res.status(400).json({
           code: 400,
           message: '导入文件有错误，请修正后重试',
-          data: buildPreviewPayload(result, dupWarnings),
+          data: payload,
         })
       }
 
       const created = await withTransaction(async (client) =>
-        importService.createInquiriesFromGroups(client, result.groups, {
+        svc.createInquiriesFromGroups(client, result.groups, {
           clientId,
           createdBy: req.user.id,
         })
@@ -547,8 +574,11 @@ router.get('/:id', requirePermission('inquiry:view', 'portal:inquiry_manage'), a
     const quotationParams = [inquiry.id]
     const hideDraft = hideDraftQuotationSql(req, quotationParams)
 
-    const [items, quotations] = await Promise.all([
+    // 本地派送的件明细挂在子订单下，deliveryOrders 里已经带着各自的 cargoItems；
+    // 顶层 cargoItems 对它是空数组，前端按 deliveryOrders 是否为空决定用哪套渲染
+    const [items, deliveryOrders, quotations] = await Promise.all([
       inquiryService.getCargoItems(inquiry.id),
+      inquiryService.getDeliveryOrders(inquiry.id),
       query(
         `SELECT id, quotation_number, version, total_price, currency, status, valid_until, created_at
          FROM quotations WHERE inquiry_id = $1${hideDraft} ORDER BY version DESC, created_at DESC`,
@@ -558,7 +588,13 @@ router.get('/:id', requirePermission('inquiry:view', 'portal:inquiry_manage'), a
 
     res.json({
       code: 200, message: 'success',
-      data: { ...inquiry, cargoItems: items, quotations: quotations.rows },
+      data: {
+        ...inquiry,
+        // 三层结构下顶层不重复给一遍件明细，否则前端两处渲染同一批货、合计翻倍
+        cargoItems: deliveryOrders.length > 0 ? [] : items,
+        deliveryOrders,
+        quotations: quotations.rows,
+      },
     })
   } catch (error) {
     console.error('获取询价详情失败:', error)
@@ -575,10 +611,17 @@ router.get('/:id/summary', requireUserType('OPERATOR'), requirePermission('inqui
     const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
     if (!inquiry) return
 
-    const items = await inquiryService.getCargoItems(inquiry.id)
+    const [items, deliveryOrders] = await Promise.all([
+      inquiryService.getCargoItems(inquiry.id),
+      inquiryService.getDeliveryOrders(inquiry.id),
+    ])
     res.json({
       code: 200, message: 'success',
-      data: { text: inquiryService.buildSummaryText(inquiry, items, resolveCarrierDocLang(req)) },
+      data: {
+        text: inquiryService.buildSummaryText(
+          inquiry, items, resolveCarrierDocLang(req), deliveryOrders
+        ),
+      },
     })
   } catch (error) {
     console.error('生成询价摘要失败:', error)
@@ -662,6 +705,7 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
         contactEmail: 'contact_email', customerRef: 'customer_ref',
         pod: 'pod', containerType: 'container_type',
         vehicleLengthCode: 'vehicle_length_code',
+        containerNo: 'container_no',
       }
       const setClauses = []
       const params = []
@@ -688,8 +732,21 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
         await client.query(`UPDATE inquiries SET ${setClauses.join(', ')} WHERE id = $${++idx}`, params)
       }
 
-      // cargoItems 传了才整单替换；没传保持原样（区分"清空明细"和"这次没改明细"）
-      if (Array.isArray(req.body.cargoItems)) {
+      // deliveryOrders / cargoItems 传了才整单替换；没传保持原样
+      //（区分"清空明细"和"这次没改明细"）
+      if (Array.isArray(req.body.deliveryOrders)) {
+        await inquiryService.replaceDeliveryOrders(client, req.params.id, req.body.deliveryOrders)
+      } else if (Array.isArray(req.body.cargoItems)) {
+        // ⚠️ 三层结构的单只能整体用 deliveryOrders 更新：
+        // replaceCargoItems 会把这张单的件明细全删再插一批不属于任何子订单的行，
+        // 子订单会当场变成空壳且不报错 —— 与其静默毁数据，不如让这次保存失败
+        const existing = await client.query(
+          `SELECT COUNT(*)::int AS c FROM inquiry_delivery_orders WHERE inquiry_id = $1`,
+          [req.params.id]
+        )
+        if (existing.rows[0].c > 0) {
+          throw new Error('这张询价单有派送子订单，请用 deliveryOrders 整体提交，不能只传 cargoItems')
+        }
         await inquiryService.replaceCargoItems(client, req.params.id, req.body.cargoItems)
       }
     })
@@ -809,6 +866,59 @@ function buildPreviewPayload(result, dupWarnings = []) {
     errors: result.errors,
     warnings: [...result.warnings, ...dupWarnings],
   }
+}
+
+/**
+ * 本地派送导入的预览载荷（三层，开发意见 #7）
+ *
+ * 和两层那份分开写而不是加 if：字段口径整个不一样
+ *（一行是一个柜、里面还有一层子订单），混在一起前端要猜自己拿到的是哪种。
+ */
+function buildLocalDeliveryPreviewPayload(result, dupWarnings = []) {
+  return {
+    businessType: LOCAL_DELIVERY,
+    totalRows: result.totalRows,
+    inquiryCount: result.groups.length,
+    itemCount: result.groups.reduce(
+      (sum, g) => sum + g.deliveryOrders.reduce((s, o) => s + o.cargoItems.length, 0), 0
+    ),
+    inquiries: result.groups.map((g) => ({
+      containerNo: g.containerNo,
+      customerRef: g.customerRef,
+      routeFrom: g.routeFrom,
+      orderCount: g.orderCount ?? g.deliveryOrders.length,
+      itemCount: g.deliveryOrders.reduce((s, o) => s + o.cargoItems.length, 0),
+      totalQuantity: g.totalQuantity ?? 0,
+      totalWeightKg: g.totalWeightKg ?? 0,
+      totalVolumeM3: g.totalVolumeM3 ?? 0,
+      totalLdm: g.totalLdm ?? 0,
+      rows: g.rowNumbers,
+      duplicateOfExisting: g.duplicateOfExisting,
+      deliveryOrders: g.deliveryOrders.map((o) => ({
+        subRef: o.subRef,
+        deliveryAddress: o.deliveryAddress,
+        remarks: o.remarks,
+        itemCount: o.cargoItems.length,
+        totalQuantity: o.totalQuantity ?? 0,
+        totalWeightKg: o.totalWeightKg ?? 0,
+        totalLdm: o.totalLdm ?? 0,
+      })),
+    })),
+    errors: result.errors,
+    warnings: [...result.warnings, ...dupWarnings],
+  }
+}
+
+/**
+ * 这次导入走哪套解析
+ *
+ * 客户在界面上先选服务类型再上传（开发意见 #7 的前半句），
+ * 选了本地派送就走三层那套，其余（含没传）一律走原来的两层，
+ * 这样存量的模板和调用方一个字都不用改。
+ */
+function isLocalDeliveryImport(req) {
+  const value = req.body?.businessType || req.query?.businessType
+  return String(value || '').toUpperCase() === LOCAL_DELIVERY
 }
 
 /**

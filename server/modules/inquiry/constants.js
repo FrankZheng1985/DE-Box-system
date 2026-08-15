@@ -8,6 +8,15 @@
  */
 
 /**
+ * 本地派送服务的代码
+ *
+ * 只有这条业务线走「柜 → 派送子订单 → 件」的三层结构（开发意见 #7），
+ * 卡派 LTL / 卡车 FTL 仍是「询价单 → 件」两层。判断走哪条路都用这个常量，
+ * 别在各处手写字符串。
+ */
+export const LOCAL_DELIVERY = 'LOCAL_DELIVERY'
+
+/**
  * 运输方式（inquiries.transport_type）
  * 业务口径：FTL = 专车（整车），LTL = 拼车（零担）
  *
@@ -86,6 +95,7 @@ export function normalizeCode(raw, aliases) {
 }
 
 export default {
+  LOCAL_DELIVERY,
   TRANSPORT_TYPES,
   TRANSPORT_TYPE_VALUES,
   VEHICLE_LENGTH_CODES,

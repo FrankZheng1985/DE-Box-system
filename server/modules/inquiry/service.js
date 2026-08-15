@@ -8,6 +8,7 @@
 import { query as poolQuery } from '../../core/db.js'
 import { documentEngine } from '../../core/index.js'
 import { t } from '../../utils/i18n.js'
+import { LOCAL_DELIVERY } from './constants.js'
 
 /** 欧洲标准车厢内宽（米），LDM 换算的分母 */
 const TRUCK_INNER_WIDTH_M = 2.4
@@ -103,8 +104,8 @@ export async function createInquiryRecord(client, { clientId, createdBy, payload
       cargo_volume_m3, cargo_quantity, special_requirements,
       pod, container_type, remarks, status,
       contact_name, contact_phone, contact_email, customer_ref,
-      vehicle_length_code)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+      vehicle_length_code, container_no)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
      RETURNING *`,
     [doc.id, doc.docNumber, clientId,
      payload.businessType, payload.transportType,
@@ -116,17 +117,152 @@ export async function createInquiryRecord(client, { clientId, createdBy, payload
      payload.contactName, payload.contactPhone, payload.contactEmail,
      payload.customerRef,
      // 车型只在专车下有意义，拼车/本地派送传了也不存（避免留下自相矛盾的数据）
-     payload.transportType === 'FTL' ? (payload.vehicleLengthCode || null) : null]
+     payload.transportType === 'FTL' ? (payload.vehicleLengthCode || null) : null,
+     // 柜号只有本地派送用得上
+     payload.businessType === LOCAL_DELIVERY ? (payload.containerNo || null) : null]
   )
   const created = result.rows[0]
 
-  // 有按件明细就入库，并把合计汇总回写表头（覆盖上面写入的表头合计值）
+  // 本地派送走三层（柜 → 子订单 → 件），其余服务走原来的两层（询价单 → 件）。
+  // 两条路各自把合计汇总回写表头，覆盖上面写入的表头合计值。
+  if (Array.isArray(payload.deliveryOrders) && payload.deliveryOrders.length > 0) {
+    await replaceDeliveryOrders(client, created.id, payload.deliveryOrders)
+    const refreshed = await client.query(`SELECT * FROM inquiries WHERE id = $1`, [created.id])
+    return refreshed.rows[0]
+  }
   if (Array.isArray(payload.cargoItems) && payload.cargoItems.length > 0) {
     await replaceCargoItems(client, created.id, payload.cargoItems)
     const refreshed = await client.query(`SELECT * FROM inquiries WHERE id = $1`, [created.id])
     return refreshed.rows[0]
   }
   return created
+}
+
+/**
+ * 整单替换派送子订单及其件明细（本地派送专用，开发意见 #7）
+ *
+ * 一个柜下面挂 N 个子订单，每个子订单再挂自己的件明细。
+ * 先删后插，删子订单时件明细跟着外键级联走（迁移 129 的 ON DELETE CASCADE）。
+ *
+ * 汇总口径是两级的：件 → 子订单 → 询价单表头，
+ * 每一级都用下一级实算，不做二次估算，保证任何一层的数字都能对上。
+ *
+ * ⚠️ 必须在事务里调用。
+ *
+ * @param {object} client 事务客户端
+ * @param {string} inquiryId
+ * @param {Array} rawOrders 子订单数组，每个含 cargoItems
+ * @returns {Promise<Array>} 入库后的子订单（含件明细）
+ */
+export async function replaceDeliveryOrders(client, inquiryId, rawOrders) {
+  // 先清掉这张单上的一切明细：直接挂表头的（历史数据或服务类型改过）和挂子订单的都要清，
+  // 否则改完之后会留下一批既不属于任何子订单、又会被汇总统计进去的孤儿行
+  await client.query(`DELETE FROM inquiry_cargo_items WHERE inquiry_id = $1`, [inquiryId])
+  await client.query(`DELETE FROM inquiry_delivery_orders WHERE inquiry_id = $1`, [inquiryId])
+
+  const saved = []
+  let lineNumber = 0
+  // ⚠️ 件明细的行号必须在**整张询价单内**全局递增，不能每个子订单各自从 1 开始 ——
+  // inquiry_cargo_items 上有 UNIQUE(inquiry_id, line_number)，各自从 1 编第二个子订单就撞约束。
+  // 界面上「子订单内第几行」由前端按数组下标显示，不依赖这个值。
+  let itemLineNumber = 0
+  for (const raw of rawOrders || []) {
+    lineNumber += 1
+    const inserted = await client.query(
+      `INSERT INTO inquiry_delivery_orders
+       (inquiry_id, line_number, customer_sub_ref, delivery_address, remarks)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING *`,
+      [inquiryId, lineNumber, raw.customerSubRef || null,
+       JSON.stringify(raw.deliveryAddress || {}), raw.remarks || null]
+    )
+    const order = inserted.rows[0]
+
+    // 件明细同时挂 inquiry_id 和 delivery_order_id：
+    // 挂 inquiry_id 是为了让「整张单的件明细」这类查询不必先绕一圈子订单
+    const items = (raw.cargoItems || []).map((it) => normalizeCargoItem(it, ++itemLineNumber))
+    for (const it of items) {
+      await client.query(
+        `INSERT INTO inquiry_cargo_items
+         (inquiry_id, delivery_order_id, line_number, reference_no, description, quantity,
+          length_cm, width_cm, height_cm, unit_weight_kg, unit_volume_m3,
+          ldm, ldm_manual, stackable, remarks)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [inquiryId, order.id, it.lineNumber, it.referenceNo, it.description, it.quantity,
+         it.lengthCm, it.widthCm, it.heightCm, it.unitWeightKg, it.unitVolumeM3,
+         it.ldm, it.ldmManual, it.stackable, it.remarks]
+      )
+    }
+
+    await recalcDeliveryOrderTotals(client, order.id)
+    saved.push({ ...order, cargoItems: items })
+  }
+
+  await recalcInquiryTotals(client, inquiryId)
+  return saved
+}
+
+/**
+ * 用件明细汇总回写单个派送子订单的件数/实重/体积/LDM
+ *
+ * 和 recalcInquiryTotals 的区别：**没有明细时清零而不是跳过**。
+ * 表头那边不清零是因为客户可能只填总重没录明细（那是他填的数据，不能抹）；
+ * 子订单的数字从来只有汇总一个来源，没有明细就该是 0，留着旧值反而是脏数据。
+ */
+export async function recalcDeliveryOrderTotals(client, deliveryOrderId) {
+  const agg = await client.query(
+    `SELECT COALESCE(SUM(quantity), 0)::int               AS total_quantity,
+            COALESCE(SUM(unit_weight_kg * quantity), 0)   AS total_weight_kg,
+            COALESCE(SUM(unit_volume_m3 * quantity), 0)   AS total_volume_m3,
+            COALESCE(SUM(ldm), 0)                         AS total_ldm
+     FROM inquiry_cargo_items WHERE delivery_order_id = $1`,
+    [deliveryOrderId]
+  )
+  const r = agg.rows[0]
+  // NUMERIC 求和回来是字符串，写回前先转数字（踩坑 002）
+  const totals = {
+    quantity: r.total_quantity,
+    weightKg: round(Number(r.total_weight_kg), 2),
+    volumeM3: round(Number(r.total_volume_m3), 4),
+    ldm: round(Number(r.total_ldm), 2),
+  }
+  await client.query(
+    `UPDATE inquiry_delivery_orders
+     SET quantity = $1, weight_kg = $2, volume_m3 = $3, ldm = $4, updated_at = NOW()
+     WHERE id = $5`,
+    [totals.quantity, totals.weightKg, totals.volumeM3, totals.ldm, deliveryOrderId]
+  )
+  return totals
+}
+
+/**
+ * 读取一张询价单的派送子订单（含各自的件明细）
+ * @param {string} inquiryId
+ * @param {object} [client] 事务内调用时传入事务客户端，否则走连接池
+ */
+export async function getDeliveryOrders(inquiryId, client = null) {
+  const run = (sql, params) => (client ? client.query(sql, params) : poolQuery(sql, params))
+
+  const orders = await run(
+    `SELECT * FROM inquiry_delivery_orders WHERE inquiry_id = $1 ORDER BY line_number`,
+    [inquiryId]
+  )
+  if (orders.rows.length === 0) return []
+
+  const items = await run(
+    `SELECT * FROM inquiry_cargo_items
+     WHERE delivery_order_id = ANY($1::uuid[])
+     ORDER BY delivery_order_id, line_number`,
+    [orders.rows.map((o) => o.id)]
+  )
+
+  // 一次查完再分组，避免 N 个子订单发 N 次查询
+  const byOrder = new Map()
+  for (const it of items.rows) {
+    if (!byOrder.has(it.delivery_order_id)) byOrder.set(it.delivery_order_id, [])
+    byOrder.get(it.delivery_order_id).push(it)
+  }
+  return orders.rows.map((o) => ({ ...o, cargoItems: byOrder.get(o.id) || [] }))
 }
 
 /**
@@ -212,10 +348,12 @@ export async function getCargoItems(inquiryId, client = null) {
  * 所以默认英文，而不是跟着操作员的界面语言走。要中文/德文版本传 lang。
  *
  * @param {object} inquiry 询价主表行
- * @param {object[]} [items] 货物明细行
+ * @param {object[]} [items] 货物明细行（两层结构用；本地派送传空数组）
  * @param {'zh'|'en'|'de'} [lang='en'] 摘要文本语言
+ * @param {object[]} [deliveryOrders] 派送子订单（含各自 cargoItems）。
+ *        非空时走本地派送的三层排版，此时 items / route_to 不再单独输出
  */
-export function buildSummaryText(inquiry, items = [], lang = 'en') {
+export function buildSummaryText(inquiry, items = [], lang = 'en', deliveryOrders = []) {
   const from = parseAddress(inquiry.route_from)
   const to = parseAddress(inquiry.route_to)
   const p = PUNCTUATION[lang] || PUNCTUATION.en
@@ -238,10 +376,14 @@ export function buildSummaryText(inquiry, items = [], lang = 'en') {
   if (inquiry.vehicle_length_code) {
     lines.push(field('vehicleLength', t(lang, `vehicleLength.${inquiry.vehicle_length_code}`)))
   }
+  // 本地派送的柜号：服务商是按柜接活的，没有柜号他没法跟码头/仓库对上（开发意见 #7）
+  if (inquiry.container_no) {
+    lines.push(field('containerNo', inquiry.container_no))
+  }
   lines.push('')
 
-  // 取件方和派送方各自成段，联系人跟着自己那一侧走 ——
-  // 服务商拿到摘要要分别打给发货人和收货人约时间，混在一个「联系人」段里等于没写
+  // 取件方成段，发货联系人跟着它走 ——
+  // 服务商拿到摘要要打给发货人约提货时间，混在一个「联系人」段里等于没写
   lines.push(section('origin'))
   lines.push(...formatAddressLines(from, lang))
   lines.push(...formatContactLines({
@@ -249,32 +391,29 @@ export function buildSummaryText(inquiry, items = [], lang = 'en') {
   }, lang, 'sender'))
   lines.push('')
 
-  lines.push(section('destination'))
-  lines.push(...formatAddressLines(to, lang))
-  lines.push(...formatContactLines({
-    name: inquiry.contact_name, phone: inquiry.contact_phone, email: inquiry.contact_email,
-  }, lang, 'receiver'))
-  lines.push('')
-
-  if (items.length > 0) {
-    lines.push(section('cargoItems'))
-    for (const it of items) {
-      const dims = [it.length_cm, it.width_cm, it.height_cm]
-        .map((v) => (v === null || v === undefined ? '?' : trimNumber(v)))
-        .join('×')
-      const parts = [
-        it.reference_no ? `${t(lang, 'inquirySummary.itemRef')} ${it.reference_no}` : null,
-        it.description || null,
-        `${it.quantity} ${t(lang, 'inquirySummary.pieces')}`,
-        `${dims} cm`,
-        it.unit_weight_kg !== null ? `${t(lang, 'inquirySummary.perPiece')} ${trimNumber(it.unit_weight_kg)} kg` : null,
-        it.unit_volume_m3 !== null ? `${t(lang, 'inquirySummary.perPiece')} ${trimNumber(it.unit_volume_m3)} m³` : null,
-        it.ldm !== null ? `LDM ${trimNumber(it.ldm)}` : null,
-        it.stackable === false ? t(lang, 'inquirySummary.notStackable') : null,
-      ].filter(Boolean)
-      lines.push(`${it.line_number}. ${parts.join(' | ')}`)
+  if (deliveryOrders.length > 0) {
+    // 本地派送：一个柜派往多个地址，没有单一「目的地」可写，
+    // 逐个子订单列出地址 + 收货人 + 汇总 + 件明细
+    lines.push(`${section('deliveryOrders')}${p.inlineGap}${deliveryOrders.length}`)
+    for (const order of deliveryOrders) {
+      lines.push(...formatDeliveryOrderLines(order, lang))
     }
     lines.push('')
+  } else {
+    lines.push(section('destination'))
+    lines.push(...formatAddressLines(to, lang))
+    lines.push(...formatContactLines({
+      name: inquiry.contact_name, phone: inquiry.contact_phone, email: inquiry.contact_email,
+    }, lang, 'receiver'))
+    lines.push('')
+
+    if (items.length > 0) {
+      lines.push(section('cargoItems'))
+      for (const it of items) {
+        lines.push(`${it.line_number}. ${formatCargoItemParts(it, lang).join(' | ')}`)
+      }
+      lines.push('')
+    }
   }
 
   lines.push(section('totals'))
@@ -323,6 +462,74 @@ export function parseAddress(value) {
     try { return JSON.parse(value) || {} } catch { return {} }
   }
   return value
+}
+
+/**
+ * 一行件明细的各段（件号 | 品名 | 件数 | 尺寸 | 单重 | 单体积 | LDM | 不可堆叠）
+ *
+ * 两层和三层排版共用，免得同一份格式写两遍、改一处忘一处。
+ */
+function formatCargoItemParts(it, lang) {
+  const dims = [it.length_cm, it.width_cm, it.height_cm]
+    .map((v) => (v === null || v === undefined ? '?' : trimNumber(v)))
+    .join('×')
+  return [
+    it.reference_no ? `${t(lang, 'inquirySummary.itemRef')} ${it.reference_no}` : null,
+    it.description || null,
+    `${it.quantity} ${t(lang, 'inquirySummary.pieces')}`,
+    `${dims} cm`,
+    it.unit_weight_kg !== null ? `${t(lang, 'inquirySummary.perPiece')} ${trimNumber(it.unit_weight_kg)} kg` : null,
+    it.unit_volume_m3 !== null ? `${t(lang, 'inquirySummary.perPiece')} ${trimNumber(it.unit_volume_m3)} m³` : null,
+    it.ldm !== null ? `LDM ${trimNumber(it.ldm)}` : null,
+    it.stackable === false ? t(lang, 'inquirySummary.notStackable') : null,
+  ].filter(Boolean)
+}
+
+/**
+ * 一个派送子订单的完整段落（本地派送专用）
+ *
+ * 排版是「一单一块」而不是表格：服务商多半在手机上看邮件，
+ * 一行几十个字符的表格会被折行折烂，反而不如缩进的块状清楚。
+ */
+function formatDeliveryOrderLines(order, lang) {
+  const p = PUNCTUATION[lang] || PUNCTUATION.en
+  const addr = parseAddress(order.delivery_address)
+  const lines = []
+
+  // 标题行：序号 + 客户子单号（没有就只有序号）
+  const title = order.customer_sub_ref
+    ? `${order.line_number}. ${t(lang, 'inquirySummary.subRef')}${p.colon}${order.customer_sub_ref}`
+    : `${order.line_number}.`
+  lines.push(title)
+
+  // 地址压成一行，字段之间用 · 分隔；公司名排在最前面，服务商找门牌先看公司
+  const addrLine = [addr.companyName, addr.country, addr.zipCode, addr.city, addr.address]
+    .filter(Boolean).join(' · ')
+  lines.push(`   ${addrLine || '-'}`)
+
+  const contact = [addr.contactName, addr.contactPhone, addr.contactEmail].filter(Boolean)
+  if (contact.length > 0) {
+    lines.push(`   ${t(lang, 'inquirySummary.contactNameReceiver')}${p.colon}${contact.join(' · ')}`)
+  }
+
+  // 这一单的汇总：件数 / 重量 / LDM
+  const totalQtyUnit = t(lang, 'inquirySummary.totalQuantityUnit')
+  const summary = [
+    `${order.quantity ?? 0}${totalQtyUnit ? ' ' + totalQtyUnit : ' ' + t(lang, 'inquirySummary.pieces')}`,
+    order.weight_kg !== null && order.weight_kg !== undefined ? `${trimNumber(order.weight_kg)} kg` : null,
+    order.ldm !== null && order.ldm !== undefined ? `LDM ${trimNumber(order.ldm)}` : null,
+  ].filter(Boolean)
+  lines.push(`   ${summary.join(' | ')}`)
+
+  for (const it of order.cargoItems || []) {
+    lines.push(`     - ${formatCargoItemParts(it, lang).join(' | ')}`)
+  }
+  if (order.remarks) {
+    // 用普通标签而不是 remarks——那个是段落标题（英文包里是全大写 REMARKS），
+    // 放在缩进的子订单块里看着像另起了一段
+    lines.push(`   ${t(lang, 'inquirySummary.orderRemarks')}${p.colon}${order.remarks}`)
+  }
+  return lines
 }
 
 /**
@@ -390,8 +597,11 @@ export default {
   normalizeCargoItem,
   createInquiryRecord,
   replaceCargoItems,
+  replaceDeliveryOrders,
   recalcInquiryTotals,
+  recalcDeliveryOrderTotals,
   getCargoItems,
+  getDeliveryOrders,
   buildSummaryText,
   parseAddress,
 }
