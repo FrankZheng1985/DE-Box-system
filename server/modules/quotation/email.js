@@ -9,7 +9,7 @@
 
 import { getBoolSetting, getNumberSetting } from '../../utils/settings.js'
 import tokenService from '../quotation-response/service.js'
-import { parseJsonColumn } from './service.js'
+import quotationService, { parseJsonColumn } from './service.js'
 
 /** 通知类型，复用现有的状态变更类型，不为此单独加一个枚举 */
 const NOTIFICATION_TYPE = 'STATUS_UPDATE'
@@ -77,7 +77,7 @@ export async function queueQuotationEmail(client, quotationId, userId = null) {
     `SELECT q.id, q.quotation_number, q.total_price, q.currency, q.valid_until,
             q.remarks, q.route_from, q.route_to,
             c.company_name AS client_name, c.contact_email, c.invoice_email,
-            i.contact_email AS inquiry_email
+            i.contact_email AS inquiry_email, i.container_no
      FROM quotations q
      LEFT JOIN clients c   ON c.id = q.client_id
      LEFT JOIN inquiries i ON i.id = q.inquiry_id
@@ -111,10 +111,26 @@ export async function queueQuotationEmail(client, quotationId, userId = null) {
   const link = (action) =>
     `${base}/api/v1/quotation-response/${encodeURIComponent(plain)}?action=${action}`
 
+  // 本地派送的逐票报价：客户是按票核价的，邮件里只给一个整柜总额他没法核对
+  const deliveryLines = (await quotationService.getDeliveryLines(quotationId, client)).map((l) => {
+    const addr = typeof l.delivery_address === 'string'
+      ? (() => { try { return JSON.parse(l.delivery_address) } catch { return {} } })()
+      : (l.delivery_address || {})
+    return {
+      subRef: l.customer_sub_ref || `#${l.line_number}`,
+      address: [addr.companyName, addr.zipCode, addr.city].filter(Boolean).join(' · '),
+      quantity: l.quantity,
+      weight: l.weight_kg !== null && l.weight_kg !== undefined ? `${Number(l.weight_kg)} kg` : '',
+      price: formatMoney(l.price, l.currency || q.currency),
+    }
+  })
+
   const payload = {
     quotationNumber: q.quotation_number,
     clientName: q.client_name || '客户',
     route: routeText(q.route_from, q.route_to),
+    containerNo: q.container_no || '',
+    deliveryLines,
     totalPrice: formatMoney(q.total_price, q.currency),
     validUntil: q.valid_until ? new Date(q.valid_until).toLocaleDateString('de-DE') : '',
     remarks: q.remarks || '',

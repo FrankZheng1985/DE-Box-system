@@ -21,6 +21,16 @@ import {
 // ==================== 类型定义 ====================
 
 /** 字段名与后端 GET /quotations 返回的 JSON key 一致（snake_case，踩坑 003） */
+/** 本地派送报价的一票明细（GET /quotations/:id 的 deliveryLines） */
+interface DeliveryLine {
+  id: string
+  line_number: number
+  customer_sub_ref: string | null
+  delivery_address: { companyName?: string; city?: string } | null
+  price: string
+  currency: string | null
+}
+
 interface Quotation {
   id: string
   quotation_number: string
@@ -77,17 +87,39 @@ function isExpired(validUntil: string | null): boolean {
 // ==================== 决策弹窗 ====================
 
 function DecisionModal({
-  quotation, type, submitting, onClose, onConfirm,
+  quotation, type, submitting, error, onClose, onConfirm,
 }: {
   quotation: Quotation
   type: DecisionType
   submitting: boolean
+  /** 提交失败时后端给的原因；弹窗不关，就在这里显示 */
+  error?: string
   onClose: () => void
   onConfirm: (note: string) => void
 }) {
   const { t } = useTranslation()
   const [note, setNote] = useState('')
   const meta = DECISION_META[type]
+  /**
+   * 本地派送的逐票报价（开发意见 #7 第 2 步）
+   *
+   * 客户是按票核价的，只给一个整柜总额他没法确认。列表接口不带明细，
+   * 所以弹窗打开时单独拉一次详情；拉失败只是少一块明细，不挡住决策。
+   */
+  const [lines, setLines] = useState<DeliveryLine[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await api.get<ApiResponse<{ deliveryLines?: DeliveryLine[] }>>(`/quotations/${quotation.id}`)
+        if (!cancelled && res.code === 200) setLines(res.data?.deliveryLines || [])
+      } catch (err) {
+        console.warn('加载逐票报价失败:', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [quotation.id])
 
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
@@ -115,6 +147,40 @@ function DecisionModal({
             </div>
           </div>
 
+          {/* 逐票报价：确认前要能逐票核对，不能只看一个整柜总额 */}
+          {lines.length > 0 && (
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <p className="px-3 py-2 text-[11px] font-medium text-slate-600 bg-gray-50 border-b border-gray-200">
+                {t('quotations.deliveryLines', { count: lines.length })}
+              </p>
+              <div className="max-h-48 overflow-y-auto">
+                <table className="w-full table-fixed">
+                  <colgroup>
+                    <col className="w-[26%]" />
+                    <col className="w-[44%]" />
+                    <col className="w-[30%]" />
+                  </colgroup>
+                  <tbody>
+                    {lines.map((l) => (
+                      <tr key={l.id} className="border-b border-gray-50 last:border-0">
+                        <td className="text-left px-3 py-1.5 text-[11px] text-slate-900 truncate">
+                          {l.customer_sub_ref || `#${l.line_number}`}
+                        </td>
+                        <td className="text-left px-3 py-1.5 text-[11px] text-slate-500 truncate">
+                          {[l.delivery_address?.companyName, l.delivery_address?.city]
+                            .filter(Boolean).join(' · ') || '-'}
+                        </td>
+                        <td className="text-right px-3 py-1.5 text-[11px] font-medium text-slate-900">
+                          {fmtMoney(l.price, l.currency || quotation.currency)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {type === 'accept' && (
             <div className="flex gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl">
               <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -136,6 +202,14 @@ function DecisionModal({
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary-500 resize-none transition-all duration-200 ease-in-out"
             />
           </div>
+
+          {/* 失败原因必须显示在弹窗里：页面顶部的提示条会被这个弹窗整个遮住，
+              客户只会看到「点了没反应」 */}
+          {error && (
+            <div className="px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-xs text-red-700 leading-relaxed">{error}</p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
@@ -195,6 +269,9 @@ export default function MyQuotations() {
 
   useEffect(() => {
     if (!message) return
+    // 只自动清成功提示。失败原因（信用超额、暂不支持的转单…）要留着让人读完，
+    // 4 秒后自己消失等于把唯一的解释拿走了
+    if (message.type === 'error') return
     const timer = setTimeout(() => setMessage(null), 4000)
     return () => clearTimeout(timer)
   }, [message])
@@ -254,7 +331,8 @@ export default function MyQuotations() {
           quotation={decision.quotation}
           type={decision.type}
           submitting={submitting}
-          onClose={() => setDecision(null)}
+          error={message?.type === 'error' ? message.text : ''}
+          onClose={() => { setMessage(null); setDecision(null) }}
           onConfirm={handleDecision}
         />
       )}

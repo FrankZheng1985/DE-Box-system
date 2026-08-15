@@ -165,6 +165,9 @@ export const MESSAGE_CODES = {
   '已取消的询价不能回填报价': 'CANCELLED_INQUIRY_NO_QUOTE',
   '只有待回价或已取消的记录可以删除': 'CARRIER_INQUIRY_DELETE_LIMITED',
   '请至少选择一家服务商': 'SELECT_AT_LEAST_ONE_CARRIER',
+  // 本地派送三层单的转单守卫（开发意见 #7 第 3 步做完后连同守卫一起删）
+  '本地派送（柜 + 派送子订单）的自动建单还在开发中：这一版报价会生成多张订单，功能上线前请先不要确认，或联系运营人工处理': 'LOCAL_DELIVERY_CONVERT_NOT_READY',
+  '这张询价单有派送子订单，请用 deliveryOrders 整体提交，不能只传 cargoItems': 'INQUIRY_NEEDS_DELIVERY_ORDERS',
   '获取服务商询价列表失败': 'CARRIER_INQUIRIES_LOAD_FAILED',
   '获取服务商询价详情失败': 'CARRIER_INQUIRY_DETAIL_LOAD_FAILED',
 

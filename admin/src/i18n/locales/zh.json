@@ -919,6 +919,14 @@
     "sendEmailFailed": "发送询价邮件失败",
     "emailRecipients": "收件人：{{emails}}"
   },
+  "quotationDeliveryLines": {
+    "title": "逐票报价（{{count}} 票）",
+    "hint": "整柜合计由各票相加，不用单独填",
+    "colSubRef": "子单号",
+    "colDropTo": "派送至",
+    "colPrice": "派送费",
+    "total": "整柜合计"
+  },
   "quotationDetail": {
     "pageTitle": "报价详情",
     "loadFailed": "获取报价详情失败",
@@ -958,6 +966,7 @@
     "errTransportType": "请选择运输类型",
     "errValidUntil": "请选择有效期",
     "errBaseFreight": "请输入基础运费",
+    "errDeliveryPrices": "这几票还没填报价：{{refs}}",
     "originCountry": "起点国家",
     "originCity": "起点城市",
     "destCountry": "终点国家",
@@ -1963,6 +1972,8 @@
     "CANCELLED_INQUIRY_NO_QUOTE": "已取消的询价不能回填报价",
     "CARRIER_INQUIRY_DELETE_LIMITED": "只有待回价或已取消的记录可以删除",
     "SELECT_AT_LEAST_ONE_CARRIER": "请至少选择一家服务商",
+    "LOCAL_DELIVERY_CONVERT_NOT_READY": "本地派送（柜 + 派送子订单）的自动建单还在开发中：这一版报价会生成多张订单，功能上线前请先不要确认，或人工处理",
+    "INQUIRY_NEEDS_DELIVERY_ORDERS": "这张询价单有派送子订单，请整体提交，不能只传货物明细",
     "CARRIER_INQUIRIES_LOAD_FAILED": "获取服务商询价列表失败",
     "CARRIER_INQUIRY_DETAIL_LOAD_FAILED": "获取服务商询价详情失败",
     "CLIENT_NOT_FOUND": "客户不存在",

@@ -919,6 +919,14 @@
     "sendEmailFailed": "Anfrage-E-Mail konnte nicht gesendet werden",
     "emailRecipients": "Empfänger: {{emails}}"
   },
+  "quotationDeliveryLines": {
+    "title": "Preis je Zustellung ({{count}})",
+    "hint": "Die Containersumme ergibt sich aus den Zeilen",
+    "colSubRef": "Zustellreferenz",
+    "colDropTo": "Zustellen an",
+    "colPrice": "Preis",
+    "total": "Container gesamt"
+  },
   "quotationDetail": {
     "pageTitle": "Angebotsdetails",
     "loadFailed": "Angebot konnte nicht geladen werden",
@@ -958,6 +966,7 @@
     "errTransportType": "Bitte eine Transportart auswählen",
     "errValidUntil": "Bitte ein Gültigkeitsdatum auswählen",
     "errBaseFreight": "Bitte die Grundfracht eingeben",
+    "errDeliveryPrices": "Für diese Zustellungen fehlt noch ein Preis: {{refs}}",
     "originCountry": "Versandland",
     "originCity": "Versandort",
     "destCountry": "Zielland",
@@ -1963,6 +1972,8 @@
     "CANCELLED_INQUIRY_NO_QUOTE": "Zu einer stornierten Anfrage kann kein Angebot erfasst werden",
     "CARRIER_INQUIRY_DELETE_LIMITED": "Nur Anfragen, die auf ein Angebot warten oder bereits storniert sind, können gelöscht werden",
     "SELECT_AT_LEAST_ONE_CARRIER": "Bitte mindestens einen Frachtführer auswählen",
+    "LOCAL_DELIVERY_CONVERT_NOT_READY": "Die automatische Auftragsanlage für Nahverkehr (Container + Zustellungen) ist noch in Arbeit: aus diesem Angebot entstehen mehrere Aufträge. Bitte noch nicht bestätigen oder manuell bearbeiten.",
+    "INQUIRY_NEEDS_DELIVERY_ORDERS": "Diese Anfrage enthält Zustellungen — bitte vollständig übermitteln, nicht nur die Warenzeilen",
     "CARRIER_INQUIRIES_LOAD_FAILED": "Frachtführeranfragen konnten nicht geladen werden",
     "CARRIER_INQUIRY_DETAIL_LOAD_FAILED": "Details der Frachtführeranfrage konnten nicht geladen werden",
     "CLIENT_NOT_FOUND": "Kunde nicht gefunden",

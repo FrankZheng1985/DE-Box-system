@@ -165,6 +165,47 @@ function esc(value) {
  * @param {string} p.pendingUrl      待定链接
  * @returns {{ subject: string, html: string }}
  */
+/**
+ * 报价邮件里的逐票报价表（本地派送，开发意见 #7 第 2 步）
+ *
+ * 客户是按票核价的：哪一票送到哪、多少钱，必须在邮件里就能看清，
+ * 只给一个整柜总额他没法核对。没有逐票行（另外两种服务）时返回空串。
+ *
+ * @param {Array<{subRef?: string, address?: string, quantity?: number, weight?: string, price: string}>} lines
+ */
+function quoteDeliveryLinesTable(lines, lang) {
+  if (!Array.isArray(lines) || lines.length === 0) return ''
+
+  const th = (text, align = 'left') =>
+    `<th style="padding:8px 10px;color:#64748b;font-size:12px;font-weight:600;text-align:${align};border-bottom:1px solid #e2e8f0;">${esc(text)}</th>`
+  const td = (text, align = 'left') =>
+    `<td style="padding:8px 10px;color:#1e293b;font-size:12px;text-align:${align};border-bottom:1px solid #f1f5f9;">${esc(text ?? '-')}</td>`
+
+  const rows = lines.map((l) => `
+    <tr>
+      ${td(l.subRef || '-')}
+      ${td(l.address || '-')}
+      ${td(String(l.quantity ?? '-'), 'right')}
+      ${td(l.weight || '-', 'right')}
+      ${td(l.price, 'right')}
+    </tr>`).join('')
+
+  return `
+    <p style="color:#475569;font-size:14px;margin:20px 0 8px;font-weight:600;">
+      ${t(lang, 'email.quoteDeliveryLines', { count: lines.length })}
+    </p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 8px;">
+      <tr>
+        ${th(t(lang, 'email.quoteColSubRef'))}
+        ${th(t(lang, 'email.quoteColDropTo'))}
+        ${th(t(lang, 'email.quoteColQty'), 'right')}
+        ${th(t(lang, 'email.quoteColWeight'), 'right')}
+        ${th(t(lang, 'email.quoteColPrice'), 'right')}
+      </tr>
+      ${rows}
+    </table>`
+}
+
 export function quotationEmail(p, lang = 'zh') {
   const subject = t(lang, 'email.quoteSubject', { number: p.quotationNumber })
 
@@ -191,6 +232,7 @@ export function quotationEmail(p, lang = 'zh') {
 
     <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border-radius:6px;">
       ${row(t(lang, 'email.quoteRoute'), p.route)}
+      ${row(t(lang, 'email.quoteContainerNo'), p.containerNo)}
       ${row(t(lang, 'email.quoteValidUntil'), p.validUntil)}
       ${row(t(lang, 'email.quoteRemarks'), p.remarks)}
       <tr>
@@ -198,6 +240,8 @@ export function quotationEmail(p, lang = 'zh') {
         <td style="padding:14px;color:#2563eb;font-size:20px;font-weight:bold;">${esc(p.totalPrice)}</td>
       </tr>
     </table>
+
+    ${quoteDeliveryLinesTable(p.deliveryLines, lang)}
 
     <p style="color:#475569;font-size:14px;margin:24px 0 12px;">${t(lang, 'email.quotePickPrompt')}</p>
     <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>

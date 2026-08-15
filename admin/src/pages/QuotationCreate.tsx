@@ -27,6 +27,9 @@ import api, { type ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { BUSINESS_TYPE_LIST, businessTypeLabelKey } from '../constants/businessTypes'
+import QuotationDeliveryLines, {
+  type DeliveryOrderRef, type DeliveryPriceMap, sumDeliveryPrices,
+} from '../components/QuotationDeliveryLines'
 import { formatMoney, toDateInputValue } from '../utils/format'
 import {
   CARRIER_INQUIRY_PERMISSIONS, CARRIER_INQUIRY_STATUS, type CarrierInquiry,
@@ -153,6 +156,9 @@ export default function QuotationCreate() {
 
   // 状态
   const [form, setForm] = useState<QuotationFormData>({ ...INITIAL_FORM })
+  /** 本地派送：来源询价的派送票，以及每票的报价（开发意见 #7 第 2 步） */
+  const [deliveryOrders, setDeliveryOrders] = useState<DeliveryOrderRef[]>([])
+  const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPriceMap>({})
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
   // 编辑模式要等详情回填后再渲染表单，否则会先闪一屏空表单
@@ -224,6 +230,8 @@ export default function QuotationCreate() {
           cargo_quantity: d.cargo_quantity,
           ldm: d.ldm,
         })
+        // 有派送票就是三层单，逐票报价（合计由各票相加）
+        setDeliveryOrders(d.deliveryOrders || [])
         setForm((prev) => ({
           ...prev,
           clientId: d.client_id || prev.clientId,
@@ -322,9 +330,14 @@ export default function QuotationCreate() {
   }, [inquiryId, canSeeCarrierCost])
 
   // 计算总价
+  /** 有派送票就是三层单，这时候的合计只认逐票之和 */
+  const isPerDelivery = deliveryOrders.length > 0
+  const isLocalDelivery = form.businessType === 'LOCAL_DELIVERY'
+
   const totalPrice = useMemo(() => {
+    if (isPerDelivery) return sumDeliveryPrices(deliveryPrices)
     return (form.baseFreight || 0) + (form.surcharge || 0) + (form.insuranceFee || 0)
-  }, [form.baseFreight, form.surcharge, form.insuranceFee])
+  }, [isPerDelivery, deliveryPrices, form.baseFreight, form.surcharge, form.insuranceFee])
 
   // 获取币种符号
   const currencySymbol = useMemo(() => {
@@ -411,9 +424,27 @@ export default function QuotationCreate() {
 
     if (!form.clientId) newErrors.clientId = t('placeholder.selectClient')
     if (!form.businessType) newErrors.businessType = t('quotationCreate.errBusinessType')
-    if (!form.transportType) newErrors.transportType = t('quotationCreate.errTransportType')
+    // 本地派送没有专车/拼车之分（询价侧同口径），别把它当必填 ——
+    // 否则三层单的报价永远保存不了，而且页面上看不出是哪里拦住的
+    if (!isLocalDelivery && !form.transportType) {
+      newErrors.transportType = t('quotationCreate.errTransportType')
+    }
     if (!form.validUntil) newErrors.validUntil = t('quotationCreate.errValidUntil')
-    if (!form.baseFreight || form.baseFreight <= 0) newErrors.baseFreight = t('quotationCreate.errBaseFreight')
+    if (isPerDelivery) {
+      // 三层单没有「基础运费」这一项，改为要求每一票都填了价
+      // （0 是合法的：某票免费送；空着才是漏填）
+      const missing = deliveryOrders.filter((o) => {
+        const v = deliveryPrices[o.id]
+        return v === undefined || v === '' || !Number.isFinite(Number(v))
+      })
+      if (missing.length > 0) {
+        newErrors.deliveryLines = t('quotationCreate.errDeliveryPrices', {
+          refs: missing.map((o) => o.customer_sub_ref || `#${o.line_number}`).join(', '),
+        })
+      }
+    } else if (!form.baseFreight || form.baseFreight <= 0) {
+      newErrors.baseFreight = t('quotationCreate.errBaseFreight')
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -445,6 +476,13 @@ export default function QuotationCreate() {
       // 成本快照：没权限的人不传，后端也会再拦一次（P6）
       carrierCost: canSeeCarrierCost && costRef?.quoted_cost ? Number(costRef.quoted_cost) : null,
       carrierCostSourceId: canSeeCarrierCost && costRef ? costRef.id : null,
+      // 三层单：逐票报价，后端据此回写合计（不传的话后端不动逐票行）
+      ...(isPerDelivery ? {
+        deliveryLines: deliveryOrders.map((o) => ({
+          deliveryOrderId: o.id,
+          price: Number(deliveryPrices[o.id] || 0),
+        })),
+      } : {}),
     }
 
     try {
@@ -652,7 +690,7 @@ export default function QuotationCreate() {
               </FormField>
 
               {/* 运输类型 */}
-              <FormField label={t('field.transportType')} required error={errors.transportType}>
+              <FormField label={t('field.transportType')} required={!isLocalDelivery} error={errors.transportType}>
                 <select
                   value={form.transportType}
                   onChange={(e) => updateField('transportType', e.target.value)}
@@ -730,8 +768,25 @@ export default function QuotationCreate() {
             </div>
           </div>
 
+          {/* ---------- 逐票报价（本地派送三层单，开发意见 #7 第 2 步） ----------
+               有派送票时整块替代下面的「基础运费/附加费/保险费」：
+               这类单的价格天然是按票组成的，再让运营填一个基础运费只会两头对不上 */}
+          {isPerDelivery && (
+            <>
+              <QuotationDeliveryLines
+                orders={deliveryOrders}
+                prices={deliveryPrices}
+                onChange={setDeliveryPrices}
+                currency={form.currency}
+              />
+              {errors.deliveryLines && (
+                <p className="text-xs text-red-600 px-1">{errors.deliveryLines}</p>
+              )}
+            </>
+          )}
+
           {/* ---------- 价格明细 ---------- */}
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6">
+          <div className={`bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6${isPerDelivery ? ' hidden' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                 <Banknote className="w-5 h-5 text-blue-600" />

@@ -51,6 +51,101 @@ export const DECISION_ACTIONS = {
   PENDING: 'PENDING',
 }
 
+/**
+ * 整版替换本地派送的逐票报价行，并把合计回写 quotations.total_price
+ *
+ * 报价是按版本走的（改价 = 新开一版），所以每一版都有自己完整的一套行，
+ * 先删后插即可，不必做增量比对。
+ *
+ * ⚠️ 必须在事务里调用。
+ *
+ * @param {object} client 事务客户端
+ * @param {string} quotationId
+ * @param {Array<{deliveryOrderId: string, price: number|string, remarks?: string}>} rawLines
+ * @param {string} [currency='EUR']
+ * @returns {Promise<{lines: Array, total: number}>}
+ */
+export async function replaceDeliveryLines(client, quotationId, rawLines, currency = 'EUR') {
+  await client.query(`DELETE FROM quotation_delivery_lines WHERE quotation_id = $1`, [quotationId])
+
+  const lines = []
+  for (const raw of rawLines || []) {
+    if (!raw?.deliveryOrderId) continue
+    // 价格按 0 兜底而不是跳过：某一票免费送也是有效报价，
+    // 跳过会让这一票在报价单上凭空消失，客户以为我们漏报了
+    const price = toAmount(raw.price)
+    const inserted = await client.query(
+      `INSERT INTO quotation_delivery_lines
+       (quotation_id, delivery_order_id, price, currency, remarks)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING *`,
+      [quotationId, raw.deliveryOrderId, price, currency, raw.remarks || null]
+    )
+    lines.push(inserted.rows[0])
+  }
+
+  const total = await recalcQuotationTotalFromLines(client, quotationId)
+  return { lines, total }
+}
+
+/**
+ * 用逐票行汇总回写报价总价
+ *
+ * 一行都没有时**不动 total_price** —— 那是两层结构的报价（卡派 LTL / 卡车 FTL），
+ * 它的总价来自定价引擎或运营手填，清零等于把价格抹掉。
+ *
+ * @returns {Promise<number|null>} 回写后的合计；没有行时返回 null
+ */
+export async function recalcQuotationTotalFromLines(client, quotationId) {
+  const agg = await client.query(
+    `SELECT COUNT(*)::int AS line_count, COALESCE(SUM(price), 0) AS total
+     FROM quotation_delivery_lines WHERE quotation_id = $1`,
+    [quotationId]
+  )
+  const { line_count, total } = agg.rows[0]
+  if (line_count === 0) return null
+
+  // NUMERIC 求和回来是字符串，写回前先转数字（踩坑 002）
+  const amount = Math.round(Number(total) * 100) / 100
+  await client.query(
+    `UPDATE quotations
+     SET total_price = $1, base_freight = $1, surcharge = 0, insurance_fee = 0, updated_at = NOW()
+     WHERE id = $2`,
+    [amount, quotationId]
+  )
+  return amount
+}
+
+/**
+ * 读取一版报价的逐票明细，并带上对应那一票的派送信息
+ *
+ * 带派送信息是必需的：报价单和邮件上要显示「送到哪、多少件、多重」，
+ * 只给一个 delivery_order_id 前端还得再查一遍询价。
+ *
+ * @param {string} quotationId
+ * @param {object} db 有 query 方法的对象（连接池或事务客户端）
+ */
+export async function getDeliveryLines(quotationId, db) {
+  const result = await db.query(
+    `SELECT l.*,
+            d.line_number, d.customer_sub_ref, d.delivery_address,
+            d.quantity, d.weight_kg, d.volume_m3, d.ldm
+     FROM quotation_delivery_lines l
+     JOIN inquiry_delivery_orders d ON d.id = l.delivery_order_id
+     WHERE l.quotation_id = $1
+     ORDER BY d.line_number`,
+    [quotationId]
+  )
+  return result.rows
+}
+
+/** 金额转数字；空值和非法值一律按 0，不返回 null（NOT NULL 列） */
+function toAmount(value) {
+  if (value === null || value === undefined || value === '') return 0
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0
+}
+
 /** JSONB 列可能是对象也可能是字符串，统一成对象 */
 export function parseJsonColumn(value) {
   if (!value) return {}
@@ -73,6 +168,25 @@ export function parseJsonColumn(value) {
  * @returns {Promise<object>} 新建的订单
  */
 export async function createOrderFromQuotation(client, quotation, userId, extra = {}) {
+  // ⚠️ 本地派送的三层单（柜 → 多票派送）要转成 **N 张订单**，一票一张
+  //    （Frank 2026-08-15 拍板）。那是第 3 步的活，还没做。
+  //
+  //    在做完之前必须挡住：这条路径会拿柜级的 route_to 建**一张**订单，
+  //    而三层单的 route_to 是空的 —— 建出来是一张没有派送地址、金额是整柜合计的
+  //    畸形订单，而且订单是已过账凭证，只能冲销不能删。
+  //    与其留个坑等人踩，不如让这次确认失败并说清原因。
+  if (quotation.inquiry_id) {
+    const drops = await client.query(
+      `SELECT COUNT(*)::int AS c FROM inquiry_delivery_orders WHERE inquiry_id = $1`,
+      [quotation.inquiry_id]
+    )
+    if (drops.rows[0].c > 0) {
+      throw new Error(
+        '本地派送（柜 + 派送子订单）的自动建单还在开发中：这一版报价会生成多张订单，功能上线前请先不要确认，或联系运营人工处理'
+      )
+    }
+  }
+
   const routeFrom = parseJsonColumn(quotation.route_from)
   const routeTo = parseJsonColumn(quotation.route_to)
 
@@ -236,4 +350,7 @@ export default {
   parseJsonColumn,
   createOrderFromQuotation,
   applyClientDecision,
+  replaceDeliveryLines,
+  recalcQuotationTotalFromLines,
+  getDeliveryLines,
 }

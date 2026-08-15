@@ -243,11 +243,15 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
         : Promise.resolve({ rows: [] }),
     ])
 
+    // 本地派送的逐票报价；其余服务是空数组，前端据此决定用哪套渲染
+    const deliveryLines = await quotationService.getDeliveryLines(quotation.id, { query })
+
     res.json({
       code: 200, message: 'success',
       data: await stripCarrierCost(req, {
         ...quotation,
         pricingItems: items.rows,
+        deliveryLines,
         inquiry: inquiry.rows[0] || null,
         convertedOrder: order.rows[0] || null,
       }),
@@ -327,6 +331,16 @@ router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:creat
         }
       }
 
+      // 本地派送：逐票报价，合计回写 total_price（开发意见 #7 第 2 步）
+      if (Array.isArray(req.body.deliveryLines) && req.body.deliveryLines.length > 0) {
+        await quotationService.replaceDeliveryLines(
+          client, result.rows[0].id, req.body.deliveryLines, req.body.currency || 'EUR'
+        )
+        // 合计已回写，把最新的行读回来返回给前端
+        const refreshed = await client.query(`SELECT * FROM quotations WHERE id = $1`, [result.rows[0].id])
+        result.rows[0] = refreshed.rows[0]
+      }
+
       // ⚠️ 这里【不能】把询价改成 QUOTED：新建的报价固定是 DRAFT，客户根本看不到
       //    （踩坑 054 已把草稿从客户的接口里挡掉）。一建草稿就标"已报价"，
       //    客户门户会显示「已报价」但报价时效列是横杠——时效只认非草稿报价，
@@ -369,9 +383,22 @@ router.put('/:id', requireUserType('OPERATOR'), requirePermission('quotation:edi
       if (req.body.routeFrom) { params.push(JSON.stringify(req.body.routeFrom)); setClauses.push(`route_from = $${++idx}`) }
       if (req.body.routeTo) { params.push(JSON.stringify(req.body.routeTo)); setClauses.push(`route_to = $${++idx}`) }
 
-      if (setClauses.length === 0) throw new Error('没有可更新的字段')
-      params.push(req.params.id); setClauses.push('updated_at = NOW()')
-      await client.query(`UPDATE quotations SET ${setClauses.join(', ')} WHERE id = $${++idx}`, params)
+      const hasLines = Array.isArray(req.body.deliveryLines)
+      if (setClauses.length === 0 && !hasLines) throw new Error('没有可更新的字段')
+
+      if (setClauses.length > 0) {
+        params.push(req.params.id); setClauses.push('updated_at = NOW()')
+        await client.query(`UPDATE quotations SET ${setClauses.join(', ')} WHERE id = $${++idx}`, params)
+      }
+
+      // 逐票报价整版替换，合计随之回写（会覆盖上面可能传进来的 totalPrice——
+      // 逐票之和才是这版报价的真值，两者不一致时以行为准）
+      if (hasLines) {
+        await quotationService.replaceDeliveryLines(
+          client, req.params.id, req.body.deliveryLines,
+          req.body.currency || old.rows[0].currency || 'EUR'
+        )
+      }
     })
     res.json({ code: 200, message: '报价更新成功', data: null })
   } catch (error) {
@@ -576,9 +603,37 @@ router.post('/:id/new-version', requireUserType('OPERATOR'), requirePermission('
          // 新版本沿用上一版的成本来源：换版本是改客户价，服务商成本没变
          prev.carrier_cost, prev.carrier_cost_source_id]
       )
+      // 逐票报价也要带到新版本上（开发意见 #7 第 2 步）
+      //
+      // 传了 deliveryLines 就用新的（这正是改价的场景）；没传就整套复制上一版，
+      // 否则新版本会变成「一票都没有、总价却还挂着上一版数字」的自相矛盾状态，
+      // 而且客户端一看就是 0 元报价
+      if (Array.isArray(req.body.deliveryLines)) {
+        await quotationService.replaceDeliveryLines(
+          client, result.rows[0].id, req.body.deliveryLines, prev.currency || 'EUR'
+        )
+      } else {
+        const prevLines = await client.query(
+          `SELECT delivery_order_id, price, currency, remarks
+           FROM quotation_delivery_lines WHERE quotation_id = $1`,
+          [req.params.id]
+        )
+        if (prevLines.rows.length > 0) {
+          await quotationService.replaceDeliveryLines(
+            client, result.rows[0].id,
+            prevLines.rows.map((r) => ({
+              deliveryOrderId: r.delivery_order_id, price: r.price, remarks: r.remarks,
+            })),
+            prev.currency || 'EUR'
+          )
+        }
+      }
+
       // 标记旧版本为已过期
       await client.query(`UPDATE quotations SET status = 'EXPIRED' WHERE id = $1`, [req.params.id])
-      return result.rows[0]
+
+      const refreshed = await client.query(`SELECT * FROM quotations WHERE id = $1`, [result.rows[0].id])
+      return refreshed.rows[0]
     })
     res.json({ code: 200, message: `新版本 V${newQuo.version} 创建成功`, data: await stripCarrierCost(req, newQuo) })
   } catch (error) {
