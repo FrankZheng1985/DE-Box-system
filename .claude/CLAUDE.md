@@ -31,10 +31,28 @@
 
 ## 服务器信息
 
-- **ECS**: 47.83.241.117 (SSH 别名: `eu-tms`)
-- **RDS**: pgm-j6crhh9h8562qvfm.pg.rds.aliyuncs.com:5432
+- **ECS**: 47.83.241.117 (SSH 别名: `eu-tms`)，私网 `172.16.0.11`，实例 `i-j6c9c2mj1yzlx4gxdbvk`
+- **RDS**: pgm-j6crhh9h8562qvfm.pg.rds.aliyuncs.com:5432（私网 `172.16.0.13`，**无公网接入点**）
 - **数据库名**: germany_box_transport
 - **OSS**: box-cargo-files (oss-cn-hongkong)
+
+### 网络约束（2026-08-16 加固，改动前务必看完）
+
+> 同 VPC 里还有第二台 ECS `172.16.0.9`（公网 `47.242.24.255`）是**先锋系统**，
+> 与 EU-TMS 互不访问。别把它当成本项目的机器。
+
+- 🚨 **RDS 白名单锁死到单机 `172.16.0.11`**（`default` 组）。
+  **ECS 重建 / 换机 / 私网 IP 变化 → 数据库立刻连不上，症状是"连接超时"看不出原因。**
+  排查生产突然连不上库时先查这条：`ssh eu-tms "hostname -I"` 对不对得上白名单。
+  （另一个隐藏组 `hdm_security_ips` 是阿里云 DAS 管理地址，不要动）
+- **EU-TMS 独用安全组 `sg-j6cflgbal6ro0kwcohuw`**（`eutms-web`），
+  入方向只有 22/80/443/ICMP，出方向全放行。要新开端口在这个组里加，
+  **别去动 `sg-j6ch3x980uowk2rpf1zq`**——那是先锋在用的。
+- ⚠️ **这台机器有两层防火墙：安全组 + ufw**（ufw active，`deny incoming`，只放 22/80/443）。
+  **判断端口暴不暴露必须两层都查**，只看一层的结论不可信；
+  `nc` 探测要看耗时（约 0.1s 失败 = 放行但无进程，约 5s 超时 = 被丢包）。详见踩坑 065。
+- 数据库密码：**未轮换**（评估结论是无必要，见 `docs/开发记录/2026-08-16-生产网络加固-RDS白名单收窄与安全组拆分.md`）。
+  将来要换，服务器上有现成的 `/root/rotate-db-password.sh`，换完必须 `pm2 delete` 再用 ecosystem 起。
 
 ---
 
