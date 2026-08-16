@@ -131,6 +131,8 @@ interface Order {
   clearance_status: string
   // 本地派送字段
   tracking_number: string | null
+  /** 服务渠道，仅本地派送（开发意见 #7 第 4 步） */
+  service_channel: string | null
   created_at: string
   updated_at: string
 }
@@ -741,6 +743,10 @@ export default function OrderDetail() {
               )}
               {isLocalDelivery && (
                 <InfoItem label={t('order.trackingNumber')} value={order.tracking_number || t('orderDetail.trackingNotSet')} />
+              )}
+              {/* 服务渠道跟跟踪号是一对，紧挨着显示（开发意见 #7 第 4 步） */}
+              {isLocalDelivery && (
+                <InfoItem label={t('order.serviceChannel')} value={order.service_channel || '-'} />
               )}
               <InfoItem label={t('field.cargoDescription')} value={order.cargo_description || '-'} fullWidth />
               <InfoItem

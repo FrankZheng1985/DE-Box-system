@@ -608,6 +608,8 @@
     "trackingNumber": "Tracking no.",
     "trackingModalTitle": "Set tracking number",
     "trackingPlaceholder": "Enter the delivery tracking number; clients will see it in their portal",
+    "serviceChannel": "Service channel",
+    "serviceChannelPlaceholder": "Who delivers this drop, e.g. own fleet / DPD / DHL",
     "trackingClearHint": "Save an empty field to clear the tracking number",
     "trackingFill": "Add tracking no.",
     "trackingEditHint": "Click to edit: {{value}}",

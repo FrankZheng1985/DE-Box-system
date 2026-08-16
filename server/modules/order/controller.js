@@ -202,7 +202,9 @@ export const orderController = {
   async updateTrackingNumber(req, res) {
     try {
       const result = await withTransaction(async (client) => {
-        return orderService.updateTrackingNumber(client, req.params.id, req.body.trackingNumber, req.user.id)
+        return orderService.updateTrackingNumber(
+          client, req.params.id, req.body.trackingNumber, req.user.id, req.body.serviceChannel
+        )
       })
       res.json({ code: 200, message: '跟踪号已保存', data: result })
     } catch (error) {

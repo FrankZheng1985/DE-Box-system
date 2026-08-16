@@ -608,6 +608,8 @@
     "trackingNumber": "跟踪号",
     "trackingModalTitle": "填写跟踪号",
     "trackingPlaceholder": "请输入派送跟踪号，保存后客户门户可见",
+    "serviceChannel": "服务渠道",
+    "serviceChannelPlaceholder": "这一票由谁派送，如 自有车队 / DPD / DHL",
     "trackingClearHint": "留空并保存可清除跟踪号",
     "trackingFill": "填写跟踪号",
     "trackingEditHint": "点击修改：{{value}}",

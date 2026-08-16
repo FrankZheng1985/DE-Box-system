@@ -608,6 +608,8 @@
     "trackingNumber": "Sendungsnr.",
     "trackingModalTitle": "Sendungsnummer eintragen",
     "trackingPlaceholder": "Sendungsnummer eingeben – sie ist danach im Kundenportal sichtbar",
+    "serviceChannel": "Zustellkanal",
+    "serviceChannelPlaceholder": "Wer stellt diese Sendung zu, z. B. eigener Fuhrpark / DPD / DHL",
     "trackingClearHint": "Feld leeren und speichern löscht die Sendungsnummer",
     "trackingFill": "Sendungsnr. eintragen",
     "trackingEditHint": "Zum Ändern klicken: {{value}}",

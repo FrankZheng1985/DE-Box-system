@@ -64,6 +64,8 @@ interface OrderRow {
   bl_number: string | null
   eta: string | null
   tracking_number: string | null
+  /** 服务渠道，仅本地派送（开发意见 #7 第 4 步） */
+  service_channel: string | null
   created_at: string
 }
 
@@ -146,6 +148,8 @@ export default function OrderManagement() {
 
   // 跟踪号编辑弹窗（仅本地派送）
   const [trackingOrder, setTrackingOrder] = useState<OrderRow | null>(null)
+  /** 服务渠道与跟踪号是一对（跟踪号通常就是这个渠道给的），同一个弹窗一起填 */
+  const [channelInput, setChannelInput] = useState('')
   const [trackingInput, setTrackingInput] = useState('')
   const [trackingSaving, setTrackingSaving] = useState(false)
 
@@ -239,6 +243,7 @@ export default function OrderManagement() {
   const openTrackingModal = (order: OrderRow) => {
     setTrackingOrder(order)
     setTrackingInput(order.tracking_number || '')
+    setChannelInput(order.service_channel || '')
   }
 
   const handleSaveTracking = async () => {
@@ -247,7 +252,7 @@ export default function OrderManagement() {
     try {
       await api.put<ApiResponse<null>>(
         `/orders/${trackingOrder.id}/tracking-number`,
-        { trackingNumber: trackingInput.trim() }
+        { trackingNumber: trackingInput.trim(), serviceChannel: channelInput.trim() }
       )
       setTrackingOrder(null)
       showToast(t('order.trackingSaved'))
@@ -513,6 +518,16 @@ export default function OrderManagement() {
             autoFocus
           />
           <p className="text-xs text-slate-400">{t('order.trackingClearHint')}</p>
+
+          <label className="block text-sm text-slate-600 pt-2">{t('order.serviceChannel')}</label>
+          <input
+            type="text"
+            value={channelInput}
+            onChange={(e) => setChannelInput(e.target.value)}
+            maxLength={50}
+            placeholder={t('order.serviceChannelPlaceholder')}
+            className="w-full min-w-[320px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200"
+          />
         </div>
       </Modal>
 

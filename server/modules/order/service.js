@@ -552,7 +552,7 @@ export const orderService = {
    * 填写/修改跟踪号（本地派送用，运营手工填，客户门户可见）
    * 不走 editOrder：那里限 PENDING_REVIEW/CONFIRMED，本地派送流程根本没有这两个状态
    */
-  async updateTrackingNumber(client, orderId, trackingNumber, userId) {
+  async updateTrackingNumber(client, orderId, trackingNumber, userId, serviceChannel) {
     const order = await orderModel.getById(client, orderId)
     if (!order) throw new Error('订单不存在')
     if (order.business_type !== BUSINESS_TYPES.LOCAL_DELIVERY) {
@@ -565,7 +565,26 @@ export const orderService = {
     const value = (trackingNumber || '').trim()
     if (value.length > 100) throw new Error('跟踪号不能超过 100 个字符')
 
-    await orderModel.update(client, orderId, { tracking_number: value || null })
+    // 服务渠道和跟踪号是一对（跟踪号通常就是这个渠道给的），同一个入口一起存。
+    // undefined = 这次没传，保持原值；空串 = 显式清空（开发意见 #7 第 4 步）
+    const patch = { tracking_number: value || null }
+    const channelGiven = serviceChannel !== undefined
+    const channel = (serviceChannel || '').trim()
+    if (channelGiven) {
+      if (channel.length > 50) throw new Error('服务渠道不能超过 50 个字符')
+      patch.service_channel = channel || null
+    }
+
+    await orderModel.update(client, orderId, patch)
+
+    const trackedFields = [{ name: 'tracking_number', label: '跟踪号' }]
+    const oldData = { tracking_number: order.tracking_number }
+    const newData = { tracking_number: value || null }
+    if (channelGiven) {
+      trackedFields.push({ name: 'service_channel', label: '服务渠道' })
+      oldData.service_channel = order.service_channel
+      newData.service_channel = channel || null
+    }
 
     await changeTracker.trackChanges(client, {
       objectType: 'ORDER',
@@ -573,13 +592,17 @@ export const orderService = {
       changeType: 'UPDATE',
       transactionType: 'ORDER_TRACKING_NUMBER',
       tableName: 'orders',
-      oldData: { tracking_number: order.tracking_number },
-      newData: { tracking_number: value || null },
-      trackedFields: [{ name: 'tracking_number', label: '跟踪号' }],
+      oldData,
+      newData,
+      trackedFields,
       changedBy: userId
     })
 
-    return { orderId, trackingNumber: value || null }
+    return {
+      orderId,
+      trackingNumber: value || null,
+      serviceChannel: channelGiven ? (channel || null) : order.service_channel,
+    }
   },
 
   /**

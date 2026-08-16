@@ -99,7 +99,7 @@ export const orderModel = {
              o.shipping_line, o.eta, o.pod, o.final_destination,
              o.client_price, o.carrier_cost, o.currency,
              o.pickup_date, o.delivery_date, o.release_status, o.clearance_status,
-             o.tracking_number, o.customer_ref, o.created_at,
+             o.tracking_number, o.service_channel, o.customer_ref, o.created_at,
              c.company_name as client_name,
              cr.company_name as carrier_name,
              o.pickup_address->>'city' as pickup_city,
