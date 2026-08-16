@@ -86,9 +86,12 @@ export const orderController = {
         // 回 403 等于告诉对方"这个 UUID 是有效订单"，反而泄露信息
         if (!canAccessOrder(req.user, order)) return null
 
-        // 获取单据流
+        // 获取单据流。只给运营端——单据流里挂着 FI_AP（付给承运商的成本价）
+        // 和各单据的单号，客户门户拿到就等于看见了我们的进价。
+        // 三个门户目前都没渲染这块，将来要开放得按凭证类型逐条过滤，
+        // 不能整包丢过去（过滤的失效方向必须是拒绝）
         let flow = null
-        if (order.document_id) {
+        if (order.document_id && req.user?.userType === 'OPERATOR') {
           flow = await documentEngine.getDocumentFlow(client, order.document_id)
         }
 

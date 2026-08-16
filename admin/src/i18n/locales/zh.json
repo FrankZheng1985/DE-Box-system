@@ -464,7 +464,13 @@
     "invoice": "发票",
     "customs": "清关单",
     "release": "放单",
-    "order": "订单"
+    "order": "订单",
+    "inquiry": "询价单",
+    "receivable": "应收单",
+    "payable": "应付单",
+    "receipt": "收款单",
+    "payment": "付款单",
+    "reversal": "冲销凭证"
   },
   "section": {
     "basicInfo": "基本信息",
@@ -784,7 +790,8 @@
     "grossMargin": "毛利率",
     "relatedDocs": "关联单据",
     "precedingDocs": "前置单据",
-    "followingDocs": "后续单据"
+    "followingDocs": "后续单据",
+    "docMissing": "单据已不存在"
   },
   "dashboard": {
     "pageTitle": "运营仪表板",

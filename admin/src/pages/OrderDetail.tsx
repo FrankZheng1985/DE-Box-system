@@ -68,10 +68,24 @@ interface StatusLog {
   changed_by_name: string
 }
 
+// 单据流的一行：字段名与后端 getFullDocumentFlow 的返回一一对应，
+// 全部 snake_case，不做 camelCase 转换
 interface LinkedDocument {
-  id: string
-  type: string
-  doc_number: string
+  /** document_flow 主键，只当 React key 用 */
+  flow_id: string
+  /** 对端凭证 id（documents.id），不是业务单据 id，不能拿去跳详情页 */
+  doc_id: string
+  /** 凭证类型码：INQ / QUO / ORD / CMR / FI_AR / FI_AP … */
+  doc_type: string
+  /** 凭证单号；上游凭证被删过会是 null */
+  doc_number: string | null
+  /** 对应业务单据主键（订单/报价/询价/CMR/财务记录），跳详情页用这个 */
+  entity_id: string | null
+  flow_type: string
+  /** PostgreSQL NUMERIC，pg 驱动回的是字符串 */
+  amount: string | null
+  currency: string | null
+  depth: number
 }
 
 interface DocumentFlow {
@@ -165,22 +179,65 @@ function transportTypeLabelKey(type: string): string {
   return `transportTypeLong.${(type || '').toUpperCase()}`
 }
 
-// 单据类型标签的语言包 key（单据流里的 doc_type 是小写）
+// 凭证类型码 → 语言包 docType.* 的语义化 key
+const DOC_TYPE_LABEL_KEY: Record<string, string> = {
+  INQ: 'inquiry',
+  QUO: 'quotation',
+  ORD: 'order',
+  CMR: 'cmr',
+  FI_AR: 'receivable',
+  FI_AP: 'payable',
+  FI_REC: 'receipt',
+  FI_PAY: 'payment',
+  FI_REV: 'reversal',
+}
+
+// 单据类型标签的语言包 key（后端给的是 ORD / QUO 这类大写凭证类型码）
 function docTypeLabelKey(type: string): string {
-  return `docType.${(type || '').toLowerCase()}`
+  const key = DOC_TYPE_LABEL_KEY[(type || '').toUpperCase()]
+  return key ? `docType.${key}` : ''
 }
 
 // 单据类型对应的颜色
 function getDocTypeBadgeClass(type: string): string {
   const map: Record<string, string> = {
-    quotation: 'bg-purple-100 text-purple-700',
-    cmr: 'bg-blue-100 text-blue-700',
-    invoice: 'bg-amber-100 text-amber-700',
-    customs: 'bg-green-100 text-green-700',
-    release: 'bg-orange-100 text-orange-700',
-    order: 'bg-slate-100 text-slate-700',
+    INQ: 'bg-cyan-100 text-cyan-700',
+    QUO: 'bg-purple-100 text-purple-700',
+    ORD: 'bg-slate-100 text-slate-700',
+    CMR: 'bg-blue-100 text-blue-700',
+    FI_AR: 'bg-amber-100 text-amber-700',
+    FI_AP: 'bg-orange-100 text-orange-700',
+    FI_REC: 'bg-green-100 text-green-700',
+    FI_PAY: 'bg-rose-100 text-rose-700',
+    FI_REV: 'bg-gray-100 text-gray-600',
   }
-  return map[type] || 'bg-gray-100 text-gray-600'
+  return map[(type || '').toUpperCase()] || 'bg-gray-100 text-gray-600'
+}
+
+// 单据流条目的跳转地址：有详情页的跳详情，其余跳列表页，都没有就不给跳
+function docFlowRoute(doc: LinkedDocument): string | null {
+  const type = (doc.doc_type || '').toUpperCase()
+  // 详情页路由必须用业务单据主键 entity_id，凭证 id 拿去拼是查不到的
+  const detailBase: Record<string, string> = {
+    ORD: '/orders',
+    QUO: '/quotes',
+    INQ: '/inquiries',
+    FI_AR: '/finance',
+    FI_AP: '/finance',
+  }
+  const listRoute: Record<string, string> = {
+    ORD: '/orders',
+    QUO: '/quotes',
+    INQ: '/inquiries',
+    CMR: '/cmr',
+    FI_AR: '/finance',
+    FI_AP: '/finance',
+    FI_REC: '/finance',
+    FI_PAY: '/finance',
+    FI_REV: '/finance',
+  }
+  if (detailBase[type] && doc.entity_id) return `${detailBase[type]}/${doc.entity_id}`
+  return listRoute[type] || null
 }
 
 // 判断状态是否允许分配承运商
@@ -1054,7 +1111,7 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.precedingDocs')}</p>
                     {documentFlow.preceding.map((doc) => (
-                      <DocFlowItem key={doc.id} doc={doc} />
+                      <DocFlowItem key={doc.flow_id} doc={doc} />
                     ))}
                   </div>
                 )}
@@ -1063,7 +1120,7 @@ export default function OrderDetail() {
                   <div>
                     <p className="text-xs text-slate-400 font-medium mb-2">{t('orderDetail.followingDocs')}</p>
                     {documentFlow.subsequent.map((doc) => (
-                      <DocFlowItem key={doc.id} doc={doc} />
+                      <DocFlowItem key={doc.flow_id} doc={doc} />
                     ))}
                   </div>
                 )}
@@ -1164,34 +1221,48 @@ function DocFlowItem({ doc }: { doc: LinkedDocument }) {
   const navigate = useNavigate()
   const { t } = useTranslation()
 
-  // 根据单据类型跳转到对应页面
-  function handleClick() {
-    const routeMap: Record<string, string> = {
-      quotation: '/quotes',
-      cmr: '/cmr',
-      invoice: '/finance',
-      customs: '/customs',
-      release: '/shipping-release',
-      order: `/orders/${doc.id}`,
-    }
-    const route = routeMap[doc.type] || '#'
-    navigate(route)
+  const route = docFlowRoute(doc)
+  const labelKey = docTypeLabelKey(doc.doc_type)
+
+  const content = (
+    <>
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium shrink-0 ${getDocTypeBadgeClass(doc.doc_type)}`}
+        >
+          {labelKey ? t(labelKey, { defaultValue: doc.doc_type }) : doc.doc_type}
+        </span>
+        {/* 上游凭证被删过时 doc_number 会是 null，直接空着不如说清楚 */}
+        <span className={`text-sm truncate ${doc.doc_number ? 'text-slate-700' : 'text-slate-400 italic'}`}>
+          {doc.doc_number || t('orderDetail.docMissing')}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {/* amount 是 NUMERIC，后端回的是字符串，formatMoney 内部会转数字 */}
+        {doc.amount !== null && doc.amount !== undefined && (
+          <span className="text-sm font-medium text-slate-900 text-right tabular-nums">
+            {formatMoney(doc.amount, doc.currency || 'EUR')}
+          </span>
+        )}
+        {route && (
+          <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition-all duration-200" />
+        )}
+      </div>
+    </>
+  )
+
+  if (!route) {
+    return (
+      <div className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl">{content}</div>
+    )
   }
 
   return (
     <button
-      onClick={handleClick}
+      onClick={() => navigate(route)}
       className="w-full flex items-center justify-between gap-2 p-2.5 rounded-xl hover:bg-slate-50 transition-all duration-200 group"
     >
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${getDocTypeBadgeClass(doc.type)}`}
-        >
-          {t(docTypeLabelKey(doc.type), { defaultValue: doc.type })}
-        </span>
-        <span className="text-sm text-slate-700">{doc.doc_number}</span>
-      </div>
-      <ExternalLink className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition-all duration-200" />
+      {content}
     </button>
   )
 }

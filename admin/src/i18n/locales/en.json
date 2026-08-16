@@ -464,7 +464,13 @@
     "invoice": "Invoice",
     "customs": "Customs entry",
     "release": "Release",
-    "order": "Order"
+    "order": "Order",
+    "inquiry": "Inquiry",
+    "receivable": "Receivable",
+    "payable": "Payable",
+    "receipt": "Receipt",
+    "payment": "Payment",
+    "reversal": "Reversal"
   },
   "section": {
     "basicInfo": "Basic information",
@@ -784,7 +790,8 @@
     "grossMargin": "Gross margin",
     "relatedDocs": "Related documents",
     "precedingDocs": "Preceding documents",
-    "followingDocs": "Follow-up documents"
+    "followingDocs": "Follow-up documents",
+    "docMissing": "Document no longer exists"
   },
   "dashboard": {
     "pageTitle": "Operations dashboard",

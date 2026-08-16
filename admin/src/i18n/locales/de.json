@@ -464,7 +464,13 @@
     "invoice": "Rechnung",
     "customs": "Zollanmeldung",
     "release": "Freistellung",
-    "order": "Auftrag"
+    "order": "Auftrag",
+    "inquiry": "Anfrage",
+    "receivable": "Forderung",
+    "payable": "Verbindlichkeit",
+    "receipt": "Zahlungseingang",
+    "payment": "Zahlungsausgang",
+    "reversal": "Storno"
   },
   "section": {
     "basicInfo": "Grunddaten",
@@ -784,7 +790,8 @@
     "grossMargin": "Rohertragsmarge",
     "relatedDocs": "Verknüpfte Belege",
     "precedingDocs": "Vorgängerbelege",
-    "followingDocs": "Folgebelege"
+    "followingDocs": "Folgebelege",
+    "docMissing": "Beleg nicht mehr vorhanden"
   },
   "dashboard": {
     "pageTitle": "Betriebs-Dashboard",
