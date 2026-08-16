@@ -33,12 +33,21 @@ export class DocumentFlowEngine {
     amount,
     currency
   }) {
+    // 同一对凭证的连线可能被写两次（凭证引擎自动建一条 + 业务层再补一条）。
+    // 原来是 DO NOTHING，第二次连同它带来的 amount/currency 一起被静默丢弃，
+    // 结果所有 QUO→ORD 连线的金额长期是 NULL（踩坑 017）。
+    // 改成只补空值：已有值不动，NULL 才用新值填上。
+    // flow_type 刻意不覆盖 —— 两个写入方用的名字不一样（QUO_TO_ORD / QUOTATION_TO_ORDER），
+    // 覆盖会让库里的取值在两者之间反复横跳，按字面值 WHERE 的迁移和查询会再次落空。
     await client.query(
       `INSERT INTO document_flow
        (preceding_doc_type, preceding_doc_id, subsequent_doc_type, subsequent_doc_id,
         flow_type, quantity, amount, currency)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (preceding_doc_id, subsequent_doc_id) DO NOTHING`,
+       ON CONFLICT (preceding_doc_id, subsequent_doc_id) DO UPDATE SET
+         quantity = COALESCE(document_flow.quantity, EXCLUDED.quantity),
+         amount   = COALESCE(document_flow.amount,   EXCLUDED.amount),
+         currency = COALESCE(document_flow.currency, EXCLUDED.currency)`,
       [precedingDocType, precedingDocId, subsequentDocType, subsequentDocId,
        flowType, quantity, amount, currency]
     )

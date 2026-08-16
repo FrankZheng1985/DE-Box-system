@@ -37,6 +37,8 @@ export class DocumentEngine {
    * @param {string} [params.headerText] - 凭证说明
    * @param {string} [params.sourceDocType] - 来源凭证类型
    * @param {string} [params.sourceDocId] - 来源凭证 ID
+   * @param {number} [params.flowAmount] - 本次流转涉及的金额（写进自动建的单据流，仅在有来源凭证时生效）
+   * @param {string} [params.flowCurrency] - 本次流转涉及的币种（同上）
    * @param {string} params.createdBy - 操作人 ID
    * @param {boolean} [params.parked=false] - 是否暂存（不过账）
    * @returns {Promise<{id: string, docNumber: string, status: string}>}
@@ -50,6 +52,8 @@ export class DocumentEngine {
     headerText,
     sourceDocType,
     sourceDocId,
+    flowAmount,
+    flowCurrency,
     createdBy,
     parked = false
   }) {
@@ -83,6 +87,8 @@ export class DocumentEngine {
     const docId = result.rows[0].id
 
     // 步骤 4：如果有来源凭证，更新单据流
+    // 这里是单据流的【第一个】写入方，金额必须在这一步就带上：
+    // 业务层事后再调 createFlowLink 补金额会撞唯一约束，历史上被 DO NOTHING 整条丢弃（踩坑 017）
     if (sourceDocType && sourceDocId) {
       const flowType = `${sourceDocType}_TO_${docType}`
       await documentFlow.createFlowLink(client, {
@@ -90,7 +96,9 @@ export class DocumentEngine {
         precedingDocId: sourceDocId,
         subsequentDocType: docType,
         subsequentDocId: docId,
-        flowType
+        flowType,
+        amount: flowAmount,
+        currency: flowCurrency
       })
     }
 

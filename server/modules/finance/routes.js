@@ -327,7 +327,10 @@ router.put('/:id/payment', requireUserType('OPERATOR'), requirePermission('finan
         docType, companyCode: record.company_code || 'DE01', postingDate: new Date(),
         headerText: `${record.type === 'RECEIVABLE' ? '收款' : '付款'} ${record.record_number}`,
         sourceDocType: record.type === 'RECEIVABLE' ? 'FI_AR' : 'FI_AP',
-        sourceDocId: record.document_id, createdBy: req.user.id
+        sourceDocId: record.document_id,
+        // 本次收/付的金额（可能是部分付款，不等于发票总额）
+        flowAmount: payAmount, flowCurrency: record.currency,
+        createdBy: req.user.id
       })
 
       await accountDetermination.createJournalEntries(client, {

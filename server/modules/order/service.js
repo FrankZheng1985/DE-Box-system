@@ -6,7 +6,7 @@
  * 而是通过凭证引擎、信用管理、变更追踪等内核引擎来执行。
  */
 
-import { documentEngine, creditManager, changeTracker, documentFlow, accountDetermination, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
+import { documentEngine, creditManager, changeTracker, accountDetermination, notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import { getPool } from '../../core/db.js'
 import orderModel, { ORDER_TRACKED_FIELDS } from './model.js'
 import { normalizeDateFields } from '../../utils/normalize-date.js'
@@ -230,6 +230,10 @@ export const orderService = {
       headerText: `运输订单 - ${orderData.businessType}`,
       sourceDocType: orderData.quotationDocId ? 'QUO' : null,
       sourceDocId: orderData.quotationDocId || null,
+      // 报价→订单这条单据流的金额，必须在建凭证这一步就传进去。
+      // 凭证引擎会顺手把连线建好，事后再补是补不上的（踩坑 017）
+      flowAmount: orderData.quotationDocId ? orderData.clientPrice : undefined,
+      flowCurrency: orderData.quotationDocId ? (orderData.currency || 'EUR') : undefined,
       createdBy: userId
     })
 
@@ -252,18 +256,10 @@ export const orderService = {
       status: initialStatus
     })
 
-    // 步骤 4：如果来源于报价，更新单据流
-    if (orderData.quotationDocId) {
-      await documentFlow.createFlowLink(client, {
-        precedingDocType: 'QUO',
-        precedingDocId: orderData.quotationDocId,
-        subsequentDocType: 'ORD',
-        subsequentDocId: doc.id,
-        flowType: 'QUOTATION_TO_ORDER',
-        amount: orderData.clientPrice,
-        currency: orderData.currency || 'EUR'
-      })
-    }
+    // 步骤 4（已并入步骤 2）：报价→订单的单据流由凭证引擎在建凭证时一并建好。
+    // 这里原本有一段显式 createFlowLink，从上线起就没生效过 ——
+    // 连线已被步骤 2 建过，它撞唯一约束后被 ON CONFLICT DO NOTHING 整条丢弃，
+    // 连本该带上的 amount/currency 一起丢了（踩坑 017）。金额改由步骤 2 的 flowAmount 传入。
 
     // 步骤 5：记录变更日志
     await changeTracker.trackChanges(client, {
@@ -499,6 +495,7 @@ export const orderService = {
             docType: 'FI_AR', companyCode: 'DE01', postingDate: new Date(),
             headerText: `应收 - 订单 ${order.order_number}`,
             sourceDocType: 'ORD', sourceDocId: order.document_id,
+            flowAmount: clientPrice, flowCurrency: order.currency || 'EUR',
             createdBy: userId
           })
           await accountDetermination.createJournalEntries(client, {
@@ -522,6 +519,7 @@ export const orderService = {
             docType: 'FI_AP', companyCode: 'DE01', postingDate: new Date(),
             headerText: `应付 - 订单 ${order.order_number}`,
             sourceDocType: 'ORD', sourceDocId: order.document_id,
+            flowAmount: carrierCost, flowCurrency: order.currency || 'EUR',
             createdBy: userId
           })
           await accountDetermination.createJournalEntries(client, {
