@@ -19,6 +19,8 @@ import { normalizeDateFields } from '../../utils/normalize-date.js'
  */
 const DATE_FIELDS = ['dueDate']
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const router = Router()
 router.use(authenticateToken)
 // 门户账号必须绑定公司才能进来——绑定为空时各处的租户过滤条件会整个不加，
@@ -45,6 +47,31 @@ function resolveCounterparty(user, ownerType, queryValue) {
     return { value: user.linkedEntityId, forbidden: false }
   }
   return { value: queryValue, forbidden: false }
+}
+
+/**
+ * 详情接口的租户判定：这条财务记录，当前登录方能不能看
+ *
+ * 列表是「先收窄查询条件再查」，详情没有条件可收窄，只能查出来再判。
+ * 判定口径必须和列表完全一致，否则详情就成了绕过列表隔离的后门：
+ *   - 客户只能看自己的**应收**——应付记录里是承运商成本价，
+ *     客户看到就等于看到我们的采购底价（同 FI_AP 不进客户门户单据流那条）
+ *   - 承运商只能看自己的**应付**
+ *   - 运营（OPERATOR）两边都能看
+ *
+ * @param {object} user req.user
+ * @param {object} record financial_records 行
+ * @returns {boolean}
+ */
+function canReadRecord(user, record) {
+  const userType = user.userType || user.roleCode
+  if (userType === 'CLIENT') {
+    return record.type === 'RECEIVABLE' && record.counterparty_id === user.linkedEntityId
+  }
+  if (userType === 'CARRIER') {
+    return record.type === 'PAYABLE' && record.counterparty_id === user.linkedEntityId
+  }
+  return true
 }
 
 // === 应收账款 ===
@@ -228,6 +255,49 @@ router.get('/export/payables', requireUserType('OPERATOR'), requirePermission('f
     res.status(500).json({ code: 500, message: '导出失败' })
   }
 })
+
+// === 财务记录详情 ===
+// 权限码沿用列表那三个：能在列表里看到这条，就能看它的详情，不新增权限面。
+// ⚠️ 路由顺序：`/records/:id` 的第一段是固定的 `records`，
+//    将来若给本模块加 `GET /:id`，必须排在这条**后面**（本项目已踩 5 次）。
+router.get('/records/:id',
+  requirePermission('finance:view', 'portal:billing_view', 'carrier_portal:billing_view'),
+  async (req, res) => {
+    try {
+      const { id } = req.params
+      // 不是 UUID 就当不存在。直接扔给 pg 会抛 invalid input syntax for type uuid，
+      // 白白变成一个 500（主键是 UUID，前端一律按 string 传，见 CLAUDE.md 第 6 条）
+      if (!UUID_RE.test(String(id))) {
+        return res.status(404).json({ code: 404, message: '财务记录不存在', data: null })
+      }
+
+      // 字段与 /receivables、/payables 返回的行保持一致（fr.* + 对手方名 + 订单号），
+      // 详情页原本就是从那两个列表里 find 出来的，换成本接口后前端字段不用动
+      const result = await query(
+        `SELECT fr.*,
+                COALESCE(cl.company_name, cr.company_name) AS counterparty_name,
+                o.order_number
+         FROM financial_records fr
+         LEFT JOIN clients  cl ON cl.id = fr.counterparty_id AND fr.counterparty_type = 'CLIENT'
+         LEFT JOIN carriers cr ON cr.id = fr.counterparty_id AND fr.counterparty_type = 'CARRIER'
+         LEFT JOIN orders   o  ON o.id = fr.order_id
+         WHERE fr.id = $1`,
+        [id]
+      )
+
+      const record = result.rows[0]
+      // 不属于当前登录方的一律按「不存在」返回：回 403 等于告诉对方
+      // 这个 UUID 是一条有效记录（CLAUDE.md 第 8 条）
+      if (!record || !canReadRecord(req.user, record)) {
+        return res.status(404).json({ code: 404, message: '财务记录不存在', data: null })
+      }
+
+      res.json({ code: 200, message: 'success', data: record })
+    } catch (error) {
+      console.error('获取财务记录详情失败:', error)
+      res.status(500).json({ code: 500, message: '获取财务记录详情失败', data: null })
+    }
+  })
 
 // === 创建财务记录（应收/应付发票） ===
 router.post('/records', requireUserType('OPERATOR'), requirePermission('finance:create'), async (req, res) => {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, DollarSign, Calendar, CheckCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import api from '../utils/api'
+import api, { type ApiResponse } from '../utils/api'
 import StatusBadge from '../components/StatusBadge'
 
 function fmt(v: any) {
@@ -23,15 +23,17 @@ export default function FinanceDetail() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!id) { setLoading(false); return }
     (async () => {
       try {
-        // 没有单独的详情 API，从列表里查
-        const arRes = await api.get<any>('/finance/receivables?pageSize=100')
-        const apRes = await api.get<any>('/finance/payables?pageSize=100')
-        const allRecords = [...(Array.isArray(arRes.data) ? arRes.data : []), ...(Array.isArray(apRes.data) ? apRes.data : [])]
-        const found = allRecords.find((r: any) => r.id === id)
-        if (found) setRecord(found)
-      } catch (e) { console.error(e) }
+        // 走专用详情接口。以前是拉两个列表的前 100 条再 find，
+        // 财务记录一超过 100 条，靠后的记录就查不到、页面显示「记录不存在」（踩坑 067）
+        const res = await api.get<ApiResponse<any>>(`/finance/records/${id}`)
+        if (res.data) setRecord(res.data)
+      } catch (e: any) {
+        // 404 = 这条记录真的不存在（或不属于当前登录方），下面正常显示「记录不存在」，不算异常
+        if (e?.status !== 404) console.error(e)
+      }
       finally { setLoading(false) }
     })()
   }, [id])
