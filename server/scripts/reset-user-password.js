@@ -8,36 +8,11 @@
  * 因此不会落进 shell history，也不会出现在任何文件或日志里。
  */
 
-import readline from 'readline'
 import bcrypt from 'bcryptjs'
 import db from '../core/db.js'
+import { askHidden } from './lib/prompt.js'
 
 const MIN_LENGTH = 12
-
-/** 隐藏回显地读一行输入 */
-function askHidden(prompt) {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: true
-    })
-    // 提示行必须交给 readline 自己输出：question() 会重绘当前行，
-    // 若先手写提示、再无条件屏蔽全部输出，重绘会把提示一起擦掉——
-    // 终端上看不到任何字，只剩一个光标（实际仍在等输入）。
-    // 正确顺序：先放行提示输出，question() 调用之后再静音，只挡击键回显。
-    let muted = false
-    rl._writeToOutput = (str) => {
-      if (!muted) rl.output.write(str)
-    }
-    rl.question(prompt, (answer) => {
-      rl.close()
-      process.stdout.write('\n')
-      resolve(answer)
-    })
-    muted = true
-  })
-}
 
 /** 基本强度校验：长度 + 字符种类，挡住 admin123 这类弱口令 */
 function checkStrength(password) {
