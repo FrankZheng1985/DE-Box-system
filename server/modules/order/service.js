@@ -771,14 +771,23 @@ export const orderService = {
       containerNo: 'container_no',
       blNumber: 'bl_number',
       eta: 'eta',
-      cnee: 'cnee'
+      cnee: 'cnee',
+      // 地址是 JSONB，值要 JSON.stringify 后再进 SQL（口径同 model.create）。
+      // 开发意见 #12 起客户可以自己改地址，运营端的编辑页也一并能用
+      pickupAddress: 'pickup_address',
+      deliveryAddress: 'delivery_address'
     }
+
+    /** 两个地址列是 JSONB，其余都是标量 */
+    const JSONB_FIELDS = new Set(['pickup_address', 'delivery_address'])
 
     for (const [camelKey, dbKey] of Object.entries(fieldMap)) {
       if (updateData[camelKey] !== undefined) {
         oldData[dbKey] = order[dbKey]
         newData[dbKey] = updateData[camelKey]
-        dbFields[dbKey] = updateData[camelKey]
+        dbFields[dbKey] = JSONB_FIELDS.has(dbKey)
+          ? JSON.stringify(updateData[camelKey])
+          : updateData[camelKey]
       }
     }
 

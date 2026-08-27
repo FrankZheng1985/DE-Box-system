@@ -23,7 +23,9 @@ export const ORDER_TRACKED_FIELDS = [
   { name: 'release_status', label: '放单状态' },
   { name: 'clearance_status', label: '清关状态' },
   { name: 'tracking_number', label: '跟踪号' },
-  { name: 'customer_ref', label: '客户单号' }
+  { name: 'customer_ref', label: '客户单号' },
+  { name: 'pickup_address', label: '装货地址' },
+  { name: 'delivery_address', label: '卸货地址' }
 ]
 
 export const orderModel = {

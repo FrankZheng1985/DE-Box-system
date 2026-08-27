@@ -10,9 +10,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { FileText, MapPin, Package, Tag, Truck } from 'lucide-react'
+import { FileText, MapPin, Package, Tag, Truck, Pencil } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { formatDate, formatDateTime, formatMoney, formatNumber } from '../utils/format'
 import {
@@ -172,6 +172,7 @@ function CargoItemsTable({ items }: { items: CargoItem[] }) {
 export default function InquiryDetail() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [inquiry, setInquiry] = useState<InquiryDetailData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -230,11 +231,25 @@ export default function InquiryDetail() {
         title={inquiry.inquiry_number}
         subtitle={inquiry.customer_ref ? `${t('inquiry.customerRef')}: ${inquiry.customer_ref}` : undefined}
         right={
-          <span className={`inline-block px-2.5 py-1 text-xs rounded-full ${
-            INQUIRY_STATUS_STYLES[inquiry.status] || 'bg-gray-100 text-gray-600'
-          }`}>
-            {t(`inquiryStatus.${inquiry.status}`, { defaultValue: inquiry.status })}
-          </span>
+          <>
+            {/* 待报价可直接改；已报价点进去要先作废报价退回待报价（开发意见 #12）。
+                已接受/已拒绝/已取消是终结状态，不给入口 */}
+            {['PENDING_QUOTE', 'QUOTED'].includes(inquiry.status) && (
+              <button
+                type="button"
+                onClick={() => navigate(`/inquiry/${inquiry.id}/edit`)}
+                className="h-8 px-3 text-xs text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out flex items-center gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                {t('inquiryEdit.entry')}
+              </button>
+            )}
+            <span className={`inline-block px-2.5 py-1 text-xs rounded-full ${
+              INQUIRY_STATUS_STYLES[inquiry.status] || 'bg-gray-100 text-gray-600'
+            }`}>
+              {t(`inquiryStatus.${inquiry.status}`, { defaultValue: inquiry.status })}
+            </span>
+          </>
         }
       />
 

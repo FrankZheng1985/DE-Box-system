@@ -764,6 +764,62 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
 })
 
 /**
+ * 已报价的询价退回「待报价」，并作废在途报价
+ * POST /api/v1/inquiries/:id/reopen
+ *
+ * 开发意见 #12：客户拿到报价之后才发现货物尺寸／地址填错了，要能自己改。
+ * 但「已报价」的单直接放开编辑，会造出「报价对应的货物和询价单里对不上」的数据 ——
+ * 客户按老价接受就是我们亏，事后还查不出是哪一版改的。
+ * 所以改之前必须先把这张单退回待报价，并把在途报价一起作废（Frank 2026-08-27 拍板）。
+ *
+ * 状态守卫（逆向流转，只允许这一档）：
+ *   QUOTED           → 可以退回
+ *   PENDING_QUOTE    → 本来就在待报价，没什么可退的
+ *   ACCEPTED         → 已接受并转过订单，退回等于把订单的上游抽走，绝对不行
+ *   REJECTED/CANCELLED → 已经终结，要改请新建
+ *
+ * 报价侧：只作废「在途」的（DRAFT/SENT/PENDING_DECISION/EXPIRED），
+ * 口径与 POST /quotations/:id/void 一致（status → CANCELLED + void_reason）。
+ * 已 ACCEPTED / CONVERTED 的报价一张都不动，撞上就整单拒绝 —— 它们背后挂着订单。
+ */
+router.post('/:id/reopen',
+  requireUserType('OPERATOR', 'CLIENT'),
+  requirePermission('inquiry:edit', 'portal:inquiry_manage'),
+  async (req, res) => {
+    try {
+      const inquiry = await loadInquiryWithAccessCheck(req.params.id, req, res)
+      if (!inquiry) return
+
+      if (inquiry.status !== INQUIRY_STATUS.QUOTED) {
+        return res.status(400).json({
+          code: 400,
+          message: `询价单当前状态为 ${inquiry.status}，只有「已报价」的单可以退回待报价`,
+          data: null,
+        })
+      }
+
+      const reason = (req.body?.reason || '').trim() || '客户修改询价内容，原报价作废'
+
+      const result = await withTransaction(async (client) =>
+        inquiryService.reopenForEdit(client, req.params.id, {
+          fromStatus: inquiry.status,
+          reason,
+          userId: req.user.id,
+        })
+      )
+
+      res.json({
+        code: 200,
+        message: `询价单已退回待报价，${result.voidedCount} 张报价已作废`,
+        data: result,
+      })
+    } catch (error) {
+      console.error('询价退回待报价失败:', error)
+      res.status(400).json({ code: 400, message: error.message, data: null })
+    }
+  })
+
+/**
  * 删除询价（软删除，仅待报价且尚无任何报价的单）
  * DELETE /api/v1/inquiries/:id
  *

@@ -10,10 +10,11 @@
  */
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { FileText, MapPin, Package, Ship, History } from 'lucide-react'
+import { FileText, MapPin, Package, Ship, History, Pencil } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { useAuth } from '../contexts/AuthContext'
 import { formatDate, formatDateTime, formatMoney, formatNumber } from '../utils/format'
 import {
   DetailHeader, Section, Field, FieldGrid, AddressBlock,
@@ -85,6 +86,8 @@ interface TimelineEntry {
 export default function OrderDetail() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [order, setOrder] = useState<OrderDetailData | null>(null)
   const [timeline, setTimeline] = useState<TimelineEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -152,9 +155,23 @@ export default function OrderDetail() {
         title={order.order_number}
         subtitle={order.customer_ref ? `${t('orders.customerRef')}: ${order.customer_ref}` : undefined}
         right={
-          <span className={`inline-block px-2.5 py-1 text-xs rounded-full ${getStatusStyle(order.status)}`}>
-            {getStatusLabel(t, order.business_type, order.status)}
-          </span>
+          <>
+            {/* 只有「待审核」（我司尚未受理）才给改，且账号要有改单权限（开发意见 #12）。
+                本地派送订单没有这个状态，自然也就没有这个按钮 */}
+            {order.status === 'PENDING_REVIEW' && hasPermission('portal:order_edit') && (
+              <button
+                type="button"
+                onClick={() => navigate(`/orders/${order.id}/edit`)}
+                className="h-8 px-3 text-xs text-slate-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200 ease-in-out flex items-center gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                {t('orderEdit.entry')}
+              </button>
+            )}
+            <span className={`inline-block px-2.5 py-1 text-xs rounded-full ${getStatusStyle(order.status)}`}>
+              {getStatusLabel(t, order.business_type, order.status)}
+            </span>
+          </>
         }
       />
 

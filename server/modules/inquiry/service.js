@@ -6,7 +6,7 @@
  */
 
 import { query as poolQuery } from '../../core/db.js'
-import { documentEngine } from '../../core/index.js'
+import { documentEngine, changeTracker } from '../../core/index.js'
 import { t } from '../../utils/i18n.js'
 import { LOCAL_DELIVERY } from './constants.js'
 
@@ -591,6 +591,82 @@ function trimNumber(value) {
   return String(n)
 }
 
+/**
+ * 已报价的询价退回「待报价」，并作废在途报价（开发意见 #12）
+ *
+ * 抽在 service 里而不是写在路由体内，是为了能脱开 HTTP 和登录态直接测 ——
+ * 这是一次**逆向状态流转**，是本模块里最该被验证的一段。
+ *
+ * 调用方负责：状态必须是 QUOTED、租户校验、权限校验（见 routes.js）。
+ * 这里只管事务内的数据变更，且必须在事务里调用。
+ *
+ * @param {object} client 事务客户端（必须，不能传连接池）
+ * @param {string} inquiryId
+ * @param {object} opts
+ * @param {string} opts.fromStatus 退回前的询价状态，用于变更追踪留痕
+ * @param {string} opts.reason     作废原因，会写进 quotations.void_reason
+ * @param {string} opts.userId     操作人
+ * @returns {Promise<{voidedCount: number}>}
+ * @throws 有已接受 / 已转订单的报价时抛错，让整笔事务回滚
+ */
+export async function reopenForEdit(client, inquiryId, { fromStatus, reason, userId }) {
+  // 行锁住这张单的全部报价，避免和运营那边的「发送 / 转订单」并发
+  const quotations = await client.query(
+    `SELECT id, quotation_number, status FROM quotations WHERE inquiry_id = $1 FOR UPDATE`,
+    [inquiryId]
+  )
+
+  const locked = quotations.rows.filter((q) => ['ACCEPTED', 'CONVERTED'].includes(q.status))
+  if (locked.length > 0) {
+    // 抛错让整笔事务回滚，前端按 message 提示（不要静默跳过这几张）
+    throw new Error(
+      `报价 ${locked.map((q) => q.quotation_number).join('、')} 已被接受或已转订单，` +
+      '这张询价单不能退回待报价，请联系我司处理'
+    )
+  }
+
+  // 在途报价：草稿、已发送、待定、已过期。已作废的不用再作废一次
+  const voidable = quotations.rows.filter((q) => q.status !== 'CANCELLED')
+  for (const quo of voidable) {
+    await client.query(
+      `UPDATE quotations SET status = 'CANCELLED', void_reason = $1, updated_at = NOW() WHERE id = $2`,
+      [reason, quo.id]
+    )
+    await changeTracker.trackChanges(client, {
+      objectType: 'QUOTATION',
+      objectId: quo.id,
+      changeType: 'UPDATE',
+      transactionType: 'VOID_QUOTATION',
+      tableName: 'quotations',
+      oldData: { status: quo.status },
+      newData: { status: 'CANCELLED', void_reason: reason },
+      trackedFields: [
+        { name: 'status', label: '状态' },
+        { name: 'void_reason', label: '作废原因' },
+      ],
+      changedBy: userId,
+    })
+  }
+
+  await client.query(
+    `UPDATE inquiries SET status = 'PENDING_QUOTE', updated_at = NOW() WHERE id = $1`,
+    [inquiryId]
+  )
+  await changeTracker.trackChanges(client, {
+    objectType: 'INQUIRY',
+    objectId: inquiryId,
+    changeType: 'UPDATE',
+    transactionType: 'REOPEN_INQUIRY',
+    tableName: 'inquiries',
+    oldData: { status: fromStatus },
+    newData: { status: 'PENDING_QUOTE' },
+    trackedFields: [{ name: 'status', label: '状态' }],
+    changedBy: userId,
+  })
+
+  return { voidedCount: voidable.length }
+}
+
 export default {
   calcUnitVolumeM3,
   calcLineLdm,
@@ -604,4 +680,5 @@ export default {
   getDeliveryOrders,
   buildSummaryText,
   parseAddress,
+  reopenForEdit,
 }

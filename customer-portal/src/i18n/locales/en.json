@@ -899,5 +899,24 @@
     "noTimeline": "No status history yet",
     "notFound": "Order not found, or you are not allowed to view it",
     "loadFailed": "Failed to load order details"
+  },
+  "inquiryEdit": {
+    "entry": "Edit",
+    "title": "Edit inquiry",
+    "backToDetail": "Back to inquiry",
+    "quotedTitle": "We have already quoted this inquiry",
+    "quotedHint": "Continuing will cancel the open quotations on this inquiry and set it back to \"Pending quote\", so that we can re-quote based on the new details. Quotations that have already been accepted or turned into an order cannot be cancelled — please contact us in that case.",
+    "reopenAction": "Cancel quotation and continue editing",
+    "reopening": "Processing…",
+    "reopenFailed": "Could not set the inquiry back to pending quote, please try again",
+    "notEditable": "This inquiry is \"{{status}}\" and can no longer be edited. Please create a new inquiry instead.",
+    "saveFailed": "Could not save, please try again"
+  },
+  "orderEdit": {
+    "entry": "Edit",
+    "title": "Edit order details",
+    "backToDetail": "Back to order",
+    "notEditable": "We have already started processing this order, so it can no longer be edited here. Please contact us.",
+    "saveFailed": "Could not save, please try again"
   }
 }

@@ -899,5 +899,24 @@
     "noTimeline": "Noch kein Statusverlauf",
     "notFound": "Auftrag nicht gefunden oder kein Zugriff",
     "loadFailed": "Auftragsdetails konnten nicht geladen werden"
+  },
+  "inquiryEdit": {
+    "entry": "Bearbeiten",
+    "title": "Anfrage bearbeiten",
+    "backToDetail": "Zurück zur Anfrage",
+    "quotedTitle": "Für diese Anfrage liegt bereits ein Angebot vor",
+    "quotedHint": "Wenn Sie fortfahren, werden die offenen Angebote zu dieser Anfrage storniert und die Anfrage wird wieder auf „Angebot ausstehend“ gesetzt, damit wir auf Basis der neuen Angaben neu kalkulieren können. Bereits angenommene oder in einen Auftrag umgewandelte Angebote können nicht storniert werden — bitte kontaktieren Sie uns in diesem Fall.",
+    "reopenAction": "Angebot stornieren und weiter bearbeiten",
+    "reopening": "Wird verarbeitet…",
+    "reopenFailed": "Die Anfrage konnte nicht zurückgesetzt werden, bitte erneut versuchen",
+    "notEditable": "Diese Anfrage ist „{{status}}“ und kann nicht mehr bearbeitet werden. Bitte legen Sie eine neue Anfrage an.",
+    "saveFailed": "Speichern fehlgeschlagen, bitte erneut versuchen"
+  },
+  "orderEdit": {
+    "entry": "Bearbeiten",
+    "title": "Auftragsdaten bearbeiten",
+    "backToDetail": "Zurück zum Auftrag",
+    "notEditable": "Dieser Auftrag wird bereits bearbeitet und kann hier nicht mehr geändert werden. Bitte kontaktieren Sie uns.",
+    "saveFailed": "Speichern fehlgeschlagen, bitte erneut versuchen"
   }
 }

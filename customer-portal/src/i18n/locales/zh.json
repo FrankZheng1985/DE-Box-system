@@ -899,5 +899,24 @@
     "noTimeline": "暂无状态记录",
     "notFound": "订单不存在，或您无权查看",
     "loadFailed": "加载订单详情失败"
+  },
+  "inquiryEdit": {
+    "entry": "修改",
+    "title": "修改询价单",
+    "backToDetail": "返回询价详情",
+    "quotedTitle": "此单我司已经提供报价",
+    "quotedHint": "继续修改会先作废这张单上的在途报价，并把询价单退回「待报价」，由我司按新内容重新报价。已被接受或已转成订单的报价不能作废，遇到这种情况请联系我司。",
+    "reopenAction": "作废原报价并继续修改",
+    "reopening": "处理中…",
+    "reopenFailed": "退回待报价失败，请稍后重试",
+    "notEditable": "询价单当前状态为「{{status}}」，不能再修改。如需变更请新建一张询价单。",
+    "saveFailed": "保存失败，请稍后重试"
+  },
+  "orderEdit": {
+    "entry": "修改",
+    "title": "修改订单基本信息",
+    "backToDetail": "返回订单详情",
+    "notEditable": "这张订单我司已经开始处理，不能再自行修改，请联系我司。",
+    "saveFailed": "保存失败，请稍后重试"
   }
 }

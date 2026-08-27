@@ -612,6 +612,79 @@ router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('order
 router.get('/:id', requirePermission(...CAN_VIEW_ORDER), orderController.getById)
 router.put('/:id', requireUserType('OPERATOR'), requirePermission('order:edit'), orderController.update)
 
+/**
+ * 客户门户自助修改订单基本信息（开发意见 #12）
+ * PUT /api/v1/orders/:id/basic-info
+ *
+ * 为什么另开一个端点，而不是把 PUT /:id 放开给客户：
+ *   PUT /:id 的语义是「运营编辑订单」，它的 fieldMap 里有 clientPrice。
+ *   把它放开给客户，等于以后任何人往那个 fieldMap 里加字段，都默默地
+ *   把这个字段也交给了客户去改 —— 这种「加字段的人不会想到还有另一类调用方」的
+ *   陷阱，正是踩坑 069 的成因。所以客户走独立端点 + 独立白名单。
+ *
+ * 三道守卫，缺一不可：
+ *   1. 是不是自己家的单 —— 不是就按「不存在」回 404（回 403 等于确认这个 UUID 有效）
+ *   2. 状态必须是 PENDING_REVIEW（我司尚未受理）—— Frank 2026-08-27 拍板的口径。
+ *      本地派送订单没有这个状态（它的初始态是 PENDING_QUOTE，且单子是运营从报价
+ *      一柜转 N 单建出来的，不是客户建的），因此本地派送单客户改不了 ——
+ *      要改请改上游那张询价单。
+ *   3. 字段白名单 —— 金额、状态、承运商、服务类型一律不在里面
+ */
+const CLIENT_EDITABLE_FIELDS = [
+  'customerRef',
+  'pickupAddress', 'deliveryAddress',
+  'cargoDescription', 'cargoWeightKg', 'cargoVolumeM3', 'cargoQuantity',
+  'pickupDate', 'deliveryDate',
+  'specialRequirements', 'remarks',
+  'shippingLine', 'containerNo', 'blNumber', 'eta', 'cnee',
+]
+
+router.put('/:id/basic-info',
+  requireUserType('CLIENT'),
+  requirePermission('portal:order_edit'),
+  async (req, res) => {
+    try {
+      if (!UUID_RE.test(String(req.params.id))) {
+        return res.status(404).json({ code: 404, message: '订单不存在', data: null })
+      }
+
+      const found = await getPool().query(
+        `SELECT id, client_id, status FROM orders WHERE id = $1`, [req.params.id]
+      )
+      const order = found.rows[0]
+      if (!order || order.client_id !== req.user.linkedEntityId) {
+        return res.status(404).json({ code: 404, message: '订单不存在', data: null })
+      }
+      if (order.status !== 'PENDING_REVIEW') {
+        return res.status(400).json({
+          code: 400,
+          message: '这张订单我司已经开始处理，不能再自行修改，请联系我司',
+          data: null,
+        })
+      }
+
+      // 只挑白名单里的字段，其余（金额、状态、承运商…）直接丢弃，不报错也不写库
+      const payload = {}
+      for (const key of CLIENT_EDITABLE_FIELDS) {
+        if (req.body[key] !== undefined) payload[key] = req.body[key]
+      }
+      if (Object.keys(payload).length === 0) {
+        return res.status(400).json({ code: 400, message: '没有可更新的字段', data: null })
+      }
+
+      // editOrder 自己还会再查一次状态（它允许 PENDING_REVIEW/CONFIRMED），
+      // 上面那道更严的检查是客户专属的，两道叠着不冲突
+      await withTransaction(async (client) => {
+        await orderService.editOrder(client, req.params.id, payload, req.user.id)
+      })
+
+      res.json({ code: 200, message: '订单已更新', data: null })
+    } catch (error) {
+      console.error('客户修改订单失败:', error)
+      res.status(400).json({ code: 400, message: error.message, data: null })
+    }
+  })
+
 // 状态操作
 router.put('/:id/status', requirePermission('order:status'), orderController.updateStatus)
 router.put('/:id/delivery-status', requirePermission('order:status', 'carrier_portal:task_respond'), orderController.updateDeliveryStatus)
