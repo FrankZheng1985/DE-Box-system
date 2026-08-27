@@ -242,7 +242,13 @@
     "unknownClient": "Unbekannt",
     "orderExceptionMessageNoDetail": "Störung bei Auftrag {{orderNo}} – bitte prüfen",
     "orderBatchImportTitle": "{{count}} Aufträge importiert",
-    "orderBatchImportMessage": "{{product}}: {{count}} Aufträge importiert ({{orderNo}} u. a.), bitte prüfen"
+    "orderBatchImportMessage": "{{product}}: {{count}} Aufträge importiert ({{orderNo}} u. a.), bitte prüfen",
+    "clientEditedInquiryTitle": "Kunde hat Anfrage {{inquiryNo}} geändert",
+    "clientEditedInquiryMessage": "Kunde {{client}} hat die Anfrage {{inquiryNo}} geändert, bitte beachten Sie die aktuellen Angaben",
+    "clientReopenedInquiryTitle": "Kunde ändert Anfrage {{inquiryNo}}, Angebote storniert",
+    "clientReopenedInquiryMessage": "Kunde {{client}} ändert gerade die Anfrage {{inquiryNo}}. Sie wurde auf „Angebot ausstehend“ zurückgesetzt, {{count}} offene(s) Angebot(e) wurden storniert",
+    "clientEditedOrderTitle": "Kunde hat Auftrag {{orderNo}} geändert",
+    "clientEditedOrderMessage": "Kunde {{client}} hat die Grunddaten des Auftrags {{orderNo}} geändert, bitte bei der Prüfung die aktuellen Angaben beachten"
   },
   "businessType": {
     "TRUCK_LTL": "LKW-Teilladung (LTL)",

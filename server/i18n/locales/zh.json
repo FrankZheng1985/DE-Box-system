@@ -242,7 +242,13 @@
     "unknownClient": "未知",
     "orderExceptionMessageNoDetail": "订单 {{orderNo}} 出现异常，请及时处理",
     "orderBatchImportTitle": "批量导入 {{count}} 张订单",
-    "orderBatchImportMessage": "{{product}}：批量导入 {{count}} 张订单（{{orderNo}} 等），请及时审核"
+    "orderBatchImportMessage": "{{product}}：批量导入 {{count}} 张订单（{{orderNo}} 等），请及时审核",
+    "clientEditedInquiryTitle": "客户修改询价 {{inquiryNo}}",
+    "clientEditedInquiryMessage": "客户 {{client}} 修改了询价单 {{inquiryNo}}，请以最新内容为准",
+    "clientReopenedInquiryTitle": "客户修改询价 {{inquiryNo}}，原报价已作废",
+    "clientReopenedInquiryMessage": "客户 {{client}} 正在修改询价单 {{inquiryNo}}，该单已退回待报价，{{count}} 张在途报价已作废",
+    "clientEditedOrderTitle": "客户修改订单 {{orderNo}}",
+    "clientEditedOrderMessage": "客户 {{client}} 修改了订单 {{orderNo}} 的基本信息，请在审核时以最新内容为准"
   },
   "businessType": {
     "TRUCK_LTL": "卡车派送 LTL",

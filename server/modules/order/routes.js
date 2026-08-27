@@ -649,7 +649,10 @@ router.put('/:id/basic-info',
       }
 
       const found = await getPool().query(
-        `SELECT id, client_id, status FROM orders WHERE id = $1`, [req.params.id]
+        `SELECT o.id, o.client_id, o.status, o.order_number, c.company_name AS client_name
+         FROM orders o LEFT JOIN clients c ON c.id = o.client_id
+         WHERE o.id = $1`,
+        [req.params.id]
       )
       const order = found.rows[0]
       if (!order || order.client_id !== req.user.linkedEntityId) {
@@ -677,6 +680,29 @@ router.put('/:id/basic-info',
       await withTransaction(async (client) => {
         await orderService.editOrder(client, req.params.id, payload, req.user.id)
       })
+
+      // 客户自助改单要让运营知道（开发意见 #12 收尾）。
+      // 单子已经改成功，通知失败只记警告，不能让前端误以为修改失败再提交一遍
+      try {
+        const operators = await getPool().query(
+          `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`
+        )
+        if (operators.rows.length > 0) {
+          const clientName = order.client_name || '未知'
+          await notificationEngine.notify(getPool(), {
+            userIds: operators.rows.map((u) => u.id),
+            type: NOTIFICATION_TYPES.STATUS_UPDATE,
+            title: `客户修改订单 ${order.order_number}`,
+            message: `客户 ${clientName} 修改了订单 ${order.order_number} 的基本信息，请在审核时以最新内容为准`,
+            titleKey: 'notify.clientEditedOrderTitle',
+            messageKey: 'notify.clientEditedOrderMessage',
+            payload: { orderNo: order.order_number, client: clientName },
+            relatedOrderId: order.id,
+          })
+        }
+      } catch (notifyErr) {
+        console.warn('客户改单的运营通知发送失败（不影响修改结果）:', notifyErr.message)
+      }
 
       res.json({ code: 200, message: '订单已更新', data: null })
     } catch (error) {

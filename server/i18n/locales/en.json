@@ -242,7 +242,13 @@
     "unknownClient": "Unknown",
     "orderExceptionMessageNoDetail": "Exception on order {{orderNo}} — please look into it",
     "orderBatchImportTitle": "{{count}} orders imported",
-    "orderBatchImportMessage": "{{product}}: {{count}} orders imported ({{orderNo}} and others), please review"
+    "orderBatchImportMessage": "{{product}}: {{count}} orders imported ({{orderNo}} and others), please review",
+    "clientEditedInquiryTitle": "Client updated inquiry {{inquiryNo}}",
+    "clientEditedInquiryMessage": "Client {{client}} has updated inquiry {{inquiryNo}}, please refer to the latest details",
+    "clientReopenedInquiryTitle": "Client is updating inquiry {{inquiryNo}}, quotations voided",
+    "clientReopenedInquiryMessage": "Client {{client}} is updating inquiry {{inquiryNo}}. It has been returned to pending quotation and {{count}} open quotation(s) have been voided",
+    "clientEditedOrderTitle": "Client updated order {{orderNo}}",
+    "clientEditedOrderMessage": "Client {{client}} has updated the basic information of order {{orderNo}}, please review with the latest details"
   },
   "businessType": {
     "TRUCK_LTL": "Truck LTL",

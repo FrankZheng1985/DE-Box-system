@@ -11,7 +11,8 @@ import { Router } from 'express'
 import ExcelJS from 'exceljs'
 import multer from 'multer'
 import { authenticateToken, requireUserType, requirePermission, requireTenantBinding } from '../../middleware/auth.js'
-import { withTransaction, query } from '../../core/db.js'
+import { withTransaction, query, getPool } from '../../core/db.js'
+import { notificationEngine, NOTIFICATION_TYPES } from '../../core/index.js'
 import { resolveLang, normalizeLang, t } from '../../utils/i18n.js'
 import inquiryService from './service.js'
 import importService from './import-service.js'
@@ -169,6 +170,33 @@ async function loadInquiryWithAccessCheck(inquiryId, req, res) {
     return null
   }
   return inquiry
+}
+
+/**
+ * 客户在门户改动询价后，给全体在职运营发一条站内通知（开发意见 #12 收尾）
+ *
+ * 放在事务提交之后、用独立连接发：单据已经改成功了，通知失败只记警告，
+ * 绝不能把错误抛回去让前端以为修改失败再提交一遍（与订单批量导入的汇总通知同一套路）。
+ */
+async function notifyOperatorsInquiryChanged({ title, message, titleKey, messageKey, payload }) {
+  try {
+    const pool = getPool()
+    const operators = await pool.query(
+      `SELECT id FROM users WHERE user_type = 'OPERATOR' AND is_active = true`
+    )
+    if (operators.rows.length === 0) return
+    await notificationEngine.notify(pool, {
+      userIds: operators.rows.map((u) => u.id),
+      type: NOTIFICATION_TYPES.STATUS_UPDATE,
+      title,
+      message,
+      titleKey,
+      messageKey,
+      payload,
+    })
+  } catch (error) {
+    console.warn('客户改询价的运营通知发送失败（不影响修改结果）:', error.message)
+  }
 }
 
 /**
@@ -756,6 +784,19 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
       }
     })
 
+    // 客户自己改的单要让运营知道；运营自己编辑不用通知自己
+    const editorType = req.user.userType || req.user.roleCode
+    if (editorType === 'CLIENT') {
+      const clientName = inquiry.client_name || '未知'
+      await notifyOperatorsInquiryChanged({
+        title: `客户修改询价 ${inquiry.inquiry_number}`,
+        message: `客户 ${clientName} 修改了询价单 ${inquiry.inquiry_number}，请以最新内容为准`,
+        titleKey: 'notify.clientEditedInquiryTitle',
+        messageKey: 'notify.clientEditedInquiryMessage',
+        payload: { inquiryNo: inquiry.inquiry_number, client: clientName },
+      })
+    }
+
     res.json({ code: 200, message: '询价更新成功', data: null })
   } catch (error) {
     console.error('更新询价失败:', error)
@@ -807,6 +848,24 @@ router.post('/:id/reopen',
           userId: req.user.id,
         })
       )
+
+      // 客户发起的退回必须通知运营——他们做的报价刚被作废了。
+      // 此时客户还没改完内容，所以不说"请重新报价"；改完保存会再发一条编辑通知
+      const editorType = req.user.userType || req.user.roleCode
+      if (editorType === 'CLIENT') {
+        const clientName = inquiry.client_name || '未知'
+        await notifyOperatorsInquiryChanged({
+          title: `客户修改询价 ${inquiry.inquiry_number}，原报价已作废`,
+          message: `客户 ${clientName} 正在修改询价单 ${inquiry.inquiry_number}，该单已退回待报价，${result.voidedCount} 张在途报价已作废`,
+          titleKey: 'notify.clientReopenedInquiryTitle',
+          messageKey: 'notify.clientReopenedInquiryMessage',
+          payload: {
+            inquiryNo: inquiry.inquiry_number,
+            client: clientName,
+            count: result.voidedCount,
+          },
+        })
+      }
 
       res.json({
         code: 200,
