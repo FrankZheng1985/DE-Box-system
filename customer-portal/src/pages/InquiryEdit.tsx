@@ -16,7 +16,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MapPin, Truck, Save, AlertTriangle } from 'lucide-react'
+import { MapPin, Truck, Package, Save, AlertTriangle } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import AddressCard from '../components/AddressCard'
 import CargoItemsTable from '../components/CargoItemsTable'
@@ -527,7 +527,9 @@ export default function InquiryEdit() {
                 </div>
               </Section>
 
-              <Section icon={Truck} title={t('inquiry.cargoItems')}>
+              {/* Section 的标题用「货物信息」，不能也用「按件货物明细」——
+                  CargoItemsTable 自己会渲染一行「按件货物明细」标题，两层同名会显示两遍 */}
+              <Section icon={Package} title={t('inquiryDetail.cargoSection')}>
                 <CargoItemsTable rows={rows} onChange={setRows} />
               </Section>
             </>
