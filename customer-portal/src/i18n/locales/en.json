@@ -58,7 +58,8 @@
     "nextPage": "Next",
     "yes": "Yes",
     "no": "No",
-    "notSelected": "Not selected"
+    "notSelected": "Not selected",
+    "back": "Back"
   },
   "login": {
     "username": "Username",
@@ -854,5 +855,49 @@
   "releaseMethod": {
     "TELEX": "Telex release",
     "ORIGINAL": "Original B/L"
+  },
+  "specialRequirement": {
+    "NONE": "None",
+    "TEMP_CONTROL": "Temperature controlled",
+    "ADR": "ADR dangerous goods",
+    "DG": "Dangerous goods",
+    "OVERSIZE": "Oversize / overweight",
+    "TAIL_LIFT": "Tail lift required",
+    "TOP_LOADING": "Top loading required",
+    "FUMIGATION": "Fumigation required",
+    "UN3480": "UN3480 batteries",
+    "UN3481": "UN3481 batteries"
+  },
+  "releaseStatus": {
+    "NOT_REQUIRED": "Not required",
+    "ORIGINAL_PENDING": "Original B/L pending",
+    "ORIGINAL_SENT": "Original B/L sent",
+    "PENDING_RELEASE": "Pending release",
+    "RELEASED": "Released"
+  },
+  "inquiryDetail": {
+    "viewTitle": "View inquiry details",
+    "basicInfo": "General information",
+    "addressSection": "Addresses & contacts",
+    "cargoSection": "Cargo",
+    "quotationSection": "Quotations received",
+    "version": "Version",
+    "noQuotations": "No quotation for this inquiry yet",
+    "noCargoItems": "No cargo lines",
+    "notFound": "Inquiry not found, or you are not allowed to view it",
+    "loadFailed": "Failed to load inquiry details",
+    "backToList": "Back to inquiries"
+  },
+  "orderDetail": {
+    "viewTitle": "View order details",
+    "addressSection": "Addresses",
+    "carrier": "Carrier",
+    "serviceChannel": "Service channel",
+    "releaseStatus": "Release status",
+    "clearanceStatus": "Customs status",
+    "timeline": "Status history",
+    "noTimeline": "No status history yet",
+    "notFound": "Order not found, or you are not allowed to view it",
+    "loadFailed": "Failed to load order details"
   }
 }

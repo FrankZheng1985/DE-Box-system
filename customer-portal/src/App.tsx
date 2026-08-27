@@ -4,8 +4,10 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import MyOrders from './pages/MyOrders'
+import OrderDetail from './pages/OrderDetail'
 import CreateOrder from './pages/CreateOrder'
 import InquiryList from './pages/InquiryList'
+import InquiryDetail from './pages/InquiryDetail'
 import MyQuotations from './pages/MyQuotations'
 import Tracking from './pages/Tracking'
 import CustomsOp from './pages/CustomsOp'
@@ -55,9 +57,12 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="orders" element={<MyOrders />} />
+        {/* 固定路径必须排在参数路径前面，否则 /orders/create 会被 /orders/:id 吃掉 */}
         <Route path="orders/create" element={<CreateOrder />} />
+        <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="inquiry" element={<InquiryList />} />
         <Route path="inquiry/create" element={<InquiryList />} />
+        <Route path="inquiry/:id" element={<InquiryDetail />} />
         <Route path="quotations" element={<MyQuotations />} />
         <Route path="tracking" element={<Tracking />} />
         <Route path="customs" element={<CustomsOp />} />

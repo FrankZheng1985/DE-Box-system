@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock, MapPin, Truck } from 'lucide-react'
+import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock, MapPin, Truck, Eye } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import InquiryImportModal from '../components/InquiryImportModal'
 import LocalDeliveryForm from '../components/LocalDeliveryForm'
@@ -197,6 +198,7 @@ function AddressCard({ title, required, icon: Icon, address, onAddressChange, co
 
 export default function InquiryList() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [sla, setSla] = useState<QuoteSlaStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -868,20 +870,22 @@ export default function InquiryList() {
           {/* 客户单号是客户自己对账的抓手，独占一列排在询价单号右边（开发意见 #1）；
               原先挤在询价单号下面当 10px 灰色小字，客户反馈看不见 */}
           {/* 列宽按内容实测排的：询价编号 17 字符、报价时效要放下「已等待 0.0 天」、
-              表头「实重(kg)」和「操作」都不能被压成两行 */}
+              表头「实重(kg)」和「操作」都不能被压成两行。
+              操作列从 6% 加到 8%（放得下「查看 + 删除」两个按钮，6% ≈ 65px 会挤成两行），
+              多出来的 2% 从路线列匀 —— 路线本来就是 truncate 显示的 */}
           <table className="w-full table-fixed min-w-[1080px]">
             <colgroup>
               <col className="w-[15%]" />
               <col className="w-[11%]" />
               <col className="w-[9%]" />
-              <col className="w-[14%]" />
+              <col className="w-[12%]" />
               <col className="w-[5%]" />
               <col className="w-[8%]" />
               <col className="w-[5%]" />
               <col className="w-[8%]" />
               <col className="w-[11%]" />
               <col className="w-[8%]" />
-              <col className="w-[6%]" />
+              <col className="w-[8%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
@@ -914,8 +918,16 @@ export default function InquiryList() {
               ) : (
                 inquiries.map((item) => (
                   <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    {/* 编号本身就是进详情的入口（开发意见 #11），操作列还另有一个「查看」按钮 */}
                     <td className="text-left px-3 py-2.5">
-                      <span className="text-xs font-medium text-slate-900 block truncate">{item.inquiry_number || '-'}</span>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/inquiry/${item.id}`)}
+                        className="text-xs font-medium text-primary-600 hover:underline block truncate max-w-full text-left transition-all duration-200 ease-in-out"
+                        title={t('inquiryDetail.viewTitle')}
+                      >
+                        {item.inquiry_number || '-'}
+                      </button>
                     </td>
                     <td className="text-left px-3 py-2.5">
                       <span className="text-xs font-medium text-slate-900 block truncate" title={item.customer_ref || ''}>
@@ -956,20 +968,29 @@ export default function InquiryList() {
                     <td className="text-center px-3 py-2.5 text-xs text-slate-500">
                       {item.created_at ? new Date(item.created_at).toLocaleDateString('de-DE') : '-'}
                     </td>
-                    {/* 只有还没进入报价流程的单能删（开发意见 #2），其余显示占位符
-                        —— 按钮直接消失会让客户以为是页面坏了 */}
+                    {/* 查看对所有单都开放；删除只有还没进入报价流程的单才有（开发意见 #2），
+                        不能删时不显示删除按钮 —— 但「查看」一直在，操作列不会整格空掉 */}
                     <td className="text-center px-3 py-2.5">
-                      {canDelete(item) ? (
+                      <div className="flex items-center justify-center gap-0.5">
                         <button
-                          onClick={() => { setError(''); setNotice(''); setDeleteTarget(item) }}
-                          title={t('inquiry.deleteTitle')}
-                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 ease-in-out"
+                          type="button"
+                          onClick={() => navigate(`/inquiry/${item.id}`)}
+                          title={t('inquiryDetail.viewTitle')}
+                          className="p-1 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 ease-in-out"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
-                      ) : (
-                        <span className="text-xs text-slate-300">-</span>
-                      )}
+                        {canDelete(item) && (
+                          <button
+                            type="button"
+                            onClick={() => { setError(''); setNotice(''); setDeleteTarget(item) }}
+                            title={t('inquiry.deleteTitle')}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 ease-in-out"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

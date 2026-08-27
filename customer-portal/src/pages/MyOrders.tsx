@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Search, RefreshCw, FolderOpen, X, Download, FileText, Upload } from 'lucide-react'
+import { Plus, Search, RefreshCw, FolderOpen, X, Download, FileText, Upload, Eye } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 import { formatMoney, formatNumber, formatDate, formatDateTime } from '../utils/format'
@@ -199,11 +199,13 @@ export default function MyOrders() {
       {/* 表格 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
+          {/* 末列从「文件」改成「操作」，放「查看详情 + 文件」两个按钮（开发意见 #11）。
+              两个图标按钮 6% ≈ 54px 放不下，加到 8%，多出的 2% 从路线列匀（路线是 truncate 显示的） */}
           <table className="w-full table-fixed min-w-[900px]">
             <colgroup>
               <col className="w-[12%]" />
               <col className="w-[11%]" />
-              <col className="w-[13%]" />
+              <col className="w-[11%]" />
               <col className="w-[8%]" />
               <col className="w-[7%]" />
               <col className="w-[10%]" />
@@ -211,7 +213,7 @@ export default function MyOrders() {
               <col className="w-[9%]" />
               <col className="w-[8%]" />
               <col className="w-[9%]" />
-              <col className="w-[6%]" />
+              <col className="w-[8%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
@@ -225,7 +227,7 @@ export default function MyOrders() {
                 <th className="text-right px-3 py-2.5 font-medium">{t('orders.price')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('orders.eta')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.createdAt')}</th>
-                <th className="text-center px-3 py-2.5 font-medium">{t('common.files')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -250,8 +252,16 @@ export default function MyOrders() {
                   const isLocal = order.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
                   return (
                     <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="text-left px-3 py-2.5 text-xs font-medium text-primary-600">
-                        {order.order_number || '-'}
+                      {/* 订单号就是进详情的入口（开发意见 #11），操作列还另有一个「查看」按钮 */}
+                      <td className="text-left px-3 py-2.5">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/orders/${order.id}`)}
+                          className="text-xs font-medium text-primary-600 hover:underline block truncate max-w-full text-left transition-all duration-200 ease-in-out"
+                          title={t('orderDetail.viewTitle')}
+                        >
+                          {order.order_number || '-'}
+                        </button>
                       </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate" title={order.customer_ref || undefined}>
                         {order.customer_ref || '-'}
@@ -283,13 +293,24 @@ export default function MyOrders() {
                         {formatDate(order.created_at)}
                       </td>
                       <td className="text-center px-3 py-2.5">
-                        <button
-                          onClick={() => openFilesModal(order)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                          title={t('orders.viewFiles')}
-                        >
-                          <FolderOpen className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/orders/${order.id}`)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200 ease-in-out"
+                            title={t('orderDetail.viewTitle')}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openFilesModal(order)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200 ease-in-out"
+                            title={t('orders.viewFiles')}
+                          >
+                            <FolderOpen className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

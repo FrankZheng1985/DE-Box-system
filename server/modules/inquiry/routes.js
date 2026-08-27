@@ -143,6 +143,11 @@ function applyScopeFilter(req, sql, params) {
  * @returns {Promise<object|null>} 无权或不存在时已写好响应并返回 null
  */
 async function loadInquiryWithAccessCheck(inquiryId, req, res) {
+  // 主键是 UUID，非 UUID 扔给 pg 会抛类型转换错误、白白变成一个 500（踩坑 067）
+  if (!UUID_RE.test(String(inquiryId))) {
+    res.status(404).json({ code: 404, message: '询价不存在', data: null })
+    return null
+  }
   const result = await query(
     `SELECT i.*, c.company_name AS client_name
      FROM inquiries i LEFT JOIN clients c ON c.id = i.client_id

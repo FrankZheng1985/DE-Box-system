@@ -58,7 +58,8 @@
     "nextPage": "Weiter",
     "yes": "Ja",
     "no": "Nein",
-    "notSelected": "Nicht ausgewählt"
+    "notSelected": "Nicht ausgewählt",
+    "back": "Zurück"
   },
   "login": {
     "username": "Benutzername",
@@ -854,5 +855,49 @@
   "releaseMethod": {
     "TELEX": "Telex Release",
     "ORIGINAL": "Original-Konnossement"
+  },
+  "specialRequirement": {
+    "NONE": "Keine",
+    "TEMP_CONTROL": "Temperaturgeführt",
+    "ADR": "Gefahrgut ADR",
+    "DG": "Gefahrgut",
+    "OVERSIZE": "Übermaß / Übergewicht",
+    "TAIL_LIFT": "Ladebordwand erforderlich",
+    "TOP_LOADING": "Dachbeladung erforderlich",
+    "FUMIGATION": "Begasung erforderlich",
+    "UN3480": "UN3480-Batterien",
+    "UN3481": "UN3481-Batterien"
+  },
+  "releaseStatus": {
+    "NOT_REQUIRED": "Nicht erforderlich",
+    "ORIGINAL_PENDING": "Original ausstehend",
+    "ORIGINAL_SENT": "Original versandt",
+    "PENDING_RELEASE": "Freistellung ausstehend",
+    "RELEASED": "Freigestellt"
+  },
+  "inquiryDetail": {
+    "viewTitle": "Anfragedetails ansehen",
+    "basicInfo": "Allgemeine Angaben",
+    "addressSection": "Adressen & Ansprechpartner",
+    "cargoSection": "Ladung",
+    "quotationSection": "Erhaltene Angebote",
+    "version": "Version",
+    "noQuotations": "Für diese Anfrage liegt noch kein Angebot vor",
+    "noCargoItems": "Keine Ladungspositionen",
+    "notFound": "Anfrage nicht gefunden oder kein Zugriff",
+    "loadFailed": "Anfragedetails konnten nicht geladen werden",
+    "backToList": "Zurück zu den Anfragen"
+  },
+  "orderDetail": {
+    "viewTitle": "Auftragsdetails ansehen",
+    "addressSection": "Adressen",
+    "carrier": "Frachtführer",
+    "serviceChannel": "Servicekanal",
+    "releaseStatus": "Freistellungsstatus",
+    "clearanceStatus": "Zollstatus",
+    "timeline": "Statusverlauf",
+    "noTimeline": "Noch kein Statusverlauf",
+    "notFound": "Auftrag nicht gefunden oder kein Zugriff",
+    "loadFailed": "Auftragsdetails konnten nicht geladen werden"
   }
 }

@@ -8,6 +8,10 @@ import { withTransaction, query } from '../../core/db.js'
 import { changeTracker, documentEngine } from '../../core/index.js'
 import orderService from './service.js'
 import orderModel from './model.js'
+import { scrubOrder, scrubOrders, scrubTimeline } from './portal-view.js'
+
+/** 主键是 UUID，非 UUID 直接当"不存在"，否则 pg 类型转换失败会变成 500（踩坑 067） */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * 租户隔离（P5）
@@ -65,7 +69,8 @@ export const orderController = {
         return orderModel.list(client, filters)
       })
 
-      res.json({ code: 200, message: 'success', ...result })
+      // 门户按白名单收窄字段：列表 SQL 里带着 carrier_cost，客户不能看见我们的进价
+      res.json({ code: 200, message: 'success', ...result, data: scrubOrders(req.user, result.data) })
     } catch (error) {
       console.error('获取订单列表失败:', error)
       res.status(500).json({ code: 500, message: '获取订单列表失败', data: null })
@@ -78,6 +83,9 @@ export const orderController = {
    */
   async getById(req, res) {
     try {
+      if (!UUID_RE.test(String(req.params.id))) {
+        return res.status(404).json({ code: 404, message: '订单不存在', data: null })
+      }
       const result = await withTransaction(async (client) => {
         const order = await orderModel.getById(client, req.params.id)
         if (!order) return null
@@ -112,7 +120,17 @@ export const orderController = {
         return res.status(404).json({ code: 404, message: '订单不存在', data: null })
       }
 
-      res.json({ code: 200, message: 'success', data: result })
+      // 详情走的是 `SELECT o.*`，成本价、承运商评分、客户信用等级全在里面，
+      // 门户必须按白名单收窄；状态日志也要去掉内部员工姓名和内部备注
+      res.json({
+        code: 200,
+        message: 'success',
+        data: {
+          ...result,
+          order: scrubOrder(req.user, result.order),
+          statusLogs: scrubTimeline(req.user, result.statusLogs),
+        },
+      })
     } catch (error) {
       console.error('获取订单详情失败:', error)
       res.status(500).json({ code: 500, message: '获取订单详情失败', data: null })
@@ -286,6 +304,21 @@ export const orderController = {
    */
   async getTimeline(req, res) {
     try {
+      if (!UUID_RE.test(String(req.params.id))) {
+        return res.status(404).json({ code: 404, message: '订单不存在', data: null })
+      }
+
+      // 这个接口三端共用（CAN_VIEW_ORDER），以前只按 order_id 查、不校验归属：
+      // 门户账号带着自己的 token 换一个订单 UUID，就能拿到别家订单的状态变更史。
+      // 租户校验在详情接口里做过一次不算数，每个按 id 取数的接口都要自己做一遍（踩坑 067）。
+      const owner = await query(
+        `SELECT client_id, carrier_id FROM orders WHERE id = $1`, [req.params.id]
+      )
+      // 不属于当前登录方一律按"不存在"处理，回 403 等于确认这个 UUID 是有效订单
+      if (owner.rows.length === 0 || !canAccessOrder(req.user, owner.rows[0])) {
+        return res.status(404).json({ code: 404, message: '订单不存在', data: null })
+      }
+
       const result = await query(
         `SELECT osl.from_status, osl.to_status, osl.remarks, osl.created_at,
                 u.display_name as changed_by_name
@@ -295,7 +328,7 @@ export const orderController = {
          ORDER BY osl.created_at ASC`,
         [req.params.id]
       )
-      res.json({ code: 200, message: 'success', data: result.rows })
+      res.json({ code: 200, message: 'success', data: scrubTimeline(req.user, result.rows) })
     } catch (error) {
       console.error('获取时间线失败:', error)
       res.status(500).json({ code: 500, message: '获取时间线失败', data: null })

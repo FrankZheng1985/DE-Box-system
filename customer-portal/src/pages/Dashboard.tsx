@@ -128,7 +128,9 @@ export default function Dashboard() {
               ) : (
                 recentOrders.map((order: any) => {
                   return (
-                  <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/orders`)}>
+                  // 这一行本来就是 cursor-pointer，但只能跳回订单列表；
+                  // 有详情页之后直接进这张单的详情（开发意见 #11）
+                  <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(`/orders/${order.id}`)}>
                     <td className="text-left px-4 py-2.5 text-xs font-medium text-primary-600">
                       {order.order_number || t('common.empty')}
                     </td>

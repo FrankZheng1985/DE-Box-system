@@ -58,7 +58,8 @@
     "nextPage": "下一页",
     "yes": "是",
     "no": "否",
-    "notSelected": "未选择"
+    "notSelected": "未选择",
+    "back": "返回"
   },
   "login": {
     "username": "用户名",
@@ -854,5 +855,49 @@
   "releaseMethod": {
     "TELEX": "电放 (Telex)",
     "ORIGINAL": "正本提单 (Original B/L)"
+  },
+  "specialRequirement": {
+    "NONE": "无",
+    "TEMP_CONTROL": "温控运输",
+    "ADR": "危险品 ADR",
+    "DG": "危险品",
+    "OVERSIZE": "超宽超重",
+    "TAIL_LIFT": "需要尾板",
+    "TOP_LOADING": "需要顶部装卸",
+    "FUMIGATION": "需要熏蒸",
+    "UN3480": "UN3480电池",
+    "UN3481": "UN3481电池"
+  },
+  "releaseStatus": {
+    "NOT_REQUIRED": "无需放单",
+    "ORIGINAL_PENDING": "待寄正本",
+    "ORIGINAL_SENT": "正本已寄出",
+    "PENDING_RELEASE": "待放单",
+    "RELEASED": "已放单"
+  },
+  "inquiryDetail": {
+    "viewTitle": "查看询价详情",
+    "basicInfo": "基本信息",
+    "addressSection": "地址与联系人",
+    "cargoSection": "货物信息",
+    "quotationSection": "收到的报价",
+    "version": "版本",
+    "noQuotations": "这张询价单还没有报价",
+    "noCargoItems": "暂无货物明细",
+    "notFound": "询价单不存在，或您无权查看",
+    "loadFailed": "加载询价详情失败",
+    "backToList": "返回询价列表"
+  },
+  "orderDetail": {
+    "viewTitle": "查看订单详情",
+    "addressSection": "地址信息",
+    "carrier": "承运商",
+    "serviceChannel": "服务渠道",
+    "releaseStatus": "放单状态",
+    "clearanceStatus": "清关状态",
+    "timeline": "状态记录",
+    "noTimeline": "暂无状态记录",
+    "notFound": "订单不存在，或您无权查看",
+    "loadFailed": "加载订单详情失败"
   }
 }
