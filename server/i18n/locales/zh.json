@@ -248,7 +248,12 @@
     "clientReopenedInquiryTitle": "客户修改询价 {{inquiryNo}}，原报价已作废",
     "clientReopenedInquiryMessage": "客户 {{client}} 正在修改询价单 {{inquiryNo}}，该单已退回待报价，{{count}} 张在途报价已作废",
     "clientEditedOrderTitle": "客户修改订单 {{orderNo}}",
-    "clientEditedOrderMessage": "客户 {{client}} 修改了订单 {{orderNo}} 的基本信息，请在审核时以最新内容为准"
+    "clientEditedOrderMessage": "客户 {{client}} 修改了订单 {{orderNo}} 的基本信息，请在审核时以最新内容为准",
+    "orderMessageTitle": "订单 {{orderNo}} 有新的履约信息",
+    "orderMessageMessage": "{{sender}}：{{excerpt}}",
+    "orderMessageClientNewTitle": "订单 {{orderNo}} 客户留言",
+    "orderMessageClientReplyTitle": "订单 {{orderNo}} 客户回复",
+    "orderMessageClientMessage": "{{sender}}：{{excerpt}}"
   },
   "businessType": {
     "TRUCK_LTL": "卡车派送 LTL",

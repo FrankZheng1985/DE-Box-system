@@ -2196,5 +2196,22 @@
   },
   "excel": {
     "customerRef": "Client ref."
+  },
+  "orderMessages": {
+    "title": "Fulfilment communication",
+    "hint": "Messages posted here appear in the customer portal. The customer can mark them as read and reply; receipts and replies show up below",
+    "placeholder": "Tell the customer about progress or anything that needs confirming…",
+    "send": "Send to customer",
+    "posted": "Sent — the customer will be notified",
+    "postFailed": "Sending failed, please try again",
+    "empty": "No messages yet",
+    "notConfirmed": "The order is not confirmed yet or has been cancelled, so communication is not available",
+    "noPermission": "You do not have the order communication permission — view only",
+    "fromUs": "Us",
+    "fromClient": "Customer",
+    "readBy": "Read by {{name}} at {{time}}",
+    "reply": "Reply",
+    "replySend": "Send reply",
+    "replyPlaceholder": "Reply to the customer…"
   }
 }

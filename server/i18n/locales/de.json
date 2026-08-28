@@ -248,7 +248,12 @@
     "clientReopenedInquiryTitle": "Kunde ändert Anfrage {{inquiryNo}}, Angebote storniert",
     "clientReopenedInquiryMessage": "Kunde {{client}} ändert gerade die Anfrage {{inquiryNo}}. Sie wurde auf „Angebot ausstehend“ zurückgesetzt, {{count}} offene(s) Angebot(e) wurden storniert",
     "clientEditedOrderTitle": "Kunde hat Auftrag {{orderNo}} geändert",
-    "clientEditedOrderMessage": "Kunde {{client}} hat die Grunddaten des Auftrags {{orderNo}} geändert, bitte bei der Prüfung die aktuellen Angaben beachten"
+    "clientEditedOrderMessage": "Kunde {{client}} hat die Grunddaten des Auftrags {{orderNo}} geändert, bitte bei der Prüfung die aktuellen Angaben beachten",
+    "orderMessageTitle": "Neue Mitteilung zum Auftrag {{orderNo}}",
+    "orderMessageMessage": "{{sender}}: {{excerpt}}",
+    "orderMessageClientNewTitle": "Kundennachricht zum Auftrag {{orderNo}}",
+    "orderMessageClientReplyTitle": "Kundenantwort zum Auftrag {{orderNo}}",
+    "orderMessageClientMessage": "{{sender}}: {{excerpt}}"
   },
   "businessType": {
     "TRUCK_LTL": "LKW-Teilladung (LTL)",

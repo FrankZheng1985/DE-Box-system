@@ -433,7 +433,9 @@
         "verb": "待定",
         "confirm": "确认标记待定"
       }
-    }
+    },
+    "viewOrder": "查看订单详情",
+    "orderNoHint": "双击订单号查看订单详情"
   },
   "quotationStatus": {
     "DRAFT": "草稿",
@@ -918,5 +920,17 @@
     "backToDetail": "返回订单详情",
     "notEditable": "这张订单我司已经开始处理，不能再自行修改，请联系我司。",
     "saveFailed": "保存失败，请稍后重试"
+  },
+  "orderMessages": {
+    "title": "订单日志",
+    "hint": "我司在履约过程中传达的信息都在这里。看完请点「标记已读」，也可以直接在下面回复处理意见",
+    "empty": "暂无信息",
+    "fromUs": "我司",
+    "fromMe": "贵司",
+    "markRead": "标记已读",
+    "readBy": "{{name}} 已读 {{time}}",
+    "reply": "回复",
+    "replySend": "发送回复",
+    "replyPlaceholder": "回复处理意见……"
   }
 }

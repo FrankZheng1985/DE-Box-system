@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  RefreshCw, CheckCircle, XCircle, Clock, FileText, X, AlertCircle, Loader2,
+  RefreshCw, CheckCircle, XCircle, Clock, FileText, X, AlertCircle, Loader2, Eye,
 } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import { formatMoney, formatDate } from '../utils/format'
@@ -50,6 +50,7 @@ interface Quotation {
   version: number
   remarks: string | null
   converted_order_number: string | null
+  converted_order_id: string | null
   created_at: string
 }
 
@@ -402,7 +403,17 @@ export default function MyQuotations() {
                         <span className="text-xs font-medium text-slate-900 block truncate">{q.quotation_number}</span>
                         {q.version > 1 && <span className="text-[10px] text-slate-400">V{q.version}</span>}
                         {q.converted_order_number && (
-                          <span className="block text-[10px] text-purple-600">{t('common.orderNo')} {q.converted_order_number}</span>
+                          // 已下单的报价，双击订单号直接进订单详情（意见 #13）；
+                          // 没拿到 converted_order_id 时保持纯文本，不给一个点不动的手型光标
+                          <span
+                            className={`block text-[10px] text-purple-600 ${
+                              q.converted_order_id ? 'cursor-pointer hover:underline' : ''
+                            }`}
+                            onDoubleClick={() => q.converted_order_id && navigate(`/orders/${q.converted_order_id}`)}
+                            title={q.converted_order_id ? t('quotations.orderNoHint') : undefined}
+                          >
+                            {t('common.orderNo')} {q.converted_order_number}
+                          </span>
                         )}
                       </td>
                       <td className="text-left px-3 py-2.5 text-xs text-slate-500 truncate">{q.inquiry_number || '-'}</td>
@@ -426,6 +437,18 @@ export default function MyQuotations() {
                         </span>
                       </td>
                       <td className="text-center px-3 py-2.5">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* 已下单的报价给一个眼睛入口，进订单详情（意见 #13） */}
+                          {q.converted_order_id && (
+                            <button
+                              onClick={() => navigate(`/orders/${q.converted_order_id}`)}
+                              title={t('quotations.viewOrder')}
+                              className="h-7 px-2 flex items-center gap-1 text-[11px] text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 ease-in-out"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              {t('common.view')}
+                            </button>
+                          )}
                         {decidable ? (
                           <div className="flex items-center justify-center gap-1">
                             <button
@@ -456,9 +479,10 @@ export default function MyQuotations() {
                               {t('quotations.decision.reject.verb')}
                             </button>
                           </div>
-                        ) : (
+                        ) : q.converted_order_id ? null : (
                           <span className="text-[11px] text-slate-400">—</span>
                         )}
+                        </div>
                       </td>
                     </tr>
                   )

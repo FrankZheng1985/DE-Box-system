@@ -17,6 +17,7 @@ import { sendStoredFile } from '../../utils/file-response.js'
 import orderController from './controller.js'
 import { orderService, BUSINESS_TYPE_LABELS, getStatusLabel } from './service.js'
 import importService from './import-service.js'
+import orderMessageRoutes from './message-routes.js'
 
 const router = Router()
 
@@ -31,6 +32,10 @@ router.use(requireTenantBinding)
 //   运营 order:*  /  客户门户 portal:*  /  承运商门户 carrier_portal:*
 // 至于"能看到哪些订单"，由 controller 按登录身份强制收窄（见 controller.js 的租户隔离）
 const CAN_VIEW_ORDER = ['order:view', 'portal:order_view', 'carrier_portal:task_view']
+
+// 订单履约沟通日志（意见 #14）：/:id/messages 及其子路径，自成一块放在单独文件里。
+// 挂在通用 /:id 之前——路径段数不同本来就不会被吞，放前面只是让"更具体的先注册"这条规矩一眼可见
+router.use(orderMessageRoutes)
 
 // ==================== 订单文件中心（需求 3） ====================
 

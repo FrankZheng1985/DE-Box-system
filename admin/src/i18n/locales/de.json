@@ -2196,5 +2196,22 @@
   },
   "excel": {
     "customerRef": "Kundenreferenz"
+  },
+  "orderMessages": {
+    "title": "Abwicklungskommunikation",
+    "hint": "Hier gepostete Mitteilungen erscheinen im Kundenportal. Der Kunde kann sie als gelesen markieren und antworten; Lesebestätigungen und Antworten stehen unten",
+    "placeholder": "Dem Kunden den Stand mitteilen oder offene Punkte klären…",
+    "send": "An Kunden senden",
+    "posted": "Gesendet – der Kunde wird benachrichtigt",
+    "postFailed": "Senden fehlgeschlagen, bitte später erneut versuchen",
+    "empty": "Noch keine Mitteilungen",
+    "notConfirmed": "Der Auftrag ist noch nicht bestätigt oder wurde storniert – Kommunikation nicht möglich",
+    "noPermission": "Sie haben keine Berechtigung für die Auftragskommunikation – nur Ansicht",
+    "fromUs": "Wir",
+    "fromClient": "Kunde",
+    "readBy": "Von {{name}} gelesen am {{time}}",
+    "reply": "Antworten",
+    "replySend": "Antwort senden",
+    "replyPlaceholder": "Dem Kunden antworten…"
   }
 }

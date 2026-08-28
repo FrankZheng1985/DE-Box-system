@@ -248,7 +248,12 @@
     "clientReopenedInquiryTitle": "Client is updating inquiry {{inquiryNo}}, quotations voided",
     "clientReopenedInquiryMessage": "Client {{client}} is updating inquiry {{inquiryNo}}. It has been returned to pending quotation and {{count}} open quotation(s) have been voided",
     "clientEditedOrderTitle": "Client updated order {{orderNo}}",
-    "clientEditedOrderMessage": "Client {{client}} has updated the basic information of order {{orderNo}}, please review with the latest details"
+    "clientEditedOrderMessage": "Client {{client}} has updated the basic information of order {{orderNo}}, please review with the latest details",
+    "orderMessageTitle": "New update on order {{orderNo}}",
+    "orderMessageMessage": "{{sender}}: {{excerpt}}",
+    "orderMessageClientNewTitle": "Customer message on order {{orderNo}}",
+    "orderMessageClientReplyTitle": "Customer replied on order {{orderNo}}",
+    "orderMessageClientMessage": "{{sender}}: {{excerpt}}"
   },
   "businessType": {
     "TRUCK_LTL": "Truck LTL",

@@ -2196,5 +2196,22 @@
   },
   "excel": {
     "customerRef": "客户单号"
+  },
+  "orderMessages": {
+    "title": "履约沟通",
+    "hint": "在这里传达的信息会同步到客户门户，客户可以标记已读并回复；已读回执和回复都会显示在下面",
+    "placeholder": "向客户传达履约进展、需要确认的事项……",
+    "send": "发送给客户",
+    "posted": "已发送，客户会收到通知",
+    "postFailed": "发送失败，请稍后重试",
+    "empty": "暂无沟通记录",
+    "notConfirmed": "订单尚未确认或已取消，暂不能发起履约沟通",
+    "noPermission": "你没有订单沟通权限，只能查看",
+    "fromUs": "我司",
+    "fromClient": "客户",
+    "readBy": "{{name}} 已读 {{time}}",
+    "reply": "回复",
+    "replySend": "发送回复",
+    "replyPlaceholder": "回复客户……"
   }
 }

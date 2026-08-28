@@ -433,7 +433,9 @@
         "verb": "Undecided",
         "confirm": "Confirm"
       }
-    }
+    },
+    "viewOrder": "View order details",
+    "orderNoHint": "Double-click the order number to open order details"
   },
   "quotationStatus": {
     "DRAFT": "Draft",
@@ -918,5 +920,17 @@
     "backToDetail": "Back to order",
     "notEditable": "We have already started processing this order, so it can no longer be edited here. Please contact us.",
     "saveFailed": "Could not save, please try again"
+  },
+  "orderMessages": {
+    "title": "Order log",
+    "hint": "Updates we post during fulfilment appear here. Please mark them as read once seen — you can also reply below",
+    "empty": "No messages yet",
+    "fromUs": "Kaluna",
+    "fromMe": "You",
+    "markRead": "Mark as read",
+    "readBy": "Read by {{name}} at {{time}}",
+    "reply": "Reply",
+    "replySend": "Send reply",
+    "replyPlaceholder": "Reply with your instructions…"
   }
 }

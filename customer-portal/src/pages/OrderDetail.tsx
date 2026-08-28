@@ -21,6 +21,7 @@ import {
   DetailSkeleton, DetailNotFound, type AddressJson,
 } from '../components/DetailPanels'
 import { BUSINESS_TYPES, getStatusLabel, getStatusStyle } from '../constants/businessTypes'
+import OrderMessagePanel from '../components/OrderMessagePanel'
 
 // ==================== 类型定义 ====================
 //
@@ -317,6 +318,9 @@ export default function OrderDetail() {
           )}
         </div>
       </Section>
+
+      {/* ===== 订单日志：我司发布的履约信息 + 已读/回复（意见 #14） ===== */}
+      <OrderMessagePanel orderId={order.id} />
     </div>
   )
 }

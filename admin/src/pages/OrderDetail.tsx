@@ -38,6 +38,7 @@ import StatusBadge from '../components/StatusBadge'
 import Modal from '../components/Modal'
 import Toast from '../components/Toast'
 import OrderFilesSection from '../components/OrderFilesSection'
+import OrderMessageSection from '../components/OrderMessageSection'
 import { formatDate, formatDateTime, formatMoney } from '../utils/format'
 import { BUSINESS_TYPES, businessTypeLabelKey, getStatusLabel } from '../constants/businessTypes'
 
@@ -988,6 +989,13 @@ export default function OrderDetail() {
               </div>
             )}
           </div>
+
+          {/* ---------- 履约沟通（意见 #14） ---------- */}
+          <OrderMessageSection
+            orderId={order.id}
+            status={order.status}
+            onToast={(message, type) => setToast({ message, type })}
+          />
         </div>
 
         {/* ========== 右列 (35%) ========== */}

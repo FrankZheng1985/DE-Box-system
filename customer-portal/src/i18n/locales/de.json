@@ -433,7 +433,9 @@
         "verb": "Unentschieden",
         "confirm": "Bestätigen"
       }
-    }
+    },
+    "viewOrder": "Auftragsdetails ansehen",
+    "orderNoHint": "Doppelklick auf die Auftragsnummer öffnet die Auftragsdetails"
   },
   "quotationStatus": {
     "DRAFT": "Entwurf",
@@ -918,5 +920,17 @@
     "backToDetail": "Zurück zum Auftrag",
     "notEditable": "Dieser Auftrag wird bereits bearbeitet und kann hier nicht mehr geändert werden. Bitte kontaktieren Sie uns.",
     "saveFailed": "Speichern fehlgeschlagen, bitte erneut versuchen"
+  },
+  "orderMessages": {
+    "title": "Auftragsprotokoll",
+    "hint": "Mitteilungen aus der Abwicklung finden Sie hier. Bitte nach dem Lesen als gelesen markieren – Sie können direkt darunter antworten",
+    "empty": "Noch keine Mitteilungen",
+    "fromUs": "Kaluna",
+    "fromMe": "Sie",
+    "markRead": "Als gelesen markieren",
+    "readBy": "Von {{name}} gelesen am {{time}}",
+    "reply": "Antworten",
+    "replySend": "Antwort senden",
+    "replyPlaceholder": "Ihre Rückmeldung…"
   }
 }
