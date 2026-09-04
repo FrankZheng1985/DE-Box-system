@@ -205,7 +205,7 @@ async function notifyOperatorsInquiryChanged({ title, message, titleKey, message
  */
 router.get('/', requirePermission('inquiry:view', 'portal:inquiry_manage'), async (req, res) => {
   try {
-    const { status, businessType, search, page = 1, pageSize = 20 } = req.query
+    const { status, businessType, search, dateFrom, dateTo, page = 1, pageSize = 20 } = req.query
     // 占位符要按它在 SQL 里出现的先后顺序入参：这一条在 SELECT 子查询里，
     // 排在所有 WHERE 条件之前，所以必须最先 push
     const params = []
@@ -231,6 +231,11 @@ router.get('/', requirePermission('inquiry:view', 'portal:inquiry_manage'), asyn
       params.push(`%${search}%`)
       sql += ` AND (i.inquiry_number ILIKE $${++idx} OR i.customer_ref ILIKE $${idx} OR c.company_name ILIKE $${idx})`
     }
+    // 按建单时间筛（开发意见 #16）。
+    // 结束日期用「< 次日零点」而不是 <=：created_at 是带时分秒的，
+    // 写 <= '2026-09-05' 会被当成 2026-09-05 00:00:00，当天建的单一条都筛不出来。
+    if (dateFrom) { params.push(dateFrom); sql += ` AND i.created_at >= $${++idx}::date` }
+    if (dateTo) { params.push(dateTo); sql += ` AND i.created_at < ($${++idx}::date + 1)` }
 
     const countResult = await query(`SELECT COUNT(*) AS total FROM (${sql}) t`, params)
     sql += ` ORDER BY i.created_at DESC`

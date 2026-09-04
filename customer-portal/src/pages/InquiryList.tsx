@@ -5,10 +5,10 @@
  * 现在升级为：结构化地址 + 联系人 + 按件货物明细（LDM 自动算）。
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock, MapPin, Truck, Eye } from 'lucide-react'
+import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock, MapPin, Truck, Eye, Search } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
 import InquiryImportModal from '../components/InquiryImportModal'
 import LocalDeliveryForm from '../components/LocalDeliveryForm'
@@ -31,6 +31,8 @@ interface Inquiry {
   id: string
   inquiry_number: string
   customer_ref: string | null
+  /** 柜号：本地派送是「一张询价单 = 一个柜」（迁移 129）；其余服务类型目前为 null */
+  container_no: string | null
   business_type: string
   route_from: { country?: string; city?: string; zipCode?: string; address?: string } | null
   route_to: { country?: string; city?: string; zipCode?: string; address?: string } | null
@@ -143,6 +145,10 @@ function routeText(addr: Inquiry['route_from']): string {
   return [addr.country, addr.city].filter(Boolean).join(' ') || '-'
 }
 
+/** 每页条数。原先列表一次只拉后端默认的 20 条又没有翻页入口，
+ *  客户有 27 张单就只能看见 20 张，还不知道少了（开发意见 #16） */
+const PAGE_SIZE = 20
+
 const inputClass =
   'w-full h-8 px-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 ease-in-out'
 
@@ -166,36 +172,85 @@ export default function InquiryList() {
   /** 正在确认删除的那张单，null=没有弹确认框 */
   const [deleteTarget, setDeleteTarget] = useState<Inquiry | null>(null)
   const [deleting, setDeleting] = useState(false)
+  // ---- 分页与筛选（开发意见 #16）----
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [businessTypeFilter, setBusinessTypeFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  /** 输入框里的词 */
+  const [searchKeyword, setSearchKeyword] = useState('')
+  /** 防抖后真正发给后端的词 */
+  const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => { loadInquiries() }, [])
+  // 搜索防抖：每敲一个字就打一次接口没必要
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchKeyword)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchKeyword])
 
-  const loadInquiries = async () => {
+  // 时效统计是整个公司全量算的，跟当前这一页、当前筛选都没关系，
+  // 所以只在进页面时拉一次 —— 跟着筛选重拉会让卡片数字忽大忽小，反而像坏了
+  useEffect(() => { loadSla() }, [])
+
+  const loadInquiries = useCallback(async () => {
     setLoading(true)
     try {
-      // 时效统计是整个公司全量算的，不能拿当前这一页的行去平均（列表默认只有 20 条）
-      const [listRes, slaRes] = await Promise.all([
-        api.get<ApiResponse<Inquiry[]>>('/inquiries'),
-        // 统计接口挂了只是少一排卡片，不能连累列表整页报错
-        // （前端先于后端上线时这里会 404，必须自己吞掉）
-        api.get<ApiResponse<QuoteSlaStats>>('/inquiries/quote-sla').catch((err) => {
-          console.warn('加载报价时效统计失败:', err)
-          return null
-        }),
-      ])
+      const params = new URLSearchParams()
+      params.append('page', String(page))
+      params.append('pageSize', String(PAGE_SIZE))
+      if (businessTypeFilter) params.append('businessType', businessTypeFilter)
+      if (dateFrom) params.append('dateFrom', dateFrom)
+      if (dateTo) params.append('dateTo', dateTo)
+      if (searchQuery) params.append('search', searchQuery)
 
+      const listRes = await api.get<ApiResponse<Inquiry[]>>(`/inquiries?${params.toString()}`)
       if (listRes.code === 200) {
         setInquiries(listRes.data || [])
+        setTotal(listRes.pagination?.total ?? 0)
+        setError('')
       } else {
         setError(listRes.message || t('inquiry.loadFailed'))
       }
-      setSla(slaRes && slaRes.code === 200 ? slaRes.data : null)
     } catch (err) {
       console.error('加载询价列表失败:', err)
       setError(t('inquiry.loadFailed'))
     } finally {
       setLoading(false)
     }
+  }, [page, businessTypeFilter, dateFrom, dateTo, searchQuery, t])
+
+  // 列表跟着分页和筛选走（依赖都收在上面 loadInquiries 的 useCallback 里了）
+  useEffect(() => { loadInquiries() }, [loadInquiries])
+
+  const loadSla = async () => {
+    try {
+      // 统计接口挂了只是少一排卡片，不能连累列表整页报错
+      // （前端先于后端上线时这里会 404，必须自己吞掉）
+      const slaRes = await api.get<ApiResponse<QuoteSlaStats>>('/inquiries/quote-sla')
+      setSla(slaRes.code === 200 ? slaRes.data : null)
+    } catch (err) {
+      console.warn('加载报价时效统计失败:', err)
+      setSla(null)
+    }
   }
+
+  /** 有没有正在生效的筛选（决定要不要显示「清除筛选」） */
+  const hasFilter = Boolean(businessTypeFilter || dateFrom || dateTo || searchKeyword)
+
+  const clearFilters = () => {
+    setBusinessTypeFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setSearchKeyword('')
+    setSearchQuery('')
+    setPage(1)
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const updateRow = (key: string, patch: Partial<CargoRow>) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)))
@@ -816,6 +871,77 @@ export default function InquiryList() {
         )}
       </div>
 
+      {/* 筛选栏（开发意见 #16：按时间、按服务类型筛，外加按单号搜） */}
+      <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* 搜索框：提示词较长，给足最小宽度免得被压成两行 */}
+          <div className="relative flex-1 min-w-[280px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              placeholder={t('inquiry.searchPlaceholder')}
+              className="w-full h-9 pl-9 pr-8 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 ease-in-out"
+            />
+            {searchKeyword && (
+              <button
+                type="button"
+                onClick={() => setSearchKeyword('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-all duration-200 ease-in-out"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* 服务类型 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 shrink-0">{t('inquiry.filterServiceType')}</span>
+            <select
+              value={businessTypeFilter}
+              onChange={(e) => { setBusinessTypeFilter(e.target.value); setPage(1) }}
+              className="h-9 px-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 ease-in-out"
+            >
+              <option value="">{t('common.all')}</option>
+              {BUSINESS_TYPE_VALUES.map((bt) => (
+                <option key={bt} value={bt}>
+                  {t(`businessType.${bt}`, { defaultValue: bt })}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 建单日期范围 */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 shrink-0">{t('inquiry.filterCreatedRange')}</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+              className="h-9 px-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 ease-in-out"
+            />
+            <span className="text-xs text-slate-400">{t('common.rangeTo')}</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+              className="h-9 px-2 border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-primary-500 transition-all duration-200 ease-in-out"
+            />
+          </div>
+
+          {hasFilter && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-xs text-primary-600 hover:underline transition-all duration-200 ease-in-out"
+            >
+              {t('common.clearFilter')}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* 列表 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
@@ -825,23 +951,40 @@ export default function InquiryList() {
               表头「实重(kg)」和「操作」都不能被压成两行。
               操作列从 6% 加到 8%（放得下「查看 + 删除」两个按钮，6% ≈ 65px 会挤成两行），
               多出来的 2% 从路线列匀 —— 路线本来就是 truncate 显示的 */}
-          <table className="w-full table-fixed min-w-[1080px]">
+          <table className="w-full table-fixed min-w-[1240px]">
             <colgroup>
-              <col className="w-[15%]" />
-              <col className="w-[11%]" />
+              {/* 序号 */}
+              <col className="w-[4%]" />
+              {/* 询价编号 */}
+              <col className="w-[13%]" />
+              {/* 柜号（开发意见 #15：排在贵司单号前面） */}
+              <col className="w-[10%]" />
+              {/* 贵司单号 */}
+              <col className="w-[10%]" />
+              {/* 服务类型 */}
+              <col className="w-[8%]" />
+              {/* 路线 */}
               <col className="w-[9%]" />
-              <col className="w-[12%]" />
-              <col className="w-[5%]" />
+              {/* 件数 */}
+              <col className="w-[4%]" />
+              {/* 实重 */}
+              <col className="w-[6%]" />
+              {/* LDM */}
+              <col className="w-[4%]" />
+              {/* 状态 */}
+              <col className="w-[7%]" />
+              {/* 报价时效 */}
+              <col className="w-[9%]" />
+              {/* 创建时间 */}
               <col className="w-[8%]" />
-              <col className="w-[5%]" />
-              <col className="w-[8%]" />
-              <col className="w-[11%]" />
-              <col className="w-[8%]" />
+              {/* 操作（放得下「查看 + 删除」两个按钮，不能再压） */}
               <col className="w-[8%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
+                <th className="text-center px-3 py-2.5 font-medium">{t('common.seq')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.inquiryNo')}</th>
+                <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.containerNo')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.customerRef')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.serviceType')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
@@ -858,18 +1001,22 @@ export default function InquiryList() {
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 11 }).map((_, j) => (
+                    {Array.from({ length: 13 }).map((_, j) => (
                       <td key={j} className="px-3 py-3"><div className="h-3 bg-gray-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={13} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
-                inquiries.map((item) => (
+                inquiries.map((item, index) => (
                   <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    {/* 序号：跨页连续，第 2 页从 21 开始（开发意见 #15） */}
+                    <td className="text-center px-3 py-2.5 text-xs text-slate-400 tabular-nums">
+                      {(page - 1) * PAGE_SIZE + index + 1}
+                    </td>
                     {/* 编号本身就是进详情的入口（开发意见 #11），操作列还另有一个「查看」按钮 */}
                     <td className="text-left px-3 py-2.5">
                       <button
@@ -880,6 +1027,13 @@ export default function InquiryList() {
                       >
                         {item.inquiry_number || '-'}
                       </button>
+                    </td>
+                    {/* 柜号：排在贵司单号前面（开发意见 #15）。
+                        目前只有本地派送有值，其余服务类型显示「-」 */}
+                    <td className="text-left px-3 py-2.5">
+                      <span className="text-xs font-mono text-slate-700 block truncate" title={item.container_no || ''}>
+                        {item.container_no || '-'}
+                      </span>
                     </td>
                     <td className="text-left px-3 py-2.5">
                       <span className="text-xs font-medium text-slate-900 block truncate" title={item.customer_ref || ''}>
@@ -950,6 +1104,36 @@ export default function InquiryList() {
             </tbody>
           </table>
         </div>
+
+        {/* 分页（开发意见 #16）。
+            总条数只要有单就显示 —— 客户原先根本不知道自己有 27 张单、页面只给看 20 张。
+            页码按钮则在多于一页时才出现。 */}
+        {!loading && total > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+            <span className="text-xs text-slate-500">{t('common.totalCount', { count: total })}</span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page <= 1}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 disabled:opacity-50 transition-all duration-200 ease-in-out"
+                >
+                  {t('common.prevPage')}
+                </button>
+                <span className="text-xs text-slate-600 px-2 tabular-nums">{page} / {totalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={page >= totalPages}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 disabled:opacity-50 transition-all duration-200 ease-in-out"
+                >
+                  {t('common.nextPage')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
