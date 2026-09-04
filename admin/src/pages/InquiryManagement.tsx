@@ -389,8 +389,8 @@ export default function InquiryManagement() {
               <col className="w-[4%]" />
               {/* 序号 */}
               <col className="w-[4%]" />
-              {/* 询价编号（下面副行还带柜号和客户单号） */}
-              <col className="w-[13%]" />
+              {/* 询价编号（下面副行还带柜号和客户单号，所以要比别的列宽些） */}
+              <col className="w-[15%]" />
               {/* 客户 */}
               <col className="w-[13%]" />
               {/* 服务类型 */}
@@ -406,7 +406,7 @@ export default function InquiryManagement() {
               {/* 状态 */}
               <col className="w-[9%]" />
               {/* 操作 */}
-              <col className="w-[13%]" />
+              <col className="w-[11%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-100 bg-slate-50/50">
@@ -460,19 +460,23 @@ export default function InquiryManagement() {
                       >
                         {item.inquiry_number}
                       </button>
-                      {/* 副行：柜号在前、客户单号在后（开发意见 #15）。
-                          柜号目前只有本地派送有值，其余服务类型这一段自然不显示 */}
-                      {(item.container_no || item.customer_ref) && (
-                        <span className="text-[10px] text-slate-400 block truncate">
-                          {item.container_no && (
-                            <span className="font-mono text-slate-500">{item.container_no}</span>
-                          )}
-                          {item.container_no && item.customer_ref && (
-                            <span className="mx-1 text-slate-300">·</span>
-                          )}
-                          {item.customer_ref && (
-                            <>{t('inquiry.customerRef')} {item.customer_ref}</>
-                          )}
+                      {/* 副行：柜号在上、客户单号在下（开发意见 #15 要柜号排在客户单号前面）。
+                          两者挤在同一行会被列宽截断成「TESTCONT1234567 · 客户单号 ZZ-C…」，
+                          谁都看不全，所以各占一行；再挂 title 兜住超长的值 */}
+                      {item.container_no && (
+                        <span
+                          className="block text-[10px] font-mono text-slate-500 truncate"
+                          title={item.container_no}
+                        >
+                          {item.container_no}
+                        </span>
+                      )}
+                      {item.customer_ref && (
+                        <span
+                          className="block text-[10px] text-slate-400 truncate"
+                          title={item.customer_ref}
+                        >
+                          {t('inquiry.customerRef')} {item.customer_ref}
                         </span>
                       )}
                     </td>
