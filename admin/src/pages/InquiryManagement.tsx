@@ -32,6 +32,8 @@ interface Inquiry {
   id: string
   inquiry_number: string
   customer_ref: string | null
+  /** 柜号：目前只有本地派送有（迁移 129「一张询价单 = 一个柜」），其余服务类型是 null */
+  container_no: string | null
   client_id: string
   client_name: string | null
   business_type: string
@@ -383,22 +385,35 @@ export default function InquiryManagement() {
         <div className="overflow-x-auto">
           <table className="w-full table-fixed min-w-[1100px]">
             <colgroup>
+              {/* 勾选框 */}
               <col className="w-[4%]" />
+              {/* 序号 */}
+              <col className="w-[4%]" />
+              {/* 询价编号（下面副行还带柜号和客户单号） */}
               <col className="w-[13%]" />
-              <col className="w-[14%]" />
-              <col className="w-[11%]" />
-              <col className="w-[14%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[8%]" />
+              {/* 客户 */}
+              <col className="w-[13%]" />
+              {/* 服务类型 */}
+              <col className="w-[10%]" />
+              {/* 路线 */}
+              <col className="w-[13%]" />
+              {/* 件数 */}
+              <col className="w-[7%]" />
+              {/* 重量 */}
+              <col className="w-[7%]" />
+              {/* LDM */}
+              <col className="w-[7%]" />
+              {/* 状态 */}
               <col className="w-[9%]" />
-              <col className="w-[11%]" />
+              {/* 操作 */}
+              <col className="w-[13%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-100 bg-slate-50/50">
                 <th className="text-center px-3 py-3 font-medium">
                   <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded border-slate-300" />
                 </th>
+                <th className="text-center px-3 py-3 font-medium">{t('common.seq')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('inquiry.colNumber')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('common.client')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('field.businessType')}</th>
@@ -414,17 +429,17 @@ export default function InquiryManagement() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 10 }).map((_, j) => (
+                    {Array.from({ length: 11 }).map((_, j) => (
                       <td key={j} className="px-3 py-3.5"><div className="h-3 bg-slate-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={11} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
-                inquiries.map((item) => (
+                inquiries.map((item, index) => (
                   <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
                     <td className="text-center px-3 py-3.5">
                       <input
@@ -434,6 +449,10 @@ export default function InquiryManagement() {
                         className="rounded border-slate-300"
                       />
                     </td>
+                    {/* 序号：跨页连续，第 2 页从 21 开始 */}
+                    <td className="text-center px-3 py-3.5 text-xs text-slate-400 tabular-nums">
+                      {(page - 1) * pageSize + index + 1}
+                    </td>
                     <td className="text-left px-3 py-3.5">
                       <button
                         onClick={() => navigate(`/inquiries/${item.id}`)}
@@ -441,9 +460,19 @@ export default function InquiryManagement() {
                       >
                         {item.inquiry_number}
                       </button>
-                      {item.customer_ref && (
-                        <span className="text-[10px] text-slate-400">
-                          {t('inquiry.customerRef')} {item.customer_ref}
+                      {/* 副行：柜号在前、客户单号在后（开发意见 #15）。
+                          柜号目前只有本地派送有值，其余服务类型这一段自然不显示 */}
+                      {(item.container_no || item.customer_ref) && (
+                        <span className="text-[10px] text-slate-400 block truncate">
+                          {item.container_no && (
+                            <span className="font-mono text-slate-500">{item.container_no}</span>
+                          )}
+                          {item.container_no && item.customer_ref && (
+                            <span className="mx-1 text-slate-300">·</span>
+                          )}
+                          {item.customer_ref && (
+                            <>{t('inquiry.customerRef')} {item.customer_ref}</>
+                          )}
                         </span>
                       )}
                     </td>

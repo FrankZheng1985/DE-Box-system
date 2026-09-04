@@ -1,6 +1,6 @@
 /**
  * 订单管理页面
- * 三个业务类型标签：卡车派送 LTL / 卡车运输 FTL / 本地派送
+ * 四个标签：全部 / 卡车派送 LTL / 卡车运输 FTL / 本地派送
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -16,6 +16,7 @@ import {
   Truck,
   Container,
   MapPin,
+  LayoutList,
   X,
   Calendar,
   Upload,
@@ -78,8 +79,22 @@ interface Pagination {
 
 // ==================== 常量配置 ====================
 
+/**
+ * 「全部」Tab 的 key
+ *
+ * ⚠️ 这个值只在前端表示「不按服务类型过滤」，**绝不能发给后端** ——
+ *    后端是拿它跟 orders.business_type 做等值比较的，传过去一条都查不到，
+ *    而且不报错、只是列表空着（踩坑 036 就是这么坏的）。
+ *    所以下面每个拼参数的地方都必须先判断 !== ALL_TAB。
+ */
+const ALL_TAB = 'ALL' as const
+
+/** 页面 Tab 的取值：三个服务类型，外加一个「全部」 */
+type TabKey = BusinessType | typeof ALL_TAB
+
 // 业务类型 Tab（枚举值来自共享常量，页面只负责配图标）
 const BUSINESS_TABS = [
+  { key: ALL_TAB, icon: LayoutList },
   { key: BUSINESS_TYPES.TRUCK_LTL, icon: Truck },
   { key: BUSINESS_TYPES.TRUCK_FTL, icon: Container },
   { key: BUSINESS_TYPES.LOCAL_DELIVERY, icon: MapPin },
@@ -120,8 +135,9 @@ export default function OrderManagement() {
   const { hasPermission } = useAuth()
 
   // ---------- 状态 ----------
-  // 业务类型 Tab
-  const [businessType, setBusinessType] = useState<BusinessType>(BUSINESS_TYPES.TRUCK_LTL)
+  // 业务类型 Tab。默认「全部」——以前默认停在 LTL，
+  // 运营打开页面时如果手头只有 FTL 单，看到的就是一张空列表（开发意见 #16）
+  const [businessType, setBusinessType] = useState<TabKey>(ALL_TAB)
   // 批量导入弹窗
   const [showImport, setShowImport] = useState(false)
   // 状态筛选（FTL 筛的是派送子状态 delivery_status，其余筛主状态 status）
@@ -171,7 +187,7 @@ export default function OrderManagement() {
   }, [searchKeyword])
 
   // ---------- 切换业务类型时重置 ----------
-  const handleBusinessTypeChange = (type: BusinessType) => {
+  const handleBusinessTypeChange = (type: TabKey) => {
     setBusinessType(type)
     setStatusFilter('')
     setSearchKeyword('')
@@ -187,7 +203,8 @@ export default function OrderManagement() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      params.append('businessType', businessType)
+      // 「全部」不带 businessType，后端不加这个过滤条件就是返回所有服务类型
+      if (businessType !== ALL_TAB) params.append('businessType', businessType)
       params.append('page', String(currentPage))
       params.append('pageSize', String(PAGE_SIZE))
       if (statusFilter) {
@@ -228,7 +245,7 @@ export default function OrderManagement() {
   // ---------- 导出 ----------
   const handleExport = () => {
     const params = new URLSearchParams()
-    params.append('businessType', businessType)
+    if (businessType !== ALL_TAB) params.append('businessType', businessType)
     if (statusFilter && businessType !== BUSINESS_TYPES.TRUCK_FTL) {
       params.append('status', statusFilter)
     }
@@ -266,18 +283,32 @@ export default function OrderManagement() {
   }
 
   // ---------- 当前使用的配置 ----------
+  /**
+   * 状态子标签
+   *
+   * 「全部」下面不给状态子标签：三个服务类型的状态流本来就不是同一套
+   *（FTL 筛的还是 delivery_status），混在一起点哪个都查不到东西。
+   * 要按状态筛就先切到具体服务类型。
+   */
   const statusTabs =
-    businessType === BUSINESS_TYPES.TRUCK_FTL
-      ? CONTAINER_DELIVERY_STATUS_TABS
-      : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
-        ? LOCAL_DELIVERY_STATUS_TABS
-        : TRUCK_STATUS_TABS
+    businessType === ALL_TAB
+      ? []
+      : businessType === BUSINESS_TYPES.TRUCK_FTL
+        ? CONTAINER_DELIVERY_STATUS_TABS
+        : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+          ? LOCAL_DELIVERY_STATUS_TABS
+          : TRUCK_STATUS_TABS
   const searchPlaceholder =
-    businessType === BUSINESS_TYPES.TRUCK_FTL
-      ? t('order.searchPlaceholderFtl')
-      : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
-        ? t('order.searchPlaceholderLocal')
-        : t('order.searchPlaceholderLtl')
+    businessType === ALL_TAB
+      ? t('order.searchPlaceholderAll')
+      : businessType === BUSINESS_TYPES.TRUCK_FTL
+        ? t('order.searchPlaceholderFtl')
+        : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+          ? t('order.searchPlaceholderLocal')
+          : t('order.searchPlaceholderLtl')
+
+  /** 列表序号：跨页连续，第 2 页从 16 开始（开发意见 #15、#17） */
+  const seqOf = (index: number) => (currentPage - 1) * PAGE_SIZE + index + 1
 
   // ==================== 渲染 ====================
 
@@ -345,7 +376,7 @@ export default function OrderManagement() {
                   `}
                 >
                   <Icon className="w-4 h-4" />
-                  {t(businessTypeLabelKey(tab.key))}
+                  {tab.key === ALL_TAB ? t('common.all') : t(businessTypeLabelKey(tab.key))}
                 </button>
               )
             })}
@@ -430,7 +461,8 @@ export default function OrderManagement() {
           )}
         </div>
 
-        {/* ===== 状态子标签 ===== */}
+        {/* ===== 状态子标签（「全部」下没有，见 statusTabs 的说明） ===== */}
+        {statusTabs.length > 0 && (
         <div className="px-4 pt-2 pb-0 flex gap-1 overflow-x-auto">
           {statusTabs.map((tab) => {
             const isActive = statusFilter === tab.key
@@ -451,14 +483,17 @@ export default function OrderManagement() {
             )
           })}
         </div>
+        )}
 
         {/* ===== 表格 ===== */}
         <div className="overflow-x-auto">
-          {businessType === BUSINESS_TYPES.TRUCK_FTL
-            ? renderFtlTable()
-            : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
-              ? renderLocalDeliveryTable()
-              : renderLtlTable()
+          {businessType === ALL_TAB
+            ? renderAllTable()
+            : businessType === BUSINESS_TYPES.TRUCK_FTL
+              ? renderFtlTable()
+              : businessType === BUSINESS_TYPES.LOCAL_DELIVERY
+                ? renderLocalDeliveryTable()
+                : renderLtlTable()
           }
         </div>
 
@@ -540,37 +575,173 @@ export default function OrderManagement() {
     </div>
   )
 
-  // ==================== 卡车派送 LTL 表格 ====================
-  function renderLtlTable() {
-    if (loading) return renderSkeletonRows(9)
+  // ==================== 「全部」表格（跨服务类型） ====================
+  /**
+   * 三个服务类型的字段并不通用 —— FTL 的两头在 pod / final_destination，
+   * 装卸货地址列本来就是空的（踩坑 048）。所以这张表只放三类订单都有的字段，
+   * 另外单列一个「服务类型」让人一眼分得清哪行是哪种，
+   * 要看各自的专属字段（提单号、跟踪号、放单状态…）再切到对应 Tab。
+   */
+  function renderAllTable() {
+    if (loading) return renderSkeletonRows(10)
     if (orders.length === 0) return null
 
     return (
       <table className="w-full table-fixed">
         <colgroup>
+          {/* 序号 */}
+          <col className="w-[4%]" />
           {/* 订单号 */}
-          <col className="w-[11%]" />
+          <col className="w-[12%]" />
           {/* 客户单号 */}
-          <col className="w-[10%]" />
+          <col className="w-[11%]" />
           {/* 客户 */}
+          <col className="w-[12%]" />
+          {/* 服务类型 */}
+          <col className="w-[10%]" />
+          {/* 柜号 */}
           <col className="w-[11%]" />
           {/* 路线 */}
           <col className="w-[14%]" />
           {/* 状态 */}
-          <col className="w-[9%]" />
-          {/* 类型 */}
-          <col className="w-[7%]" />
-          {/* 重量 */}
-          <col className="w-[9%]" />
-          {/* 承运商 */}
-          <col className="w-[11%]" />
+          <col className="w-[10%]" />
           {/* 报价 */}
           <col className="w-[9%]" />
           {/* 操作 */}
-          <col className="w-[9%]" />
+          <col className="w-[7%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.seq')}</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.orderNo')}</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('order.customerRef')}</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.client')}</th>
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('field.businessType')}</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('order.colContainerNo')}</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.route')}</th>
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.status')}</th>
+            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('order.colPriceEur')}</th>
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.actions')}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {orders.map((order, index) => (
+            <tr key={order.id} className="hover:bg-blue-50/30 transition-colors duration-150">
+              {/* 序号 */}
+              <td className="px-4 py-3 text-xs text-slate-400 text-center tabular-nums">
+                {seqOf(index)}
+              </td>
+              {/* 订单号 - 可点击 */}
+              <td className="px-4 py-3">
+                <button
+                  onClick={() => navigate(`/orders/${order.id}`)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-full text-left"
+                  title={order.order_number}
+                >
+                  {order.order_number}
+                </button>
+              </td>
+              {/* 客户单号 */}
+              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.customer_ref || undefined}>
+                {order.customer_ref || '-'}
+              </td>
+              {/* 客户 */}
+              <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.client_name}>
+                {order.client_name}
+              </td>
+              {/* 服务类型 */}
+              <td className="px-4 py-3 text-center">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                  {t(businessTypeLabelKey(order.business_type))}
+                </span>
+              </td>
+              {/* 柜号 */}
+              <td className="px-4 py-3 text-xs text-slate-600 truncate" title={order.container_no || undefined}>
+                {order.container_no || '-'}
+              </td>
+              {/* 路线 */}
+              <td className="px-4 py-3 text-xs text-slate-600">
+                <span className="truncate block" title={routeText(order)}>
+                  {routeFrom(order)}
+                  <span className="text-slate-400 mx-1">→</span>
+                  {routeTo(order)}
+                </span>
+              </td>
+              {/* 状态：同一个 status 值在本地派送和卡车业务下文案不同，要按业务类型取 */}
+              <td className="px-4 py-3 text-center">
+                <StatusBadge
+                  status={order.status}
+                  label={getStatusLabel(t, order.business_type, order.status)}
+                />
+              </td>
+              {/* 报价 */}
+              <td className="px-4 py-3 text-xs text-slate-700 text-right tabular-nums font-medium">
+                {formatMoney(order.client_price, order.currency)}
+              </td>
+              {/* 操作 */}
+              <td className="px-4 py-3 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                    title={t('common.view')}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => navigate(`/orders/${order.id}/edit`)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200"
+                    title={t('common.edit')}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
+  // ==================== 卡车派送 LTL 表格 ====================
+  function renderLtlTable() {
+    if (loading) return renderSkeletonRows(12)
+    if (orders.length === 0) return null
+
+    return (
+      <table className="w-full table-fixed">
+        <colgroup>
+          {/* 序号 */}
+          <col className="w-[4%]" />
+          {/* 订单号 */}
+          <col className="w-[10%]" />
+          {/* 客户单号 */}
+          <col className="w-[9%]" />
+          {/* 客户 */}
+          <col className="w-[10%]" />
+          {/* 柜号 */}
+          <col className="w-[10%]" />
+          {/* 路线 */}
+          <col className="w-[12%]" />
+          {/* 状态 */}
+          <col className="w-[8%]" />
+          {/* 类型 */}
+          <col className="w-[6%]" />
+          {/* 重量 */}
+          <col className="w-[8%]" />
+          {/* 承运商 */}
+          <col className="w-[9%]" />
+          {/* 报价 */}
+          <col className="w-[8%]" />
+          {/* 操作 */}
+          <col className="w-[6%]" />
+        </colgroup>
+        <thead>
+          <tr className="bg-gray-50/80">
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t('common.seq')}
+            </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.orderNo')}
             </th>
@@ -579,6 +750,9 @@ export default function OrderManagement() {
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.client')}
+            </th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t('order.colContainerNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.route')}
@@ -604,11 +778,15 @@ export default function OrderManagement() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {orders.map((order) => (
+          {orders.map((order, index) => (
             <tr
               key={order.id}
               className="hover:bg-blue-50/30 transition-colors duration-150"
             >
+              {/* 序号 */}
+              <td className="px-4 py-3 text-xs text-slate-400 text-center tabular-nums">
+                {seqOf(index)}
+              </td>
               {/* 订单号 - 可点击 */}
               <td className="px-4 py-3">
                 <button
@@ -626,6 +804,10 @@ export default function OrderManagement() {
               {/* 客户 */}
               <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.client_name}>
                 {order.client_name}
+              </td>
+              {/* 柜号：FTL 填在订单上；本地派送的柜号在关联的询价单上，后端已回落取值 */}
+              <td className="px-4 py-3 text-xs text-slate-700 font-mono truncate" title={order.container_no || undefined}>
+                {order.container_no || '-'}
               </td>
               {/* 路线 */}
               <td className="px-4 py-3 text-xs text-slate-600">
@@ -693,24 +875,26 @@ export default function OrderManagement() {
 
   // ==================== 卡车运输 FTL（原集装箱物流）表格 ====================
   function renderFtlTable() {
-    if (loading) return renderSkeletonRows(10)
+    if (loading) return renderSkeletonRows(11)
     if (orders.length === 0) return null
 
     return (
       <table className="w-full table-fixed">
         <colgroup>
+          {/* 序号 */}
+          <col className="w-[4%]" />
           {/* 订单号 */}
           <col className="w-[10%]" />
           {/* 客户 */}
           <col className="w-[10%]" />
           {/* 船司 */}
-          <col className="w-[10%]" />
+          <col className="w-[9%]" />
           {/* 柜号 */}
           <col className="w-[11%]" />
           {/* 提单号 */}
-          <col className="w-[12%]" />
+          <col className="w-[11%]" />
           {/* 目的地 */}
-          <col className="w-[10%]" />
+          <col className="w-[9%]" />
           {/* 派送状态 */}
           <col className="w-[10%]" />
           {/* 放单状态 */}
@@ -718,10 +902,13 @@ export default function OrderManagement() {
           {/* ETA */}
           <col className="w-[9%]" />
           {/* 操作 */}
-          <col className="w-[8%]" />
+          <col className="w-[7%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t('common.seq')}
+            </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.orderNo')}
             </th>
@@ -755,11 +942,15 @@ export default function OrderManagement() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {orders.map((order) => (
+          {orders.map((order, index) => (
             <tr
               key={order.id}
               className="hover:bg-blue-50/30 transition-colors duration-150"
             >
+              {/* 序号 */}
+              <td className="px-4 py-3 text-xs text-slate-400 text-center tabular-nums">
+                {seqOf(index)}
+              </td>
               {/* 订单号 */}
               <td className="px-4 py-3">
                 <button
@@ -830,36 +1021,46 @@ export default function OrderManagement() {
 
   // ==================== 本地派送表格 ====================
   function renderLocalDeliveryTable() {
-    if (loading) return renderSkeletonRows(8)
+    if (loading) return renderSkeletonRows(10)
     if (orders.length === 0) return null
 
     return (
       <table className="w-full table-fixed">
         <colgroup>
+          {/* 序号 */}
+          <col className="w-[4%]" />
           {/* 订单号 */}
-          <col className="w-[13%]" />
+          <col className="w-[12%]" />
           {/* 客户 */}
-          <col className="w-[13%]" />
-          {/* 路线 */}
-          <col className="w-[17%]" />
-          {/* 状态 */}
-          <col className="w-[10%]" />
-          {/* 跟踪号 */}
-          <col className="w-[16%]" />
-          {/* 报价 */}
-          <col className="w-[10%]" />
-          {/* 创建日期 */}
           <col className="w-[11%]" />
+          {/* 柜号 */}
+          <col className="w-[11%]" />
+          {/* 路线 */}
+          <col className="w-[15%]" />
+          {/* 状态 */}
+          <col className="w-[9%]" />
+          {/* 跟踪号 */}
+          <col className="w-[14%]" />
+          {/* 报价 */}
+          <col className="w-[8%]" />
+          {/* 创建日期 */}
+          <col className="w-[9%]" />
           {/* 操作 */}
-          <col className="w-[10%]" />
+          <col className="w-[7%]" />
         </colgroup>
         <thead>
           <tr className="bg-gray-50/80">
+            <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t('common.seq')}
+            </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.orderNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.client')}
+            </th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {t('order.colContainerNo')}
             </th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               {t('common.route')}
@@ -882,11 +1083,15 @@ export default function OrderManagement() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {orders.map((order) => (
+          {orders.map((order, index) => (
             <tr
               key={order.id}
               className="hover:bg-blue-50/30 transition-colors duration-150"
             >
+              {/* 序号 */}
+              <td className="px-4 py-3 text-xs text-slate-400 text-center tabular-nums">
+                {seqOf(index)}
+              </td>
               {/* 订单号 - 可点击 */}
               <td className="px-4 py-3">
                 <button
@@ -900,6 +1105,10 @@ export default function OrderManagement() {
               {/* 客户 */}
               <td className="px-4 py-3 text-xs text-slate-700 truncate" title={order.client_name}>
                 {order.client_name}
+              </td>
+              {/* 柜号：FTL 填在订单上；本地派送的柜号在关联的询价单上，后端已回落取值 */}
+              <td className="px-4 py-3 text-xs text-slate-700 font-mono truncate" title={order.container_no || undefined}>
+                {order.container_no || '-'}
               </td>
               {/* 路线 */}
               <td className="px-4 py-3 text-xs text-slate-600">

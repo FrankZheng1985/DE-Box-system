@@ -97,7 +97,11 @@ export const orderModel = {
                        search, dateFrom, dateTo, page = 1, pageSize = 20 }) {
     let sql = `
       SELECT o.id, o.order_number, o.business_type, o.status, o.delivery_status,
-             o.transport_type, o.cargo_weight_kg, o.container_no, o.bl_number,
+             o.transport_type, o.cargo_weight_kg,
+             -- 柜号：FTL 填在订单上；本地派送是「一张询价单 = 一个柜」，柜号记在询价上（迁移 129）。
+             -- orders 表没有 inquiry_id，只有 source_quotation_id，所以要经报价单绕一跳才够得着询价
+             COALESCE(NULLIF(o.container_no, ''), iq.container_no) AS container_no,
+             o.bl_number,
              o.shipping_line, o.eta, o.pod, o.final_destination,
              o.client_price, o.carrier_cost, o.currency,
              o.pickup_date, o.delivery_date, o.release_status, o.clearance_status,
@@ -109,6 +113,8 @@ export const orderModel = {
       FROM orders o
       LEFT JOIN clients c ON c.id = o.client_id
       LEFT JOIN carriers cr ON cr.id = o.carrier_id
+      LEFT JOIN quotations q ON q.id = o.source_quotation_id
+      LEFT JOIN inquiries iq ON iq.id = q.inquiry_id
       WHERE 1=1`
     const params = []
     let paramIdx = 0
@@ -137,7 +143,7 @@ export const orderModel = {
       params.push(`%${search}%`)
       // 客户打电话报的往往是他们自己的单号，所以 customer_ref 也要能搜；
       // 客户名此前搜不到，但三个搜索框的提示语一直写着「搜索…客户…」，一并补上
-      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx} OR o.customer_ref ILIKE $${paramIdx} OR c.company_name ILIKE $${paramIdx} OR o.pickup_address->>'reference' ILIKE $${paramIdx})`
+      sql += ` AND (o.order_number ILIKE $${++paramIdx} OR o.container_no ILIKE $${paramIdx} OR iq.container_no ILIKE $${paramIdx} OR o.bl_number ILIKE $${paramIdx} OR o.tracking_number ILIKE $${paramIdx} OR o.customer_ref ILIKE $${paramIdx} OR c.company_name ILIKE $${paramIdx} OR o.pickup_address->>'reference' ILIKE $${paramIdx})`
     }
     if (dateFrom) {
       params.push(dateFrom)
