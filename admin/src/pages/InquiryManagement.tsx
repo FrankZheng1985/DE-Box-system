@@ -383,30 +383,35 @@ export default function InquiryManagement() {
 
         {/* 列表 */}
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[1100px]">
+          {/* 列变多了，min-width 跟着放大，免得挤成两行（意见 #18） */}
+          <table className="w-full table-fixed min-w-[1320px]">
             <colgroup>
               {/* 勾选框 */}
               <col className="w-[4%]" />
               {/* 序号 */}
               <col className="w-[4%]" />
-              {/* 询价编号（下面副行还带柜号和客户单号，所以要比别的列宽些） */}
-              <col className="w-[15%]" />
-              {/* 客户 */}
-              <col className="w-[13%]" />
-              {/* 服务类型 */}
+              {/* 询价编号 */}
+              <col className="w-[12%]" />
+              {/* 柜号（意见 #18：从询价编号的副行提出来独占一列） */}
               <col className="w-[10%]" />
-              {/* 路线 */}
-              <col className="w-[13%]" />
-              {/* 件数 */}
-              <col className="w-[7%]" />
-              {/* 重量 */}
-              <col className="w-[7%]" />
-              {/* LDM */}
-              <col className="w-[7%]" />
-              {/* 状态 */}
-              <col className="w-[9%]" />
-              {/* 操作 */}
+              {/* 客户单号（同上） */}
+              <col className="w-[10%]" />
+              {/* 客户 */}
               <col className="w-[11%]" />
+              {/* 服务类型 */}
+              <col className="w-[9%]" />
+              {/* 路线 */}
+              <col className="w-[10%]" />
+              {/* 件数 */}
+              <col className="w-[5%]" />
+              {/* 重量 */}
+              <col className="w-[6%]" />
+              {/* LDM */}
+              <col className="w-[5%]" />
+              {/* 状态 */}
+              <col className="w-[7%]" />
+              {/* 操作 */}
+              <col className="w-[7%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-100 bg-slate-50/50">
@@ -415,6 +420,8 @@ export default function InquiryManagement() {
                 </th>
                 <th className="text-center px-3 py-3 font-medium">{t('common.seq')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('inquiry.colNumber')}</th>
+                <th className="text-left px-3 py-3 font-medium">{t('inquiry.containerNo')}</th>
+                <th className="text-left px-3 py-3 font-medium">{t('inquiry.customerRef')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('common.client')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('field.businessType')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('common.route')}</th>
@@ -429,14 +436,14 @@ export default function InquiryManagement() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 11 }).map((_, j) => (
+                    {Array.from({ length: 13 }).map((_, j) => (
                       <td key={j} className="px-3 py-3.5"><div className="h-3 bg-slate-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={13} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item, index) => (
@@ -460,25 +467,26 @@ export default function InquiryManagement() {
                       >
                         {item.inquiry_number}
                       </button>
-                      {/* 副行：柜号在上、客户单号在下（开发意见 #15 要柜号排在客户单号前面）。
-                          两者挤在同一行会被列宽截断成「TESTCONT1234567 · 客户单号 ZZ-C…」，
-                          谁都看不全，所以各占一行；再挂 title 兜住超长的值 */}
-                      {item.container_no && (
-                        <span
-                          className="block text-[10px] font-mono text-slate-500 truncate"
-                          title={item.container_no}
-                        >
-                          {item.container_no}
-                        </span>
-                      )}
-                      {item.customer_ref && (
-                        <span
-                          className="block text-[10px] text-slate-400 truncate"
-                          title={item.customer_ref}
-                        >
-                          {t('inquiry.customerRef')} {item.customer_ref}
-                        </span>
-                      )}
+                    </td>
+                    {/* 柜号、客户单号各占一列（意见 #18）。
+                        它们原先是询价编号下面的 10px 灰色小字，运营反馈"显示位置不直观"——
+                        这两个值是他们对单最常用的抓手，不该当附属信息塞在副行里。
+                        客户门户那边本来就是独立列，这次改完两端一致。 */}
+                    <td className="text-left px-3 py-3.5">
+                      <span
+                        className="text-xs font-mono text-slate-700 truncate block"
+                        title={item.container_no || ''}
+                      >
+                        {item.container_no || '-'}
+                      </span>
+                    </td>
+                    <td className="text-left px-3 py-3.5">
+                      <span
+                        className="text-xs text-slate-600 truncate block"
+                        title={item.customer_ref || ''}
+                      >
+                        {item.customer_ref || '-'}
+                      </span>
                     </td>
                     <td className="text-left px-3 py-3.5 text-xs text-slate-600 truncate">{item.client_name || '-'}</td>
                     <td className="text-left px-3 py-3.5 text-xs text-slate-600">
