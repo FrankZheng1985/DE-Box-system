@@ -351,7 +351,7 @@
     "pageTitle": "询价报价",
     "createForClient": "代客户建询价",
     "statMonthTotal": "本月询价",
-    "searchPlaceholder": "搜索询价编号 / 客户单号 / 客户名称",
+    "searchPlaceholder": "搜索询价编号 / 柜号 / 客户单号 / 客户名称",
     "selectHint": "勾选后可批量复制摘要 / 导出",
     "selectedCount": "已勾选 {{count}} 张",
     "copySummary": "复制摘要",

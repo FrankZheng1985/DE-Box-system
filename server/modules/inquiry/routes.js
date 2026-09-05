@@ -229,7 +229,9 @@ router.get('/', requirePermission('inquiry:view', 'portal:inquiry_manage'), asyn
     if (businessType) { params.push(businessType); sql += ` AND i.business_type = $${++idx}` }
     if (search) {
       params.push(`%${search}%`)
-      sql += ` AND (i.inquiry_number ILIKE $${++idx} OR i.customer_ref ILIKE $${idx} OR c.company_name ILIKE $${idx})`
+      // 柜号也要能搜（开发意见 #18）：客户和运营手上最常见的就是柜号，
+      // 而两端搜索框的提示语都写着能搜柜号 —— 少了这一条就是「提示里承诺了、实际搜不到」
+      sql += ` AND (i.inquiry_number ILIKE $${++idx} OR i.customer_ref ILIKE $${idx} OR i.container_no ILIKE $${idx} OR c.company_name ILIKE $${idx})`
     }
     // 按建单时间筛（开发意见 #16）。
     // 结束日期用「< 次日零点」而不是 <=：created_at 是带时分秒的，

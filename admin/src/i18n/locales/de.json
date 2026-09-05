@@ -351,7 +351,7 @@
     "pageTitle": "Anfragen & Angebote",
     "createForClient": "Anfrage für Kunden anlegen",
     "statMonthTotal": "Anfragen diesen Monat",
-    "searchPlaceholder": "Anfragenr. / Kundenreferenz / Kundenname suchen",
+    "searchPlaceholder": "Anfragenr. / Containernr. / Kundenreferenz / Kundenname suchen",
     "selectHint": "Zeilen markieren, um Zusammenfassungen zu kopieren oder zu exportieren",
     "selectedCount": "{{count}} ausgewählt",
     "copySummary": "Zusammenfassung kopieren",

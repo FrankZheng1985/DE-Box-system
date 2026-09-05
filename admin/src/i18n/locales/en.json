@@ -351,7 +351,7 @@
     "pageTitle": "Inquiries & quotations",
     "createForClient": "New inquiry for a client",
     "statMonthTotal": "Inquiries this month",
-    "searchPlaceholder": "Search inquiry no. / client reference / client name",
+    "searchPlaceholder": "Search inquiry no. / container no. / client ref. / client name",
     "selectHint": "Tick rows to copy summaries or export in bulk",
     "selectedCount": "{{count}} selected",
     "copySummary": "Copy summary",
