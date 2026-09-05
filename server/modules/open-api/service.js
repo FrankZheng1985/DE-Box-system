@@ -212,6 +212,15 @@ export function validateInquiryPayload(body) {
   checkStr(errors, body.pod, 'pod', 100)
   checkStr(errors, body.containerType, 'containerType', 10)
 
+  // 柜号 + 预计到仓日期（迁移 136）：三种服务类型都必填，和人工建单、批量导入口径一致。
+  // 现在加是最省事的时机 —— api_keys 表里还没有任何合作方、一张单都没推过，
+  // 等有人接进来之后再要求这两个字段，就是实打实的破坏性变更了。
+  checkStr(errors, body.containerNo, 'containerNo', 30, true)
+  checkStr(errors, body.expectedArrivalDate, 'expectedArrivalDate', 10, true)
+  if (body.expectedArrivalDate && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.expectedArrivalDate).trim())) {
+    errors.push('expectedArrivalDate 格式不正确，应为 YYYY-MM-DD')
+  }
+
   const hasItems = Array.isArray(body.cargoItems) && body.cargoItems.length > 0
   if (hasItems) {
     if (body.cargoItems.length > 200) errors.push('cargoItems 最多 200 行')
@@ -425,8 +434,9 @@ export async function createInquiryFromApi(apiKey, body) {
           cargo_volume_m3, cargo_quantity, ldm, special_requirements,
           pod, container_type, remarks, status,
           contact_name, contact_phone, contact_email, customer_ref,
+          container_no, expected_arrival_date,
           external_source, external_ref)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
          RETURNING id, inquiry_number, status, created_at`,
         [doc.id, doc.docNumber, apiKey.client_id,
          body.businessType, TRANSPORT_TYPE_MAP[body.businessType],
@@ -438,6 +448,7 @@ export async function createInquiryFromApi(apiKey, body) {
          body.remarks || null, 'PENDING_QUOTE',
          body.contactName || null, body.contactPhone || null, body.contactEmail || null,
          body.customerRef || null,
+         String(body.containerNo).trim(), String(body.expectedArrivalDate).trim(),
          apiKey.partner_code, body.externalOrderNo]
       )
       const inquiry = result.rows[0]

@@ -91,6 +91,8 @@ GET /api/open/v1/ping
 | externalOrderNo | string ≤100 | ✅ | 贵方系统单号（幂等键） |
 | businessType | string | ✅ | `TRUCK_LTL` 卡车派送 / `TRUCK_FTL` 卡车运输 / `LOCAL_DELIVERY` 本地派送 |
 | customerRef | string ≤100 | | 终端客户参考号（与 externalOrderNo 不同时提供） |
+| containerNo | string ≤30 | ✅ | 柜号。三种服务类型都必填 |
+| expectedArrivalDate | string | ✅ | 预计到仓日期，格式 `YYYY-MM-DD`（只到日期，不带时分秒）。车队据此排车 |
 | routeFrom | object | ✅ | 起运地 `{ country*, city, zipCode, address }` |
 | routeTo | object | ✅ | 目的地，同上结构，country 必填 |
 | contactName | string ≤100 | | 联系人姓名 |
@@ -346,6 +348,7 @@ function verify(rawBody, header, secret) {
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v1.0 草案 | 2026-08-02 | 首版，待合作方确认字段清单 |
+| v1.1 草案 | 2026-09-05 | 询价推送新增两个**必填**字段：`containerNo`（柜号）、`expectedArrivalDate`（预计到仓日期 `YYYY-MM-DD`）。与人工建单、批量导入口径一致。此时尚无合作方接入，故直接并入契约而非做兼容期 |
 | v1.0 草案修订 | 2026-08-02 | 接入地址由过渡期 IP 改为正式域名 kalunasped.com（正式 TLS 证书，证书校验保持开启） |
 | v1.0 草案修订2 | 2026-08-02 | 新增状态回查接口（第 7 节）：GET /inquiries/{单号}、GET /orders/{单号}；错误码表补 404 NOT_FOUND |
 | v1.0 草案修订3 | 2026-08-03 | 新增状态变更 Webhook 推送（第 8 节）：三类事件、HMAC-SHA256 验签、重试策略；原 8/9 节顺延为 9/10 |
