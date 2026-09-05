@@ -32,6 +32,9 @@ export const MAX_FILE_SIZE = 5 * 1024 * 1024
 export const LOCAL_DELIVERY_COLUMNS = [
   // ---- 柜级 ----
   { field: 'containerNo', labelKey: 'excel.containerNo', width: 18, scope: 'container', required: true },
+  // 预计到仓日期（迁移 136）：柜级字段 —— 一个柜整柜一起到仓，不按子订单分。
+  // 必填；旧模板没这一列，解析时会被 importErrMissingColumns 整表挡下并提示重新下载
+  { field: 'expectedArrivalDate', labelKey: 'excel.expectedArrivalDate', width: 18, scope: 'container', required: true },
   { field: 'customerRef', labelKey: 'excel.customerRef', width: 16, scope: 'container' },
   { field: 'fromCountry', labelKey: 'excel.fromCountry', width: 12, scope: 'container' },
   { field: 'fromZip', labelKey: 'excel.fromZip', width: 12, scope: 'container' },
@@ -287,6 +290,12 @@ export async function analyzeImportFile(buffer, lang) {
     if (!container.routeFrom.country && !container.routeFrom.city) {
       errors.push(rowError(firstRow, lang, 'excel.fromCountry', 'excel.importErrRouteFrom'))
     }
+    // 预计到仓日期：列在（缺列前面已整表挡下），但这个柜没填值 / 填的不是日期
+    if (!container.expectedArrivalDate) {
+      errors.push(rowError(firstRow, lang, 'excel.expectedArrivalDate', 'excel.importErrRequired'))
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(container.expectedArrivalDate)) {
+      errors.push(rowError(firstRow, lang, 'excel.expectedArrivalDate', 'excel.importErrDateFormat'))
+    }
     if (container.fromContactEmail && !isEmailLike(container.fromContactEmail)) {
       warnings.push(rowError(firstRow, lang, 'excel.senderEmail', 'excel.importWarnEmail'))
     }
@@ -361,6 +370,7 @@ export async function createInquiriesFromGroups(client, groups, { clientId, crea
         // 本地派送没有整车/拼车之分，也没有车型
         transportType: null,
         containerNo: group.containerNo,
+        expectedArrivalDate: group.expectedArrivalDate || null,
         customerRef: group.customerRef || null,
         routeFrom: mergeSenderContact(group),
         // 三层结构下派送地址在各个子订单上，表头的 route_to 留空
@@ -390,6 +400,7 @@ export async function createInquiriesFromGroups(client, groups, { clientId, crea
 function createContainer(containerNo, firstRowNumber) {
   return {
     containerNo,
+    expectedArrivalDate: '',
     customerRef: '',
     routeFrom: { country: '', zipCode: '', city: '', address: '' },
     fromContactName: '',
@@ -435,11 +446,35 @@ function assignFirstWins(target, key, value, labelKey, rowNumber, lang, warnings
   }
 }
 
+/**
+ * 把日期单元格归一成 YYYY-MM-DD
+ *
+ * 与 import-service.js 里的同名函数同一套口径：Excel 日期没有时区概念，
+ * exceljs 按「UTC 午夜」读出来，所以显式取 UTC 的年月日，
+ * 顺带容忍客户手敲的 2026/9/10、2026.9.10 这类写法。
+ */
+function normalizeDateText(value) {
+  if (value instanceof Date) {
+    const y = value.getUTCFullYear()
+    const m = String(value.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(value.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/)
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+  return text
+}
+
 function applyContainerFields(container, raw, rowNumber, lang, warnings) {
   const a = (target, key, value, labelKey) =>
     assignFirstWins(target, key, value, labelKey, rowNumber, lang, warnings)
 
   a(container, 'customerRef', raw.customerRef, 'excel.customerRef')
+  // 日期先归一成 YYYY-MM-DD：Excel 的日期单元格按 UTC 午夜读出来，
+  // 在 UTC+2 的德国若按本地时区取年月日会整整差一天
+  a(container, 'expectedArrivalDate', normalizeDateText(raw.expectedArrivalDate), 'excel.expectedArrivalDate')
   a(container.routeFrom, 'country', raw.fromCountry, 'excel.fromCountry')
   a(container.routeFrom, 'zipCode', raw.fromZip, 'excel.fromZip')
   a(container.routeFrom, 'city', raw.fromCity, 'excel.fromCity')

@@ -144,6 +144,8 @@
     "eta": "ETA",
     "cnee": "Empfänger (CNEE)",
     "containerNo": "Container-Nr.",
+    "expectedArrivalDate": "Voraussichtliches Ankunftsdatum",
+    "importErrDateFormat": "{{field}} hat ein ungültiges Format, bitte ein Datum wie 2026-09-01 angeben",
     "containerType": "Containertyp",
     "sealNo": "Siegel-Nr.",
     "pod": "Entladehafen (POD)",

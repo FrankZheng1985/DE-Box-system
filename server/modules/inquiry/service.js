@@ -8,7 +8,6 @@
 import { query as poolQuery } from '../../core/db.js'
 import { documentEngine, changeTracker } from '../../core/index.js'
 import { t } from '../../utils/i18n.js'
-import { LOCAL_DELIVERY } from './constants.js'
 
 /** 欧洲标准车厢内宽（米），LDM 换算的分母 */
 const TRUCK_INNER_WIDTH_M = 2.4
@@ -104,8 +103,8 @@ export async function createInquiryRecord(client, { clientId, createdBy, payload
       cargo_volume_m3, cargo_quantity, special_requirements,
       pod, container_type, remarks, status,
       contact_name, contact_phone, contact_email, customer_ref,
-      vehicle_length_code, container_no)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+      vehicle_length_code, container_no, expected_arrival_date)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      RETURNING *`,
     [doc.id, doc.docNumber, clientId,
      payload.businessType, payload.transportType,
@@ -118,8 +117,11 @@ export async function createInquiryRecord(client, { clientId, createdBy, payload
      payload.customerRef,
      // 车型只在专车下有意义，拼车/本地派送传了也不存（避免留下自相矛盾的数据）
      payload.transportType === 'FTL' ? (payload.vehicleLengthCode || null) : null,
-     // 柜号只有本地派送用得上
-     payload.businessType === LOCAL_DELIVERY ? (payload.containerNo || null) : null]
+     // 柜号三种服务类型都存（迁移 136 放开）。原先这里硬判了本地派送，
+     // 导致 LTL / FTL 就算前端传了柜号也被静默丢掉，客户只能挤在「贵司单号」里填
+     payload.containerNo || null,
+     // 预计到仓日期：只到日期不到钟点，车队据此排车（迁移 136）
+     payload.expectedArrivalDate || null]
   )
   const created = result.rows[0]
 

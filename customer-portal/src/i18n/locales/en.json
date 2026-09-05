@@ -317,6 +317,8 @@
     "routeTo": "Destination",
     "containerNo": "Container no.",
     "phContainerNo": "e.g. TEMU1234567",
+    "expectedArrivalDate": "Expected arrival date",
+    "errorExpectedArrivalDate": "Please enter the expected arrival date",
     "pickupSharedHint": "shared by the whole container",
     "deliveryOrders": "Deliveries",
     "deliveryOrderCount": "{{count}} in total",

@@ -144,6 +144,8 @@
     "eta": "ETA 预计到港",
     "cnee": "收货人 CNEE",
     "containerNo": "柜号",
+    "expectedArrivalDate": "预计到仓日期",
+    "importErrDateFormat": "{{field}}格式不正确，请填 2026-09-01 这样的日期",
     "containerType": "柜型",
     "sealNo": "铅封号",
     "pod": "卸货港 POD",

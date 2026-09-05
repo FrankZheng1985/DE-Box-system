@@ -675,6 +675,32 @@ router.get('/:id/summary', requireUserType('OPERATOR'), requirePermission('inqui
  *   客户门户 —— clientId 一律取 JWT 里的 linkedEntityId，不信任前端传参
  *   运营代建 —— 必须显式传 clientId
  */
+/**
+ * 柜号与预计到仓日期的必填校验（迁移 136 起，三种服务类型都要）
+ *
+ * ⚠️ 只在**新建**时校验，编辑（PUT）不校验 ——
+ *    库里 27 张历史询价没有这两个值，编辑一张老单时要求补齐会把人卡死在页面上。
+ * ⚠️ 也不放在 service.createInquiryRecord 里：开放 API 走的是它自己那条 INSERT，
+ *    不受影响；而批量导入要按行报错，在解析层校验才能说清是第几行。
+ *
+ * @returns {string|null} 出错的说明，全部通过返回 null
+ */
+function validateContainerAndArrival(body) {
+  if (!String(body.containerNo || '').trim()) {
+    return '请填写柜号'
+  }
+  const eta = String(body.expectedArrivalDate || '').trim()
+  if (!eta) {
+    return '请填写预计到仓日期'
+  }
+  // 只认 YYYY-MM-DD：前端是 <input type="date">，导入是 Excel 日期，
+  // 都会归一成这个格式；放行别的写法会在库里留下解析不了的脏值
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eta)) {
+    return '预计到仓日期格式不正确，应为 YYYY-MM-DD'
+  }
+  return null
+}
+
 router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('inquiry:create', 'portal:inquiry_manage'), async (req, res) => {
   try {
     const userType = req.user.userType || req.user.roleCode
@@ -692,6 +718,10 @@ router.post('/', requireUserType('OPERATOR', 'CLIENT'), requirePermission('inqui
     const enumError = validateTransportEnums(req.body)
     if (enumError) {
       return res.status(400).json({ code: 400, message: enumError, data: null })
+    }
+    const requiredError = validateContainerAndArrival(req.body)
+    if (requiredError) {
+      return res.status(400).json({ code: 400, message: requiredError, data: null })
     }
 
     // 建单逻辑收在 service 里，和批量导入共用同一条路径（两条 INSERT 迟早写岔）
@@ -744,6 +774,7 @@ router.put('/:id', requirePermission('inquiry:edit', 'portal:inquiry_manage'), a
         pod: 'pod', containerType: 'container_type',
         vehicleLengthCode: 'vehicle_length_code',
         containerNo: 'container_no',
+        expectedArrivalDate: 'expected_arrival_date',
       }
       const setClauses = []
       const params = []

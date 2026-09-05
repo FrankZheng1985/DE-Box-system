@@ -343,6 +343,10 @@
     "line2": "If you need access, ask a system administrator to grant it to your role under \"Roles & permissions\"."
   },
   "inquiry": {
+    "containerNo": "Container no.",
+    "expectedArrivalDate": "Expected arrival date",
+    "errorContainerNo": "Please enter the container number",
+    "errorExpectedArrivalDate": "Please enter the expected arrival date",
     "tabTitle": "Inquiries",
     "pageTitle": "Inquiries & quotations",
     "createForClient": "New inquiry for a client",

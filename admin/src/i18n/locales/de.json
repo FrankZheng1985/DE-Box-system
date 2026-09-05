@@ -343,6 +343,10 @@
     "line2": "Bei Bedarf lassen Sie die Berechtigung von einem Systemadministrator unter „Rollen & Rechte“ für Ihre Rolle freischalten."
   },
   "inquiry": {
+    "containerNo": "Container-Nr.",
+    "expectedArrivalDate": "Voraussichtliches Ankunftsdatum",
+    "errorContainerNo": "Bitte die Containernummer angeben",
+    "errorExpectedArrivalDate": "Bitte das voraussichtliche Ankunftsdatum angeben",
     "tabTitle": "Anfragen",
     "pageTitle": "Anfragen & Angebote",
     "createForClient": "Anfrage für Kunden anlegen",

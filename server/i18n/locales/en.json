@@ -144,6 +144,8 @@
     "eta": "ETA",
     "cnee": "Consignee (CNEE)",
     "containerNo": "Container no.",
+    "expectedArrivalDate": "Expected arrival date",
+    "importErrDateFormat": "{{field}} has an invalid format, use a date like 2026-09-01",
     "containerType": "Container type",
     "sealNo": "Seal no.",
     "pod": "Port of discharge (POD)",

@@ -343,6 +343,10 @@
     "line2": "如果确实需要，请联系系统管理员在「角色权限」里为你的角色开通。"
   },
   "inquiry": {
+    "containerNo": "柜号",
+    "expectedArrivalDate": "预计到仓日期",
+    "errorContainerNo": "请填写柜号",
+    "errorExpectedArrivalDate": "请填写预计到仓日期",
     "tabTitle": "询价单",
     "pageTitle": "询价报价",
     "createForClient": "代客户建询价",

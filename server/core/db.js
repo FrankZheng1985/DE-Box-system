@@ -14,6 +14,30 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 dotenv.config({ path: path.join(__dirname, '../.env') })
 
+/**
+ * DATE 列一律按字符串返回，不要让 pg 转成 JS Date
+ *
+ * 为什么必须这么做：DATE 在数据库里是「哪一天」，没有时区概念。
+ * pg 默认会把它解析成 **node 进程本地时区** 的午夜 Date 对象，
+ * 而生产服务器时区是 Asia/Shanghai（UTC+8），于是：
+ *
+ *   库里 2026-09-20
+ *   → Date(2026-09-20 00:00 +08:00)
+ *   → JSON.stringify 得 "2026-09-19T16:00:00.000Z"
+ *   → 德国客户浏览器按本地时区一渲染，看到的是 **9 月 19 日**
+ *
+ * 整整差一天，而且是必现的。财务模块的到期日（finance/routes.js 里
+ * `new Date(row.due_date).toISOString().slice(0,10)`）已经在吃这个亏。
+ *
+ * 改成返回 'YYYY-MM-DD' 字符串后，前端 formatDate 收到的是纯日期，
+ * 怎么换时区都不会跑偏。
+ *
+ * 影响面：只影响 DATE（OID 1082），不动 TIMESTAMP —— 带时分秒的时间点
+ * 本来就该保留时区语义。SQL 里的日期比较（CURRENT_DATE 之类）在数据库侧算，
+ * 完全不受这个解析器影响。
+ */
+pg.types.setTypeParser(1082, (value) => value)
+
 const DATABASE_URL = process.env.DATABASE_URL
 
 if (!DATABASE_URL) {

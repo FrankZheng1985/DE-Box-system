@@ -317,6 +317,8 @@
     "routeTo": "Zielort",
     "containerNo": "Containernummer",
     "phContainerNo": "z. B. TEMU1234567",
+    "expectedArrivalDate": "Voraussichtliches Ankunftsdatum",
+    "errorExpectedArrivalDate": "Bitte das voraussichtliche Ankunftsdatum angeben",
     "pickupSharedHint": "für den ganzen Container",
     "deliveryOrders": "Zustellungen",
     "deliveryOrderCount": "{{count}} insgesamt",

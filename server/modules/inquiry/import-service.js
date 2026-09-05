@@ -35,6 +35,12 @@ const VALID_BUSINESS_TYPES = ['TRUCK_LTL', 'TRUCK_FTL', 'LOCAL_DELIVERY']
 export const IMPORT_COLUMNS = [
   { field: 'customerRef', labelKey: 'excel.customerRef', width: 18, scope: 'header', required: true },
   { field: 'businessType', labelKey: 'excel.serviceType', width: 18, scope: 'header', required: true },
+  // 柜号 + 预计到仓日期（迁移 136）：三种服务类型都必填。
+  // 标 required 的作用不止是校验 —— 客户手上那份旧模板没有这两列，
+  // 解析时会被 importErrMissingColumns 整表挡下并点名缺哪列，逼他重新下载模板。
+  // 这是故意的：既然产品上定了必填，就不能让旧模板悄悄导进一批空值。
+  { field: 'containerNo', labelKey: 'excel.containerNo', width: 18, scope: 'header', required: true },
+  { field: 'expectedArrivalDate', labelKey: 'excel.expectedArrivalDate', width: 18, scope: 'header', required: true },
   // 专车/拼车 + 车型（开发意见 #10）：只对卡车派送有意义，本地派送留空
   { field: 'transportType', labelKey: 'excel.transportType', width: 14, scope: 'header' },
   { field: 'vehicleLength', labelKey: 'excel.vehicleLength', width: 16, scope: 'header' },
@@ -71,6 +77,13 @@ export const IMPORT_COLUMNS = [
  */
 const EXTRA_HEADER_ALIASES = {
   贵司单号: 'customerRef',
+  柜号: 'containerNo',
+  箱号: 'containerNo',
+  集装箱号: 'containerNo',
+  预计到仓时间: 'expectedArrivalDate',
+  预计到仓日期: 'expectedArrivalDate',
+  到仓时间: 'expectedArrivalDate',
+  到仓日期: 'expectedArrivalDate',
   客户参考号: 'customerRef',
   业务类型: 'businessType',
   运输类型: 'businessType',
@@ -344,6 +357,15 @@ export async function analyzeImportFile(buffer, lang) {
     if (group.cargoItems.length === 0) {
       errors.push(rowError(firstRow, lang, 'excel.quantity', 'excel.importErrNoCargo'))
     }
+    // 柜号 / 预计到仓日期：列在（否则前面就整表挡下了），但这一组没填值
+    if (!group.containerNo) {
+      errors.push(rowError(firstRow, lang, 'excel.containerNo', 'excel.importErrRequired'))
+    }
+    if (!group.expectedArrivalDate) {
+      errors.push(rowError(firstRow, lang, 'excel.expectedArrivalDate', 'excel.importErrRequired'))
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(group.expectedArrivalDate)) {
+      errors.push(rowError(firstRow, lang, 'excel.expectedArrivalDate', 'excel.importErrDateFormat'))
+    }
     if (group.contactEmail && !isEmailLike(group.contactEmail)) {
       warnings.push(rowError(firstRow, lang, 'excel.receiverEmail', 'excel.importWarnEmail'))
     }
@@ -422,6 +444,8 @@ export async function createInquiriesFromGroups(client, groups, { clientId, crea
         contactName: group.contactName || null,
         contactPhone: group.contactPhone || null,
         contactEmail: group.contactEmail || null,
+        containerNo: group.containerNo || null,
+        expectedArrivalDate: group.expectedArrivalDate || null,
         cargoDescription: null,
         remarks: group.remarks || null,
         cargoItems: group.cargoItems,
@@ -484,6 +508,8 @@ function createGroup(customerRef, firstRowNumber) {
     contactName: '',
     contactPhone: '',
     contactEmail: '',
+    containerNo: '',
+    expectedArrivalDate: '',
     remarks: '',
     cargoItems: [],
     rowNumbers: [],
@@ -552,6 +578,33 @@ function applyHeaderFields(group, raw, rowNumber, lang, warnings) {
   assign(group, 'contactName', raw.contactName, 'excel.receiverContactName')
   assign(group, 'contactPhone', raw.contactPhone, 'excel.receiverPhone')
   assign(group, 'contactEmail', raw.contactEmail, 'excel.receiverEmail')
+  assign(group, 'containerNo', raw.containerNo, 'excel.containerNo')
+  // 日期先归一成 YYYY-MM-DD 再并进组，否则 Excel 的日期单元格会带着时区跑偏
+  assign(group, 'expectedArrivalDate', normalizeDateText(raw.expectedArrivalDate), 'excel.expectedArrivalDate')
+}
+
+/**
+ * 把日期单元格归一成 YYYY-MM-DD
+ *
+ * ⚠️ 不能直接用 cellToString 的结果：它对 Date 走的是 `toISOString()`，那是 UTC。
+ *    Excel 里的日期没有时区概念，exceljs 按「UTC 午夜」读出来，
+ *    在 UTC+2 的德国若按本地时区取年月日就会**整整差一天**。
+ *    所以这里显式取 UTC 的年月日。
+ *
+ * 同时容忍客户手敲的 2026/9/10、2026.9.10 这类写法。
+ */
+function normalizeDateText(value) {
+  if (value instanceof Date) {
+    const y = value.getUTCFullYear()
+    const m = String(value.getUTCMonth() + 1).padStart(2, '0')
+    const d = String(value.getUTCDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const m = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/)
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`
+  return text
 }
 
 /**

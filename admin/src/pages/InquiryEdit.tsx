@@ -50,6 +50,8 @@ interface ContactForm {
 interface InquiryForm {
   clientId: string
   customerRef: string
+  /** 预计到仓日期（迁移 136），三种服务类型都要，新建时必填 */
+  expectedArrivalDate: string
   businessType: BusinessType | ''
   transportType: string
   /** 车型（车长），只有专车（FTL）才有值 */
@@ -71,6 +73,7 @@ const EMPTY_CONTACT: ContactForm = { name: '', phone: '', email: '' }
 const INITIAL_FORM: InquiryForm = {
   clientId: '',
   customerRef: '',
+  expectedArrivalDate: '',
   businessType: '',
   transportType: '',
   vehicleLengthCode: '',
@@ -251,6 +254,9 @@ export default function InquiryEdit() {
         setForm({
           clientId: d.client_id || '',
           customerRef: d.customer_ref || '',
+          // DATE 列现在由 pg 直接按 'YYYY-MM-DD' 字符串返回（core/db.js 里设了类型解析器），
+          // 正好就是 <input type="date"> 要的格式，不用再转
+          expectedArrivalDate: d.expected_arrival_date || '',
           businessType: d.business_type || '',
           transportType: d.transport_type || '',
           vehicleLengthCode: d.vehicle_length_code || '',
@@ -301,6 +307,17 @@ export default function InquiryEdit() {
     e.preventDefault()
     if (!form.clientId) { showToast(t('placeholder.selectClient'), 'error'); return }
     if (!form.businessType) { showToast(t('inquiryEdit.errBusinessTypeRequired'), 'error'); return }
+    // 柜号和预计到仓日期只在**新建**时必填 ——
+    // 库里的历史询价没有这两个值，编辑一张老单时要求补齐会把运营卡死在页面上
+    //（后端 validateContainerAndArrival 也只在 POST 上校验，两边口径必须一致）
+    if (!isEdit && !containerNo.trim()) {
+      showToast(t('inquiry.errorContainerNo'), 'error')
+      return
+    }
+    if (!isEdit && !form.expectedArrivalDate) {
+      showToast(t('inquiry.errorExpectedArrivalDate'), 'error')
+      return
+    }
 
     setSaving(true)
     try {
@@ -322,10 +339,13 @@ export default function InquiryEdit() {
         cargoDescription: form.cargoDescription.trim() || null,
         specialRequirements: form.specialRequirements.trim() || null,
         remarks: form.remarks.trim() || null,
+        // 柜号原先只在三层单（本地派送）分支里传，于是运营代客户建 LTL / FTL 询价时
+        // 根本不带柜号 —— 迁移 136 放开后这两种也要填，所以提到公共层
+        containerNo: containerNo.trim() || null,
+        expectedArrivalDate: form.expectedArrivalDate || null,
         // 三层单整体用 deliveryOrders 提交；后端会拒绝只传 cargoItems 的三层单
         //（那样会把子订单洗成空壳），所以两者互斥、不能同时给
         ...(hasDeliveryOrders ? {
-          containerNo: containerNo.trim() || null,
           deliveryOrders: deliveryOrders.map((o) => ({
             customerSubRef: o.customerSubRef.trim() || null,
             deliveryAddress: {
@@ -423,6 +443,29 @@ export default function InquiryEdit() {
               type="text"
               value={form.customerRef}
               onChange={(e) => setForm((f) => ({ ...f, customerRef: e.target.value }))}
+              className={inputClass}
+            />
+          </Field>
+          {/* 柜号：三种服务类型都填（迁移 136 放开）。
+              本地派送的三层表单下面另有一个柜号输入，那边是柜级录入的入口，
+              这里在三层单模式下就不重复显示了 */}
+          {!hasDeliveryOrders && (
+            <Field label={t('inquiry.containerNo')} required={!isEdit}>
+              <input
+                type="text"
+                value={containerNo}
+                onChange={(e) => setContainerNo(e.target.value)}
+                placeholder="TEMU1234567"
+                className={inputClass}
+              />
+            </Field>
+          )}
+          {/* 预计到仓日期：车队据此排车 */}
+          <Field label={t('inquiry.expectedArrivalDate')} required={!isEdit}>
+            <input
+              type="date"
+              value={form.expectedArrivalDate}
+              onChange={(e) => setForm((f) => ({ ...f, expectedArrivalDate: e.target.value }))}
               className={inputClass}
             />
           </Field>

@@ -108,6 +108,10 @@ const INITIAL_FORM = {
   /** 车型（车长），只有专车才用得上 */
   vehicleLengthCode: '',
   customerRef: '',
+  /** 柜号：迁移 136 起 LTL / FTL 也能填（本地派送的柜号在三层表单里） */
+  containerNo: '',
+  /** 预计到仓日期，三种服务类型都必填，只到日期不到钟点 */
+  expectedArrivalDate: '',
   routeFrom: { ...EMPTY_ADDRESS },
   routeTo: { ...EMPTY_ADDRESS },
   senderContact: { ...EMPTY_CONTACT },
@@ -366,6 +370,10 @@ export default function InquiryList() {
       setError(t('inquiry.errorContainerNo'))
       return
     }
+    if (!form.expectedArrivalDate) {
+      setError(t('inquiry.errorExpectedArrivalDate'))
+      return
+    }
     if (!ld.pickupAddress.city && !ld.pickupAddress.country) {
       setError(t('inquiry.errorFrom'))
       return
@@ -390,6 +398,8 @@ export default function InquiryList() {
         // 本地派送没有专车/拼车之分，也没有车型
         transportType: null,
         containerNo: ld.containerNo.trim(),
+        // 到仓日期在主表单上填（一个柜整柜一起到仓，不按子订单分）
+        expectedArrivalDate: form.expectedArrivalDate,
         customerRef: ld.customerRef.trim() || null,
         routeFrom: mergeContact(ld.pickupAddress, ld.pickupContact),
         // 派送地址在各票上，表头的 routeTo 留空
@@ -430,6 +440,14 @@ export default function InquiryList() {
       return
     }
 
+    if (!form.containerNo.trim()) {
+      setError(t('inquiry.errorContainerNo'))
+      return
+    }
+    if (!form.expectedArrivalDate) {
+      setError(t('inquiry.errorExpectedArrivalDate'))
+      return
+    }
     if (!form.routeFrom.city && !form.routeFrom.country) {
       setError(t('inquiry.errorFrom'))
       return
@@ -464,6 +482,8 @@ export default function InquiryList() {
         // 免得客户先选了专车+13.6m 再改回拼车，把矛盾数据带上去
         vehicleLengthCode: transportType === TRANSPORT_TYPES.FTL ? (form.vehicleLengthCode || null) : null,
         customerRef: form.customerRef.trim() || null,
+        containerNo: form.containerNo.trim(),
+        expectedArrivalDate: form.expectedArrivalDate,
         // 发货联系人并进取件地址 —— 表里没有发件人联系人列，
         // 当顶层字段传后端不接，会静默丢掉（踩坑 047）
         routeFrom: mergeContact(form.routeFrom, form.senderContact),
@@ -623,6 +643,36 @@ export default function InquiryList() {
                     />
                   </div>
                 )}
+                {/* 柜号：LTL / FTL 在这里填（迁移 136 放开）。
+                    本地派送的柜号在下面的三层表单里，不在这儿重复显示。
+                    在此之前这两种服务没有柜号字段，客户只能把柜号挤进「贵司单号」 */}
+                {!isLocalDelivery && (
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">
+                      {t('inquiry.containerNo')} {t('common.required')}
+                    </label>
+                    <input
+                      type="text"
+                      value={form.containerNo}
+                      onChange={(e) => setForm((f) => ({ ...f, containerNo: e.target.value }))}
+                      placeholder={t('inquiry.phContainerNo')}
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+                {/* 预计到仓日期：三种服务类型都要，车队据此排车。
+                    本地派送同样在这里填 —— 一个柜整柜一起到仓，不按子订单分 */}
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">
+                    {t('inquiry.expectedArrivalDate')} {t('common.required')}
+                  </label>
+                  <input
+                    type="date"
+                    value={form.expectedArrivalDate}
+                    onChange={(e) => setForm((f) => ({ ...f, expectedArrivalDate: e.target.value }))}
+                    className={inputClass}
+                  />
+                </div>
               </div>
 
               {/* 本地派送走「柜 → 派送子订单 → 件」三层，和另外两种服务的表单完全不同（开发意见 #7） */}

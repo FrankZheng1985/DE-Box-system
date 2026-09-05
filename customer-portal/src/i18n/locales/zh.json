@@ -317,6 +317,8 @@
     "routeTo": "目的地",
     "containerNo": "柜号",
     "phContainerNo": "如 TEMU1234567",
+    "expectedArrivalDate": "预计到仓日期",
+    "errorExpectedArrivalDate": "请填写预计到仓日期",
     "pickupSharedHint": "整柜共用",
     "deliveryOrders": "派送明细",
     "deliveryOrderCount": "共 {{count}} 票",
