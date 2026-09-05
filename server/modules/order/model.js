@@ -147,11 +147,13 @@ export const orderModel = {
     }
     if (dateFrom) {
       params.push(dateFrom)
-      sql += ` AND o.created_at >= $${++paramIdx}`
+      sql += ` AND o.created_at >= $${++paramIdx}::date`
     }
+    // 结束日用「< 次日零点」而不是 <=：created_at 带时分秒，
+    // 写 <= '2026-09-05' 会被当成当天零点，当天建的订单一条都筛不出来（踩坑 072）
     if (dateTo) {
       params.push(dateTo)
-      sql += ` AND o.created_at <= $${++paramIdx}`
+      sql += ` AND o.created_at < ($${++paramIdx}::date + 1)`
     }
 
     // 总数
