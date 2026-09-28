@@ -376,6 +376,10 @@
     "quote": "报价"
   },
   "quotation": {
+    "colProgress": "报价进度",
+    "progressPartial": "部分报价 {{priced}}/{{total}}",
+    "progressFull": "全部报价",
+    "completePricing": "补充报价（补剩余几票的价）",
     "tabTitle": "报价单",
     "pageTitle": "询价报价管理",
     "create": "新建报价",
@@ -945,8 +949,12 @@
     "dropCount": "票数"
   },
   "quotationDeliveryLines": {
+    "unpriced": "未报价",
+    "unpricedPlaceholder": "暂不报价",
+    "progressPartial": "部分报价 {{priced}}/{{total}} 票",
+    "progressFull": "全部报价",
     "title": "逐票报价（{{count}} 票）",
-    "hint": "整柜合计由各票相加，不用单独填",
+    "hint": "留空 = 暂不报价，之后可补；填 0 = 免费送。整柜合计由已报的各票相加",
     "colSubRef": "子单号",
     "colDropTo": "派送至",
     "colPrice": "派送费",
@@ -968,12 +976,15 @@
     "currentVersion": "当前版本: V{{version}}"
   },
   "quotationEdit": {
+    "saveChanges": "保存修改",
     "pageTitle": "编辑报价",
     "lockedFieldsHint": "客户、业务类型、运输类型与币种在报价创建后不可更改；可修改价格、有效期、路线与备注。",
     "loadFailed": "报价加载失败，请返回列表重试",
     "saved": "报价已保存"
   },
   "quotationCreate": {
+    "errDeliveryPriceInvalid": "这几票的报价不是有效金额：{{refs}}",
+    "errDeliveryPriceNone": "至少要填写一票的报价（其余可以留空，之后再补）",
     "pageTitle": "创建报价",
     "sourceLoadFailed": "来源询价加载失败，请手工填写",
     "fromInquiry": "由询价单",
@@ -991,7 +1002,6 @@
     "errTransportType": "请选择运输类型",
     "errValidUntil": "请选择有效期",
     "errBaseFreight": "请输入基础运费",
-    "errDeliveryPrices": "这几票还没填报价：{{refs}}",
     "originCountry": "起点国家",
     "originCity": "起点城市",
     "destCountry": "终点国家",

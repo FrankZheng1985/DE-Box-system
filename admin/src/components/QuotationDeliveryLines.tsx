@@ -51,6 +51,9 @@ export default function QuotationDeliveryLines({
 }: Props) {
   const { t } = useTranslation()
   const total = sumDeliveryPrices(prices)
+  /** 已填价的票数（开发意见 #23：空着 = 暂不报价，0 = 免费送，两者不同） */
+  const pricedCount = orders.filter((o) => (prices[o.id] ?? '').trim() !== '').length
+  const isPartial = pricedCount < orders.length
 
   const addressText = (o: DeliveryOrderRef) => {
     const a = o.delivery_address || {}
@@ -106,7 +109,9 @@ export default function QuotationDeliveryLines({
                 <td className="px-3 py-2">
                   {readOnly ? (
                     <p className="text-sm text-slate-900 text-right font-medium">
-                      {Number(prices[o.id] || 0).toFixed(2)}
+                      {(prices[o.id] ?? '').trim() === ''
+                        ? <span className="text-xs font-normal text-amber-600">{t('quotationDeliveryLines.unpriced')}</span>
+                        : Number(prices[o.id]).toFixed(2)}
                     </p>
                   ) : (
                     <input
@@ -115,7 +120,7 @@ export default function QuotationDeliveryLines({
                       step="0.01"
                       value={prices[o.id] ?? ''}
                       onChange={(e) => onChange({ ...prices, [o.id]: e.target.value })}
-                      placeholder="0.00"
+                      placeholder={t('quotationDeliveryLines.unpricedPlaceholder')}
                       className={inputClass}
                     />
                   )}
@@ -127,6 +132,14 @@ export default function QuotationDeliveryLines({
       </div>
 
       <div className="flex items-center justify-end gap-3 px-5 py-3.5 bg-slate-50 border-t border-slate-100">
+        {/* 报价进度：部分报价时提醒客户暂时不能接受（开发意见 #23） */}
+        <span className={`px-2 py-0.5 text-[11px] rounded-full ${
+          isPartial ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+        }`}>
+          {isPartial
+            ? t('quotationDeliveryLines.progressPartial', { priced: pricedCount, total: orders.length })
+            : t('quotationDeliveryLines.progressFull')}
+        </span>
         <span className="text-xs text-slate-500">{t('quotationDeliveryLines.total')}</span>
         <span className="text-lg font-bold text-blue-600">
           {total.toFixed(2)} {currency}

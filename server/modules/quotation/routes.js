@@ -120,7 +120,10 @@ router.get('/', requirePermission('quotation:view', 'portal:quotation_view'), as
              o.order_number as converted_order_number,
              -- 本地派送柜里一共几票（开发意见 #21：列表上提示「整柜 N 票」，明细进详情看）
              (SELECT COUNT(*) FROM inquiry_delivery_orders d
-               WHERE d.inquiry_id = q.inquiry_id)::int AS delivery_order_count
+               WHERE d.inquiry_id = q.inquiry_id)::int AS delivery_order_count,
+             -- 这一版已经报了价的票数（开发意见 #23）：< delivery_order_count 即「部分报价」
+             (SELECT COUNT(*) FROM quotation_delivery_lines l
+               WHERE l.quotation_id = q.id)::int AS delivery_priced_count
       FROM quotations q
       LEFT JOIN clients c ON c.id = q.client_id
       LEFT JOIN users u ON u.id = q.created_by
@@ -259,6 +262,20 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
 
     // 本地派送的逐票报价；其余服务是空数组，前端据此决定用哪套渲染
     const deliveryLines = await quotationService.getDeliveryLines(quotation.id, { query })
+    // 柜里还没报价的票（开发意见 #23 部分报价）：详情里要让人看到「哪几票还在等价」，
+    // 只列已报的会让客户以为柜里就这几票
+    const unpricedDeliveryOrders = quotation.inquiry_id
+      ? (await query(
+        `SELECT d.id, d.line_number, d.customer_sub_ref, d.delivery_address,
+                d.quantity, d.weight_kg, d.volume_m3, d.ldm
+         FROM inquiry_delivery_orders d
+         WHERE d.inquiry_id = $1
+           AND NOT EXISTS (SELECT 1 FROM quotation_delivery_lines l
+                           WHERE l.quotation_id = $2 AND l.delivery_order_id = d.id)
+         ORDER BY d.line_number`,
+        [quotation.inquiry_id, quotation.id]
+      )).rows
+      : []
 
     res.json({
       code: 200, message: 'success',
@@ -266,6 +283,7 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
         ...quotation,
         pricingItems: items.rows,
         deliveryLines,
+        unpricedDeliveryOrders,
         inquiry: inquiry.rows[0] || null,
         convertedOrder: order.rows[0] || null,
         convertedOrders: orders.rows,
@@ -377,7 +395,7 @@ router.post('/', requireUserType('OPERATOR'), requirePermission('quotation:creat
 router.put('/:id', requireUserType('OPERATOR'), requirePermission('quotation:edit'), async (req, res) => {
   try {
     normalizeDateFields(req.body, DATE_FIELDS)
-    await withTransaction(async (client) => {
+    const outcome = await withTransaction(async (client) => {
       const old = await client.query(`SELECT * FROM quotations WHERE id = $1`, [req.params.id])
       if (old.rows.length === 0) throw new Error('报价不存在')
       if (!['DRAFT', 'SENT'].includes(old.rows[0].status)) throw new Error('当前状态不允许编辑')
@@ -409,13 +427,30 @@ router.put('/:id', requireUserType('OPERATOR'), requirePermission('quotation:edi
       // 逐票报价整版替换，合计随之回写（会覆盖上面可能传进来的 totalPrice——
       // 逐票之和才是这版报价的真值，两者不一致时以行为准）
       if (hasLines) {
+        const before = await quotationService.getDeliveryQuoteProgress(client, req.params.id)
         await quotationService.replaceDeliveryLines(
           client, req.params.id, req.body.deliveryLines,
           req.body.currency || old.rows[0].currency || 'EUR'
         )
+        // 已发出的部分报价在这次补全了（开发意见 #23）：发送时扣下的确认邮件现在补发。
+        // 只在「部分 → 全部」这一刻发一次；本来就是全部报价的改价不重复发
+        const after = await quotationService.getDeliveryQuoteProgress(client, req.params.id)
+        if (old.rows[0].status === QUOTATION_STATUS.SENT && before.partial && !after.partial) {
+          return { mail: await queueQuotationEmail(client, req.params.id, req.user.id) }
+        }
       }
+      return { mail: null }
     })
-    res.json({ code: 200, message: '报价更新成功', data: null })
+    const { mail } = outcome
+    res.json({
+      code: 200,
+      message: !mail
+        ? '报价更新成功'
+        : mail.queued
+          ? `报价已全部报完，确认邮件将发往 ${mail.to}`
+          : `报价已全部报完（${mail.reason}）`,
+      data: mail ? { emailQueued: mail.queued, emailTo: mail.to || null, reason: mail.reason || null } : null,
+    })
   } catch (error) {
     res.status(400).json({ code: 400, message: error.message, data: null })
   }
@@ -455,6 +490,20 @@ router.post('/:id/send', requireUserType('OPERATOR'), requirePermission('quotati
            WHERE id = $1 AND status = 'PENDING_QUOTE'`,
           [inquiryId]
         )
+      }
+
+      // 部分报价（开发意见 #23）：客户能在门户看到已报的价，但不能接受，
+      // 所以先不发带「同意报价」按钮的确认邮件 —— 发了客户点同意只会报错。
+      // 运营补全剩下的价格后，PUT 会自动补发这封邮件
+      const progress = await quotationService.getDeliveryQuoteProgress(client, req.params.id)
+      if (progress.partial) {
+        return {
+          mail: {
+            queued: false,
+            reason: `部分报价（已报 ${progress.priced} / 共 ${progress.total} 票），客户可在门户查看；` +
+              '全部报完后会自动发送确认邮件',
+          },
+        }
       }
 
       // 签发一次性确认 token 并把邮件排进队列（真正发信由 cron 每 2 分钟处理）。

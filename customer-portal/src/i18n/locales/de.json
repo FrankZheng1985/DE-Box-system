@@ -447,6 +447,12 @@
       }
     },
     "viewOrder": "Auftragsdetails ansehen",
+    "colProgress": "Preisstand",
+    "progressPartial": "Teilweise {{priced}}/{{total}}",
+    "progressFull": "Vollständig",
+    "unpriced": "Ausstehend",
+    "waitFullQuote": "Preise ausstehend",
+    "partialHint": "Für einige Zustellungen dieses Containers stehen die Preise noch aus; Annahme möglich, sobald alle bepreist sind",
     "orderNoHint": "Doppelklick auf die Auftragsnummer öffnet die Auftragsdetails",
     "detail": {
       "title": "Angebotsdetails",
@@ -457,12 +463,13 @@
       "cargoValue": "{{qty}} Stk. · {{weight}} kg",
       "linePrice": "Preis je Zustellung",
       "containerTotal": "Summe Container",
+      "pricedTotal": "Summe bepreister Zustellungen",
       "baseFreight": "Fracht",
       "surcharge": "Zuschlag",
       "insuranceFee": "Versicherung",
       "total": "Gesamt",
       "orders": "Erstellte Aufträge ({{count}})",
-      "containerOf": "{{count}} Zustellungen · Nr. anklicken für Details"
+      "containerOf": "{{count}} Zustellungen"
     }
   },
   "quotationStatus": {

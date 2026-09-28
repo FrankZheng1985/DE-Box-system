@@ -39,7 +39,17 @@ interface Quotation {
   status: string
   converted_order_id: string | null
   converted_order_number: string | null
+  /** 本地派送：柜里一共几票 / 这一版已报了几票（开发意见 #23 报价进度） */
+  delivery_order_count: number
+  delivery_priced_count: number
   created_at: string
+}
+
+/** 本地派送报价是否只报了一部分票（开发意见 #23）。其余服务类型永远是 false */
+function isPartialQuote(q: Quotation): boolean {
+  return q.business_type === 'LOCAL_DELIVERY'
+    && q.delivery_order_count > 0
+    && q.delivery_priced_count < q.delivery_order_count
 }
 
 /** 同样对齐后端 GET /quotations/stats 的返回 */
@@ -273,6 +283,7 @@ export default function QuotationManagement() {
   // 根据报价状态返回可用的操作按钮
   function renderRowActions(q: Quotation) {
     const s = q.status?.toUpperCase()
+    const partial = isPartialQuote(q)
 
     return (
       <div className="flex items-center justify-center gap-1">
@@ -285,12 +296,13 @@ export default function QuotationManagement() {
           <Eye className="w-4 h-4" />
         </button>
 
-        {/* 编辑按钮（仅草稿；PENDING_QUOTE 是询价单状态，报价单不会有） */}
-        {s === QUOTATION_STATUS.DRAFT && (
+        {/* 编辑按钮：草稿；以及已发送的部分报价 —— 服务商回价后要回来补剩下几票的价（开发意见 #23）。
+            PENDING_QUOTE 是询价单状态，报价单不会有 */}
+        {(s === QUOTATION_STATUS.DRAFT || (s === QUOTATION_STATUS.SENT && partial)) && (
           <button
             onClick={() => navigate(`/quotes/${q.id}/edit`)}
             className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
-            title={t('common.edit')}
+            title={s === QUOTATION_STATUS.DRAFT ? t('common.edit') : t('quotation.completePricing')}
           >
             <Edit className="w-4 h-4" />
           </button>
@@ -308,9 +320,11 @@ export default function QuotationManagement() {
           </button>
         )}
 
-        {/* 已发送 / 客户待定：代客户确认接受或拒绝（客户也可在门户自助操作） */}
+        {/* 已发送 / 客户待定：代客户确认接受或拒绝（客户也可在门户自助操作）。
+            部分报价不给「接受」：要等全部报完（开发意见 #23，后端同样会拦） */}
         {(s === QUOTATION_STATUS.SENT || s === QUOTATION_STATUS.PENDING_DECISION) && (
           <>
+            {!partial && (
             <button
               onClick={() => setAcceptModal({ open: true, quotation: q })}
               className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
@@ -318,6 +332,7 @@ export default function QuotationManagement() {
             >
               <CheckCircle className="w-4 h-4" />
             </button>
+            )}
             <button
               onClick={() => { setRejectModal({ open: true, quotation: q }); setRejectReason('') }}
               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
@@ -422,11 +437,15 @@ export default function QuotationManagement() {
       {/* 表格 */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed">
+          {/* 意见 #23 加「报价进度」列：列多了给个最小宽度，窄屏横向滚动而不是把列挤成两行 */}
+          <table className="w-full table-fixed min-w-[1360px]">
             <colgroup>
-              <col className="w-[12%]" /><col className="w-[11%]" /><col className="w-[11%]" />
-              <col className="w-[13%]" /><col className="w-[9%]" /><col className="w-[11%]" />
-              <col className="w-[6%]" /><col className="w-[9%]" /><col className="w-[9%]" />
+              {/* 报价编号、来源询价都是 17 位单号，不能再收，否则会被截断 */}
+              <col className="w-[12%]" /><col className="w-[12%]" /><col className="w-[8%]" />
+              <col className="w-[11%]" /><col className="w-[9%]" /><col className="w-[9%]" />
+              {/* 报价进度 */}
+              <col className="w-[9%]" />
+              <col className="w-[5%]" /><col className="w-[8%]" /><col className="w-[8%]" />
               <col className="w-[9%]" />
             </colgroup>
             <thead>
@@ -437,6 +456,7 @@ export default function QuotationManagement() {
                 <th className="text-left text-xs font-medium text-slate-500 px-4 py-3">{t('common.route')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('field.businessType')}</th>
                 <th className="text-right text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colAmount')}</th>
+                <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colProgress')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colVersion')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('quotation.colValidity')}</th>
                 <th className="text-center text-xs font-medium text-slate-500 px-4 py-3">{t('common.status')}</th>
@@ -447,14 +467,14 @@ export default function QuotationManagement() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 10 }).map((_, j) => (
+                    {Array.from({ length: 11 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : quotations.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-16 text-center">
+                  <td colSpan={11} className="px-4 py-16 text-center">
                     <FileText className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm text-slate-500">{t('quotation.empty')}</p>
                   </td>
@@ -480,6 +500,20 @@ export default function QuotationManagement() {
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-900 font-medium text-right">
                       {formatMoney(q.total_price, q.currency || 'EUR')}
+                    </td>
+                    {/* 报价进度（开发意见 #23）：只有本地派送按票报价，其余服务类型显示「-」 */}
+                    <td className="px-4 py-3 text-center">
+                      {q.business_type === 'LOCAL_DELIVERY' && q.delivery_order_count > 0 ? (
+                        <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${
+                          isPartialQuote(q) ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                        }`}>
+                          {isPartialQuote(q)
+                            ? t('quotation.progressPartial', { priced: q.delivery_priced_count, total: q.delivery_order_count })
+                            : t('quotation.progressFull')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">V{q.version || 1}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 text-center">{q.valid_until?.split('T')[0] || '-'}</td>

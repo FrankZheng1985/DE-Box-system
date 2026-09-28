@@ -55,7 +55,16 @@ interface Quotation {
   converted_order_id: string | null
   /** 本地派送柜里一共几票（列表接口子查询，开发意见 #21） */
   delivery_order_count: number
+  /** 这一版已经报了价的票数（开发意见 #23）：少于 delivery_order_count 即部分报价 */
+  delivery_priced_count: number
   created_at: string
+}
+
+/** 本地派送报价是否只报了一部分票（开发意见 #23）。其余服务类型永远是 false */
+function isPartialQuote(q: Quotation): boolean {
+  return q.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
+    && q.delivery_order_count > 0
+    && q.delivery_priced_count < q.delivery_order_count
 }
 
 type DecisionType = 'accept' | 'reject' | 'pending'
@@ -363,16 +372,21 @@ export default function MyQuotations() {
       {/* 列表 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed min-w-[900px]">
+          {/* 意见 #23 加「报价进度」列：最小宽度 900 → 1100。
+              操作列按德语实测给到 18%：「Annehmen / Unentschieden / Ablehnen」三个按钮要约 250px，
+              原来 14% 在德语下就会挤出格子；省出来的宽度从服务类型、路线（本来就是省略号）、有效期匀 */}
+          <table className="w-full table-fixed min-w-[1100px]">
             <colgroup>
-              <col className="w-[15%]" />
-              <col className="w-[12%]" />
-              <col className="w-[11%]" />
-              <col className="w-[15%]" />
-              <col className="w-[12%]" />
-              <col className="w-[11%]" />
-              <col className="w-[10%]" />
               <col className="w-[14%]" />
+              <col className="w-[11%]" />
+              <col className="w-[8%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
+              {/* 报价进度 */}
+              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="w-[9%]" />
+              <col className="w-[18%]" />
             </colgroup>
             <thead>
               <tr className="text-xs text-slate-500 border-b border-gray-100">
@@ -381,6 +395,7 @@ export default function MyQuotations() {
                 <th className="text-left px-3 py-2.5 font-medium">{t('quotations.serviceType')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">{t('quotations.amount')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('quotations.colProgress')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('quotations.validUntil')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.status')}</th>
                 <th className="text-center px-3 py-2.5 font-medium">{t('common.actions')}</th>
@@ -390,14 +405,14 @@ export default function MyQuotations() {
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 8 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-3 py-3"><div className="h-3 bg-gray-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : quotations.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12">
+                  <td colSpan={9} className="text-center py-12">
                     <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                     <p className="text-sm text-slate-400">{t('quotations.empty')}</p>
                     <p className="text-xs text-slate-400 mt-1">{t('quotations.emptyHint')}</p>
@@ -406,6 +421,7 @@ export default function MyQuotations() {
               ) : (
                 quotations.map((q) => {
                   const decidable = CLIENT_DECIDABLE.includes(q.status)
+                  const partial = isPartialQuote(q)
                   const expired = isExpired(q.valid_until)
                   return (
                     <tr key={q.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
@@ -449,6 +465,21 @@ export default function MyQuotations() {
                           </span>
                         )}
                       </td>
+                      {/* 报价进度（开发意见 #23）：柜子的报价是全部报了还是只报了一部分，一眼看清。
+                          只有本地派送按票报价，其余服务类型显示「-」 */}
+                      <td className="text-center px-3 py-2.5">
+                        {q.business_type === BUSINESS_TYPES.LOCAL_DELIVERY && q.delivery_order_count > 0 ? (
+                          <span className={`inline-block px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${
+                            partial ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {partial
+                              ? t('quotations.progressPartial', { priced: q.delivery_priced_count, total: q.delivery_order_count })
+                              : t('quotations.progressFull')}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
+                      </td>
                       <td className="text-center px-3 py-2.5 text-xs">
                         <span className={expired ? 'text-red-600' : 'text-slate-500'}>
                           {formatDate(q.valid_until)}
@@ -462,7 +493,7 @@ export default function MyQuotations() {
                         </span>
                       </td>
                       <td className="text-center px-3 py-2.5">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex flex-wrap items-center justify-center gap-1">
                           {/* 已下单的报价给一个眼睛入口，进订单详情（意见 #13） */}
                           {q.converted_order_id && (
                             <button
@@ -475,7 +506,13 @@ export default function MyQuotations() {
                             </button>
                           )}
                         {decidable ? (
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            {/* 部分报价要等全部报完才能接受（开发意见 #23，后端同样会拦） */}
+                            {partial ? (
+                              <span className="text-[11px] text-amber-600 whitespace-nowrap" title={t('quotations.partialHint')}>
+                                {t('quotations.waitFullQuote')}
+                              </span>
+                            ) : (
                             <button
                               onClick={() => setDecision({ quotation: q, type: 'accept' })}
                               title={t('quotations.decision.accept.title')}
@@ -484,6 +521,7 @@ export default function MyQuotations() {
                               <CheckCircle className="w-3.5 h-3.5" />
                               {t('quotations.decision.accept.verb')}
                             </button>
+                            )}
                             {/* 已经标过待定的不用再标一次 */}
                             {q.status === QUOTATION_STATUS.SENT && (
                               <button

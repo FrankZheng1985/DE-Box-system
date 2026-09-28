@@ -447,6 +447,12 @@
       }
     },
     "viewOrder": "查看订单详情",
+    "colProgress": "报价进度",
+    "progressPartial": "部分报价 {{priced}}/{{total}}",
+    "progressFull": "全部报价",
+    "unpriced": "待报价",
+    "waitFullQuote": "等全部报价",
+    "partialHint": "这个柜子还有几票在等服务商回价，全部报完后即可接受",
     "orderNoHint": "双击订单号查看订单详情",
     "detail": {
       "title": "报价详情",
@@ -457,6 +463,7 @@
       "cargoValue": "{{qty}} 件 · {{weight}} kg",
       "linePrice": "本票报价",
       "containerTotal": "整柜合计",
+      "pricedTotal": "已报合计",
       "baseFreight": "运费",
       "surcharge": "附加费",
       "insuranceFee": "保险费",

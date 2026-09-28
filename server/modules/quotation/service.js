@@ -71,8 +71,11 @@ export async function replaceDeliveryLines(client, quotationId, rawLines, curren
   const lines = []
   for (const raw of rawLines || []) {
     if (!raw?.deliveryOrderId) continue
-    // 价格按 0 兜底而不是跳过：某一票免费送也是有效报价，
-    // 跳过会让这一票在报价单上凭空消失，客户以为我们漏报了
+    // 价格【空着】= 这一票还没报价（开发意见 #23：允许先报一部分，其余等服务商回价后再补），
+    // 不写行 —— 「没有报价行」就是「未报价」的唯一表示，和「报价 0 元（免费送）」严格分开。
+    // 以前空价按 0 兜底，放开部分报价后会把「还没报」变成「报了 0 元」，
+    // 客户一接受就按 0 元建单（见 loadDeliveryOrdersForConversion 的拦截）
+    if (isBlankPrice(raw.price)) continue
     const price = toAmount(raw.price)
     const inserted = await client.query(
       `INSERT INTO quotation_delivery_lines
@@ -82,6 +85,12 @@ export async function replaceDeliveryLines(client, quotationId, rawLines, curren
       [quotationId, raw.deliveryOrderId, price, currency, raw.remarks || null]
     )
     lines.push(inserted.rows[0])
+  }
+
+  // 传了派送票却一票价都没填：没有可保存的报价。
+  // 不拦的话行被清空、total_price 却还挂着上一次的数字（recalc 对零行不动总价）
+  if (lines.length === 0 && (rawLines || []).some((r) => r?.deliveryOrderId)) {
+    throw new Error('至少要填写一票的报价')
   }
 
   const total = await recalcQuotationTotalFromLines(client, quotationId)
@@ -139,6 +148,32 @@ export async function getDeliveryLines(quotationId, db) {
   return result.rows
 }
 
+/**
+ * 本地派送报价的「报价进度」：柜里一共几票、这一版报了几票（开发意见 #23）
+ *
+ * 不是本地派送（询价下没有派送票）时 total 为 0，调用方据此判断「不适用」。
+ *
+ * @param {object} db 有 query 方法的对象（连接池或事务客户端）
+ * @param {string} quotationId
+ * @returns {Promise<{ total: number, priced: number, partial: boolean }>}
+ */
+export async function getDeliveryQuoteProgress(db, quotationId) {
+  const result = await db.query(
+    `SELECT
+       (SELECT COUNT(*) FROM inquiry_delivery_orders d WHERE d.inquiry_id = q.inquiry_id)::int AS total,
+       (SELECT COUNT(*) FROM quotation_delivery_lines l WHERE l.quotation_id = q.id)::int      AS priced
+     FROM quotations q WHERE q.id = $1`,
+    [quotationId]
+  )
+  const row = result.rows[0] || { total: 0, priced: 0 }
+  return { total: row.total, priced: row.priced, partial: row.total > 0 && row.priced < row.total }
+}
+
+/** 价格是不是「没填」：null / undefined / 空串 / 纯空白。0 不算没填 */
+function isBlankPrice(value) {
+  return value === null || value === undefined || String(value).trim() === ''
+}
+
 /** 金额转数字；空值和非法值一律按 0，不返回 null（NOT NULL 列） */
 function toAmount(value) {
   if (value === null || value === undefined || value === '') return 0
@@ -172,6 +207,16 @@ export async function createOrderFromQuotation(client, quotation, userId, extra 
   if (quotation.inquiry_id) {
     const drops = await loadDeliveryOrdersForConversion(client, quotation)
     if (drops.length > 0) {
+      // 部分报价不能转单（开发意见 #23，Frank 2026-09-28 定：要等全部报完才能接受）。
+      // 放在这里而不是各个入口：门户接受、邮件链接接受、运营手工转单都走这一个函数，
+      // 一处拦住三条路。抛错 → 调用方事务回滚 → 报价保持原状态
+      const unpriced = drops.filter((d) => !d.line_id)
+      if (unpriced.length > 0) {
+        throw new Error(
+          `这张报价还有 ${unpriced.length} 票未报价（已报 ${drops.length - unpriced.length} / 共 ${drops.length} 票），` +
+          '需全部报价后才能接受'
+        )
+      }
       return createOrdersFromDeliveryOrders(client, quotation, drops, userId, extra)
     }
   }
@@ -238,9 +283,9 @@ export async function createOrderFromQuotation(client, quotation, userId, extra 
 /**
  * 取这张报价对应的派送票（本地派送三层单专用）
  *
- * 价格取**这一版报价**的逐票行；某一票没有报价行时按 0 算 ——
- * 那说明运营漏报了这一票，但已经被客户接受了，
- * 建单时静默跳过会让这票的货没人管，宁可建一张 0 元订单让人看见。
+ * 价格取**这一版报价**的逐票行，并带出 line_id：
+ * line_id 为空 = 这一票没有报价行 = 还没报价（开发意见 #23 起允许部分报价），
+ * 调用方据此拒绝转单，不再按 0 元建单。
  *
  * @returns {Promise<Array>} 空数组 = 不是三层单，走原来的单张路径
  */
@@ -248,7 +293,7 @@ async function loadDeliveryOrdersForConversion(client, quotation) {
   const result = await client.query(
     `SELECT d.id, d.line_number, d.customer_sub_ref, d.delivery_address,
             d.quantity, d.weight_kg, d.volume_m3, d.remarks,
-            COALESCE(l.price, 0) AS price
+            l.id AS line_id, COALESCE(l.price, 0) AS price
      FROM inquiry_delivery_orders d
      LEFT JOIN quotation_delivery_lines l
        ON l.delivery_order_id = d.id AND l.quotation_id = $2
@@ -446,4 +491,5 @@ export default {
   replaceDeliveryLines,
   recalcQuotationTotalFromLines,
   getDeliveryLines,
+  getDeliveryQuoteProgress,
 }

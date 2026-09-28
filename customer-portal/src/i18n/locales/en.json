@@ -447,6 +447,12 @@
       }
     },
     "viewOrder": "View order details",
+    "colProgress": "Pricing",
+    "progressPartial": "Partial {{priced}}/{{total}}",
+    "progressFull": "Fully priced",
+    "unpriced": "Pending",
+    "waitFullQuote": "Pending prices",
+    "partialHint": "Some drops in this container are still awaiting prices; you can accept once all are priced",
     "orderNoHint": "Double-click the order number to open order details",
     "detail": {
       "title": "Quotation details",
@@ -457,12 +463,13 @@
       "cargoValue": "{{qty}} pcs · {{weight}} kg",
       "linePrice": "Drop price",
       "containerTotal": "Container total",
+      "pricedTotal": "Total of priced drops",
       "baseFreight": "Freight",
       "surcharge": "Surcharge",
       "insuranceFee": "Insurance",
       "total": "Total",
       "orders": "Orders created ({{count}})",
-      "containerOf": "{{count}} drops · click no. for details"
+      "containerOf": "{{count}} drops"
     }
   },
   "quotationStatus": {

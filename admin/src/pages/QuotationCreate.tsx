@@ -159,6 +159,8 @@ export default function QuotationCreate() {
   /** 本地派送：来源询价的派送票，以及每票的报价（开发意见 #7 第 2 步） */
   const [deliveryOrders, setDeliveryOrders] = useState<DeliveryOrderRef[]>([])
   const [deliveryPrices, setDeliveryPrices] = useState<DeliveryPriceMap>({})
+  /** 编辑模式下这张报价原来的状态：已发送的报价只能「保存修改」，不能再点发送（后端只允许草稿发送） */
+  const [editStatus, setEditStatus] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
   // 编辑模式要等详情回填后再渲染表单，否则会先闪一屏空表单
@@ -267,6 +269,21 @@ export default function QuotationCreate() {
           return
         }
         const d = res.data
+        setEditStatus(d.status || '')
+        // 本地派送：把柜里的派送票和这一版已报的价一起回填（开发意见 #23）。
+        // 以前编辑模式只拉报价详情、不拉派送票，逐票报价整块不显示，
+        // 「先报一部分、回头补价」这条路根本走不通
+        if (d.business_type === 'LOCAL_DELIVERY' && d.inquiry?.id) {
+          const inqRes = await api.get<ApiResponse<{ deliveryOrders?: DeliveryOrderRef[] }>>(`/inquiries/${d.inquiry.id}`)
+          if (cancelled) return
+          if (inqRes.code === 200) setDeliveryOrders(inqRes.data?.deliveryOrders || [])
+          const prices: DeliveryPriceMap = {}
+          for (const l of (d.deliveryLines || []) as { delivery_order_id: string; price: string }[]) {
+            // NUMERIC 回来是字符串（踩坑 002），转一次数字去掉多余的 0
+            prices[l.delivery_order_id] = String(Number(l.price))
+          }
+          setDeliveryPrices(prices)
+        }
         setForm({
           clientId: d.client_id || '',
           businessType: d.business_type || '',
@@ -431,16 +448,20 @@ export default function QuotationCreate() {
     }
     if (!form.validUntil) newErrors.validUntil = t('quotationCreate.errValidUntil')
     if (isPerDelivery) {
-      // 三层单没有「基础运费」这一项，改为要求每一票都填了价
-      // （0 是合法的：某票免费送；空着才是漏填）
-      const missing = deliveryOrders.filter((o) => {
-        const v = deliveryPrices[o.id]
-        return v === undefined || v === '' || !Number.isFinite(Number(v))
+      // 三层单没有「基础运费」这一项，按票报价。
+      // 允许部分报价（开发意见 #23）：空着 = 这一票暂不报价，等服务商回价后再补；
+      // 0 = 这一票免费送。只拦两种情况：填了但不是合法金额、一票都没填
+      const invalid = deliveryOrders.filter((o) => {
+        const v = (deliveryPrices[o.id] ?? '').trim()
+        return v !== '' && (!Number.isFinite(Number(v)) || Number(v) < 0)
       })
-      if (missing.length > 0) {
-        newErrors.deliveryLines = t('quotationCreate.errDeliveryPrices', {
-          refs: missing.map((o) => o.customer_sub_ref || `#${o.line_number}`).join(', '),
+      const pricedCount = deliveryOrders.filter((o) => (deliveryPrices[o.id] ?? '').trim() !== '').length
+      if (invalid.length > 0) {
+        newErrors.deliveryLines = t('quotationCreate.errDeliveryPriceInvalid', {
+          refs: invalid.map((o) => o.customer_sub_ref || `#${o.line_number}`).join(', '),
         })
+      } else if (pricedCount === 0) {
+        newErrors.deliveryLines = t('quotationCreate.errDeliveryPriceNone')
       }
     } else if (!form.baseFreight || form.baseFreight <= 0) {
       newErrors.baseFreight = t('quotationCreate.errBaseFreight')
@@ -478,10 +499,12 @@ export default function QuotationCreate() {
       carrierCostSourceId: canSeeCarrierCost && costRef ? costRef.id : null,
       // 三层单：逐票报价，后端据此回写合计（不传的话后端不动逐票行）
       ...(isPerDelivery ? {
-        deliveryLines: deliveryOrders.map((o) => ({
-          deliveryOrderId: o.id,
-          price: Number(deliveryPrices[o.id] || 0),
-        })),
+        // 空着的票传 null = 未报价，后端不写报价行（开发意见 #23）；
+        // 不能再 `|| 0` —— 那会把「还没报」变成「报了 0 元」
+        deliveryLines: deliveryOrders.map((o) => {
+          const v = (deliveryPrices[o.id] ?? '').trim()
+          return { deliveryOrderId: o.id, price: v === '' ? null : Number(v) }
+        }),
       } : {}),
     }
 
@@ -498,23 +521,31 @@ export default function QuotationCreate() {
 
       // 如果是发送，再调用发送接口（编辑模式用路由上的 id）
       const quotationId = isEdit ? editId : saveRes.data?.id
+      // 发送了但确认邮件没发出去（部分报价 / 客户没邮箱）时，后端会说明原因，要原样告诉运营
+      let sendNote = ''
       if (type === 'send' && quotationId) {
-        const sendRes = await api.post<ApiResponse<any>>(`/quotations/${quotationId}/send`)
+        const sendRes = await api.post<ApiResponse<{ emailQueued?: boolean }>>(`/quotations/${quotationId}/send`)
         if (sendRes.code !== 200) {
           setGlobalError(sendRes.message || t('quotationCreate.savedButSendFailed'))
           return
         }
+        if (sendRes.data?.emailQueued === false) sendNote = sendRes.message
       }
 
+      // 编辑已发送的部分报价、这次补全了：后端会自动补发确认邮件，把它的说明原样告诉运营
+      const editMailNote = isEdit && (saveRes.data as { emailQueued?: boolean } | null)?.emailQueued !== undefined
+        ? saveRes.message
+        : ''
       const msg = type === 'draft'
-        ? (isEdit ? t('quotationEdit.saved') : t('quotationCreate.savedAsDraft'))
-        : t('quotationCreate.sentOk')
+        ? (editMailNote || (isEdit ? t('quotationEdit.saved') : t('quotationCreate.savedAsDraft')))
+        : (sendNote || t('quotationCreate.sentOk'))
       setSuccessMsg(msg)
       setTimeout(() => {
         // 编辑完回详情页；从询价来的回询价详情，方便继续看这张单
         if (isEdit) navigate(`/quotes/${editId}`)
         else navigate(inquiryId ? `/inquiries/${inquiryId}` : '/quotes')
-      }, 1500)
+        // 带邮件说明的提示比较长，多留两秒让人读完再跳走
+      }, sendNote || editMailNote ? 3500 : 1500)
     } catch (err: any) {
       console.error('[QuotationCreate] 提交失败:', err)
       setGlobalError(err.message || t('quotationCreate.submitFailedRetry'))
@@ -916,8 +947,11 @@ export default function QuotationCreate() {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              {t('quotationCreate.saveDraft')}
+              {/* 已发送的报价（补报剩余几票的价，开发意见 #23）：这一步只是保存修改，不再是「草稿」 */}
+              {editStatus === 'SENT' ? t('quotationEdit.saveChanges') : t('quotationCreate.saveDraft')}
             </button>
+            {/* 后端只允许草稿发送；已发送的报价再点发送只会报错，直接不给这个按钮 */}
+            {editStatus !== 'SENT' && (
             <button
               onClick={() => handleSubmit('send')}
               disabled={submitting}
@@ -930,6 +964,7 @@ export default function QuotationCreate() {
               )}
               {t('quotationCreate.sendQuote')}
             </button>
+            )}
           </div>
         </div>
 

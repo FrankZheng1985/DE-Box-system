@@ -376,6 +376,10 @@
     "quote": "Angebot"
   },
   "quotation": {
+    "colProgress": "Preisstand",
+    "progressPartial": "Teilweise {{priced}}/{{total}}",
+    "progressFull": "Vollständig",
+    "completePricing": "Preise ergänzen (restliche Zustellungen)",
     "tabTitle": "Angebote",
     "pageTitle": "Angebote",
     "create": "Neues Angebot",
@@ -945,8 +949,12 @@
     "dropCount": "Zustellungen"
   },
   "quotationDeliveryLines": {
+    "unpriced": "Ohne Preis",
+    "unpricedPlaceholder": "Später",
+    "progressPartial": "Teilweise {{priced}}/{{total}} Zustellungen",
+    "progressFull": "Vollständig",
     "title": "Preis je Zustellung ({{count}})",
-    "hint": "Die Containersumme ergibt sich aus den Zeilen",
+    "hint": "Leer lassen = später bepreisen; 0 = kostenlose Zustellung. Summe = Summe der bepreisten Zustellungen",
     "colSubRef": "Zustellreferenz",
     "colDropTo": "Zustellen an",
     "colPrice": "Preis",
@@ -968,12 +976,15 @@
     "currentVersion": "Aktuelle Version: V{{version}}"
   },
   "quotationEdit": {
+    "saveChanges": "Änderungen speichern",
     "pageTitle": "Angebot bearbeiten",
     "lockedFieldsHint": "Kunde, Geschäftsart, Transportart und Währung lassen sich nach Erstellung des Angebots nicht mehr ändern; Preis, Gültigkeit, Strecke und Bemerkungen bleiben bearbeitbar.",
     "loadFailed": "Angebot konnte nicht geladen werden, bitte zurück und erneut versuchen",
     "saved": "Angebot gespeichert"
   },
   "quotationCreate": {
+    "errDeliveryPriceInvalid": "Ungültiger Preis für: {{refs}}",
+    "errDeliveryPriceNone": "Bitte mindestens für eine Zustellung einen Preis eingeben (die übrigen können später ergänzt werden)",
     "pageTitle": "Angebot erstellen",
     "sourceLoadFailed": "Zugrunde liegende Anfrage konnte nicht geladen werden – bitte manuell ausfüllen",
     "fromInquiry": "Aus Anfrage",
@@ -991,7 +1002,6 @@
     "errTransportType": "Bitte eine Transportart auswählen",
     "errValidUntil": "Bitte ein Gültigkeitsdatum auswählen",
     "errBaseFreight": "Bitte die Grundfracht eingeben",
-    "errDeliveryPrices": "Für diese Zustellungen fehlt noch ein Preis: {{refs}}",
     "originCountry": "Versandland",
     "originCity": "Versandort",
     "destCountry": "Zielland",

@@ -74,8 +74,13 @@ interface QuotationDetail {
     expected_arrival_date: string | null
   } | null
   deliveryLines: DeliveryLine[]
+  /** 柜里还没报价的票（开发意见 #23 部分报价） */
+  unpricedDeliveryOrders: Omit<DeliveryLine, 'price' | 'currency'>[]
   convertedOrders: ConvertedOrder[]
 }
+
+/** 弹窗里的一行：已报价的票带价格，未报价的 price 为 null */
+type DropRow = Omit<DeliveryLine, 'price' | 'currency'> & { price: string | null; currency: string | null }
 
 // ==================== 工具 ====================
 
@@ -140,6 +145,14 @@ export default function QuotationDetailModal({
 
   const isLocalDelivery = data?.business_type === BUSINESS_TYPES.LOCAL_DELIVERY
   const currency = data?.currency || 'EUR'
+  // 已报 + 未报合在一起按票号排：客户要看到的是「整柜每一票」，而不是只看到报了的那几票
+  const dropRows: DropRow[] = data
+    ? [
+      ...data.deliveryLines,
+      ...(data.unpricedDeliveryOrders || []).map((d) => ({ ...d, price: null, currency: null })),
+    ].sort((a, b) => a.line_number - b.line_number)
+    : []
+  const unpricedCount = data?.unpricedDeliveryOrders?.length || 0
 
   return (
     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
@@ -209,7 +222,12 @@ export default function QuotationDetailModal({
                 // 本地派送：逐票报价 + 整柜合计（开发意见 #21）
                 <div className="border border-gray-200 rounded-xl overflow-hidden">
                   <p className="px-4 py-2 text-xs font-medium text-slate-700 bg-gray-50 border-b border-gray-200">
-                    {t('quotations.deliveryLines', { count: data.deliveryLines.length })}
+                    {t('quotations.deliveryLines', { count: dropRows.length })}
+                    {unpricedCount > 0 && (
+                      <span className="ml-2 inline-block px-2 py-0.5 text-[10px] font-normal rounded-full bg-amber-100 text-amber-700">
+                        {t('quotations.progressPartial', { priced: dropRows.length - unpricedCount, total: dropRows.length })}
+                      </span>
+                    )}
                   </p>
                   <div className="overflow-x-auto">
                     <table className="w-full table-fixed min-w-[560px]">
@@ -230,7 +248,7 @@ export default function QuotationDetailModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {data.deliveryLines.map((l) => (
+                        {dropRows.map((l) => (
                           <tr key={l.id} className="border-b border-gray-50">
                             <td className="text-center px-3 py-2 text-xs text-slate-400 tabular-nums">{l.line_number}</td>
                             <td className="text-left px-3 py-2 text-xs text-slate-900 truncate" title={l.customer_sub_ref || ''}>
@@ -249,7 +267,9 @@ export default function QuotationDetailModal({
                               })}
                             </td>
                             <td className="text-right px-3 py-2 text-xs font-medium text-slate-900 tabular-nums">
-                              {formatMoney(l.price, l.currency || currency)}
+                              {l.price === null
+                                ? <span className="font-normal text-amber-600">{t('quotations.unpriced')}</span>
+                                : formatMoney(l.price, l.currency || currency)}
                             </td>
                           </tr>
                         ))}
@@ -257,7 +277,8 @@ export default function QuotationDetailModal({
                       <tfoot>
                         <tr className="bg-gray-50">
                           <td colSpan={4} className="text-right px-3 py-2.5 text-xs font-medium text-slate-700">
-                            {t('quotations.detail.containerTotal')}
+                            {/* 部分报价时合计只是已报几票之和，要说清楚，别让客户当成整柜总价 */}
+                            {unpricedCount > 0 ? t('quotations.detail.pricedTotal') : t('quotations.detail.containerTotal')}
                           </td>
                           <td className="text-right px-3 py-2.5 text-sm font-semibold text-slate-900 tabular-nums">
                             {formatMoney(data.total_price, currency)}
