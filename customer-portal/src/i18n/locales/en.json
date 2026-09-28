@@ -380,6 +380,8 @@
     "errorTo": "Please enter at least the destination country or city",
     "colSla": "Quote time",
     "colArrival": "Est. arrival",
+    "scopePending": "Awaiting quote",
+    "emptyPending": "No inquiries awaiting a quote. Quoted ones are under \"My Quotations\".",
     "deleteTitle": "Delete inquiry",
     "deleteConfirm": "Delete inquiry {{no}}?",
     "deleteIrreversible": "Once deleted, the inquiry disappears from your list and cannot be restored by you.",

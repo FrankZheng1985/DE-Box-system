@@ -183,6 +183,10 @@ export default function InquiryList() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [businessTypeFilter, setBusinessTypeFilter] = useState('')
+  // 状态范围（开发意见 #20）：默认只看「待报价」。
+  // 已报价的询价在「我的报价」里有对应的报价单，这里再列一遍只会让列表越来越长；
+  // 已取消 / 已拒绝的单切到「全部」还能查到，不会凭空消失
+  const [statusScope, setStatusScope] = useState<'pending' | 'all'>('pending')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   /** 输入框里的词 */
@@ -209,6 +213,7 @@ export default function InquiryList() {
       const params = new URLSearchParams()
       params.append('page', String(page))
       params.append('pageSize', String(PAGE_SIZE))
+      if (statusScope === 'pending') params.append('status', 'PENDING_QUOTE')
       if (businessTypeFilter) params.append('businessType', businessTypeFilter)
       if (dateFrom) params.append('dateFrom', dateFrom)
       if (dateTo) params.append('dateTo', dateTo)
@@ -228,7 +233,7 @@ export default function InquiryList() {
     } finally {
       setLoading(false)
     }
-  }, [page, businessTypeFilter, dateFrom, dateTo, searchQuery, t])
+  }, [page, statusScope, businessTypeFilter, dateFrom, dateTo, searchQuery, t])
 
   // 列表跟着分页和筛选走（依赖都收在上面 loadInquiries 的 useCallback 里了）
   useEffect(() => { loadInquiries() }, [loadInquiries])
@@ -927,6 +932,24 @@ export default function InquiryList() {
       {/* 筛选栏（开发意见 #16：按时间、按服务类型筛，外加按单号搜） */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-4">
         <div className="flex items-center gap-3 flex-wrap">
+          {/* 待报价 / 全部（开发意见 #20）。不算进「清除筛选」：它是看哪一类单，不是临时筛选条件 */}
+          <div className="flex items-center p-0.5 bg-gray-100 rounded-lg shrink-0">
+            {(['pending', 'all'] as const).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                onClick={() => { setStatusScope(scope); setPage(1) }}
+                className={`h-8 px-3 text-xs rounded-md whitespace-nowrap transition-all duration-200 ease-in-out ${
+                  statusScope === scope
+                    ? 'bg-white text-slate-900 font-medium shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {scope === 'pending' ? t('inquiry.scopePending') : t('common.all')}
+              </button>
+            ))}
+          </div>
+
           {/* 搜索框：提示词较长，给足最小宽度免得被压成两行 */}
           <div className="relative flex-1 min-w-[280px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1066,7 +1089,10 @@ export default function InquiryList() {
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={14} className="text-center py-8 text-sm text-slate-400">
+                    {/* 只看待报价时没数据，多半是都报完了 —— 告诉客户去哪里看报价 */}
+                    {statusScope === 'pending' ? t('inquiry.emptyPending') : t('inquiry.empty')}
+                  </td>
                 </tr>
               ) : (
                 inquiries.map((item, index) => (

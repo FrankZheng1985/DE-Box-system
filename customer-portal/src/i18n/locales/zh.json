@@ -380,6 +380,8 @@
     "errorTo": "请至少填写目的地的国家或城市",
     "colSla": "报价时效",
     "colArrival": "预计到仓",
+    "scopePending": "待报价",
+    "emptyPending": "暂无待报价的询价。已报价的请到「我的报价」查看",
     "deleteTitle": "删除询价单",
     "deleteConfirm": "确定要删除询价单 {{no}} 吗？",
     "deleteIrreversible": "删除后该询价单不再显示，无法自行恢复。",

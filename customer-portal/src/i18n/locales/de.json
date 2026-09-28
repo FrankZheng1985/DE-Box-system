@@ -380,6 +380,8 @@
     "errorTo": "Bitte mindestens Land oder Stadt des Zielorts angeben",
     "colSla": "Angebotsdauer",
     "colArrival": "Ankunft (vsl.)",
+    "scopePending": "Angebot ausstehend",
+    "emptyPending": "Keine Anfragen mit ausstehendem Angebot. Bereits angebotene finden Sie unter „Meine Angebote“.",
     "deleteTitle": "Anfrage löschen",
     "deleteConfirm": "Anfrage {{no}} wirklich löschen?",
     "deleteIrreversible": "Nach dem Löschen wird die Anfrage nicht mehr angezeigt und kann von Ihnen nicht wiederhergestellt werden.",
