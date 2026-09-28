@@ -447,7 +447,23 @@
       }
     },
     "viewOrder": "查看订单详情",
-    "orderNoHint": "双击订单号查看订单详情"
+    "orderNoHint": "双击订单号查看订单详情",
+    "detail": {
+      "title": "报价详情",
+      "openHint": "查看报价详情（含逐票报价）",
+      "subRef": "子单号",
+      "deliverTo": "派送到",
+      "cargo": "货量",
+      "cargoValue": "{{qty}} 件 · {{weight}} kg",
+      "linePrice": "本票报价",
+      "containerTotal": "整柜合计",
+      "baseFreight": "运费",
+      "surcharge": "附加费",
+      "insuranceFee": "保险费",
+      "total": "报价合计",
+      "orders": "已生成的订单（{{count}} 张）",
+      "containerOf": "整柜 {{count}} 票 · 点单号看明细"
+    }
   },
   "quotationStatus": {
     "DRAFT": "草稿",

@@ -447,7 +447,23 @@
       }
     },
     "viewOrder": "Auftragsdetails ansehen",
-    "orderNoHint": "Doppelklick auf die Auftragsnummer öffnet die Auftragsdetails"
+    "orderNoHint": "Doppelklick auf die Auftragsnummer öffnet die Auftragsdetails",
+    "detail": {
+      "title": "Angebotsdetails",
+      "openHint": "Angebotsdetails anzeigen (inkl. Preis je Zustellung)",
+      "subRef": "Unterref.",
+      "deliverTo": "Zustellung an",
+      "cargo": "Ladung",
+      "cargoValue": "{{qty}} Stk. · {{weight}} kg",
+      "linePrice": "Preis je Zustellung",
+      "containerTotal": "Summe Container",
+      "baseFreight": "Fracht",
+      "surcharge": "Zuschlag",
+      "insuranceFee": "Versicherung",
+      "total": "Gesamt",
+      "orders": "Erstellte Aufträge ({{count}})",
+      "containerOf": "{{count}} Zustellungen · Nr. anklicken für Details"
+    }
   },
   "quotationStatus": {
     "DRAFT": "Entwurf",

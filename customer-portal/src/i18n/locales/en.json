@@ -447,7 +447,23 @@
       }
     },
     "viewOrder": "View order details",
-    "orderNoHint": "Double-click the order number to open order details"
+    "orderNoHint": "Double-click the order number to open order details",
+    "detail": {
+      "title": "Quotation details",
+      "openHint": "View quotation details (incl. per-drop prices)",
+      "subRef": "Sub-ref.",
+      "deliverTo": "Deliver to",
+      "cargo": "Cargo",
+      "cargoValue": "{{qty}} pcs · {{weight}} kg",
+      "linePrice": "Drop price",
+      "containerTotal": "Container total",
+      "baseFreight": "Freight",
+      "surcharge": "Surcharge",
+      "insuranceFee": "Insurance",
+      "total": "Total",
+      "orders": "Orders created ({{count}})",
+      "containerOf": "{{count}} drops · click no. for details"
+    }
   },
   "quotationStatus": {
     "DRAFT": "Draft",

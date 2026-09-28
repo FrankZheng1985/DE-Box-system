@@ -116,8 +116,11 @@ router.get('/', requirePermission('quotation:view', 'portal:quotation_view'), as
     let sql = `
       SELECT q.*, c.company_name as client_name,
              u.display_name as created_by_name,
-             i.inquiry_number, i.customer_ref,
-             o.order_number as converted_order_number
+             i.inquiry_number, i.customer_ref, i.container_no,
+             o.order_number as converted_order_number,
+             -- 本地派送柜里一共几票（开发意见 #21：列表上提示「整柜 N 票」，明细进详情看）
+             (SELECT COUNT(*) FROM inquiry_delivery_orders d
+               WHERE d.inquiry_id = q.inquiry_id)::int AS delivery_order_count
       FROM quotations q
       LEFT JOIN clients c ON c.id = q.client_id
       LEFT JOIN users u ON u.id = q.created_by
@@ -232,15 +235,26 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
     if (!quotation) return
 
     // 定价明细 + 来源询价单 + 自动建出的订单
-    const [items, inquiry, order] = await Promise.all([
+    const [items, inquiry, order, orders] = await Promise.all([
       query(`SELECT * FROM quotation_pricing_items WHERE quotation_id = $1 ORDER BY sort_order`, [req.params.id]),
       quotation.inquiry_id
-        ? query(`SELECT id, inquiry_number, customer_ref, contact_name, contact_phone, contact_email
+        ? query(`SELECT id, inquiry_number, customer_ref, container_no, expected_arrival_date,
+                        contact_name, contact_phone, contact_email
                  FROM inquiries WHERE id = $1`, [quotation.inquiry_id])
         : Promise.resolve({ rows: [] }),
       quotation.converted_order_id
         ? query(`SELECT id, order_number, status FROM orders WHERE id = $1`, [quotation.converted_order_id])
         : Promise.resolve({ rows: [] }),
+      // 这张报价生成的【全部】订单（开发意见 #22）。
+      // 本地派送一柜转 N 单，converted_order_id 只装得下第一张，其余靠 source_quotation_id 反查（迁移 131）；
+      // 两个条件一起查，兼容迁移 131 之前转出的老订单（那时还没有 source_quotation_id）
+      query(
+        `SELECT id, order_number, status, cargo_description, client_price, currency
+         FROM orders
+         WHERE source_quotation_id = $1 OR id = $2
+         ORDER BY created_at, order_number`,
+        [quotation.id, quotation.converted_order_id || null]
+      ),
     ])
 
     // 本地派送的逐票报价；其余服务是空数组，前端据此决定用哪套渲染
@@ -254,6 +268,7 @@ router.get('/:id', requirePermission('quotation:view', 'portal:quotation_view'),
         deliveryLines,
         inquiry: inquiry.rows[0] || null,
         convertedOrder: order.rows[0] || null,
+        convertedOrders: orders.rows,
       }),
     })
   } catch (error) {

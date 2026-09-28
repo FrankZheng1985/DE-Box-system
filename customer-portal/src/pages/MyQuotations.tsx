@@ -13,10 +13,12 @@ import {
   RefreshCw, CheckCircle, XCircle, Clock, FileText, X, AlertCircle, Loader2, Eye,
 } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import QuotationDetailModal from '../components/QuotationDetailModal'
 import { formatMoney, formatDate } from '../utils/format'
 import {
   QUOTATION_STATUS, QUOTATION_STATUS_STYLES, CLIENT_DECIDABLE,
 } from '../constants/inquiryQuotation'
+import { BUSINESS_TYPES } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
 
@@ -51,6 +53,8 @@ interface Quotation {
   remarks: string | null
   converted_order_number: string | null
   converted_order_id: string | null
+  /** 本地派送柜里一共几票（列表接口子查询，开发意见 #21） */
+  delivery_order_count: number
   created_at: string
 }
 
@@ -243,6 +247,8 @@ export default function MyQuotations() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
   const [decision, setDecision] = useState<{ quotation: Quotation; type: DecisionType } | null>(null)
+  /** 正在看详情的报价（开发意见 #22：点报价单号打开） */
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
@@ -350,6 +356,10 @@ export default function MyQuotations() {
         />
       )}
 
+      {detailId && (
+        <QuotationDetailModal quotationId={detailId} onClose={() => setDetailId(null)} />
+      )}
+
       {/* 列表 */}
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
         <div className="overflow-x-auto">
@@ -400,7 +410,16 @@ export default function MyQuotations() {
                   return (
                     <tr key={q.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="text-left px-3 py-2.5">
-                        <span className="text-xs font-medium text-slate-900 block truncate">{q.quotation_number}</span>
+                        {/* 报价单号就是看详情的入口（开发意见 #22），三种服务类型通用。
+                            单击即可打开；苏总习惯双击，双击同样会打开（弹窗不响应遮罩点击，不会被第二下关掉） */}
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(q.id)}
+                          title={t('quotations.detail.openHint')}
+                          className="text-xs font-medium text-primary-600 hover:underline block truncate max-w-full text-left transition-all duration-200 ease-in-out"
+                        >
+                          {q.quotation_number}
+                        </button>
                         {q.version > 1 && <span className="text-[10px] text-slate-400">V{q.version}</span>}
                         {q.converted_order_number && (
                           // 已下单的报价，双击订单号直接进订单详情（意见 #13）；
@@ -423,6 +442,12 @@ export default function MyQuotations() {
                       <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">{routeText(q)}</td>
                       <td className="text-right px-3 py-2.5 text-xs font-semibold text-slate-900">
                         {fmtMoney(q.total_price, q.currency)}
+                        {/* 本地派送的金额是整柜合计，提示一下里面有几票、点单号看逐票价（开发意见 #21） */}
+                        {q.business_type === BUSINESS_TYPES.LOCAL_DELIVERY && q.delivery_order_count > 0 && (
+                          <span className="block text-[10px] font-normal text-slate-400">
+                            {t('quotations.detail.containerOf', { count: q.delivery_order_count })}
+                          </span>
+                        )}
                       </td>
                       <td className="text-center px-3 py-2.5 text-xs">
                         <span className={expired ? 'text-red-600' : 'text-slate-500'}>
