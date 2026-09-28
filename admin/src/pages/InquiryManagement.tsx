@@ -13,6 +13,7 @@ import {
 Tag, CheckCircle, Clock, FileSpreadsheet,
 } from 'lucide-react'
 import api, { type ApiResponse, getApiBaseUrl } from '../utils/api'
+import { formatDate } from '../utils/format'
 import StatCard from '../components/StatCard'
 import Toast from '../components/Toast'
 import InquiryQuotationTabs from '../components/InquiryQuotationTabs'
@@ -34,6 +35,8 @@ interface Inquiry {
   customer_ref: string | null
   /** 柜号：目前只有本地派送有（迁移 129「一张询价单 = 一个柜」），其余服务类型是 null */
   container_no: string | null
+  /** 预计到仓日期（迁移 136，DATE 列，后端按 YYYY-MM-DD 字符串返回） */
+  expected_arrival_date: string | null
   client_id: string
   client_name: string | null
   business_type: string
@@ -383,25 +386,28 @@ export default function InquiryManagement() {
 
         {/* 列表 */}
         <div className="overflow-x-auto">
-          {/* 列变多了，min-width 跟着放大，免得挤成两行（意见 #18） */}
-          <table className="w-full table-fixed min-w-[1320px]">
+          {/* 列变多了，min-width 跟着放大，免得挤成两行（意见 #18）。
+              意见 #24 加「预计到仓」列：1320 → 1420，其余列按比例各收 1 个点 */}
+          <table className="w-full table-fixed min-w-[1420px]">
             <colgroup>
               {/* 勾选框 */}
               <col className="w-[4%]" />
               {/* 序号 */}
               <col className="w-[4%]" />
               {/* 询价编号 */}
-              <col className="w-[12%]" />
-              {/* 柜号（意见 #18：从询价编号的副行提出来独占一列） */}
-              <col className="w-[10%]" />
-              {/* 客户单号（同上） */}
-              <col className="w-[10%]" />
-              {/* 客户 */}
               <col className="w-[11%]" />
-              {/* 服务类型 */}
+              {/* 柜号（意见 #18：从询价编号的副行提出来独占一列） */}
               <col className="w-[9%]" />
-              {/* 路线 */}
+              {/* 客户单号（同上） */}
+              <col className="w-[9%]" />
+              {/* 客户 */}
               <col className="w-[10%]" />
+              {/* 服务类型 */}
+              <col className="w-[8%]" />
+              {/* 路线 */}
+              <col className="w-[9%]" />
+              {/* 预计到仓（意见 #24） */}
+              <col className="w-[6%]" />
               {/* 件数 */}
               <col className="w-[5%]" />
               {/* 重量 */}
@@ -425,6 +431,7 @@ export default function InquiryManagement() {
                 <th className="text-left px-3 py-3 font-medium">{t('common.client')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('field.businessType')}</th>
                 <th className="text-left px-3 py-3 font-medium">{t('common.route')}</th>
+                <th className="text-center px-3 py-3 font-medium">{t('inquiry.colArrival')}</th>
                 <th className="text-right px-3 py-3 font-medium">{t('inquiry.colPieces')}</th>
                 <th className="text-right px-3 py-3 font-medium">{t('inquiry.colWeightKg')}</th>
                 <th className="text-right px-3 py-3 font-medium">LDM</th>
@@ -436,14 +443,14 @@ export default function InquiryManagement() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 13 }).map((_, j) => (
+                    {Array.from({ length: 14 }).map((_, j) => (
                       <td key={j} className="px-3 py-3.5"><div className="h-3 bg-slate-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={14} className="text-center py-12 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item, index) => (
@@ -495,6 +502,8 @@ export default function InquiryManagement() {
                     <td className="text-left px-3 py-3.5 text-xs text-slate-600 truncate">
                       {routeText(item.route_from)} → {routeText(item.route_to)}
                     </td>
+                    {/* 预计到仓（意见 #24）：客户批量导入和手工新建都会写这个字段 */}
+                    <td className="text-center px-3 py-3.5 text-xs text-slate-600">{formatDate(item.expected_arrival_date)}</td>
                     <td className="text-right px-3 py-3.5 text-xs text-slate-600">{item.cargo_quantity ?? '-'}</td>
                     <td className="text-right px-3 py-3.5 text-xs text-slate-600">{fmtNumber(item.cargo_weight_kg)}</td>
                     <td className="text-right px-3 py-3.5 text-xs text-slate-600">{fmtNumber(item.ldm)}</td>

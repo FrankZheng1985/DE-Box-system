@@ -379,6 +379,7 @@
     "errorFrom": "请至少填写起运地的国家或城市",
     "errorTo": "请至少填写目的地的国家或城市",
     "colSla": "报价时效",
+    "colArrival": "预计到仓",
     "deleteTitle": "删除询价单",
     "deleteConfirm": "确定要删除询价单 {{no}} 吗？",
     "deleteIrreversible": "删除后该询价单不再显示，无法自行恢复。",
@@ -814,6 +815,7 @@
     "colRef": "客户单号",
     "colService": "服务类型",
     "colRoute": "路线",
+    "colArrival": "预计到仓",
     "colLines": "明细行",
     "colQty": "件数",
     "colWeight": "实重(kg)"

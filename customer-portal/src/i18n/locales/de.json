@@ -379,6 +379,7 @@
     "errorFrom": "Bitte mindestens Land oder Stadt des Versandorts angeben",
     "errorTo": "Bitte mindestens Land oder Stadt des Zielorts angeben",
     "colSla": "Angebotsdauer",
+    "colArrival": "Ankunft (vsl.)",
     "deleteTitle": "Anfrage löschen",
     "deleteConfirm": "Anfrage {{no}} wirklich löschen?",
     "deleteIrreversible": "Nach dem Löschen wird die Anfrage nicht mehr angezeigt und kann von Ihnen nicht wiederhergestellt werden.",
@@ -814,6 +815,7 @@
     "colRef": "Kundenreferenz",
     "colService": "Leistungsart",
     "colRoute": "Strecke",
+    "colArrival": "Ankunft (vsl.)",
     "colLines": "Positionen",
     "colQty": "Packstücke",
     "colWeight": "Gewicht (kg)"

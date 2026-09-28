@@ -1007,6 +1007,8 @@ function buildPreviewPayload(result, dupWarnings = []) {
     itemCount: result.groups.reduce((sum, g) => sum + g.cargoItems.length, 0),
     inquiries: result.groups.map((g) => ({
       customerRef: g.customerRef,
+      // 预计到仓（开发意见 #24）：导入前就让客户核对，别等导进去才发现日期读错了
+      expectedArrivalDate: g.expectedArrivalDate || null,
       businessType: g.businessType,
       routeFrom: g.routeFrom,
       routeTo: g.routeTo,
@@ -1043,6 +1045,7 @@ function buildLocalDeliveryPreviewPayload(result, dupWarnings = []) {
     inquiries: result.groups.map((g) => ({
       containerNo: g.containerNo,
       customerRef: g.customerRef,
+      expectedArrivalDate: g.expectedArrivalDate || null,
       routeFrom: g.routeFrom,
       orderCount: g.orderCount ?? g.deliveryOrders.length,
       itemCount: g.deliveryOrders.reduce((s, o) => s + o.cargoItems.length, 0),

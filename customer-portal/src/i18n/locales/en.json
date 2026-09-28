@@ -379,6 +379,7 @@
     "errorFrom": "Please enter at least the origin country or city",
     "errorTo": "Please enter at least the destination country or city",
     "colSla": "Quote time",
+    "colArrival": "Est. arrival",
     "deleteTitle": "Delete inquiry",
     "deleteConfirm": "Delete inquiry {{no}}?",
     "deleteIrreversible": "Once deleted, the inquiry disappears from your list and cannot be restored by you.",
@@ -814,6 +815,7 @@
     "colRef": "Client ref.",
     "colService": "Service type",
     "colRoute": "Route",
+    "colArrival": "Est. arrival",
     "colLines": "Lines",
     "colQty": "Pieces",
     "colWeight": "Weight (kg)"

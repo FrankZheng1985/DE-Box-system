@@ -18,7 +18,7 @@ import Toast from '../components/Toast'
 import CarrierInquiryPanel from '../components/CarrierInquiryPanel'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
-import { formatDateTime } from '../utils/format'
+import { formatDate, formatDateTime } from '../utils/format'
 import { businessTypeLabelKey } from '../constants/businessTypes'
 import { CARRIER_INQUIRY_PERMISSIONS } from '../constants/carrierInquiry'
 import {
@@ -84,6 +84,8 @@ interface InquiryDetailData {
   vehicle_length_code: string | null
   /** 柜号，只有本地派送有 */
   container_no: string | null
+  /** 预计到仓日期（迁移 136，DATE 列，后端按 YYYY-MM-DD 字符串返回） */
+  expected_arrival_date: string | null
   /** 取件地址的 JSONB 里还带着发货联系人（contactName / contactPhone / contactEmail） */
   route_from: {
     country?: string; city?: string; zipCode?: string; address?: string
@@ -380,6 +382,8 @@ export default function InquiryDetail() {
           {data.container_no && (
             <InfoRow label={t('field.containerNo')} value={data.container_no} />
           )}
+          {/* 预计到仓（意见 #24）：三种服务类型都显示 */}
+          <InfoRow label={t('inquiry.expectedArrivalDate')} value={formatDate(data.expected_arrival_date)} />
           <InfoRow label={t('common.createdAt')} value={formatDateTime(data.created_at)} />
         </Section>
 

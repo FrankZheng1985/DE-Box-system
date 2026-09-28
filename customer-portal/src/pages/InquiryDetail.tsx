@@ -77,6 +77,8 @@ interface InquiryDetailData {
   transport_type: string | null
   vehicle_length_code: string | null
   container_no: string | null
+  /** 预计到仓日期（迁移 136，DATE 列，后端按 YYYY-MM-DD 字符串返回） */
+  expected_arrival_date: string | null
   container_type: string | null
   pod: string | null
   route_from: AddressJson | null
@@ -281,6 +283,8 @@ export default function InquiryDetail() {
           )}
           {isContainer && <Field label={t('createOrder.containerType')} value={inquiry.container_type} />}
           {isContainer && <Field label={t('createOrder.pod')} value={inquiry.pod} />}
+          {/* 预计到仓（开发意见 #24）：三种服务类型都显示 */}
+          <Field label={t('inquiry.expectedArrivalDate')} value={formatDate(inquiry.expected_arrival_date)} />
           <Field label={t('common.createdAt')} value={formatDateTime(inquiry.created_at)} />
           <Field label={t('common.updatedAt')} value={formatDateTime(inquiry.updated_at)} />
         </FieldGrid>

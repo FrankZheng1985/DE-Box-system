@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Upload, FileSpreadsheet, Download, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import i18n from '../i18n'
 import { getAuthHeaders } from '../utils/api'
+import { formatDate } from '../utils/format'
 import { BUSINESS_TYPES, type BusinessType } from '../constants/businessTypes'
 
 // ==================== 类型定义 ====================
@@ -22,6 +23,8 @@ interface ImportIssue {
 
 interface ImportPreviewInquiry {
   customerRef: string
+  /** 预计到仓日期 YYYY-MM-DD（开发意见 #24） */
+  expectedArrivalDate: string | null
   businessType: string | null
   routeFrom: { country?: string; city?: string }
   routeTo: { country?: string; city?: string }
@@ -365,6 +368,10 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
                         {item.customerRef && (
                           <span className="text-[11px] text-slate-500">{item.customerRef}</span>
                         )}
+                        {/* 预计到仓（开发意见 #24）：柜级字段，放在柜号这一行 */}
+                        <span className="text-[11px] text-slate-500">
+                          {t('inquiryImport.colArrival')}: {formatDate(item.expectedArrivalDate)}
+                        </span>
                         {item.duplicateOfExisting && (
                           <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-700 rounded-full">
                             {t('inquiryImport.duplicateBadge')}
@@ -417,21 +424,24 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
 
               {preview.inquiries.length > 0 && !isLocalDeliveryPreview && (
                 <div className="overflow-x-auto">
-                  <table className="w-full table-fixed min-w-[760px]">
+                  <table className="w-full table-fixed min-w-[860px]">
                     <colgroup>
-                      <col className="w-[18%]" />
                       <col className="w-[16%]" />
-                      <col className="w-[24%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[10%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[22%]" />
+                      {/* 预计到仓（开发意见 #24） */}
                       <col className="w-[12%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[9%]" />
                       <col className="w-[10%]" />
+                      <col className="w-[8%]" />
                     </colgroup>
                     <thead>
                       <tr className="text-[11px] text-slate-500 border-b border-gray-100">
                         <th className="text-left px-2 py-2 font-medium">{t('inquiryImport.colRef')}</th>
                         <th className="text-left px-2 py-2 font-medium">{t('inquiryImport.colService')}</th>
                         <th className="text-left px-2 py-2 font-medium">{t('inquiryImport.colRoute')}</th>
+                        <th className="text-center px-2 py-2 font-medium">{t('inquiryImport.colArrival')}</th>
                         <th className="text-right px-2 py-2 font-medium">{t('inquiryImport.colLines')}</th>
                         <th className="text-right px-2 py-2 font-medium">{t('inquiryImport.colQty')}</th>
                         <th className="text-right px-2 py-2 font-medium">{t('inquiryImport.colWeight')}</th>
@@ -457,6 +467,7 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
                           <td className="text-left px-2 py-2 text-xs text-slate-600 truncate">
                             {routeText(item.routeFrom)} → {routeText(item.routeTo)}
                           </td>
+                          <td className="text-center px-2 py-2 text-xs text-slate-600">{formatDate(item.expectedArrivalDate)}</td>
                           <td className="text-right px-2 py-2 text-xs text-slate-600">{item.itemCount}</td>
                           <td className="text-right px-2 py-2 text-xs text-slate-600">{item.totalQuantity}</td>
                           <td className="text-right px-2 py-2 text-xs text-slate-600">{item.totalWeightKg.toFixed(2)}</td>

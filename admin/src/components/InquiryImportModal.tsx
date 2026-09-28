@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Upload, FileSpreadsheet, Download, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import i18n from '../i18n'
 import api, { type ApiResponse, getApiBaseUrl, getAuthHeaders } from '../utils/api'
+import { formatDate } from '../utils/format'
 
 // ==================== 类型定义 ====================
 
@@ -23,6 +24,8 @@ interface ImportIssue {
 
 interface ImportPreviewInquiry {
   customerRef: string
+  /** 预计到仓日期 YYYY-MM-DD（开发意见 #24） */
+  expectedArrivalDate: string | null
   businessType: string | null
   routeFrom: { country?: string; city?: string }
   routeTo: { country?: string; city?: string }
@@ -334,21 +337,24 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
               {/* 将要生成的询价单 */}
               {preview.inquiries.length > 0 && (
                 <div className="overflow-x-auto">
-                  <table className="w-full table-fixed min-w-[820px]">
+                  <table className="w-full table-fixed min-w-[920px]">
                     <colgroup>
-                      <col className="w-[18%]" />
                       <col className="w-[16%]" />
-                      <col className="w-[24%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[10%]" />
+                      <col className="w-[14%]" />
+                      <col className="w-[22%]" />
+                      {/* 预计到仓（开发意见 #24） */}
                       <col className="w-[12%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[9%]" />
                       <col className="w-[10%]" />
+                      <col className="w-[8%]" />
                     </colgroup>
                     <thead>
                       <tr className="text-xs text-slate-500 border-b border-slate-100">
                         <th className="text-left px-3 py-2.5 font-medium">{t('inquiryImport.colRef')}</th>
                         <th className="text-left px-3 py-2.5 font-medium">{t('inquiryImport.colService')}</th>
                         <th className="text-left px-3 py-2.5 font-medium">{t('inquiryImport.colRoute')}</th>
+                        <th className="text-center px-3 py-2.5 font-medium">{t('inquiryImport.colArrival')}</th>
                         <th className="text-right px-3 py-2.5 font-medium">{t('inquiryImport.colLines')}</th>
                         <th className="text-right px-3 py-2.5 font-medium">{t('inquiryImport.colQty')}</th>
                         <th className="text-right px-3 py-2.5 font-medium">{t('inquiryImport.colWeight')}</th>
@@ -374,6 +380,7 @@ export default function InquiryImportModal({ onClose, onImported }: Props) {
                           <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
                             {routeText(item.routeFrom)} → {routeText(item.routeTo)}
                           </td>
+                          <td className="text-center px-3 py-2.5 text-xs text-slate-600">{formatDate(item.expectedArrivalDate)}</td>
                           <td className="text-right px-3 py-2.5 text-xs text-slate-600">{item.itemCount}</td>
                           <td className="text-right px-3 py-2.5 text-xs text-slate-600">{item.totalQuantity}</td>
                           <td className="text-right px-3 py-2.5 text-xs text-slate-600">{item.totalWeightKg.toFixed(2)}</td>

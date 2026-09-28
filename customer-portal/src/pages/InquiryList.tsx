@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus, RefreshCw, Send, X, Trash2, Package, Upload, Timer, Gauge, Hourglass, Clock, MapPin, Truck, Eye, Search } from 'lucide-react'
 import api, { ApiResponse } from '../utils/api'
+import { formatDate } from '../utils/format'
 import InquiryImportModal from '../components/InquiryImportModal'
 import LocalDeliveryForm from '../components/LocalDeliveryForm'
 // 地址卡片原先内联在本文件里，询价编辑页（开发意见 #12）也要用，已抽到组件目录共用
@@ -33,6 +34,8 @@ interface Inquiry {
   customer_ref: string | null
   /** 柜号：本地派送是「一张询价单 = 一个柜」（迁移 129）；其余服务类型目前为 null */
   container_no: string | null
+  /** 预计到仓日期（迁移 136，DATE 列，后端按 YYYY-MM-DD 字符串返回） */
+  expected_arrival_date: string | null
   business_type: string
   route_from: { country?: string; city?: string; zipCode?: string; address?: string } | null
   route_to: { country?: string; city?: string; zipCode?: string; address?: string } | null
@@ -1000,21 +1003,25 @@ export default function InquiryList() {
           {/* 列宽按内容实测排的：询价编号 17 字符、报价时效要放下「已等待 0.0 天」、
               表头「实重(kg)」和「操作」都不能被压成两行。
               操作列从 6% 加到 8%（放得下「查看 + 删除」两个按钮，6% ≈ 65px 会挤成两行），
-              多出来的 2% 从路线列匀 —— 路线本来就是 truncate 显示的 */}
-          <table className="w-full table-fixed min-w-[1240px]">
+              多出来的 2% 从路线列匀 —— 路线本来就是 truncate 显示的。
+              开发意见 #24 加「预计到仓」列：最小宽度同步从 1240 放到 1340，
+              其余列的百分比按比例收 1 个点，实际像素宽度基本不变 */}
+          <table className="w-full table-fixed min-w-[1340px]">
             <colgroup>
               {/* 序号 */}
               <col className="w-[4%]" />
               {/* 询价编号 */}
-              <col className="w-[13%]" />
+              <col className="w-[12%]" />
               {/* 柜号（开发意见 #15：排在贵司单号前面） */}
-              <col className="w-[10%]" />
-              {/* 贵司单号 */}
-              <col className="w-[10%]" />
-              {/* 服务类型 */}
-              <col className="w-[8%]" />
-              {/* 路线 */}
               <col className="w-[9%]" />
+              {/* 贵司单号 */}
+              <col className="w-[9%]" />
+              {/* 服务类型 */}
+              <col className="w-[7%]" />
+              {/* 路线 */}
+              <col className="w-[8%]" />
+              {/* 预计到仓（开发意见 #24） */}
+              <col className="w-[7%]" />
               {/* 件数 */}
               <col className="w-[4%]" />
               {/* 实重 */}
@@ -1024,9 +1031,9 @@ export default function InquiryList() {
               {/* 状态 */}
               <col className="w-[7%]" />
               {/* 报价时效 */}
-              <col className="w-[9%]" />
-              {/* 创建时间 */}
               <col className="w-[8%]" />
+              {/* 创建时间 */}
+              <col className="w-[7%]" />
               {/* 操作（放得下「查看 + 删除」两个按钮，不能再压） */}
               <col className="w-[8%]" />
             </colgroup>
@@ -1038,6 +1045,7 @@ export default function InquiryList() {
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.customerRef')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('inquiry.serviceType')}</th>
                 <th className="text-left px-3 py-2.5 font-medium">{t('common.route')}</th>
+                <th className="text-center px-3 py-2.5 font-medium">{t('inquiry.colArrival')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.colQty')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">{t('inquiry.weightKg')}</th>
                 <th className="text-right px-3 py-2.5 font-medium">LDM</th>
@@ -1051,14 +1059,14 @@ export default function InquiryList() {
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    {Array.from({ length: 13 }).map((_, j) => (
+                    {Array.from({ length: 14 }).map((_, j) => (
                       <td key={j} className="px-3 py-3"><div className="h-3 bg-gray-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : inquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
+                  <td colSpan={14} className="text-center py-8 text-sm text-slate-400">{t('inquiry.empty')}</td>
                 </tr>
               ) : (
                 inquiries.map((item, index) => (
@@ -1095,6 +1103,10 @@ export default function InquiryList() {
                     </td>
                     <td className="text-left px-3 py-2.5 text-xs text-slate-600 truncate">
                       {routeText(item.route_from)} → {routeText(item.route_to)}
+                    </td>
+                    {/* 预计到仓（开发意见 #24）：批量导入和手工新建都会写这个字段 */}
+                    <td className="text-center px-3 py-2.5 text-xs text-slate-600">
+                      {formatDate(item.expected_arrival_date)}
                     </td>
                     <td className="text-right px-3 py-2.5 text-xs text-slate-600">{item.cargo_quantity ?? '-'}</td>
                     <td className="text-right px-3 py-2.5 text-xs text-slate-600">{fmt(item.cargo_weight_kg)}</td>
