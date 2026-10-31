@@ -8,13 +8,15 @@
 # 部署流程:
 #   1. 装依赖 → **四个包跑 ESLint（不过就在这里停，绝不碰生产）**
 #   2. 在 GitHub Actions 中构建三个前端项目
-#   3. 通过 SSH + rsync 上传构建产物和后端代码到服务器
+#   3. 接入 Tailscale，通过 SSH + rsync 上传构建产物和后端代码到服务器
 #   4. 在服务器上安装后端依赖并重启 PM2 服务
 #
 # 需要配置的 GitHub Secrets:
-#   - SSH_PRIVATE_KEY : SSH ed25519 私钥（用于免密登录服务器）
-#   - SERVER_HOST     : 服务器 IP（47.83.241.117）
-#   - SERVER_USER     : SSH 登录用户（root）
+#   - SSH_PRIVATE_KEY    : SSH ed25519 私钥（用于免密登录服务器）
+#   - SERVER_HOST        : 服务器 Tailscale IP（100.71.210.6；公网 IP 47.83.241.117 的 22 端口已关）
+#   - SERVER_USER        : SSH 登录用户（root）
+#   - TS_OAUTH_CLIENT_ID : Tailscale OAuth 客户端 ID（auth_keys 写权限 + tag:ci）
+#   - TS_OAUTH_SECRET    : Tailscale OAuth 客户端密钥
 #
 # 服务器目录结构:
 #   /var/www/germany-box-system/
@@ -95,6 +97,19 @@ jobs:
 
       - name: Build Carrier Portal
         run: cd carrier-portal && npm run build
+
+      # ========== 第七步（前置）：接入 Tailscale ==========
+      # 2026-10-31 起服务器公网 22 端口关闭，SSH 只能走 Tailscale。
+      # Runner 以临时节点（tag:ci）加入 tailnet，job 结束自动下线；
+      # SERVER_HOST 必须是服务器的 Tailscale IP（100.71.210.6），填公网 IP 会连不上。
+      # tag:ci 需要在 Tailscale 后台 ACL 的 tagOwners 里登记，OAuth 客户端要带 auth_keys 写权限。
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.SERVER_HOST }}
 
       # ========== 第七步：配置 SSH ==========
       - name: Setup SSH Key
